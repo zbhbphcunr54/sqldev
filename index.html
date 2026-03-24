@@ -23,7 +23,7 @@
 html{width:100%;scroll-behavior:smooth}
 body{
   font-family:var(--font-body);color:var(--text);
-  background:var(--bg-deep);min-height:100vh;
+  background:var(--bg-deep);height:100vh;overflow:hidden;
   -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5;
 }
 body::before{
@@ -43,10 +43,12 @@ body::after{
 .app{
   position:relative;z-index:1;
   width:min(1680px,100%);margin:0 auto;
-  min-height:100vh;
+  height:100vh;
+  display:flex;flex-direction:column;
   background:rgba(15,15,26,.6);
   backdrop-filter:blur(20px);
   border-left:1px solid var(--border);border-right:1px solid var(--border);
+  overflow:hidden;
 }
 .header{
   display:flex;justify-content:space-between;align-items:center;
@@ -128,10 +130,11 @@ body::after{
   background:linear-gradient(135deg,#e05544,#f06555);
   box-shadow:0 4px 20px rgba(199,70,52,.4);
 }
-.workspace{display:grid;grid-template-columns:1fr 1fr}
+.workspace{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0;overflow:hidden}
 .panel{
   display:flex;flex-direction:column;
   border-right:1px solid var(--border);
+  min-height:0;overflow:hidden;
 }
 .panel:last-child{border-right:none}
 .panel-head{
@@ -151,9 +154,9 @@ body::after{
 textarea{
   width:100%;border:none;
   background:var(--bg-deep);color:#e2e8f0;
-  padding:14px 18px;resize:vertical;
+  padding:14px 18px;resize:none;
   font-family:var(--font-code);font-size:12.5px;line-height:1.7;
-  min-height:420px;
+  flex:1;min-height:0;
   scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent;
 }
 textarea::-webkit-scrollbar{width:8px}
@@ -169,9 +172,10 @@ textarea::placeholder{color:var(--text-muted)}
   .header{flex-direction:column;align-items:flex-start}
   .toolbar{flex-direction:column;align-items:flex-start}
   .actions{width:100%;justify-content:flex-start}
-  .workspace{grid-template-columns:1fr}
-  .panel{border-right:none;border-bottom:1px solid var(--border)}
-  textarea{min-height:260px}
+  .app{height:auto;min-height:100vh;overflow:auto}
+  .workspace{grid-template-columns:1fr;flex:none}
+  .panel{border-right:none;border-bottom:1px solid var(--border);overflow:visible}
+  textarea{min-height:260px;flex:none}
   .state{text-align:left}
 }
 @media(max-width:640px){
