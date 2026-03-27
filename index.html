@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta name="description" content="Oracle / MySQL / PostgreSQL DDL 建表语句在线互转工具，支持注释、索引、主键、外键、分区"/>
+<meta name="description" content="Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转"/>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'"/>
-<title>DDL 翻译工作台</title>
+<title>SQL 翻译工作台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://unpkg.com"/>
@@ -20,19 +20,35 @@
   --radius:10px;--radius-sm:6px;--radius-lg:14px;
   --font-body:"Inter","Noto Sans SC",-apple-system,BlinkMacSystemFont,sans-serif;
   --font-code:"JetBrains Mono","Cascadia Code","SF Mono",Consolas,monospace;
+  --sidebar-width:220px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{width:100%;scroll-behavior:smooth}
 body{font-family:var(--font-body);color:var(--text);background:var(--bg-deep);min-height:100vh;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
 body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 600px 400px at 10% 10%,rgba(199,70,52,.08),transparent),radial-gradient(ellipse 500px 500px at 90% 80%,rgba(59,130,246,.06),transparent),radial-gradient(ellipse 400px 300px at 50% 50%,rgba(199,70,52,.04),transparent);will-change:auto}
 body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.03;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:60px 60px}
-.app{position:relative;z-index:1;width:min(1680px,100%);margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:rgba(15,15,26,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-left:1px solid var(--border);border-right:1px solid var(--border);contain:layout style}
+/* Layout shell */
+.shell{position:relative;z-index:1;display:flex;min-height:100vh;width:100%;max-width:1900px;margin:0 auto}
+/* Sidebar */
+.sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);background:rgba(22,33,62,.6);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:20;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.sidebar-brand{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo{width:34px;height:34px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),#e05544);display:grid;place-items:center;font-family:var(--font-code);font-size:10px;font-weight:700;color:#fff;letter-spacing:.5px;box-shadow:0 0 16px rgba(199,70,52,.3)}
+.sidebar-title{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.2px}
+.sidebar-nav{flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13px;font-weight:500;transition:all .2s;border:1px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.nav-item.active{background:rgba(199,70,52,.12);color:var(--accent);border-color:rgba(199,70,52,.2);font-weight:600}
+.nav-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:rgba(255,255,255,.04);font-size:14px;flex-shrink:0;font-family:var(--font-code);font-weight:700;line-height:1}
+.nav-item.active .nav-icon{background:rgba(199,70,52,.15);color:var(--accent)}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);font-family:var(--font-code)}
+/* Main content */
+.main-content{flex:1;min-width:0;display:flex;flex-direction:column;background:rgba(15,15,26,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 /* Header */
-.header{display:flex;justify-content:space-between;align-items:center;padding:16px 28px;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:rgba(22,33,62,.5);position:sticky;top:0;z-index:10}
+.header{display:flex;justify-content:space-between;align-items:center;padding:14px 28px;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:rgba(22,33,62,.5);position:sticky;top:0;z-index:10}
 .header-left{display:flex;align-items:center;gap:14px;min-width:0}
 .logo-mark{width:38px;height:38px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),#e05544);display:grid;place-items:center;font-family:var(--font-code);font-size:11px;font-weight:700;color:#fff;letter-spacing:.5px;box-shadow:0 0 20px rgba(199,70,52,.3),0 0 60px rgba(199,70,52,.1)}
 .title{font-size:22px;font-weight:700;letter-spacing:-.3px;background:linear-gradient(135deg,#fff 0%,#c7d2fe 50%,#e2e8f0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.subtitle{color:var(--text-secondary);font-size:13px;margin-top:2px}
+.subtitle{color:var(--text-secondary);font-size:12px;margin-top:1px}
 .version-box{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .version{padding:4px 12px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);background:rgba(199,70,52,.1);font-family:var(--font-code);font-size:11px;font-weight:600}
 .build{color:var(--text-muted);font-size:11px;font-family:var(--font-code)}
@@ -81,7 +97,7 @@ textarea:focus{outline:none;background:rgba(15,15,26,.9)}
 textarea.output-area{background:rgba(15,15,26,.8)}
 textarea.output-area:focus{outline:2px solid rgba(199,70,52,.4);outline-offset:-2px}
 textarea::placeholder{color:var(--text-muted)}
-/* Ref */
+/* Reference sections */
 .ref-wrapper{border-top:1px solid var(--border);padding:20px 28px 24px;background:rgba(22,33,62,.25);flex:1}
 .ref-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .ref-header h2{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px}
@@ -99,8 +115,23 @@ textarea::placeholder{color:var(--text-muted)}
 .ref-table td:nth-child(3){color:var(--blue)}
 .ref-table tr:last-child td{border-bottom:none}
 .ref-note{font-size:11px;color:var(--text-muted);line-height:1.6;margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.02);border-radius:var(--radius-sm);border-left:2px solid rgba(199,70,52,.3)}
+.ref-code{font-family:var(--font-code);font-size:11.5px;color:var(--text-muted);white-space:pre-wrap;line-height:1.65;padding:10px 12px;background:rgba(15,15,26,.6);border-radius:var(--radius-sm);border:1px solid var(--border);margin-top:6px;overflow-x:auto}
+/* Scroll-to-top */
+.scroll-top{position:fixed;bottom:24px;right:24px;z-index:100;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;box-shadow:0 2px 12px rgba(0,0,0,.3);opacity:0;pointer-events:none;transform:translateY(10px)}
+.scroll-top.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
+.scroll-top:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.kbd{display:inline-block;padding:1px 5px;border:1px solid var(--border);border-radius:3px;font-size:10px;font-family:var(--font-code);color:var(--text-muted);background:rgba(255,255,255,.04);margin-left:6px;vertical-align:middle}
+.error-msg{color:#f87171;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);border-radius:var(--radius-sm);padding:8px 14px;margin:8px 18px;font-size:12px;font-family:var(--font-code)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.app{animation:fadeIn .4s ease}
+.shell{animation:fadeIn .4s ease}
+/* Mobile: sidebar collapses to horizontal nav */
+@media(max-width:900px){
+  .shell{flex-direction:column}
+  .sidebar{width:100%;min-width:100%;height:auto;position:relative;flex-direction:row;align-items:center;border-right:none;border-bottom:1px solid var(--border)}
+  .sidebar-brand{padding:10px 14px;border-bottom:none;border-right:1px solid var(--border)}
+  .sidebar-nav{flex-direction:row;padding:6px 8px;gap:4px;overflow-x:auto}
+  .sidebar-footer{display:none}
+}
 @media(max-width:1180px){
   .header{flex-direction:column;align-items:flex-start}
   .toolbar{flex-direction:column;align-items:flex-start}
@@ -115,147 +146,460 @@ textarea::placeholder{color:var(--text-muted)}
   .panel-head{padding:8px 14px}.panel-desc{padding:4px 14px}
   textarea{padding:10px 14px;min-height:200px;font-size:11.5px}
   .btn{padding:5px 12px;font-size:12px}
+  .sidebar-brand{padding:8px 10px}
+  .sidebar-logo{width:28px;height:28px;font-size:8px}
+  .sidebar-title{font-size:12px}
+  .nav-item{padding:7px 8px;font-size:12px}
+  .nav-icon{width:24px;height:24px;font-size:12px}
 }
-.scroll-top{position:fixed;bottom:24px;right:24px;z-index:100;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;box-shadow:0 2px 12px rgba(0,0,0,.3);opacity:0;pointer-events:none;transform:translateY(10px)}
-.scroll-top.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
-.scroll-top:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.kbd{display:inline-block;padding:1px 5px;border:1px solid var(--border);border-radius:3px;font-size:10px;font-family:var(--font-code);color:var(--text-muted);background:rgba(255,255,255,.04);margin-left:6px;vertical-align:middle}
-.error-msg{color:#f87171;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.2);border-radius:var(--radius-sm);padding:8px 14px;margin:8px 18px;font-size:12px;font-family:var(--font-code)}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="app">
-    <section class="header">
-      <div class="header-left">
-        <div class="logo-mark">DDL</div>
-        <div>
-          <h1 class="title">DDL 翻译工作台</h1>
-          <p class="subtitle">Oracle / MySQL / PostgreSQL 建表语句互转 — 支持注释、索引、主键、外键、分区</p>
+  <div class="shell">
+    <!-- ======== SIDEBAR ======== -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo">SQL</div>
+        <span class="sidebar-title">工作台</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item" :class="{active: activePage==='ddl'}" @click="activePage='ddl'">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg></span>
+          DDL&#35821;&#21477;
         </div>
-      </div>
-      <div class="version-box">
-        <span class="version">v1.1.0</span>
-        <span class="build">Build 2026-03-26 · Vue 3</span>
-      </div>
-    </section>
+        <div class="nav-item" :class="{active: activePage==='func'}" @click="activePage='func'">
+          <span class="nav-icon" style="font-style:italic">f(x)</span>
+          &#20989;&#25968;
+        </div>
+        <div class="nav-item" :class="{active: activePage==='proc'}" @click="activePage='proc'">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+          &#23384;&#20648;&#36807;&#31243;
+        </div>
+      </nav>
+      <div class="sidebar-footer">v2.0.0 &middot; Vue 3</div>
+    </aside>
 
-    <section class="toolbar">
-      <div class="tool-left">
-        <span class="tool-label">转换方向</span>
-        <select class="db-select" v-model="sourceDb">
-          <option value="oracle">Oracle</option>
-          <option value="mysql">MySQL</option>
-          <option value="postgresql">PostgreSQL</option>
-        </select>
-        <span class="arrow-icon">&#10132;</span>
-        <select class="db-select" v-model="targetDb">
-          <option value="oracle">Oracle</option>
-          <option value="mysql">MySQL</option>
-          <option value="postgresql">PostgreSQL</option>
-        </select>
-        <button class="swap-btn" @click="swapDbs" title="交换源和目标">&#8646;</button>
-      </div>
-      <div class="actions">
-        <button class="btn" @click="loadSample">加载示例</button>
-        <button class="btn" @click="uploadFile">上传文件</button>
-        <input type="file" ref="fileInput" accept=".sql,.txt,.ddl,.ora,.pgsql,.mysql" style="display:none" @change="handleFileUpload" />
-        <button class="btn" @click="clearAll">清空</button>
-        <button class="btn" @click="copyOutput">复制输出</button>
-        <button class="btn" @click="saveOutput">保存文件</button>
-        <button class="btn primary" @click="convert">开始翻译 <span class="kbd">Ctrl+Enter</span></button>
-      </div>
-    </section>
+    <!-- ======== MAIN CONTENT ======== -->
+    <div class="main-content">
+      <!-- Header -->
+      <section class="header">
+        <div class="header-left">
+          <div class="logo-mark">SQL</div>
+          <div>
+            <h1 class="title">SQL &#32763;&#35793;&#24037;&#20316;&#21488;</h1>
+            <p class="subtitle">Oracle / MySQL / PostgreSQL &mdash; DDL&#12289;&#20989;&#25968;&#12289;&#23384;&#20648;&#36807;&#31243;&#22312;&#32447;&#20114;&#36716;</p>
+          </div>
+        </div>
+        <div class="version-box">
+          <span class="version">v2.0.0</span>
+          <span class="build">Build 2026-03-27 &middot; Vue 3</span>
+        </div>
+      </section>
 
-    <div class="status-bar" v-if="statusText">
-      <span class="status-text">{{statusText}}</span>
-      <div class="status-info">
-        <span>方向: <strong>{{sourceLabel}} → {{targetLabel}}</strong></span>
-        <span>引擎: <strong>Vue3 DDL Parser v1.0</strong></span>
-      </div>
+      <!-- ==================== DDL PAGE ==================== -->
+      <template v-if="activePage==='ddl'">
+        <section class="toolbar">
+          <div class="tool-left">
+            <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
+            <select class="db-select" v-model="sourceDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <span class="arrow-icon">&#10132;</span>
+            <select class="db-select" v-model="targetDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <button class="swap-btn" @click="swapDbs" title="交换源和目标">&#8646;</button>
+          </div>
+          <div class="actions">
+            <button class="btn" @click="loadSample">&#21152;&#36733;&#31034;&#20363;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <input type="file" ref="fileInput" accept=".sql,.txt,.ddl,.ora,.pgsql,.mysql" style="display:none" @change="handleFileUpload"/>
+            <button class="btn" @click="clearAll">&#28165;&#31354;</button>
+            <button class="btn" @click="copyOutput">&#22797;&#21046;&#36755;&#20986;</button>
+            <button class="btn" @click="saveOutput">&#20445;&#23384;&#25991;&#20214;</button>
+            <button class="btn primary" @click="convert">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
+          </div>
+        </section>
+
+        <div class="status-bar" v-if="statusText">
+          <span class="status-text">{{statusText}}</span>
+          <div class="status-info">
+            <span>&#26041;&#21521;: <strong>{{sourceLabel}} &rarr; {{targetLabel}}</strong></span>
+            <span>&#24341;&#25806;: <strong>DDL Parser v2.0</strong></span>
+          </div>
+        </div>
+
+        <section class="workspace">
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{sourceLabel}} &#36755;&#20837;
+              </h2>
+              <span class="panel-meta">{{inputLineCount}} &#34892;</span>
+            </div>
+            <p class="panel-desc">&#31896;&#36148; {{sourceLabel}} &#24314;&#34920;&#35821;&#21477;&#65288;CREATE TABLE&#12289;COMMENT&#12289;CREATE INDEX&#12289;&#20998;&#21306;&#31561;&#65289;</p>
+            <textarea v-model="inputDdl" spellcheck="false" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + sourceLabel + ' DDL ...'"></textarea>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{targetLabel}} &#36755;&#20986;
+              </h2>
+              <span class="edit-hint">&#21487;&#30452;&#25509;&#32534;&#36753;</span>
+              <span class="panel-meta">{{outputMeta}}</span>
+            </div>
+            <p class="panel-desc">&#36755;&#20986; {{targetLabel}} &#20860;&#23481;&#30340; DDL&#65292;&#21253;&#21547;&#24314;&#34920;&#12289;&#27880;&#37322;&#12289;&#32034;&#24341;&#12289;&#20027;&#38190;&#12289;&#22806;&#38190;&#12289;&#20998;&#21306;</p>
+            <textarea v-model="outputDdl" class="output-area" spellcheck="false" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+          </article>
+        </section>
+
+        <!-- DDL Reference -->
+        <section class="ref-wrapper">
+          <div class="ref-header">
+            <h2>&#31867;&#22411;&#26144;&#23556;&#21442;&#32771;</h2>
+            <span class="ref-badge">Quick Reference</span>
+          </div>
+          <div class="ref-section">
+            <div class="ref-card">
+              <h3><span class="ci">&#9638;</span> &#25968;&#20540;&#31867;&#22411;</h3>
+              <table class="ref-table">
+                <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
+                <tr><td>NUMBER(p,s)</td><td>DECIMAL(p,s)</td><td>NUMERIC(p,s)</td></tr>
+                <tr><td>NUMBER(p)</td><td>BIGINT/INT</td><td>BIGINT/INT</td></tr>
+                <tr><td>NUMBER</td><td>DECIMAL(38,10)</td><td>NUMERIC</td></tr>
+                <tr><td>INTEGER</td><td>INT</td><td>INTEGER</td></tr>
+                <tr><td>BINARY_FLOAT</td><td>FLOAT</td><td>REAL</td></tr>
+                <tr><td>BINARY_DOUBLE</td><td>DOUBLE</td><td>DOUBLE PRECISION</td></tr>
+              </table>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#8644;</span> &#23383;&#31526;&#19982;&#26085;&#26399;</h3>
+              <table class="ref-table">
+                <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
+                <tr><td>VARCHAR2(n)</td><td>VARCHAR(n)</td><td>VARCHAR(n)</td></tr>
+                <tr><td>CHAR(n)</td><td>CHAR(n)</td><td>CHAR(n)</td></tr>
+                <tr><td>CLOB</td><td>LONGTEXT</td><td>TEXT</td></tr>
+                <tr><td>DATE</td><td>DATETIME</td><td>TIMESTAMP</td></tr>
+                <tr><td>TIMESTAMP</td><td>TIMESTAMP(6)</td><td>TIMESTAMP</td></tr>
+                <tr><td>NVARCHAR2(n)</td><td>NVARCHAR(n)</td><td>VARCHAR(n)</td></tr>
+              </table>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#9881;</span> &#20108;&#36827;&#21046;&#19982;&#29305;&#27530;</h3>
+              <table class="ref-table">
+                <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
+                <tr><td>BLOB</td><td>LONGBLOB</td><td>BYTEA</td></tr>
+                <tr><td>RAW(n)</td><td>VARBINARY(n)</td><td>BYTEA</td></tr>
+                <tr><td>LONG</td><td>LONGTEXT</td><td>TEXT</td></tr>
+                <tr><td>BOOLEAN</td><td>TINYINT(1)</td><td>BOOLEAN</td></tr>
+                <tr><td>SYSDATE</td><td>NOW()</td><td>NOW()</td></tr>
+                <tr><td>SYSTIMESTAMP</td><td>NOW(6)</td><td>CLOCK_TIMESTAMP()</td></tr>
+              </table>
+              <div class="ref-note">&#25903;&#25345; CREATE TABLE&#12289;COMMENT ON&#12289;CREATE INDEX/UNIQUE INDEX&#12289;PRIMARY KEY&#65288;&#20869;&#32852;/ALTER&#65289;&#12289;FOREIGN KEY&#12289;PARTITION BY RANGE/LIST/HASH&#65292;&#20197;&#21450;&#21453;&#21521;&#36716;&#25442;</div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- ==================== FUNCTION PAGE ==================== -->
+      <template v-if="activePage==='func'">
+        <section class="toolbar">
+          <div class="tool-left">
+            <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
+            <select class="db-select" v-model="funcSourceDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <span class="arrow-icon">&#10132;</span>
+            <select class="db-select" v-model="funcTargetDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <button class="swap-btn" @click="swapFuncDbs" title="交换源和目标">&#8646;</button>
+          </div>
+          <div class="actions">
+            <button class="btn" @click="loadFuncSample">&#21152;&#36733;&#31034;&#20363;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <button class="btn" @click="clearFunc">&#28165;&#31354;</button>
+            <button class="btn" @click="copyFuncOutput">&#22797;&#21046;&#36755;&#20986;</button>
+            <button class="btn" @click="saveFuncOutput">&#20445;&#23384;&#25991;&#20214;</button>
+            <button class="btn primary" @click="convertFunc">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
+          </div>
+        </section>
+
+        <div class="status-bar" v-if="statusText">
+          <span class="status-text">{{statusText}}</span>
+          <div class="status-info">
+            <span>&#26041;&#21521;: <strong>{{funcSourceLabel}} &rarr; {{funcTargetLabel}}</strong></span>
+            <span>&#24341;&#25806;: <strong>Function Parser v2.0</strong></span>
+          </div>
+        </div>
+
+        <section class="workspace">
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{funcSourceLabel}} &#20989;&#25968;&#36755;&#20837;
+              </h2>
+              <span class="panel-meta">{{funcInputLineCount}} &#34892;</span>
+            </div>
+            <p class="panel-desc">&#31896;&#36148; {{funcSourceLabel}} &#20989;&#25968;&#23450;&#20041;&#65288;CREATE FUNCTION / CREATE OR REPLACE FUNCTION&#65289;</p>
+            <textarea v-model="funcInput" spellcheck="false" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + funcSourceLabel + ' &#20989;&#25968; ...'"></textarea>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{funcTargetLabel}} &#36755;&#20986;
+              </h2>
+              <span class="edit-hint">&#21487;&#30452;&#25509;&#32534;&#36753;</span>
+              <span class="panel-meta">{{funcOutputMeta}}</span>
+            </div>
+            <p class="panel-desc">&#36755;&#20986; {{funcTargetLabel}} &#20860;&#23481;&#30340;&#20989;&#25968;&#23450;&#20041;</p>
+            <textarea v-model="funcOutput" class="output-area" spellcheck="false" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+          </article>
+        </section>
+
+        <!-- Function Reference -->
+        <section class="ref-wrapper">
+          <div class="ref-header">
+            <h2>&#20989;&#25968;&#35821;&#27861;&#21442;&#32771;</h2>
+            <span class="ref-badge">Syntax Reference</span>
+          </div>
+          <div class="ref-section">
+            <div class="ref-card">
+              <h3><span class="ci">&#9638;</span> Oracle</h3>
+              <div class="ref-code">CREATE OR REPLACE FUNCTION func_name
+  (p_param1 IN  VARCHAR2,
+   p_param2 IN  NUMBER)
+RETURN VARCHAR2
+IS
+  v_result VARCHAR2(200);
+BEGIN
+  -- logic
+  RETURN v_result;
+END;
+/</div>
+              <div class="ref-note">Oracle &#20351;&#29992; RETURN &#20851;&#38190;&#23383;&#12289;IS/AS &#22768;&#26126;&#22359;&#12289;END; &#21152; / &#32467;&#23614;</div>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#8644;</span> MySQL</h3>
+              <div class="ref-code">DELIMITER $$
+CREATE FUNCTION func_name
+  (p_param1 VARCHAR(200),
+   p_param2 DECIMAL(18,2))
+RETURNS VARCHAR(200)
+DETERMINISTIC
+BEGIN
+  DECLARE v_result VARCHAR(200);
+  -- logic
+  RETURN v_result;
+END$$
+DELIMITER ;</div>
+              <div class="ref-note">MySQL &#20351;&#29992; RETURNS&#12289;DELIMITER&#12289;DECLARE &#22768;&#26126;&#21464;&#37327;&#12289;&#38656;&#35201; DETERMINISTIC/READS SQL DATA</div>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#9881;</span> PostgreSQL</h3>
+              <div class="ref-code">CREATE OR REPLACE FUNCTION func_name
+  (p_param1 VARCHAR,
+   p_param2 NUMERIC)
+RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_result VARCHAR(200);
+BEGIN
+  -- logic
+  RETURN v_result;
+END;
+$$;</div>
+              <div class="ref-note">PostgreSQL &#20351;&#29992; RETURNS&#12289;LANGUAGE plpgsql&#12289;AS $$ ... $$; &#21253;&#35065;&#20989;&#25968;&#20307;</div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- ==================== PROCEDURE PAGE ==================== -->
+      <template v-if="activePage==='proc'">
+        <section class="toolbar">
+          <div class="tool-left">
+            <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
+            <select class="db-select" v-model="procSourceDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <span class="arrow-icon">&#10132;</span>
+            <select class="db-select" v-model="procTargetDb">
+              <option value="oracle">Oracle</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+            <button class="swap-btn" @click="swapProcDbs" title="交换源和目标">&#8646;</button>
+          </div>
+          <div class="actions">
+            <button class="btn" @click="loadProcSample">&#21152;&#36733;&#31034;&#20363;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <button class="btn" @click="clearProc">&#28165;&#31354;</button>
+            <button class="btn" @click="copyProcOutput">&#22797;&#21046;&#36755;&#20986;</button>
+            <button class="btn" @click="saveProcOutput">&#20445;&#23384;&#25991;&#20214;</button>
+            <button class="btn primary" @click="convertProc">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
+          </div>
+        </section>
+
+        <div class="status-bar" v-if="statusText">
+          <span class="status-text">{{statusText}}</span>
+          <div class="status-info">
+            <span>&#26041;&#21521;: <strong>{{procSourceLabel}} &rarr; {{procTargetLabel}}</strong></span>
+            <span>&#24341;&#25806;: <strong>Procedure Parser v2.0</strong></span>
+          </div>
+        </div>
+
+        <section class="workspace">
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{procSourceLabel}} &#23384;&#20648;&#36807;&#31243;&#36755;&#20837;
+              </h2>
+              <span class="panel-meta">{{procInputLineCount}} &#34892;</span>
+            </div>
+            <p class="panel-desc">&#31896;&#36148; {{procSourceLabel}} &#23384;&#20648;&#36807;&#31243;&#65288;CREATE PROCEDURE / CREATE OR REPLACE PROCEDURE&#65289;</p>
+            <textarea v-model="procInput" spellcheck="false" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + procSourceLabel + ' &#23384;&#20648;&#36807;&#31243; ...'"></textarea>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2 class="panel-title">
+                <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
+                {{procTargetLabel}} &#36755;&#20986;
+              </h2>
+              <span class="edit-hint">&#21487;&#30452;&#25509;&#32534;&#36753;</span>
+              <span class="panel-meta">{{procOutputMeta}}</span>
+            </div>
+            <p class="panel-desc">&#36755;&#20986; {{procTargetLabel}} &#20860;&#23481;&#30340;&#23384;&#20648;&#36807;&#31243;&#23450;&#20041;</p>
+            <textarea v-model="procOutput" class="output-area" spellcheck="false" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+          </article>
+        </section>
+
+        <!-- Procedure Reference -->
+        <section class="ref-wrapper">
+          <div class="ref-header">
+            <h2>&#23384;&#20648;&#36807;&#31243;&#35821;&#27861;&#21442;&#32771;</h2>
+            <span class="ref-badge">Syntax Reference</span>
+          </div>
+          <div class="ref-section">
+            <div class="ref-card">
+              <h3><span class="ci">&#9638;</span> Oracle</h3>
+              <div class="ref-code">CREATE OR REPLACE PROCEDURE proc_name
+  (p_id    IN  NUMBER,
+   p_name  IN  VARCHAR2,
+   p_out   OUT VARCHAR2)
+IS
+  v_count NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO v_count
+    FROM some_table WHERE id = p_id;
+  IF v_count > 0 THEN
+    p_out := 'EXISTS';
+  ELSE
+    INSERT INTO some_table(id, name)
+      VALUES(p_id, p_name);
+    p_out := 'INSERTED';
+  END IF;
+  COMMIT;
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    p_out := SQLERRM;
+END;
+/</div>
+              <div class="ref-note">Oracle &#20351;&#29992; IN/OUT/IN OUT &#21442;&#25968;&#27169;&#24335;&#12289;IS/AS &#22768;&#26126;&#22359;&#12289;EXCEPTION &#24322;&#24120;&#22788;&#29702;&#12289;END; &#21152; / &#32467;&#23614;</div>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#8644;</span> MySQL</h3>
+              <div class="ref-code">DELIMITER $$
+CREATE PROCEDURE proc_name
+  (IN  p_id    BIGINT,
+   IN  p_name  VARCHAR(200),
+   OUT p_out   VARCHAR(200))
+BEGIN
+  DECLARE v_count INT DEFAULT 0;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    SET p_out = 'ERROR';
+  END;
+  SELECT COUNT(*) INTO v_count
+    FROM some_table WHERE id = p_id;
+  IF v_count > 0 THEN
+    SET p_out = 'EXISTS';
+  ELSE
+    INSERT INTO some_table(id, name)
+      VALUES(p_id, p_name);
+    SET p_out = 'INSERTED';
+  END IF;
+  COMMIT;
+END$$
+DELIMITER ;</div>
+              <div class="ref-note">MySQL &#20351;&#29992; IN/OUT/INOUT &#21069;&#32622;&#20462;&#39280;&#12289;DELIMITER&#12289;DECLARE HANDLER &#24322;&#24120;&#22788;&#29702;&#12289;SET &#36171;&#20540;</div>
+            </div>
+            <div class="ref-card">
+              <h3><span class="ci">&#9881;</span> PostgreSQL</h3>
+              <div class="ref-code">CREATE OR REPLACE PROCEDURE proc_name
+  (IN  p_id    BIGINT,
+   IN  p_name  VARCHAR,
+   INOUT p_out VARCHAR DEFAULT NULL)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO v_count
+    FROM some_table WHERE id = p_id;
+  IF v_count > 0 THEN
+    p_out := 'EXISTS';
+  ELSE
+    INSERT INTO some_table(id, name)
+      VALUES(p_id, p_name);
+    p_out := 'INSERTED';
+  END IF;
+  COMMIT;
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    p_out := SQLERRM;
+END;
+$$;</div>
+              <div class="ref-note">PostgreSQL &#20351;&#29992; IN/OUT/INOUT &#21069;&#32622;&#20462;&#39280;&#12289;LANGUAGE plpgsql&#12289;AS $$ ... $$;&#12289;&#25903;&#25345; EXCEPTION &#22359;</div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- Scroll to top button -->
+      <button class="scroll-top" :class="{visible: showScrollTop}" @click="scrollToTop" title="&#22238;&#21040;&#39030;&#37096;">&#8593;</button>
     </div>
-
-    <section class="workspace">
-      <article class="panel">
-        <div class="panel-head">
-          <h2 class="panel-title">
-            <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
-            {{sourceLabel}} 输入
-          </h2>
-          <span class="panel-meta">{{inputLineCount}} 行</span>
-        </div>
-        <p class="panel-desc">粘贴 {{sourceLabel}} 建表语句（CREATE TABLE、COMMENT、CREATE INDEX、分区等）</p>
-        <textarea v-model="inputDdl" spellcheck="false" :placeholder="'在此粘贴 ' + sourceLabel + ' DDL ...'"></textarea>
-      </article>
-      <article class="panel">
-        <div class="panel-head">
-          <h2 class="panel-title">
-            <span class="terminal-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></span>
-            {{targetLabel}} 输出
-          </h2>
-          <span class="edit-hint">可直接编辑</span>
-          <span class="panel-meta">{{outputMeta}}</span>
-        </div>
-        <p class="panel-desc">输出 {{targetLabel}} 兼容的 DDL，包含建表、注释、索引、主键、外键、分区</p>
-        <textarea v-model="outputDdl" class="output-area" spellcheck="false" placeholder="点击「开始翻译」后输出结果"></textarea>
-      </article>
-    </section>
-
-    <section class="ref-wrapper">
-      <div class="ref-header">
-        <h2>类型映射参考</h2>
-        <span class="ref-badge">Quick Reference</span>
-      </div>
-      <div class="ref-section">
-        <div class="ref-card">
-          <h3><span class="ci">&#9638;</span> 数值类型</h3>
-          <table class="ref-table">
-            <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
-            <tr><td>NUMBER(p,s)</td><td>DECIMAL(p,s)</td><td>NUMERIC(p,s)</td></tr>
-            <tr><td>NUMBER(p)</td><td>BIGINT/INT</td><td>BIGINT/INT</td></tr>
-            <tr><td>NUMBER</td><td>DECIMAL(38,10)</td><td>NUMERIC</td></tr>
-            <tr><td>INTEGER</td><td>INT</td><td>INTEGER</td></tr>
-            <tr><td>BINARY_FLOAT</td><td>FLOAT</td><td>REAL</td></tr>
-            <tr><td>BINARY_DOUBLE</td><td>DOUBLE</td><td>DOUBLE PRECISION</td></tr>
-          </table>
-        </div>
-        <div class="ref-card">
-          <h3><span class="ci">&#8644;</span> 字符与日期</h3>
-          <table class="ref-table">
-            <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
-            <tr><td>VARCHAR2(n)</td><td>VARCHAR(n)</td><td>VARCHAR(n)</td></tr>
-            <tr><td>CHAR(n)</td><td>CHAR(n)</td><td>CHAR(n)</td></tr>
-            <tr><td>CLOB</td><td>LONGTEXT</td><td>TEXT</td></tr>
-            <tr><td>DATE</td><td>DATETIME</td><td>TIMESTAMP</td></tr>
-            <tr><td>TIMESTAMP</td><td>TIMESTAMP(6)</td><td>TIMESTAMP</td></tr>
-            <tr><td>NVARCHAR2(n)</td><td>NVARCHAR(n)</td><td>VARCHAR(n)</td></tr>
-          </table>
-        </div>
-        <div class="ref-card">
-          <h3><span class="ci">&#9881;</span> 二进制与特殊</h3>
-          <table class="ref-table">
-            <tr><th>Oracle</th><th>MySQL</th><th>PostgreSQL</th></tr>
-            <tr><td>BLOB</td><td>LONGBLOB</td><td>BYTEA</td></tr>
-            <tr><td>RAW(n)</td><td>VARBINARY(n)</td><td>BYTEA</td></tr>
-            <tr><td>LONG</td><td>LONGTEXT</td><td>TEXT</td></tr>
-            <tr><td>BOOLEAN</td><td>TINYINT(1)</td><td>BOOLEAN</td></tr>
-            <tr><td>SYSDATE</td><td>NOW()</td><td>NOW()</td></tr>
-            <tr><td>SYSTIMESTAMP</td><td>NOW(6)</td><td>CLOCK_TIMESTAMP()</td></tr>
-          </table>
-          <div class="ref-note">支持 CREATE TABLE、COMMENT ON、CREATE INDEX/UNIQUE INDEX、PRIMARY KEY（内联/ALTER）、FOREIGN KEY、PARTITION BY RANGE/LIST/HASH，以及反向转换</div>
-        </div>
-      </div>
-    </section>
-    <button class="scroll-top" :class="{visible: showScrollTop}" @click="scrollToTop" title="回到顶部">&#8593;</button>
   </div>
 </div>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js" crossorigin="anonymous"></script>
 <script>
-/* ===== SAMPLES ===== */
-const SAMPLES = {
+const DB_LABELS = { oracle: 'Oracle', mysql: 'MySQL', postgresql: 'PostgreSQL' };
+
+/* ===== DDL SAMPLES ===== */
+const DDL_SAMPLES = {
 oracle: `-- 客户信息主表
 CREATE TABLE T_CLIENT_INFO (
-    CLIENT_ID      NUMBER(18)       NOT NULL,
+    CLIENT_ID      NUMBER(18)       GENERATED BY DEFAULT ON NULL AS IDENTITY,
     CLIENT_NO      VARCHAR2(32)     NOT NULL,
     CLIENT_NAME    NVARCHAR2(200),
     CERT_TYPE      CHAR(2)          DEFAULT '01',
@@ -559,7 +903,554 @@ COMMENT ON COLUMN t_log_data.user_id IS '用户ID-分区键';
 COMMENT ON COLUMN t_log_data.log_msg IS '日志内容';`
 };
 
-const DB_LABELS = { oracle: 'Oracle', mysql: 'MySQL', postgresql: 'PostgreSQL' };
+/* ===== FUNC SAMPLES ===== */
+const FUNC_SAMPLES = {
+oracle: `-- 字符串格式化: 姓名脱敏
+CREATE OR REPLACE FUNCTION FN_MASK_NAME(
+    P_NAME IN VARCHAR2
+) RETURN VARCHAR2
+IS
+    V_RESULT VARCHAR2(200);
+BEGIN
+    IF P_NAME IS NULL OR LENGTH(P_NAME) < 2 THEN
+        RETURN P_NAME;
+    END IF;
+    V_RESULT := SUBSTR(P_NAME, 1, 1) || LPAD('*', LENGTH(P_NAME) - 1, '*');
+    RETURN V_RESULT;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('FN_MASK_NAME error: ' || SQLERRM);
+        RETURN P_NAME;
+END FN_MASK_NAME;
+/
+
+-- 日期处理: 计算工作日差
+CREATE OR REPLACE FUNCTION FN_WORKDAY_DIFF(
+    P_START_DATE IN DATE,
+    P_END_DATE   IN DATE
+) RETURN NUMBER
+IS
+    V_DAYS   NUMBER := 0;
+    V_CUR    DATE;
+BEGIN
+    V_CUR := TRUNC(NVL(P_START_DATE, SYSDATE));
+    WHILE V_CUR < NVL(P_END_DATE, SYSDATE) LOOP
+        IF TO_CHAR(V_CUR, 'DY', 'NLS_DATE_LANGUAGE=AMERICAN') NOT IN ('SAT','SUN') THEN
+            V_DAYS := V_DAYS + 1;
+        END IF;
+        V_CUR := V_CUR + 1;
+    END LOOP;
+    RETURN V_DAYS;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('FN_WORKDAY_DIFF error: ' || SQLERRM);
+        RETURN -1;
+END FN_WORKDAY_DIFF;
+/
+
+-- 查询带OUT参数: 获取客户余额与状态
+CREATE OR REPLACE FUNCTION FN_GET_CLIENT_BALANCE(
+    P_CLIENT_NO  IN  VARCHAR2,
+    P_STATUS     OUT VARCHAR2
+) RETURN NUMBER
+IS
+    V_BALANCE NUMBER(18,2);
+BEGIN
+    SELECT BALANCE, STATUS
+      INTO V_BALANCE, P_STATUS
+      FROM T_CLIENT_INFO
+     WHERE CLIENT_NO = P_CLIENT_NO;
+    RETURN NVL(V_BALANCE, 0);
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        P_STATUS := 'NOT_FOUND';
+        RETURN 0;
+    WHEN OTHERS THEN
+        P_STATUS := 'ERROR';
+        DBMS_OUTPUT.PUT_LINE('FN_GET_CLIENT_BALANCE error: ' || SQLERRM);
+        RETURN -1;
+END FN_GET_CLIENT_BALANCE;
+/`,
+
+mysql: `-- 字符串格式化: 姓名脱敏
+DELIMITER $$
+CREATE FUNCTION fn_mask_name(
+    p_name VARCHAR(200)
+) RETURNS VARCHAR(200)
+DETERMINISTIC
+BEGIN
+    DECLARE v_result VARCHAR(200);
+    IF p_name IS NULL OR CHAR_LENGTH(p_name) < 2 THEN
+        RETURN p_name;
+    END IF;
+    SET v_result = CONCAT(LEFT(p_name, 1), LPAD('*', CHAR_LENGTH(p_name) - 1, '*'));
+    RETURN v_result;
+END$$
+DELIMITER ;
+
+-- 日期处理: 计算工作日差
+DELIMITER $$
+CREATE FUNCTION fn_workday_diff(
+    p_start_date DATETIME,
+    p_end_date   DATETIME
+) RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE v_days INT DEFAULT 0;
+    DECLARE v_cur  DATE;
+    SET v_cur = DATE(IFNULL(p_start_date, NOW()));
+    WHILE v_cur < DATE(IFNULL(p_end_date, NOW())) DO
+        IF DAYOFWEEK(v_cur) NOT IN (1, 7) THEN
+            SET v_days = v_days + 1;
+        END IF;
+        SET v_cur = DATE_ADD(v_cur, INTERVAL 1 DAY);
+    END WHILE;
+    RETURN v_days;
+END$$
+DELIMITER ;
+
+-- 查询: 获取客户余额
+DELIMITER $$
+CREATE FUNCTION fn_get_client_balance(
+    p_client_no VARCHAR(32)
+) RETURNS DECIMAL(18,2)
+READS SQL DATA
+BEGIN
+    DECLARE v_balance DECIMAL(18,2) DEFAULT 0;
+    SELECT IFNULL(balance, 0) INTO v_balance
+      FROM t_client_info
+     WHERE client_no = p_client_no
+     LIMIT 1;
+    RETURN v_balance;
+END$$
+DELIMITER ;`,
+
+postgresql: `-- 字符串格式化: 姓名脱敏
+CREATE OR REPLACE FUNCTION fn_mask_name(
+    p_name VARCHAR
+) RETURNS VARCHAR
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_result VARCHAR(200);
+BEGIN
+    IF p_name IS NULL OR LENGTH(p_name) < 2 THEN
+        RETURN p_name;
+    END IF;
+    v_result := SUBSTR(p_name, 1, 1) || LPAD('*', LENGTH(p_name) - 1, '*');
+    RETURN v_result;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'fn_mask_name error: %', SQLERRM;
+        RETURN p_name;
+END;
+$$;
+
+-- 日期处理: 计算工作日差
+CREATE OR REPLACE FUNCTION fn_workday_diff(
+    p_start_date TIMESTAMP,
+    p_end_date   TIMESTAMP
+) RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_days INTEGER := 0;
+    v_cur  DATE;
+BEGIN
+    v_cur := COALESCE(p_start_date, NOW())::DATE;
+    WHILE v_cur < COALESCE(p_end_date, NOW())::DATE LOOP
+        IF EXTRACT(DOW FROM v_cur) NOT IN (0, 6) THEN
+            v_days := v_days + 1;
+        END IF;
+        v_cur := v_cur + INTERVAL '1 day';
+    END LOOP;
+    RETURN v_days;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'fn_workday_diff error: %', SQLERRM;
+        RETURN -1;
+END;
+$$;
+
+-- 查询带OUT参数: 获取客户余额与状态
+CREATE OR REPLACE FUNCTION fn_get_client_balance(
+    p_client_no  VARCHAR,
+    OUT p_status VARCHAR
+) RETURNS RECORD
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_balance NUMERIC(18,2);
+BEGIN
+    SELECT balance, status
+      INTO v_balance, p_status
+      FROM t_client_info
+     WHERE client_no = p_client_no;
+    IF NOT FOUND THEN
+        p_status := 'NOT_FOUND';
+        RETURN;
+    END IF;
+    p_status := COALESCE(p_status, 'UNKNOWN');
+    RETURN;
+EXCEPTION
+    WHEN OTHERS THEN
+        p_status := 'ERROR';
+        RAISE NOTICE 'fn_get_client_balance error: %', SQLERRM;
+        RETURN;
+END;
+$$;`
+};
+
+/* ===== PROC SAMPLES ===== */
+const PROC_SAMPLES = {
+oracle: `-- CRUD操作: 新增或更新客户
+CREATE OR REPLACE PROCEDURE SP_UPSERT_CLIENT(
+    P_CLIENT_NO   IN  VARCHAR2,
+    P_CLIENT_NAME IN  VARCHAR2,
+    P_PHONE       IN  VARCHAR2,
+    P_STATUS      IN  VARCHAR2 DEFAULT 'ACTIVE',
+    P_RESULT      OUT NUMBER
+)
+IS
+    V_COUNT NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO V_COUNT
+      FROM T_CLIENT_INFO
+     WHERE CLIENT_NO = P_CLIENT_NO;
+
+    IF V_COUNT > 0 THEN
+        UPDATE T_CLIENT_INFO
+           SET CLIENT_NAME = NVL(P_CLIENT_NAME, CLIENT_NAME),
+               PHONE       = NVL(P_PHONE, PHONE),
+               STATUS      = NVL(P_STATUS, STATUS),
+               UPDATE_TIME = SYSTIMESTAMP
+         WHERE CLIENT_NO = P_CLIENT_NO;
+        P_RESULT := SQL%ROWCOUNT;
+    ELSE
+        INSERT INTO T_CLIENT_INFO (CLIENT_NO, CLIENT_NAME, PHONE, STATUS, CREATE_TIME)
+        VALUES (P_CLIENT_NO, P_CLIENT_NAME, P_PHONE, P_STATUS, SYSTIMESTAMP);
+        P_RESULT := 1;
+    END IF;
+    COMMIT;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        P_RESULT := -1;
+        DBMS_OUTPUT.PUT_LINE('SP_UPSERT_CLIENT error: ' || SQLERRM);
+END SP_UPSERT_CLIENT;
+/
+
+-- 游标遍历: 冻结低余额客户
+CREATE OR REPLACE PROCEDURE SP_FREEZE_LOW_BALANCE(
+    P_THRESHOLD IN  NUMBER,
+    P_COUNT     OUT NUMBER
+)
+IS
+    CURSOR C_CLIENTS IS
+        SELECT CLIENT_NO, BALANCE
+          FROM T_CLIENT_INFO
+         WHERE STATUS = 'ACTIVE'
+           AND BALANCE < P_THRESHOLD;
+    V_REC C_CLIENTS%ROWTYPE;
+BEGIN
+    P_COUNT := 0;
+    OPEN C_CLIENTS;
+    LOOP
+        FETCH C_CLIENTS INTO V_REC;
+        EXIT WHEN C_CLIENTS%NOTFOUND;
+        UPDATE T_CLIENT_INFO
+           SET STATUS = 'FROZEN', UPDATE_TIME = SYSTIMESTAMP
+         WHERE CLIENT_NO = V_REC.CLIENT_NO;
+        P_COUNT := P_COUNT + 1;
+    END LOOP;
+    CLOSE C_CLIENTS;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Frozen ' || P_COUNT || ' clients below threshold ' || P_THRESHOLD);
+EXCEPTION
+    WHEN OTHERS THEN
+        IF C_CLIENTS%ISOPEN THEN CLOSE C_CLIENTS; END IF;
+        ROLLBACK;
+        P_COUNT := -1;
+        DBMS_OUTPUT.PUT_LINE('SP_FREEZE_LOW_BALANCE error: ' || SQLERRM);
+END SP_FREEZE_LOW_BALANCE;
+/
+
+-- 事务处理: 转账
+CREATE OR REPLACE PROCEDURE SP_TRANSFER(
+    P_FROM_NO IN  VARCHAR2,
+    P_TO_NO   IN  VARCHAR2,
+    P_AMOUNT  IN  NUMBER,
+    P_RESULT  OUT VARCHAR2
+)
+IS
+    V_FROM_BAL NUMBER(18,2);
+BEGIN
+    IF P_AMOUNT <= 0 THEN
+        P_RESULT := 'INVALID_AMOUNT';
+        RETURN;
+    END IF;
+
+    SELECT NVL(BALANCE, 0) INTO V_FROM_BAL
+      FROM T_CLIENT_INFO
+     WHERE CLIENT_NO = P_FROM_NO
+       FOR UPDATE;
+
+    IF V_FROM_BAL < P_AMOUNT THEN
+        P_RESULT := 'INSUFFICIENT_FUNDS';
+        RETURN;
+    END IF;
+
+    UPDATE T_CLIENT_INFO SET BALANCE = BALANCE - P_AMOUNT, UPDATE_TIME = SYSTIMESTAMP WHERE CLIENT_NO = P_FROM_NO;
+    UPDATE T_CLIENT_INFO SET BALANCE = BALANCE + P_AMOUNT, UPDATE_TIME = SYSTIMESTAMP WHERE CLIENT_NO = P_TO_NO;
+
+    INSERT INTO T_TRADE_RECORD (TRADE_ID, CLIENT_NO, TRADE_DATE, TRADE_TYPE, AMOUNT, STATUS, CREATE_TIME)
+    VALUES (SEQ_TRADE.NEXTVAL, P_FROM_NO, SYSDATE, 'TRANSFER', P_AMOUNT, 'SUCCESS', SYSTIMESTAMP);
+
+    COMMIT;
+    P_RESULT := 'SUCCESS';
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        ROLLBACK;
+        P_RESULT := 'ACCOUNT_NOT_FOUND';
+    WHEN OTHERS THEN
+        ROLLBACK;
+        P_RESULT := 'ERROR: ' || SQLERRM;
+        DBMS_OUTPUT.PUT_LINE('SP_TRANSFER error: ' || SQLERRM);
+END SP_TRANSFER;
+/`,
+
+mysql: `-- CRUD操作: 新增或更新客户
+DELIMITER $$
+CREATE PROCEDURE sp_upsert_client(
+    IN  p_client_no   VARCHAR(32),
+    IN  p_client_name VARCHAR(200),
+    IN  p_phone       VARCHAR(20),
+    IN  p_status      VARCHAR(10),
+    OUT p_result      INT
+)
+BEGIN
+    DECLARE v_count INT DEFAULT 0;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SET p_result = -1;
+    END;
+
+    SELECT COUNT(*) INTO v_count
+      FROM t_client_info
+     WHERE client_no = p_client_no;
+
+    START TRANSACTION;
+    IF v_count > 0 THEN
+        UPDATE t_client_info
+           SET client_name = IFNULL(p_client_name, client_name),
+               phone       = IFNULL(p_phone, phone),
+               status      = IFNULL(p_status, status),
+               update_time = CURRENT_TIMESTAMP(6)
+         WHERE client_no = p_client_no;
+        SET p_result = ROW_COUNT();
+    ELSE
+        INSERT INTO t_client_info (client_no, client_name, phone, status, create_time)
+        VALUES (p_client_no, p_client_name, p_phone, IFNULL(p_status, 'ACTIVE'), CURRENT_TIMESTAMP(6));
+        SET p_result = 1;
+    END IF;
+    COMMIT;
+END$$
+DELIMITER ;
+
+-- 游标遍历: 冻结低余额客户
+DELIMITER $$
+CREATE PROCEDURE sp_freeze_low_balance(
+    IN  p_threshold DECIMAL(18,2),
+    OUT p_count     INT
+)
+BEGIN
+    DECLARE v_client_no VARCHAR(32);
+    DECLARE v_done INT DEFAULT 0;
+    DECLARE c_clients CURSOR FOR
+        SELECT client_no FROM t_client_info
+         WHERE status = 'ACTIVE' AND balance < p_threshold;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SET p_count = -1;
+    END;
+
+    SET p_count = 0;
+    START TRANSACTION;
+    OPEN c_clients;
+    read_loop: LOOP
+        FETCH c_clients INTO v_client_no;
+        IF v_done THEN LEAVE read_loop; END IF;
+        UPDATE t_client_info
+           SET status = 'FROZEN', update_time = CURRENT_TIMESTAMP(6)
+         WHERE client_no = v_client_no;
+        SET p_count = p_count + 1;
+    END LOOP;
+    CLOSE c_clients;
+    COMMIT;
+    SELECT CONCAT('Frozen ', p_count, ' clients below threshold ', p_threshold) AS msg;
+END$$
+DELIMITER ;
+
+-- 事务处理: 转账
+DELIMITER $$
+CREATE PROCEDURE sp_transfer(
+    IN  p_from_no VARCHAR(32),
+    IN  p_to_no   VARCHAR(32),
+    IN  p_amount  DECIMAL(18,2),
+    OUT p_result  VARCHAR(100)
+)
+BEGIN
+    DECLARE v_from_bal DECIMAL(18,2) DEFAULT 0;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        SET p_result = CONCAT('ERROR: ', @err_msg);
+    END;
+
+    IF p_amount <= 0 THEN
+        SET p_result = 'INVALID_AMOUNT';
+    ELSE
+        START TRANSACTION;
+        SELECT IFNULL(balance, 0) INTO v_from_bal
+          FROM t_client_info
+         WHERE client_no = p_from_no
+           FOR UPDATE;
+
+        IF v_from_bal < p_amount THEN
+            ROLLBACK;
+            SET p_result = 'INSUFFICIENT_FUNDS';
+        ELSE
+            UPDATE t_client_info SET balance = balance - p_amount, update_time = CURRENT_TIMESTAMP(6) WHERE client_no = p_from_no;
+            UPDATE t_client_info SET balance = balance + p_amount, update_time = CURRENT_TIMESTAMP(6) WHERE client_no = p_to_no;
+            INSERT INTO t_trade_record (trade_id, client_no, trade_date, trade_type, amount, status, create_time)
+            VALUES (FLOOR(RAND() * 999999999), p_from_no, NOW(), 'TRANSFER', p_amount, 'SUCCESS', CURRENT_TIMESTAMP(6));
+            COMMIT;
+            SET p_result = 'SUCCESS';
+        END IF;
+    END IF;
+END$$
+DELIMITER ;`,
+
+postgresql: `-- CRUD操作: 新增或更新客户
+CREATE OR REPLACE PROCEDURE sp_upsert_client(
+    IN  p_client_no   VARCHAR,
+    IN  p_client_name VARCHAR,
+    IN  p_phone       VARCHAR,
+    IN  p_status      VARCHAR DEFAULT 'ACTIVE',
+    OUT p_result      INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO v_count
+      FROM t_client_info
+     WHERE client_no = p_client_no;
+
+    IF v_count > 0 THEN
+        UPDATE t_client_info
+           SET client_name = COALESCE(p_client_name, client_name),
+               phone       = COALESCE(p_phone, phone),
+               status      = COALESCE(p_status, status),
+               update_time = CLOCK_TIMESTAMP()
+         WHERE client_no = p_client_no;
+        GET DIAGNOSTICS p_result = ROW_COUNT;
+    ELSE
+        INSERT INTO t_client_info (client_no, client_name, phone, status, create_time)
+        VALUES (p_client_no, p_client_name, p_phone, COALESCE(p_status, 'ACTIVE'), CLOCK_TIMESTAMP());
+        p_result := 1;
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        p_result := -1;
+        RAISE NOTICE 'sp_upsert_client error: %', SQLERRM;
+END;
+$$;
+
+-- 游标遍历: 冻结低余额客户
+CREATE OR REPLACE PROCEDURE sp_freeze_low_balance(
+    IN  p_threshold NUMERIC,
+    OUT p_count     INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_rec RECORD;
+    c_clients CURSOR FOR
+        SELECT client_no, balance
+          FROM t_client_info
+         WHERE status = 'ACTIVE'
+           AND balance < p_threshold;
+BEGIN
+    p_count := 0;
+    OPEN c_clients;
+    LOOP
+        FETCH c_clients INTO v_rec;
+        EXIT WHEN NOT FOUND;
+        UPDATE t_client_info
+           SET status = 'FROZEN', update_time = CLOCK_TIMESTAMP()
+         WHERE client_no = v_rec.client_no;
+        p_count := p_count + 1;
+    END LOOP;
+    CLOSE c_clients;
+    RAISE NOTICE 'Frozen % clients below threshold %', p_count, p_threshold;
+EXCEPTION
+    WHEN OTHERS THEN
+        p_count := -1;
+        RAISE NOTICE 'sp_freeze_low_balance error: %', SQLERRM;
+END;
+$$;
+
+-- 事务处理: 转账
+CREATE OR REPLACE PROCEDURE sp_transfer(
+    IN  p_from_no VARCHAR,
+    IN  p_to_no   VARCHAR,
+    IN  p_amount  NUMERIC,
+    OUT p_result  VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_from_bal NUMERIC(18,2);
+BEGIN
+    IF p_amount <= 0 THEN
+        p_result := 'INVALID_AMOUNT';
+        RETURN;
+    END IF;
+
+    SELECT COALESCE(balance, 0) INTO v_from_bal
+      FROM t_client_info
+     WHERE client_no = p_from_no
+       FOR UPDATE;
+
+    IF NOT FOUND THEN
+        p_result := 'ACCOUNT_NOT_FOUND';
+        RETURN;
+    END IF;
+
+    IF v_from_bal < p_amount THEN
+        p_result := 'INSUFFICIENT_FUNDS';
+        RETURN;
+    END IF;
+
+    UPDATE t_client_info SET balance = balance - p_amount, update_time = CLOCK_TIMESTAMP() WHERE client_no = p_from_no;
+    UPDATE t_client_info SET balance = balance + p_amount, update_time = CLOCK_TIMESTAMP() WHERE client_no = p_to_no;
+
+    INSERT INTO t_trade_record (trade_id, client_no, trade_date, trade_type, amount, status, create_time)
+    VALUES (nextval('seq_trade'), p_from_no, NOW(), 'TRANSFER', p_amount, 'SUCCESS', CLOCK_TIMESTAMP());
+
+    p_result := 'SUCCESS';
+EXCEPTION
+    WHEN OTHERS THEN
+        p_result := 'ERROR: ' || SQLERRM;
+        RAISE NOTICE 'sp_transfer error: %', SQLERRM;
+END;
+$$;`
+}
 
 /* ===== IR (Intermediate Representation) ===== */
 function makeTable() {
@@ -567,213 +1458,6 @@ function makeTable() {
 }
 function makeColumn() {
   return { name:'', type:'', precision:null, scale:null, length:null, nullable:true, defaultValue:null, comment:'', autoIncrement:false, rawType:'' };
-}
-
-/* ===== ORACLE PARSER ===== */
-function parseOracleDDL(sql) {
-  const tables = [];
-  const clean = sql.replace(/\/\s*$/gm, '').replace(/\r\n/g, '\n');
-  // Split into statements
-  const stmts = splitStatements(clean);
-
-  // Phase 1: parse CREATE TABLE
-  for (const stmt of stmts) {
-    const s = stmt.trim();
-    const ctHeader = s.match(/^CREATE\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(/i);
-    if (!ctHeader) continue;
-    const tbl = makeTable();
-    tbl.name = ctHeader[1];
-    // Extract body by balanced-paren matching from the opening paren
-    const openIdx = s.indexOf('(', ctHeader[0].length - 1);
-    let depth = 0, inQ = false, bodyEnd = -1;
-    for (let i = openIdx; i < s.length; i++) {
-      const ch = s[i];
-      if (ch === "'" && !inQ) { inQ = true; continue; }
-      if (ch === "'" && inQ) { if (i+1 < s.length && s[i+1] === "'") { i++; } else { inQ = false; } continue; }
-      if (inQ) continue;
-      if (ch === '(') depth++;
-      if (ch === ')') { depth--; if (depth === 0) { bodyEnd = i; break; } }
-    }
-    if (bodyEnd === -1) continue;
-    let body = s.slice(openIdx + 1, bodyEnd);
-    // Everything after the closing paren of column defs
-    const afterParen = s.slice(bodyEnd + 1).trim();
-    const partHeaderM = afterParen.match(/PARTITION\s+BY\s+(RANGE|LIST|HASH)\s*\(([^)]+)\)/i);
-    if (partHeaderM) {
-      const partType = partHeaderM[1].toUpperCase();
-      const partCols = partHeaderM[2].split(',').map(c=>c.trim());
-      tbl.partition = { type: partType, columns: partCols, partitions: [], hashCount: null };
-      const afterHeader = afterParen.slice(afterParen.indexOf(partHeaderM[0]) + partHeaderM[0].length).trim();
-
-      if (partType === 'HASH') {
-        // HASH: look for PARTITIONS n (no sub-defs)
-        const hashM = afterHeader.match(/PARTITIONS\s+(\d+)/i);
-        if (hashM) tbl.partition.hashCount = parseInt(hashM[1]);
-      } else {
-        // RANGE or LIST: extract partition body by tracking paren depth
-        const pBody = extractParenBody(afterHeader);
-        if (pBody) {
-          if (partType === 'RANGE') {
-            // Parse RANGE partitions with nested paren support
-            const pRe = /PARTITION\s+(\w+)\s+VALUES\s+LESS\s+THAN\s*/gi;
-            let pm;
-            while ((pm = pRe.exec(pBody))) {
-              const pName = pm[1];
-              const rest = pBody.slice(pRe.lastIndex).trim();
-              let val;
-              if (rest.startsWith('(')) {
-                val = extractParenBody(rest);
-              } else {
-                // MAXVALUE without parens
-                const mxM = rest.match(/^(MAXVALUE)\b/i);
-                val = mxM ? 'MAXVALUE' : '';
-                // Advance lastIndex past the matched word
-                if (mxM) pRe.lastIndex = pm.index + pm[0].length + mxM[0].length;
-              }
-              tbl.partition.partitions.push({ name: pName, value: (val || '').trim() });
-            }
-          } else if (partType === 'LIST') {
-            // Parse LIST partitions: PARTITION p1 VALUES ('A','B','C')
-            const pRe = /PARTITION\s+(\w+)\s+VALUES\s*/gi;
-            let pm;
-            while ((pm = pRe.exec(pBody))) {
-              const pName = pm[1];
-              const rest = pBody.slice(pRe.lastIndex).trim();
-              let vals;
-              if (rest.startsWith('(')) {
-                vals = extractParenBody(rest);
-              } else {
-                vals = '';
-              }
-              tbl.partition.partitions.push({ name: pName, values: splitListValues(vals || '') });
-            }
-          }
-        }
-      }
-    }
-
-    // Parse columns and inline constraints from body
-    const parts = splitColumnDefs(body);
-    for (const part of parts) {
-      const p = part.trim();
-      if (!p) continue;
-      // Inline CONSTRAINT ... PRIMARY KEY
-      const pkm = p.match(/^CONSTRAINT\s+(\w+)\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-      if (pkm) { tbl.primaryKey = { name: pkm[1], columns: pkm[2].split(',').map(c=>c.trim()) }; continue; }
-      // Inline PRIMARY KEY without CONSTRAINT name
-      const pkm2 = p.match(/^PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-      if (pkm2) { tbl.primaryKey = { name: 'PK_'+tbl.name, columns: pkm2[1].split(',').map(c=>c.trim()) }; continue; }
-      // UNIQUE constraint
-      const uqm = p.match(/^(?:CONSTRAINT\s+(\w+)\s+)?UNIQUE\s*\(([^)]+)\)/i);
-      if (uqm) { tbl.uniqueKeys.push({ name: uqm[1]||'UQ_'+tbl.name, columns: uqm[2].split(',').map(c=>c.trim()) }); continue; }
-      // FOREIGN KEY constraint (inline)
-      const fkm = p.match(/^(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
-      if (fkm) { tbl.foreignKeys.push({ name: fkm[1]||'FK_'+tbl.name, columns: fkm[2].split(',').map(c=>c.trim()), refTable: fkm[3], refColumns: fkm[4].split(',').map(c=>c.trim()), onDelete: fkm[5]||null, onUpdate: fkm[6]||null }); continue; }
-      // Skip CHECK constraint
-      if (/^(CHECK)\b/i.test(p)) continue;
-      // Column definition
-      const col = parseOracleColumn(p);
-      if (col) tbl.columns.push(col);
-    }
-    // Handle inline PRIMARY KEY on individual columns
-    if (!tbl.primaryKey) {
-      const pkCols = tbl.columns.filter(c => c._inlinePK).map(c => c.name);
-      if (pkCols.length) {
-        tbl.primaryKey = { name: 'PK_' + tbl.name, columns: pkCols };
-      }
-    }
-    // Clean up _inlinePK flags
-    tbl.columns.forEach(c => delete c._inlinePK);
-    tables.push(tbl);
-  }
-
-  // Phase 2: COMMENT ON
-  for (const stmt of stmts) {
-    const s = stmt.trim();
-    const tcm = s.match(/^COMMENT\s+ON\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
-    if (tcm) {
-      const tbl = tables.find(t => t.name.toUpperCase() === tcm[1].toUpperCase());
-      if (tbl) tbl.comment = tcm[2].replace(/''/g, "'");
-      continue;
-    }
-    const ccm = s.match(/^COMMENT\s+ON\s+COLUMN\s+(?:[\w"]+\.)?["']?(\w+)["']?\.["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
-    if (ccm) {
-      const tbl = tables.find(t => t.name.toUpperCase() === ccm[1].toUpperCase());
-      if (tbl) {
-        const col = tbl.columns.find(c => c.name.toUpperCase() === ccm[2].toUpperCase());
-        if (col) col.comment = ccm[3].replace(/''/g, "'");
-      }
-    }
-  }
-
-  // Phase 3: CREATE INDEX
-  for (const stmt of stmts) {
-    const s = stmt.trim();
-    const im = s.match(/^CREATE\s+(UNIQUE\s+)?INDEX\s+(\w+)\s+ON\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)/i);
-    if (!im) continue;
-    const unique = !!im[1];
-    const idxName = im[2], tblName = im[3], cols = im[4].split(',').map(c=>c.trim());
-    const tbl = tables.find(t => t.name.toUpperCase() === tblName.toUpperCase());
-    if (!tbl) continue;
-    if (unique) tbl.uniqueKeys.push({ name: idxName, columns: cols });
-    else tbl.indexes.push({ name: idxName, columns: cols });
-  }
-
-  // Phase 4: ALTER TABLE ADD PRIMARY KEY
-  for (const stmt of stmts) {
-    const s = stmt.trim();
-    const am = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-    if (!am) continue;
-    const tbl = tables.find(t => t.name.toUpperCase() === am[1].toUpperCase());
-    if (tbl && !tbl.primaryKey) tbl.primaryKey = { name: am[2]||'PK_'+tbl.name, columns: am[3].split(',').map(c=>c.trim()) };
-  }
-
-  // Phase 5: ALTER TABLE ADD FOREIGN KEY
-  for (const stmt of stmts) {
-    const s = stmt.trim();
-    const fm = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
-    if (!fm) continue;
-    const tbl = tables.find(t => t.name.toUpperCase() === fm[1].toUpperCase());
-    if (tbl) tbl.foreignKeys.push({ name: fm[2]||'FK_'+tbl.name, columns: fm[3].split(',').map(c=>c.trim()), refTable: fm[4], refColumns: fm[5].split(',').map(c=>c.trim()), onDelete: fm[6]||null, onUpdate: fm[7]||null });
-  }
-
-  return tables;
-}
-
-function parseOracleColumn(def) {
-  const m = def.match(/^["']?(\w+)["']?\s+(.+)$/i);
-  if (!m) return null;
-  const col = makeColumn();
-  col.name = m[1];
-  let rest = m[2].trim();
-  // Extract type
-  const tm = rest.match(/^(\w+)(?:\(([^)]+)\))?/i);
-  if (!tm) return null;
-  col.rawType = tm[0];
-  const tname = tm[1].toUpperCase();
-  col.type = tname;
-  if (tm[2]) {
-    const nums = tm[2].split(',').map(s=>s.trim());
-    if (tname === 'NUMBER' || tname === 'FLOAT' || tname === 'DECIMAL') {
-      col.precision = parseInt(nums[0]) || null;
-      col.scale = nums[1] !== undefined ? parseInt(nums[1]) : null;
-    } else {
-      col.length = parseInt(nums[0]) || null;
-    }
-  }
-  rest = rest.slice(tm[0].length).trim();
-  // DEFAULT
-  const dm = rest.match(/^DEFAULT\s+(.+?)(?=\s+NOT\s+NULL|\s+NULL|\s+CONSTRAINT|\s+CHECK|\s+UNIQUE|\s+PRIMARY|$)/i);
-  if (dm) {
-    col.defaultValue = dm[1].trim().replace(/,\s*$/, '');
-    rest = rest.slice(rest.indexOf(dm[0]) + dm[0].length).trim();
-  }
-  // NOT NULL / NULL
-  if (/\bNOT\s+NULL\b/i.test(rest)) col.nullable = false;
-  else if (/\bNULL\b/i.test(rest) && !/\bNOT\s+NULL\b/i.test(rest)) col.nullable = true;
-  // PRIMARY KEY inline
-  if (/\bPRIMARY\s+KEY\b/i.test(rest)) col._inlinePK = true;
-  return col;
 }
 
 /* Helper: split statements on ; respecting quotes */
@@ -837,6 +1521,168 @@ function splitListValues(str) {
   return result;
 }
 
+function pad(s, n) { return s + ' '.repeat(Math.max(0, n - s.length)); }
+
+/* ===== ORACLE PARSER ===== */
+function parseOracleDDL(sql) {
+  const tables = [];
+  const clean = sql.replace(/\/\s*$/gm, '').replace(/\r\n/g, '\n');
+  const stmts = splitStatements(clean);
+
+  for (const stmt of stmts) {
+    const s = stmt.trim();
+    const ctHeader = s.match(/^CREATE\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(/i);
+    if (!ctHeader) continue;
+    const tbl = makeTable();
+    tbl.name = ctHeader[1];
+    const openIdx = s.indexOf('(', ctHeader[0].length - 1);
+    let depth = 0, inQ = false, bodyEnd = -1;
+    for (let i = openIdx; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === "'" && !inQ) { inQ = true; continue; }
+      if (ch === "'" && inQ) { if (i+1 < s.length && s[i+1] === "'") { i++; } else { inQ = false; } continue; }
+      if (inQ) continue;
+      if (ch === '(') depth++;
+      if (ch === ')') { depth--; if (depth === 0) { bodyEnd = i; break; } }
+    }
+    if (bodyEnd === -1) continue;
+    let body = s.slice(openIdx + 1, bodyEnd);
+    const afterParen = s.slice(bodyEnd + 1).trim();
+    const partHeaderM = afterParen.match(/PARTITION\s+BY\s+(RANGE|LIST|HASH)\s*\(([^)]+)\)/i);
+    if (partHeaderM) {
+      const partType = partHeaderM[1].toUpperCase();
+      const partCols = partHeaderM[2].split(',').map(c=>c.trim());
+      tbl.partition = { type: partType, columns: partCols, partitions: [], hashCount: null };
+      const afterHeader = afterParen.slice(afterParen.indexOf(partHeaderM[0]) + partHeaderM[0].length).trim();
+      if (partType === 'HASH') {
+        const hashM = afterHeader.match(/PARTITIONS\s+(\d+)/i);
+        if (hashM) tbl.partition.hashCount = parseInt(hashM[1]);
+      } else {
+        const pBody = extractParenBody(afterHeader);
+        if (pBody) {
+          if (partType === 'RANGE') {
+            const pRe = /PARTITION\s+(\w+)\s+VALUES\s+LESS\s+THAN\s*/gi;
+            let pm;
+            while ((pm = pRe.exec(pBody))) {
+              const pName = pm[1];
+              const rest = pBody.slice(pRe.lastIndex).trim();
+              let val;
+              if (rest.startsWith('(')) { val = extractParenBody(rest); }
+              else { const mxM = rest.match(/^(MAXVALUE)\b/i); val = mxM ? 'MAXVALUE' : ''; if (mxM) pRe.lastIndex = pm.index + pm[0].length + mxM[0].length; }
+              tbl.partition.partitions.push({ name: pName, value: (val || '').trim() });
+            }
+          } else if (partType === 'LIST') {
+            const pRe = /PARTITION\s+(\w+)\s+VALUES\s*/gi;
+            let pm;
+            while ((pm = pRe.exec(pBody))) {
+              const pName = pm[1];
+              const rest = pBody.slice(pRe.lastIndex).trim();
+              let vals;
+              if (rest.startsWith('(')) { vals = extractParenBody(rest); } else { vals = ''; }
+              tbl.partition.partitions.push({ name: pName, values: splitListValues(vals || '') });
+            }
+          }
+        }
+      }
+    }
+
+    const parts = splitColumnDefs(body);
+    for (const part of parts) {
+      const p = part.trim();
+      if (!p) continue;
+      const pkm = p.match(/^CONSTRAINT\s+(\w+)\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+      if (pkm) { tbl.primaryKey = { name: pkm[1], columns: pkm[2].split(',').map(c=>c.trim()) }; continue; }
+      const pkm2 = p.match(/^PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+      if (pkm2) { tbl.primaryKey = { name: 'PK_'+tbl.name, columns: pkm2[1].split(',').map(c=>c.trim()) }; continue; }
+      const uqm = p.match(/^(?:CONSTRAINT\s+(\w+)\s+)?UNIQUE\s*\(([^)]+)\)/i);
+      if (uqm) { tbl.uniqueKeys.push({ name: uqm[1]||'UQ_'+tbl.name, columns: uqm[2].split(',').map(c=>c.trim()) }); continue; }
+      const fkm = p.match(/^(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
+      if (fkm) { tbl.foreignKeys.push({ name: fkm[1]||'FK_'+tbl.name, columns: fkm[2].split(',').map(c=>c.trim()), refTable: fkm[3], refColumns: fkm[4].split(',').map(c=>c.trim()), onDelete: fkm[5]||null, onUpdate: fkm[6]||null }); continue; }
+      if (/^(CHECK)\b/i.test(p)) continue;
+      const col = parseOracleColumn(p);
+      if (col) {
+        if (col._inlinePK) { tbl.primaryKey = { name: 'PK_'+tbl.name, columns: [col.name] }; delete col._inlinePK; }
+        tbl.columns.push(col);
+      }
+    }
+    tables.push(tbl);
+  }
+
+  // Phase 2: COMMENT ON
+  for (const stmt of stmts) {
+    const s = stmt.trim();
+    const tcm = s.match(/^COMMENT\s+ON\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
+    if (tcm) { const tbl = tables.find(t => t.name.toUpperCase() === tcm[1].toUpperCase()); if (tbl) tbl.comment = tcm[2].replace(/''/g, "'"); continue; }
+    const ccm = s.match(/^COMMENT\s+ON\s+COLUMN\s+(?:[\w"]+\.)?["']?(\w+)["']?\.["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
+    if (ccm) { const tbl = tables.find(t => t.name.toUpperCase() === ccm[1].toUpperCase()); if (tbl) { const col = tbl.columns.find(c => c.name.toUpperCase() === ccm[2].toUpperCase()); if (col) col.comment = ccm[3].replace(/''/g, "'"); } }
+  }
+
+  // Phase 3: CREATE INDEX
+  for (const stmt of stmts) {
+    const s = stmt.trim();
+    const im = s.match(/^CREATE\s+(UNIQUE\s+)?INDEX\s+(\w+)\s+ON\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)/i);
+    if (!im) continue;
+    const unique = !!im[1]; const idxName = im[2], tblName = im[3], cols = im[4].split(',').map(c=>c.trim());
+    const tbl = tables.find(t => t.name.toUpperCase() === tblName.toUpperCase());
+    if (!tbl) continue;
+    if (unique) tbl.uniqueKeys.push({ name: idxName, columns: cols });
+    else tbl.indexes.push({ name: idxName, columns: cols });
+  }
+
+  // Phase 4: ALTER TABLE ADD PRIMARY KEY
+  for (const stmt of stmts) {
+    const s = stmt.trim();
+    const am = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/i);
+    if (!am) continue;
+    const tbl = tables.find(t => t.name.toUpperCase() === am[1].toUpperCase());
+    if (tbl && !tbl.primaryKey) tbl.primaryKey = { name: am[2]||'PK_'+tbl.name, columns: am[3].split(',').map(c=>c.trim()) };
+  }
+
+  // Phase 5: ALTER TABLE ADD FOREIGN KEY
+  for (const stmt of stmts) {
+    const s = stmt.trim();
+    const fm = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+ADD\s+(?:CONSTRAINT\s+(\w+)\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
+    if (!fm) continue;
+    const tbl = tables.find(t => t.name.toUpperCase() === fm[1].toUpperCase());
+    if (tbl) tbl.foreignKeys.push({ name: fm[2]||'FK_'+tbl.name, columns: fm[3].split(',').map(c=>c.trim()), refTable: fm[4], refColumns: fm[5].split(',').map(c=>c.trim()), onDelete: fm[6]||null, onUpdate: fm[7]||null });
+  }
+
+  return tables;
+}
+
+function parseOracleColumn(def) {
+  const m = def.match(/^["']?(\w+)["']?\s+(.+)$/i);
+  if (!m) return null;
+  const col = makeColumn();
+  col.name = m[1];
+  let rest = m[2].trim();
+  const tm = rest.match(/^(\w+)(?:\(([^)]+)\))?/i);
+  if (!tm) return null;
+  col.rawType = tm[0];
+  const tname = tm[1].toUpperCase();
+  col.type = tname;
+  if (tm[2]) {
+    const nums = tm[2].split(',').map(s=>s.trim());
+    if (tname === 'NUMBER' || tname === 'FLOAT' || tname === 'DECIMAL') {
+      col.precision = parseInt(nums[0]) || null;
+      col.scale = nums[1] !== undefined ? parseInt(nums[1]) : null;
+    } else {
+      col.length = parseInt(nums[0]) || null;
+    }
+  }
+  rest = rest.slice(tm[0].length).trim();
+  // GENERATED [ALWAYS | BY DEFAULT [ON NULL]] AS IDENTITY
+  const identityM = rest.match(/^GENERATED\s+(?:ALWAYS|BY\s+DEFAULT(?:\s+ON\s+NULL)?)\s+AS\s+IDENTITY/i);
+  if (identityM) { col.autoIncrement = true; rest = rest.slice(identityM[0].length).trim(); }
+  // DEFAULT
+  const dm = rest.match(/^DEFAULT\s+(.+?)(?=\s+NOT\s+NULL|\s+NULL|\s+CONSTRAINT|\s+CHECK|\s+UNIQUE|\s+PRIMARY|$)/i);
+  if (dm) { col.defaultValue = dm[1].trim().replace(/,\s*$/, ''); rest = rest.slice(rest.indexOf(dm[0]) + dm[0].length).trim(); }
+  if (/\bNOT\s+NULL\b/i.test(rest)) col.nullable = false;
+  else if (/\bNULL\b/i.test(rest) && !/\bNOT\s+NULL\b/i.test(rest)) col.nullable = true;
+  if (/\bPRIMARY\s+KEY\b/i.test(rest)) col._inlinePK = true;
+  return col;
+}
+
 /* ===== MYSQL PARSER ===== */
 function parseMySQLDDL(sql) {
   const tables = [];
@@ -845,12 +1691,10 @@ function parseMySQLDDL(sql) {
 
   for (const stmt of stmts) {
     const s = stmt.trim();
-    // Match CREATE TABLE header
     const ctHeader = s.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?(\w+)[`"']?\s*\(/i);
     if (!ctHeader) continue;
     const tbl = makeTable();
     tbl.name = ctHeader[1];
-    // Extract body by balanced-paren matching
     const openIdx = s.indexOf('(', ctHeader[0].length - 1);
     let depth = 0, inQ = false, bodyEnd = -1;
     for (let i = openIdx; i < s.length; i++) {
@@ -864,112 +1708,73 @@ function parseMySQLDDL(sql) {
     if (bodyEnd === -1) continue;
     const bodyContent = s.slice(openIdx + 1, bodyEnd);
     const opts = s.slice(bodyEnd + 1).trim();
-
-    // Table comment from options
     const tcm = opts.match(/COMMENT\s*=?\s*'((?:''|[^'])*)'/i);
     if (tcm) tbl.comment = tcm[1].replace(/''/g, "'");
-
-    // Partition from options
     const partTypeM = opts.match(/PARTITION\s+BY\s+(RANGE|LIST|HASH)\s*/i);
     if (partTypeM) {
       const partType = partTypeM[1].toUpperCase();
       const afterType = opts.slice(opts.indexOf(partTypeM[0]) + partTypeM[0].length).trim();
-      let colStr;
-      let restAfterCols;
-      // Handle COLUMNS(...) syntax for LIST
+      let colStr, restAfterCols;
       const colsKwM = afterType.match(/^COLUMNS\s*\(/i);
       if (colsKwM) {
         colStr = extractParenBody(afterType);
         restAfterCols = afterType.slice(afterType.indexOf('('));
-        // skip past the COLUMNS(...) block
         let d=0,q=false;
         for(let i=0;i<restAfterCols.length;i++){const c=restAfterCols[i];if(c==="'"&&!q){q=true;continue;}if(c==="'"&&q){if(i+1<restAfterCols.length&&restAfterCols[i+1]==="'"){i++;}else{q=false;}continue;}if(q)continue;if(c==='(')d++;if(c===')'){d--;if(d===0){restAfterCols=restAfterCols.slice(i+1).trim();break;}}}
       } else if (afterType.startsWith('(')) {
         colStr = extractParenBody(afterType);
-        // skip past the (...) block
         restAfterCols = afterType.slice(afterType.indexOf('('));
         let d=0,q=false;
         for(let i=0;i<restAfterCols.length;i++){const c=restAfterCols[i];if(c==="'"&&!q){q=true;continue;}if(c==="'"&&q){if(i+1<restAfterCols.length&&restAfterCols[i+1]==="'"){i++;}else{q=false;}continue;}if(q)continue;if(c==='(')d++;if(c===')'){d--;if(d===0){restAfterCols=restAfterCols.slice(i+1).trim();break;}}}
-      } else {
-        colStr = '';
-        restAfterCols = afterType;
-      }
-
-      // For RANGE with TO_DAYS(col), extract just the col name
+      } else { colStr = ''; restAfterCols = afterType; }
       let partCols;
       const fnM = (colStr||'').match(/^\w+\s*\(\s*[`"']?(\w+)[`"']?\s*\)$/i);
-      if (fnM) {
-        partCols = [fnM[1]];
-      } else {
-        partCols = (colStr||'').split(',').map(c=>c.trim().replace(/[`"']/g,''));
-      }
+      if (fnM) { partCols = [fnM[1]]; } else { partCols = (colStr||'').split(',').map(c=>c.trim().replace(/[`"']/g,'')); }
       tbl.partition = { type: partType, columns: partCols, partitions: [], hashCount: null };
-
       if (partType === 'HASH') {
-        // HASH: look for PARTITIONS n, no sub-defs
         const hashM = opts.match(/PARTITIONS\s+(\d+)/i);
         if (hashM) tbl.partition.hashCount = parseInt(hashM[1]);
       } else {
-        // Extract partition body with paren tracking
         const pBody = extractParenBody(restAfterCols);
         if (pBody) {
           if (partType === 'RANGE') {
             const pRe = /PARTITION\s+[`"']?(\w+)[`"']?\s+VALUES\s+LESS\s+THAN\s*/gi;
             let pm;
             while ((pm = pRe.exec(pBody))) {
-              const pName = pm[1];
-              const rest = pBody.slice(pRe.lastIndex).trim();
+              const pName = pm[1]; const rest2 = pBody.slice(pRe.lastIndex).trim();
               let val;
-              if (rest.startsWith('(')) {
-                val = extractParenBody(rest);
-              } else {
-                const mxM = rest.match(/^(MAXVALUE)\b/i);
-                val = mxM ? 'MAXVALUE' : '';
-                if (mxM) pRe.lastIndex = pm.index + pm[0].length + mxM[0].length;
-              }
+              if (rest2.startsWith('(')) { val = extractParenBody(rest2); }
+              else { const mxM = rest2.match(/^(MAXVALUE)\b/i); val = mxM ? 'MAXVALUE' : ''; if (mxM) pRe.lastIndex = pm.index + pm[0].length + mxM[0].length; }
               tbl.partition.partitions.push({ name: pName, value: (val || '').trim() });
             }
           } else if (partType === 'LIST') {
             const pRe = /PARTITION\s+[`"']?(\w+)[`"']?\s+VALUES\s+IN\s*/gi;
             let pm;
             while ((pm = pRe.exec(pBody))) {
-              const pName = pm[1];
-              const rest = pBody.slice(pRe.lastIndex).trim();
+              const pName = pm[1]; const rest2 = pBody.slice(pRe.lastIndex).trim();
               let vals;
-              if (rest.startsWith('(')) {
-                vals = extractParenBody(rest);
-              } else {
-                vals = '';
-              }
+              if (rest2.startsWith('(')) { vals = extractParenBody(rest2); } else { vals = ''; }
               tbl.partition.partitions.push({ name: pName, values: splitListValues(vals || '') });
             }
           }
         }
       }
     }
-
     const parts = splitColumnDefs(bodyContent);
     for (const part of parts) {
       const p = part.trim();
       if (!p) continue;
-      // PRIMARY KEY
       const pkm = p.match(/^PRIMARY\s+KEY\s*\(([^)]+)\)/i);
       if (pkm) { tbl.primaryKey = { name: 'PK_'+tbl.name, columns: pkm[1].split(',').map(c=>c.trim().replace(/[`"']/g,'')) }; continue; }
-      // UNIQUE KEY
       const ukm = p.match(/^UNIQUE\s+(?:KEY|INDEX)\s+[`"']?(\w+)[`"']?\s*\(([^)]+)\)/i);
       if (ukm) { tbl.uniqueKeys.push({ name: ukm[1], columns: ukm[2].split(',').map(c=>c.trim().replace(/[`"']/g,'')) }); continue; }
-      // KEY (index)
       const km = p.match(/^(?:KEY|INDEX)\s+[`"']?(\w+)[`"']?\s*\(([^)]+)\)/i);
       if (km) { tbl.indexes.push({ name: km[1], columns: km[2].split(',').map(c=>c.trim().replace(/[`"']/g,'')) }); continue; }
-      // CONSTRAINT ... PRIMARY KEY
       const cpk = p.match(/^CONSTRAINT\s+[`"']?(\w+)[`"']?\s+PRIMARY\s+KEY\s*\(([^)]+)\)/i);
       if (cpk) { tbl.primaryKey = { name: cpk[1], columns: cpk[2].split(',').map(c=>c.trim().replace(/[`"']/g,'')) }; continue; }
-      // FOREIGN KEY constraint
       const fkm1 = p.match(/^(?:CONSTRAINT\s+[`"']?(\w+)[`"']?\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+[`"']?(\w+)[`"']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
       if (fkm1) { tbl.foreignKeys.push({ name: fkm1[1]||'FK_'+tbl.name, columns: fkm1[2].split(',').map(c=>c.trim().replace(/[`"']/g,'')), refTable: fkm1[3], refColumns: fkm1[4].split(',').map(c=>c.trim().replace(/[`"']/g,'')), onDelete: fkm1[5]||null, onUpdate: fkm1[6]||null }); continue; }
-      // Skip CHECK
       if (/^(CHECK)\b/i.test(p)) continue;
-      // Column
       const col = parseMySQLColumn(p);
       if (col) tbl.columns.push(col);
     }
@@ -984,37 +1789,24 @@ function parseMySQLColumn(def) {
   const col = makeColumn();
   col.name = m[1];
   let rest = m[2].trim();
-  // Type extraction
   const tm = rest.match(/^(\w+)(?:\(([^)]+)\))?/i);
   if (!tm) return null;
-  col.rawType = tm[0];
-  col.type = tm[1].toUpperCase();
+  col.rawType = tm[0]; col.type = tm[1].toUpperCase();
   if (tm[2]) {
     const nums = tm[2].split(',').map(s=>s.trim());
     if (/DECIMAL|NUMERIC|FLOAT|DOUBLE|INT|BIGINT|TINYINT|SMALLINT|MEDIUMINT/i.test(col.type)) {
-      col.precision = parseInt(nums[0]) || null;
-      col.scale = nums[1] !== undefined ? parseInt(nums[1]) : null;
-    } else {
-      col.length = parseInt(nums[0]) || null;
-    }
+      col.precision = parseInt(nums[0]) || null; col.scale = nums[1] !== undefined ? parseInt(nums[1]) : null;
+    } else { col.length = parseInt(nums[0]) || null; }
   }
   rest = rest.slice(tm[0].length).trim();
-  // UNSIGNED
   if (/\bUNSIGNED\b/i.test(rest)) { col.extra.unsigned = true; rest = rest.replace(/\bUNSIGNED\b/i, '').trim(); }
-  // CHARACTER SET
   rest = rest.replace(/\bCHARACTER\s+SET\s+\w+/i, '').trim();
-  // COLLATE
   rest = rest.replace(/\bCOLLATE\s+\w+/i, '').trim();
-  // AUTO_INCREMENT
   if (/\bAUTO_INCREMENT\b/i.test(rest)) { col.autoIncrement = true; rest = rest.replace(/\bAUTO_INCREMENT\b/i, '').trim(); }
-  // DEFAULT
   const dm = rest.match(/\bDEFAULT\s+('(?:''|[^'])*'|[\w()]+(?:\(\d*\))?)/i);
   if (dm) { col.defaultValue = dm[1].trim(); rest = rest.replace(dm[0], '').trim(); }
-  // ON UPDATE
   rest = rest.replace(/\bON\s+UPDATE\s+\S+/i, '').trim();
-  // NOT NULL
   if (/\bNOT\s+NULL\b/i.test(rest)) col.nullable = false;
-  // Comment
   const cm = rest.match(/\bCOMMENT\s+'((?:''|[^'])*)'/i);
   if (cm) col.comment = cm[1].replace(/''/g, "'");
   return col;
@@ -1025,58 +1817,23 @@ function parsePostgreSQLDDL(sql) {
   const tables = [];
   const clean = sql.replace(/\r\n/g, '\n');
   const stmts = splitStatements(clean);
-
   for (const stmt of stmts) {
     const s = stmt.trim();
-    // Skip PARTITION OF sub-tables (we'll handle them separately)
     if (/^CREATE\s+TABLE\s+\w+\s+PARTITION\s+OF\b/i.test(s)) {
-      // RANGE: FOR VALUES FROM (...) TO (...)
       const pm = s.match(/^CREATE\s+TABLE\s+[`"']?(\w+)[`"']?\s+PARTITION\s+OF\s+[`"']?(\w+)[`"']?\s+FOR\s+VALUES\s+FROM\s+\('([^']*)'\)\s+TO\s+\('([^']*)'\)/i);
-      if (pm) {
-        const parent = tables.find(t => t.name.toLowerCase() === pm[2].toLowerCase());
-        if (parent && parent.partition) {
-          parent.partition.partitions.push({ name: pm[1], valueFrom: pm[3], valueTo: pm[4] });
-        }
-        continue;
-      }
-      // LIST: FOR VALUES IN (...)
+      if (pm) { const parent = tables.find(t => t.name.toLowerCase() === pm[2].toLowerCase()); if (parent && parent.partition) parent.partition.partitions.push({ name: pm[1], valueFrom: pm[3], valueTo: pm[4] }); continue; }
       const lm = s.match(/^CREATE\s+TABLE\s+[`"']?(\w+)[`"']?\s+PARTITION\s+OF\s+[`"']?(\w+)[`"']?\s+FOR\s+VALUES\s+IN\s*\(([^)]+)\)/i);
-      if (lm) {
-        const parent = tables.find(t => t.name.toLowerCase() === lm[2].toLowerCase());
-        if (parent && parent.partition) {
-          parent.partition.partitions.push({ name: lm[1], values: splitListValues(lm[3]) });
-        }
-        continue;
-      }
-      // HASH: FOR VALUES WITH (modulus M, remainder R)
+      if (lm) { const parent = tables.find(t => t.name.toLowerCase() === lm[2].toLowerCase()); if (parent && parent.partition) parent.partition.partitions.push({ name: lm[1], values: splitListValues(lm[3]) }); continue; }
       const hm = s.match(/^CREATE\s+TABLE\s+[`"']?(\w+)[`"']?\s+PARTITION\s+OF\s+[`"']?(\w+)[`"']?\s+FOR\s+VALUES\s+WITH\s*\(\s*modulus\s+(\d+)\s*,\s*remainder\s+(\d+)\s*\)/i);
-      if (hm) {
-        const parent = tables.find(t => t.name.toLowerCase() === hm[2].toLowerCase());
-        if (parent && parent.partition) {
-          parent.partition.partitions.push({ name: hm[1], modulus: parseInt(hm[3]), remainder: parseInt(hm[4]) });
-          if (!parent.partition.hashCount || parseInt(hm[3]) > parent.partition.hashCount) {
-            parent.partition.hashCount = parseInt(hm[3]);
-          }
-        }
-        continue;
-      }
-      // DEFAULT partition
-      const dm = s.match(/^CREATE\s+TABLE\s+[`"']?(\w+)[`"']?\s+PARTITION\s+OF\s+[`"']?(\w+)[`"']?\s+DEFAULT/i);
-      if (dm) {
-        const parent = tables.find(t => t.name.toLowerCase() === dm[2].toLowerCase());
-        if (parent && parent.partition) {
-          parent.partition.partitions.push({ name: dm[1], isDefault: true });
-        }
-        continue;
-      }
+      if (hm) { const parent = tables.find(t => t.name.toLowerCase() === hm[2].toLowerCase()); if (parent && parent.partition) { parent.partition.partitions.push({ name: hm[1], modulus: parseInt(hm[3]), remainder: parseInt(hm[4]) }); if (!parent.partition.hashCount || parseInt(hm[3]) > parent.partition.hashCount) parent.partition.hashCount = parseInt(hm[3]); } continue; }
+      const dm2 = s.match(/^CREATE\s+TABLE\s+[`"']?(\w+)[`"']?\s+PARTITION\s+OF\s+[`"']?(\w+)[`"']?\s+DEFAULT/i);
+      if (dm2) { const parent = tables.find(t => t.name.toLowerCase() === dm2[2].toLowerCase()); if (parent && parent.partition) parent.partition.partitions.push({ name: dm2[1], isDefault: true }); continue; }
       continue;
     }
-
     const ctHeader = s.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?(\w+)["']?\s*\(/i);
     if (!ctHeader) continue;
     const tbl = makeTable();
     tbl.name = ctHeader[1];
-    // Balanced-paren extraction for column body
     const openIdx = s.indexOf('(', ctHeader[0].length - 1);
     let _depth = 0, _inQ = false, _bodyEnd = -1;
     for (let i = openIdx; i < s.length; i++) {
@@ -1090,13 +1847,8 @@ function parsePostgreSQLDDL(sql) {
     if (_bodyEnd === -1) continue;
     const pgBody = s.slice(openIdx + 1, _bodyEnd);
     const afterParen = s.slice(_bodyEnd + 1).trim();
-
-    // Partition clause
     const partM = afterParen.match(/PARTITION\s+BY\s+(RANGE|LIST|HASH)\s*\(([^)]+)\)/i);
-    if (partM) {
-      tbl.partition = { type: partM[1].toUpperCase(), columns: partM[2].split(',').map(c=>c.trim().replace(/["']/g,'')), partitions: [], hashCount: null };
-    }
-
+    if (partM) tbl.partition = { type: partM[1].toUpperCase(), columns: partM[2].split(',').map(c=>c.trim().replace(/["']/g,'')), partitions: [], hashCount: null };
     const parts = splitColumnDefs(pgBody);
     for (const part of parts) {
       const p = part.trim();
@@ -1107,17 +1859,14 @@ function parsePostgreSQLDDL(sql) {
       if (pkm2) { tbl.primaryKey = { name: 'pk_'+tbl.name, columns: pkm2[1].split(',').map(c=>c.trim().replace(/["']/g,'')) }; continue; }
       const uqm = p.match(/^(?:CONSTRAINT\s+["']?(\w+)["']?\s+)?UNIQUE\s*\(([^)]+)\)/i);
       if (uqm) { tbl.uniqueKeys.push({ name: uqm[1]||'uq_'+tbl.name, columns: uqm[2].split(',').map(c=>c.trim().replace(/["']/g,'')) }); continue; }
-      // FOREIGN KEY constraint
       const fkm2 = p.match(/^(?:CONSTRAINT\s+["']?(\w+)["']?\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+(?:[\w"]+\.)?["']?(\w+)["']?\s*\(([^)]+)\)(?:\s+ON\s+DELETE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?(?:\s+ON\s+UPDATE\s+(CASCADE|SET\s+NULL|RESTRICT|NO\s+ACTION))?/i);
       if (fkm2) { tbl.foreignKeys.push({ name: fkm2[1]||'fk_'+tbl.name, columns: fkm2[2].split(',').map(c=>c.trim().replace(/["']/g,'')), refTable: fkm2[3], refColumns: fkm2[4].split(',').map(c=>c.trim().replace(/["']/g,'')), onDelete: fkm2[5]||null, onUpdate: fkm2[6]||null }); continue; }
-      // Skip CHECK, EXCLUDE
       if (/^(CHECK|EXCLUDE)\b/i.test(p)) continue;
       const col = parsePGColumn(p);
       if (col) tbl.columns.push(col);
     }
     tables.push(tbl);
   }
-
   // COMMENT ON
   for (const stmt of stmts) {
     const s = stmt.trim();
@@ -1126,7 +1875,6 @@ function parsePostgreSQLDDL(sql) {
     const ccm = s.match(/^COMMENT\s+ON\s+COLUMN\s+(?:[\w"]+\.)?["']?(\w+)["']?\.["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
     if (ccm) { const t = tables.find(t => t.name.toLowerCase() === ccm[1].toLowerCase()); if (t) { const c = t.columns.find(c => c.name.toLowerCase() === ccm[2].toLowerCase()); if (c) c.comment = ccm[3].replace(/''/g,"'"); } }
   }
-
   // CREATE INDEX
   for (const stmt of stmts) {
     const s = stmt.trim();
@@ -1138,7 +1886,6 @@ function parsePostgreSQLDDL(sql) {
     if (im[1]) tbl.uniqueKeys.push({ name: im[2], columns: cols });
     else tbl.indexes.push({ name: im[2], columns: cols });
   }
-
   // ALTER TABLE ADD FOREIGN KEY
   for (const stmt of stmts) {
     const s = stmt.trim();
@@ -1147,7 +1894,6 @@ function parsePostgreSQLDDL(sql) {
     const tbl = tables.find(t => t.name.toLowerCase() === fm[1].toLowerCase());
     if (tbl) tbl.foreignKeys.push({ name: fm[2]||'fk_'+tbl.name, columns: fm[3].split(',').map(c=>c.trim().replace(/["']/g,'')), refTable: fm[4], refColumns: fm[5].split(',').map(c=>c.trim().replace(/["']/g,'')), onDelete: fm[6]||null, onUpdate: fm[7]||null });
   }
-
   return tables;
 }
 
@@ -1157,12 +1903,10 @@ function parsePGColumn(def) {
   const col = makeColumn();
   col.name = m[1];
   let rest = m[2].trim();
-  // Serial types
   if (/^BIGSERIAL\b/i.test(rest)) { col.type = 'BIGSERIAL'; col.autoIncrement = true; rest = rest.replace(/^BIGSERIAL/i,'').trim(); }
   else if (/^SERIAL\b/i.test(rest)) { col.type = 'SERIAL'; col.autoIncrement = true; rest = rest.replace(/^SERIAL/i,'').trim(); }
   else if (/^SMALLSERIAL\b/i.test(rest)) { col.type = 'SMALLSERIAL'; col.autoIncrement = true; rest = rest.replace(/^SMALLSERIAL/i,'').trim(); }
   else {
-    // Type with optional params
     const tm = rest.match(/^([\w\s]+?)(?:\(([^)]+)\))?\s*(?=DEFAULT|NOT|NULL|CONSTRAINT|CHECK|UNIQUE|PRIMARY|REFERENCES|$)/i);
     if (tm) {
       col.type = tm[1].trim().toUpperCase();
@@ -1176,7 +1920,6 @@ function parsePGColumn(def) {
     }
   }
   col.rawType = col.type + (col.length ? '('+col.length+')' : col.precision ? '('+col.precision+(col.scale!=null?','+col.scale:'')+')' : '');
-  // DEFAULT
   const dm = rest.match(/\bDEFAULT\s+('(?:''|[^'])*'|[\w():.']+(?:\([\d]*\))?)/i);
   if (dm) { col.defaultValue = dm[1].trim(); rest = rest.replace(dm[0],'').trim(); }
   if (/\bNOT\s+NULL\b/i.test(rest)) col.nullable = false;
@@ -1184,7 +1927,6 @@ function parsePGColumn(def) {
 }
 
 /* ===== TYPE MAPPERS ===== */
-/* Oracle type → MySQL type */
 function oracleTypeToMySQL(col) {
   const t = col.type.toUpperCase();
   if (t === 'NUMBER' || t === 'NUMERIC' || t === 'DECIMAL') {
@@ -1214,7 +1956,6 @@ function oracleTypeToMySQL(col) {
   return col.rawType || t;
 }
 
-/* Oracle type → PostgreSQL type */
 function oracleTypeToPG(col) {
   const t = col.type.toUpperCase();
   if (t === 'NUMBER' || t === 'NUMERIC' || t === 'DECIMAL') {
@@ -1240,7 +1981,6 @@ function oracleTypeToPG(col) {
   return col.rawType || t;
 }
 
-/* MySQL type → Oracle type */
 function mysqlTypeToOracle(col) {
   const t = col.type.toUpperCase();
   if (t === 'TINYINT') return col.precision === 1 ? 'NUMBER(1)' : 'NUMBER(3)';
@@ -1270,7 +2010,6 @@ function mysqlTypeToOracle(col) {
   return t;
 }
 
-/* MySQL type → PostgreSQL type */
 function mysqlTypeToPG(col) {
   const t = col.type.toUpperCase();
   if (t === 'TINYINT') return col.precision === 1 ? 'BOOLEAN' : 'SMALLINT';
@@ -1297,7 +2036,6 @@ function mysqlTypeToPG(col) {
   return t;
 }
 
-/* PostgreSQL type → Oracle type */
 function pgTypeToOracle(col) {
   const t = col.type.toUpperCase();
   if (t === 'BIGSERIAL') return 'NUMBER(18)';
@@ -1323,7 +2061,6 @@ function pgTypeToOracle(col) {
   return t;
 }
 
-/* PostgreSQL type → MySQL type */
 function pgTypeToMySQL(col) {
   const t = col.type.toUpperCase();
   if (t === 'BIGSERIAL') return 'BIGINT';
@@ -1360,14 +2097,14 @@ function convertDefault(val, from, to) {
   if (from === 'mysql') {
     if (v === 'CURRENT_TIMESTAMP' || v.startsWith('CURRENT_TIMESTAMP(') || v === 'NOW()' || v.startsWith('NOW(')) return to === 'oracle' ? 'SYSTIMESTAMP' : 'CLOCK_TIMESTAMP()';
     if (v === 'UUID()') return to === 'oracle' ? 'SYS_GUID()' : 'gen_random_uuid()';
-    if (v === 'TRUE' || v === "'1'") return to === 'oracle' ? '1' : 'TRUE';
-    if (v === 'FALSE' || v === "'0'") return to === 'oracle' ? '0' : 'FALSE';
+    if (v === 'TRUE') return to === 'oracle' ? '1' : 'TRUE';
+    if (v === 'FALSE') return to === 'oracle' ? '0' : 'FALSE';
   }
   if (from === 'postgresql') {
     if (v === 'CLOCK_TIMESTAMP()' || v === 'NOW()' || v === 'CURRENT_TIMESTAMP') return to === 'oracle' ? 'SYSTIMESTAMP' : 'CURRENT_TIMESTAMP(6)';
     if (v === 'GEN_RANDOM_UUID()') return to === 'oracle' ? 'SYS_GUID()' : 'UUID()';
-    if (v === 'TRUE' || v === "'1'") return to === 'oracle' ? '1' : 'TRUE';
-    if (v === 'FALSE' || v === "'0'") return to === 'oracle' ? '0' : 'FALSE';
+    if (v === 'TRUE') return to === 'oracle' ? '1' : 'TRUE';
+    if (v === 'FALSE') return to === 'oracle' ? '0' : 'FALSE';
   }
   return val;
 }
@@ -1385,16 +2122,14 @@ function generateOracleDDL(tables, fromDb) {
       const cname = col.name.toUpperCase();
       let t = typeMap(col);
       let line = '    ' + pad(cname, 18) + ' ' + pad(t, 20);
+      if (col.autoIncrement) line += ' GENERATED BY DEFAULT ON NULL AS IDENTITY';
       const dv = convertDefault(col.defaultValue, fromDb, 'oracle');
-      if (dv) line += ' DEFAULT ' + dv;
+      if (dv && !col.autoIncrement) line += ' DEFAULT ' + dv;
       if (!col.nullable) line += ' NOT NULL';
       colLines.push(line);
     }
-    if (tbl.primaryKey) {
-      colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toUpperCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toUpperCase()).join(', ') + ')');
-    }
+    if (tbl.primaryKey) colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toUpperCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toUpperCase()).join(', ') + ')');
     lines.push(colLines.join(',\n'));
-    // Partition
     if (tbl.partition) {
       const partType = tbl.partition.type;
       lines.push(')');
@@ -1411,56 +2146,27 @@ function generateOracleDDL(tables, fromDb) {
         lines.push(pLines.join(',\n'));
         lines.push(');');
       } else {
-        // RANGE
         lines.push('PARTITION BY ' + partType + ' (' + tbl.partition.columns.map(c=>c.toUpperCase()).join(', ') + ') (');
         const pLines = [];
         for (const p of tbl.partition.partitions) {
-          if (p.isDefault) {
-            // Oracle doesn't have DEFAULT partition for RANGE; use MAXVALUE
-            pLines.push('    PARTITION ' + p.name.toUpperCase() + ' VALUES LESS THAN (MAXVALUE)');
-            continue;
-          }
+          if (p.isDefault) { pLines.push('    PARTITION ' + p.name.toUpperCase() + ' VALUES LESS THAN (MAXVALUE)'); continue; }
           let val = p.value || '';
-          if (p.valueFrom && p.valueTo) {
-            // PG style -> Oracle style
-            val = "TO_DATE('" + p.valueTo + "', 'YYYY-MM-DD')";
-          } else if (/^TO_DAYS\(/i.test(val)) {
-            // MySQL TO_DAYS -> Oracle TO_DATE
-            const dm = val.match(/TO_DAYS\s*\(\s*'([^']*)'\s*\)/i);
-            val = dm ? "TO_DATE('" + dm[1] + "', 'YYYY-MM-DD')" : val;
-          } else if (val.toUpperCase() === 'MAXVALUE' || val === '') {
-            val = 'MAXVALUE';
-          }
+          if (p.valueFrom && p.valueTo) { val = "TO_DATE('" + p.valueTo + "', 'YYYY-MM-DD')"; }
+          else if (/^TO_DAYS\(/i.test(val)) { const dm = val.match(/TO_DAYS\s*\(\s*'([^']*)'\s*\)/i); val = dm ? "TO_DATE('" + dm[1] + "', 'YYYY-MM-DD')" : val; }
+          else if (val.toUpperCase() === 'MAXVALUE' || val === '') { val = 'MAXVALUE'; }
           pLines.push('    PARTITION ' + p.name.toUpperCase() + ' VALUES LESS THAN (' + val + ')');
         }
         lines.push(pLines.join(',\n'));
         lines.push(');');
       }
-    } else {
-      lines.push(');');
-    }
+    } else { lines.push(');'); }
     lines.push('');
-    // Table comment
-    if (tbl.comment) {
-      lines.push("COMMENT ON TABLE " + tname + " IS '" + tbl.comment.replace(/'/g, "''") + "';");
-    }
-    // Column comments
-    for (const col of tbl.columns) {
-      if (col.comment) {
-        lines.push("COMMENT ON COLUMN " + tname + "." + col.name.toUpperCase() + " IS '" + col.comment.replace(/'/g, "''") + "';");
-      }
-    }
+    if (tbl.comment) lines.push("COMMENT ON TABLE " + tname + " IS '" + tbl.comment.replace(/'/g, "''") + "';");
+    for (const col of tbl.columns) { if (col.comment) lines.push("COMMENT ON COLUMN " + tname + "." + col.name.toUpperCase() + " IS '" + col.comment.replace(/'/g, "''") + "';"); }
     if (tbl.columns.some(c=>c.comment) || tbl.comment) lines.push('');
-    // Unique indexes
-    for (const uk of tbl.uniqueKeys) {
-      lines.push('CREATE UNIQUE INDEX ' + uk.name.toUpperCase() + ' ON ' + tname + '(' + uk.columns.map(c=>c.toUpperCase()).join(', ') + ');');
-    }
-    // Indexes
-    for (const idx of tbl.indexes) {
-      lines.push('CREATE INDEX ' + idx.name.toUpperCase() + ' ON ' + tname + '(' + idx.columns.map(c=>c.toUpperCase()).join(', ') + ');');
-    }
+    for (const uk of tbl.uniqueKeys) lines.push('CREATE UNIQUE INDEX ' + uk.name.toUpperCase() + ' ON ' + tname + '(' + uk.columns.map(c=>c.toUpperCase()).join(', ') + ');');
+    for (const idx of tbl.indexes) lines.push('CREATE INDEX ' + idx.name.toUpperCase() + ' ON ' + tname + '(' + idx.columns.map(c=>c.toUpperCase()).join(', ') + ');');
     if (tbl.uniqueKeys.length || tbl.indexes.length) lines.push('');
-    // Foreign keys
     for (const fk of tbl.foreignKeys) {
       let fkLine = 'ALTER TABLE ' + tname + ' ADD CONSTRAINT ' + fk.name.toUpperCase() + ' FOREIGN KEY (' + fk.columns.map(c=>c.toUpperCase()).join(', ') + ') REFERENCES ' + fk.refTable.toUpperCase() + '(' + fk.refColumns.map(c=>c.toUpperCase()).join(', ') + ')';
       if (fk.onDelete) fkLine += ' ON DELETE ' + fk.onDelete.toUpperCase();
@@ -1468,15 +2174,6 @@ function generateOracleDDL(tables, fromDb) {
       lines.push(fkLine + ';');
     }
     if (tbl.foreignKeys.length) lines.push('');
-    // Auto increment → sequence
-    for (const col of tbl.columns) {
-      if (col.autoIncrement) {
-        const seqName = 'SEQ_' + tname + '_' + col.name.toUpperCase();
-        lines.push('-- 自增序列 (替代 AUTO_INCREMENT / SERIAL)');
-        lines.push('CREATE SEQUENCE ' + seqName + ' START WITH 1 INCREMENT BY 1 NOCACHE;');
-        lines.push('');
-      }
-    }
   }
   return lines.join('\n').trim();
 }
@@ -1496,26 +2193,14 @@ function generateMySQLDDL(tables, fromDb) {
       let line = '    `' + cname + '`' + ' '.repeat(Math.max(1, 18 - cname.length)) + pad(t, 20);
       const dv = convertDefault(col.defaultValue, fromDb, 'mysql');
       if (dv) line += ' DEFAULT ' + dv;
-      // Auto increment
       if (col.autoIncrement) line += ' AUTO_INCREMENT';
       if (!col.nullable) line += ' NOT NULL';
-      // Inline column comment
       if (col.comment) line += " COMMENT '" + col.comment.replace(/'/g, "''") + "'";
       colLines.push(line);
     }
-    // Primary key
-    if (tbl.primaryKey) {
-      colLines.push('    PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
-    }
-    // Unique keys
-    for (const uk of tbl.uniqueKeys) {
-      colLines.push('    UNIQUE KEY `' + uk.name.toLowerCase() + '` (' + uk.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
-    }
-    // Indexes
-    for (const idx of tbl.indexes) {
-      colLines.push('    KEY `' + idx.name.toLowerCase() + '` (' + idx.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
-    }
-    // Foreign keys (inline)
+    if (tbl.primaryKey) colLines.push('    PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
+    for (const uk of tbl.uniqueKeys) colLines.push('    UNIQUE KEY `' + uk.name.toLowerCase() + '` (' + uk.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
+    for (const idx of tbl.indexes) colLines.push('    KEY `' + idx.name.toLowerCase() + '` (' + idx.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')');
     for (const fk of tbl.foreignKeys) {
       let fkLine = '    CONSTRAINT `' + fk.name.toLowerCase() + '` FOREIGN KEY (' + fk.columns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ') REFERENCES `' + fk.refTable.toLowerCase() + '`(' + fk.refColumns.map(c=>'`'+c.toLowerCase()+'`').join(', ') + ')';
       if (fk.onDelete) fkLine += ' ON DELETE ' + fk.onDelete.toUpperCase();
@@ -1525,7 +2210,6 @@ function generateMySQLDDL(tables, fromDb) {
     lines.push(colLines.join(',\n'));
     let optLine = ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
     if (tbl.comment) optLine += "\n  COMMENT='" + tbl.comment.replace(/'/g, "''") + "'";
-    // Partition
     if (tbl.partition) {
       lines.push(optLine);
       const pType = tbl.partition.type;
@@ -1537,54 +2221,31 @@ function generateMySQLDDL(tables, fromDb) {
       } else if (pType === 'LIST') {
         lines.push('  PARTITION BY LIST COLUMNS(' + pCols + ') (');
         const pLines = [];
-        for (const p of tbl.partition.partitions) {
-          const vals = p.values ? p.values.join(',') : (p.value || '');
-          pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES IN (' + vals + ')');
-        }
+        for (const p of tbl.partition.partitions) { const vals = p.values ? p.values.join(',') : (p.value || ''); pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES IN (' + vals + ')'); }
         lines.push(pLines.join(',\n'));
         lines.push('  );');
       } else if (pType === 'RANGE') {
-        // Check if date column → use TO_DAYS
         const isDate = tbl.columns.some(c => tbl.partition.columns.some(pc => pc.toUpperCase() === c.name.toUpperCase()) && /DATE|DATETIME|TIMESTAMP/i.test(typeMap(c)));
-        if (isDate) {
-          lines.push('  PARTITION BY RANGE (TO_DAYS(' + pCols + ')) (');
-        } else {
-          lines.push('  PARTITION BY RANGE (' + pCols + ') (');
-        }
+        if (isDate) lines.push('  PARTITION BY RANGE (TO_DAYS(' + pCols + ')) (');
+        else lines.push('  PARTITION BY RANGE (' + pCols + ') (');
         const pLines = [];
         for (const p of tbl.partition.partitions) {
-          if (p.isDefault) {
-            pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN MAXVALUE');
-            continue;
-          }
+          if (p.isDefault) { pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN MAXVALUE'); continue; }
           let val = p.value || '';
-          if (p.valueFrom && p.valueTo) {
-            // PG style
-            val = "TO_DAYS('" + p.valueTo + "')";
-          } else if (/TO_DATE\s*\(\s*'([^']*)'/i.test(val)) {
-            const dm = val.match(/TO_DATE\s*\(\s*'([^']*)'/i);
-            val = "TO_DAYS('" + dm[1] + "')";
-          } else if (val.toUpperCase() === 'MAXVALUE') {
-            val = 'MAXVALUE';
-          }
-          if (val === 'MAXVALUE') {
-            pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN MAXVALUE');
-          } else {
-            pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN (' + val + ')');
-          }
+          if (p.valueFrom && p.valueTo) { val = "TO_DAYS('" + p.valueTo + "')"; }
+          else if (/TO_DATE\s*\(\s*'([^']*)'/i.test(val)) { const dm = val.match(/TO_DATE\s*\(\s*'([^']*)'/i); val = "TO_DAYS('" + dm[1] + "')"; }
+          else if (val.toUpperCase() === 'MAXVALUE') { val = 'MAXVALUE'; }
+          if (val === 'MAXVALUE') pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN MAXVALUE');
+          else pLines.push('    PARTITION `' + p.name.toLowerCase() + '` VALUES LESS THAN (' + val + ')');
         }
         lines.push(pLines.join(',\n'));
         lines.push('  );');
       }
-    } else {
-      lines.push(optLine + ';');
-    }
+    } else { lines.push(optLine + ';'); }
     lines.push('');
   }
   return lines.join('\n').trim();
 }
-
-function pad(s, n) { return s + ' '.repeat(Math.max(0, n - s.length)); }
 
 /* ===== POSTGRESQL GENERATOR ===== */
 function generatePostgreSQLDDL(tables, fromDb) {
@@ -1598,34 +2259,23 @@ function generatePostgreSQLDDL(tables, fromDb) {
     for (const col of tbl.columns) {
       const cname = col.name.toLowerCase();
       let t;
-      // Auto increment → SERIAL types
       if (col.autoIncrement) {
         const baseT = typeMap(col);
         if (/BIGINT/i.test(baseT) || /NUMBER\(18\)/i.test(col.rawType) || col.type === 'BIGSERIAL') t = 'BIGSERIAL';
         else if (/SMALLINT/i.test(baseT)) t = 'SMALLSERIAL';
         else t = 'SERIAL';
-      } else {
-        t = typeMap(col);
-      }
+      } else { t = typeMap(col); }
       let line = '    ' + pad(cname, 18) + ' ' + pad(t, 20);
-      if (!col.autoIncrement) {
-        const dv = convertDefault(col.defaultValue, fromDb, 'postgresql');
-        if (dv) line += ' DEFAULT ' + dv;
-      }
+      if (!col.autoIncrement) { const dv = convertDefault(col.defaultValue, fromDb, 'postgresql'); if (dv) line += ' DEFAULT ' + dv; }
       if (!col.nullable) line += ' NOT NULL';
       colLines.push(line);
     }
-    if (tbl.primaryKey) {
-      colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toLowerCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toLowerCase()).join(', ') + ')');
-    }
+    if (tbl.primaryKey) colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toLowerCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toLowerCase()).join(', ') + ')');
     lines.push(colLines.join(',\n'));
-
-    // Partition
     if (tbl.partition) {
       const partType = tbl.partition.type;
       lines.push(') PARTITION BY ' + partType + ' (' + tbl.partition.columns.map(c=>c.toLowerCase()).join(', ') + ');');
       lines.push('');
-
       if (partType === 'HASH') {
         const count = tbl.partition.hashCount || tbl.partition.partitions.length || 4;
         for (let i = 0; i < count; i++) {
@@ -1636,90 +2286,46 @@ function generatePostgreSQLDDL(tables, fromDb) {
         lines.push('');
       } else if (partType === 'LIST') {
         for (const p of tbl.partition.partitions) {
-          if (p.isDefault) {
-            lines.push('CREATE TABLE ' + tname + '_' + p.name.toLowerCase() + ' PARTITION OF ' + tname + ' DEFAULT;');
-            continue;
-          }
+          if (p.isDefault) { lines.push('CREATE TABLE ' + tname + '_' + p.name.toLowerCase() + ' PARTITION OF ' + tname + ' DEFAULT;'); continue; }
           const vals = p.values ? p.values.join(',') : (p.value || '');
           lines.push('CREATE TABLE ' + tname + '_' + p.name.toLowerCase() + ' PARTITION OF ' + tname);
           lines.push('    FOR VALUES IN (' + vals + ');');
         }
         lines.push('');
       } else {
-        // RANGE: build FROM/TO pairs from LESS THAN values
         const rangePartitions = [];
         for (const p of tbl.partition.partitions) {
-          if (p.isDefault) {
-            rangePartitions.push({ name: p.name, isDefault: true });
-            continue;
-          }
-          let valTo = null;
-          if (p.valueFrom && p.valueTo) {
-            rangePartitions.push({ name: p.name, from: p.valueFrom, to: p.valueTo });
-            continue;
-          }
+          if (p.isDefault) { rangePartitions.push({ name: p.name, isDefault: true }); continue; }
+          if (p.valueFrom && p.valueTo) { rangePartitions.push({ name: p.name, from: p.valueFrom, to: p.valueTo }); continue; }
           const val = (p.value || '').trim();
-          if (val.toUpperCase() === 'MAXVALUE') {
-            rangePartitions.push({ name: p.name, isDefault: true });
-            continue;
-          }
-          // Extract date from TO_DATE('...') or TO_DAYS('...')
+          if (val.toUpperCase() === 'MAXVALUE') { rangePartitions.push({ name: p.name, isDefault: true }); continue; }
           const dm = val.match(/TO_DATE\s*\(\s*'([^']*)'/i) || val.match(/TO_DAYS\s*\(\s*'([^']*)'/i);
-          if (dm) valTo = dm[1];
-          else valTo = val;
+          let valTo = dm ? dm[1] : val;
           rangePartitions.push({ name: p.name, to: valTo });
         }
-        // Convert LESS THAN values to FROM/TO pairs
         let prevTo = null;
         for (const rp of rangePartitions) {
-          if (rp.isDefault) {
-            lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname + ' DEFAULT;');
-            continue;
-          }
+          if (rp.isDefault) { lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname + ' DEFAULT;'); continue; }
           if (rp.from && rp.to) {
             lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname);
             lines.push("    FOR VALUES FROM ('" + rp.from + "') TO ('" + rp.to + "');");
             prevTo = rp.to;
           } else if (rp.to) {
-            if (prevTo) {
-              lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname);
-              lines.push("    FOR VALUES FROM ('" + prevTo + "') TO ('" + rp.to + "');");
-            } else {
-              // First partition: use MINVALUE
-              lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname);
-              lines.push("    FOR VALUES FROM (MINVALUE) TO ('" + rp.to + "');");
-            }
+            lines.push('CREATE TABLE ' + tname + '_' + rp.name.toLowerCase() + ' PARTITION OF ' + tname);
+            if (prevTo) lines.push("    FOR VALUES FROM ('" + prevTo + "') TO ('" + rp.to + "');");
+            else lines.push("    FOR VALUES FROM (MINVALUE) TO ('" + rp.to + "');");
             prevTo = rp.to;
           }
         }
         lines.push('');
       }
-    } else {
-      lines.push(');');
-      lines.push('');
-    }
-
-    // Comments (PostgreSQL uses COMMENT ON, same as Oracle)
-    if (tbl.comment) {
-      lines.push("COMMENT ON TABLE " + tname + " IS '" + tbl.comment.replace(/'/g, "''") + "';");
-    }
-    for (const col of tbl.columns) {
-      if (col.comment) {
-        lines.push("COMMENT ON COLUMN " + tname + "." + col.name.toLowerCase() + " IS '" + col.comment.replace(/'/g, "''") + "';");
-      }
-    }
+    } else { lines.push(');'); lines.push(''); }
+    if (tbl.comment) lines.push("COMMENT ON TABLE " + tname + " IS '" + tbl.comment.replace(/'/g, "''") + "';");
+    for (const col of tbl.columns) { if (col.comment) lines.push("COMMENT ON COLUMN " + tname + "." + col.name.toLowerCase() + " IS '" + col.comment.replace(/'/g, "''") + "';"); }
     if (tbl.columns.some(c=>c.comment) || tbl.comment) lines.push('');
-
-    // Unique indexes
-    for (const uk of tbl.uniqueKeys) {
-      lines.push('CREATE UNIQUE INDEX ' + uk.name.toLowerCase() + ' ON ' + tname + '(' + uk.columns.map(c=>c.toLowerCase()).join(', ') + ');');
-    }
-    // Indexes
-    for (const idx of tbl.indexes) {
-      lines.push('CREATE INDEX ' + idx.name.toLowerCase() + ' ON ' + tname + '(' + idx.columns.map(c=>c.toLowerCase()).join(', ') + ');');
-    }
+    for (const uk of tbl.uniqueKeys) lines.push('CREATE UNIQUE INDEX ' + uk.name.toLowerCase() + ' ON ' + tname + '(' + uk.columns.map(c=>c.toLowerCase()).join(', ') + ');');
+    for (const idx of tbl.indexes) lines.push('CREATE INDEX ' + idx.name.toLowerCase() + ' ON ' + tname + '(' + idx.columns.map(c=>c.toLowerCase()).join(', ') + ');');
     if (tbl.uniqueKeys.length || tbl.indexes.length) lines.push('');
-    // Foreign keys
     for (const fk of tbl.foreignKeys) {
       let fkLine = 'ALTER TABLE ' + tname + ' ADD CONSTRAINT ' + fk.name.toLowerCase() + ' FOREIGN KEY (' + fk.columns.map(c=>c.toLowerCase()).join(', ') + ') REFERENCES ' + fk.refTable.toLowerCase() + '(' + fk.refColumns.map(c=>c.toLowerCase()).join(', ') + ')';
       if (fk.onDelete) fkLine += ' ON DELETE ' + fk.onDelete.toUpperCase();
@@ -1734,32 +2340,23 @@ function generatePostgreSQLDDL(tables, fromDb) {
 /* ===== MAIN CONVERT ===== */
 function convertDDL(input, sourceDb, targetDb) {
   if (!input.trim()) return '-- 请输入 DDL 语句';
+  if (input.length > 500000) return '-- 输入内容过大（超过500KB），请分批处理';
   if (sourceDb === targetDb) return '-- 源数据库与目标数据库相同，无需转换';
-  // Input size guard to prevent performance issues
-  if (input.length > 500000) return '-- 输入内容过大（超过 500KB），请拆分后转换';
-
   let tables;
   try {
     if (sourceDb === 'oracle') tables = parseOracleDDL(input);
     else if (sourceDb === 'mysql') tables = parseMySQLDDL(input);
     else if (sourceDb === 'postgresql') tables = parsePostgreSQLDDL(input);
     else return '-- 不支持的源数据库: ' + sourceDb;
-  } catch (e) {
-    return '-- 解析失败: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确';
-  }
-
+  } catch (e) { return '-- 解析失败: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确'; }
   if (!tables || !tables.length) return '-- 未识别到 CREATE TABLE 语句，请检查输入格式';
-
   let output;
   try {
     if (targetDb === 'oracle') output = generateOracleDDL(tables, sourceDb);
     else if (targetDb === 'mysql') output = generateMySQLDDL(tables, sourceDb);
     else if (targetDb === 'postgresql') output = generatePostgreSQLDDL(tables, sourceDb);
     else return '-- 不支持的目标数据库: ' + targetDb;
-  } catch (e) {
-    return '-- 生成失败: ' + e.message;
-  }
-
+  } catch (e) { return '-- 生成失败: ' + e.message; }
   const header = '-- ============================================================\n'
     + '-- 自动生成: ' + DB_LABELS[sourceDb] + ' → ' + DB_LABELS[targetDb] + '\n'
     + '-- 表数量: ' + tables.length + '\n'
@@ -1769,102 +2366,1023 @@ function convertDDL(input, sourceDb, targetDb) {
   return header + output;
 }
 
+/* ===== SHARED UTILITIES FOR FUNCTION & PROCEDURE ENGINES ===== */
+
+function mapParamType(typeStr, fromDb, toDb) {
+  if (!typeStr) return typeStr;
+  let t = typeStr.trim();
+  if (fromDb === toDb) return t;
+
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') {
+      t = t.replace(/\bNUMBER\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'DECIMAL($1,$2)');
+      t = t.replace(/\bNUMBER\s*\(\s*(\d+)\s*\)/gi, 'BIGINT');
+      t = t.replace(/\bNUMBER\b/gi, 'BIGINT');
+      t = t.replace(/\bVARCHAR2\s*\(([^)]+)\)/gi, 'VARCHAR($1)');
+      t = t.replace(/\bVARCHAR2\b/gi, 'VARCHAR(4000)');
+      t = t.replace(/\bNVARCHAR2\s*\(([^)]+)\)/gi, 'VARCHAR($1)');
+      t = t.replace(/\bCLOB\b/gi, 'LONGTEXT');
+      t = t.replace(/\bBLOB\b/gi, 'LONGBLOB');
+      t = t.replace(/\bDATE\b/gi, 'DATETIME');
+      t = t.replace(/\bTIMESTAMP\b/gi, 'DATETIME(6)');
+      t = t.replace(/\bPLS_INTEGER\b/gi, 'INT');
+      t = t.replace(/\bBINARY_INTEGER\b/gi, 'INT');
+      t = t.replace(/\bBOOLEAN\b/gi, 'TINYINT(1)');
+      t = t.replace(/\bINTEGER\b/gi, 'INT');
+      t = t.replace(/\bREAL\b/gi, 'DOUBLE');
+    } else if (toDb === 'postgresql') {
+      t = t.replace(/\bNUMBER\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'NUMERIC($1,$2)');
+      t = t.replace(/\bNUMBER\s*\(\s*(\d+)\s*\)/gi, 'BIGINT');
+      t = t.replace(/\bNUMBER\b/gi, 'BIGINT');
+      t = t.replace(/\bVARCHAR2\s*\(([^)]+)\)/gi, 'VARCHAR($1)');
+      t = t.replace(/\bVARCHAR2\b/gi, 'VARCHAR');
+      t = t.replace(/\bNVARCHAR2\s*\(([^)]+)\)/gi, 'VARCHAR($1)');
+      t = t.replace(/\bCLOB\b/gi, 'TEXT');
+      t = t.replace(/\bBLOB\b/gi, 'BYTEA');
+      t = t.replace(/\bDATE\b/gi, 'TIMESTAMP');
+      t = t.replace(/\bTIMESTAMP\b/gi, 'TIMESTAMP');
+      t = t.replace(/\bPLS_INTEGER\b/gi, 'INTEGER');
+      t = t.replace(/\bBINARY_INTEGER\b/gi, 'INTEGER');
+      t = t.replace(/\bBOOLEAN\b/gi, 'BOOLEAN');
+      t = t.replace(/\bREAL\b/gi, 'DOUBLE PRECISION');
+    }
+  }
+
+  if (fromDb === 'mysql') {
+    if (toDb === 'oracle') {
+      t = t.replace(/\bDECIMAL\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'NUMBER($1,$2)');
+      t = t.replace(/\bBIGINT\b/gi, 'NUMBER(19)');
+      t = t.replace(/\bTINYINT\s*\(\s*1\s*\)/gi, 'NUMBER(1)');
+      t = t.replace(/\bTINYINT\b/gi, 'NUMBER(3)');
+      t = t.replace(/\bSMALLINT\b/gi, 'NUMBER(5)');
+      t = t.replace(/\bINT\b/gi, 'NUMBER(10)');
+      t = t.replace(/\bDOUBLE\b/gi, 'NUMBER');
+      t = t.replace(/\bFLOAT\b/gi, 'NUMBER');
+      t = t.replace(/\bLONGTEXT\b/gi, 'CLOB');
+      t = t.replace(/\bMEDIUMTEXT\b/gi, 'CLOB');
+      t = t.replace(/\bTEXT\b/gi, 'CLOB');
+      t = t.replace(/\bLONGBLOB\b/gi, 'BLOB');
+      t = t.replace(/\bDATETIME\s*\(\s*\d+\s*\)/gi, 'TIMESTAMP');
+      t = t.replace(/\bDATETIME\b/gi, 'DATE');
+      t = t.replace(/\bBOOLEAN\b/gi, 'NUMBER(1)');
+    } else if (toDb === 'postgresql') {
+      t = t.replace(/\bDECIMAL\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'NUMERIC($1,$2)');
+      t = t.replace(/\bTINYINT\s*\(\s*1\s*\)/gi, 'BOOLEAN');
+      t = t.replace(/\bTINYINT\b/gi, 'SMALLINT');
+      t = t.replace(/\bINT\b/gi, 'INTEGER');
+      t = t.replace(/\bDOUBLE\b/gi, 'DOUBLE PRECISION');
+      t = t.replace(/\bLONGTEXT\b/gi, 'TEXT');
+      t = t.replace(/\bMEDIUMTEXT\b/gi, 'TEXT');
+      t = t.replace(/\bLONGBLOB\b/gi, 'BYTEA');
+      t = t.replace(/\bDATETIME\s*\(\s*\d+\s*\)/gi, 'TIMESTAMP');
+      t = t.replace(/\bDATETIME\b/gi, 'TIMESTAMP');
+    }
+  }
+
+  if (fromDb === 'postgresql') {
+    if (toDb === 'oracle') {
+      t = t.replace(/\bNUMERIC\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'NUMBER($1,$2)');
+      t = t.replace(/\bNUMERIC\b/gi, 'NUMBER');
+      t = t.replace(/\bBIGINT\b/gi, 'NUMBER(19)');
+      t = t.replace(/\bINTEGER\b/gi, 'NUMBER(10)');
+      t = t.replace(/\bSMALLINT\b/gi, 'NUMBER(5)');
+      t = t.replace(/\bSERIAL\b/gi, 'NUMBER');
+      t = t.replace(/\bBIGSERIAL\b/gi, 'NUMBER');
+      t = t.replace(/\bTEXT\b/gi, 'CLOB');
+      t = t.replace(/\bBYTEA\b/gi, 'BLOB');
+      t = t.replace(/\bBOOLEAN\b/gi, 'NUMBER(1)');
+      t = t.replace(/\bDOUBLE PRECISION\b/gi, 'NUMBER');
+      t = t.replace(/\bVARCHAR\b(?!\s*\()/gi, 'VARCHAR2(4000)');
+      t = t.replace(/\bVARCHAR\s*\(([^)]+)\)/gi, 'VARCHAR2($1)');
+    } else if (toDb === 'mysql') {
+      t = t.replace(/\bNUMERIC\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'DECIMAL($1,$2)');
+      t = t.replace(/\bNUMERIC\b/gi, 'DECIMAL');
+      t = t.replace(/\bINTEGER\b/gi, 'INT');
+      t = t.replace(/\bSERIAL\b/gi, 'INT AUTO_INCREMENT');
+      t = t.replace(/\bBIGSERIAL\b/gi, 'BIGINT AUTO_INCREMENT');
+      t = t.replace(/\bTEXT\b/gi, 'LONGTEXT');
+      t = t.replace(/\bBYTEA\b/gi, 'LONGBLOB');
+      t = t.replace(/\bTIMESTAMP\b/gi, 'DATETIME');
+      t = t.replace(/\bBOOLEAN\b/gi, 'TINYINT(1)');
+      t = t.replace(/\bDOUBLE PRECISION\b/gi, 'DOUBLE');
+    }
+  }
+
+  return t;
+}
+
+function _splitArgs(str) {
+  var result = [], depth = 0, current = '';
+  for (var i = 0; i < str.length; i++) {
+    var ch = str[i];
+    if (ch === '(') { depth++; current += ch; }
+    else if (ch === ')') { depth--; current += ch; }
+    else if (ch === ',' && depth === 0) { result.push(current); current = ''; }
+    else { current += ch; }
+  }
+  if (current.trim()) result.push(current);
+  return result;
+}
+
+function _splitParamList(paramStr) {
+  return _splitArgs(paramStr).map(function(p) { return p.trim(); }).filter(function(p) { return p.length > 0; });
+}
+
+function _convertConcatToFunction(line) {
+  if (!line.includes('||')) return line;
+  var parts = [], current = '', inSingle = false, i = 0;
+  while (i < line.length) {
+    if (line[i] === "'" && (i === 0 || line[i - 1] !== '\\')) {
+      inSingle = !inSingle; current += line[i]; i++;
+    } else if (!inSingle && line[i] === '|' && i + 1 < line.length && line[i + 1] === '|') {
+      parts.push(current.trim()); current = ''; i += 2;
+    } else { current += line[i]; i++; }
+  }
+  if (current.trim()) parts.push(current.trim());
+  if (parts.length <= 1) return line;
+  var leading = line.match(/^(\s*)/)[1];
+  return leading + 'CONCAT(' + parts.join(', ') + ')';
+}
+
+function transformBody(body, fromDb, toDb) {
+  if (!body || fromDb === toDb) return body;
+  var b = body;
+
+  // DECODE -> CASE (Oracle source)
+  if (fromDb === 'oracle') {
+    b = b.replace(/\bDECODE\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)/gi, function(match, inner) {
+      var args = _splitArgs(inner);
+      if (args.length < 3) return match;
+      var expr = args[0].trim();
+      var result = 'CASE ' + expr;
+      var i = 1;
+      while (i + 1 < args.length) {
+        if (i + 2 === args.length) {
+          result += ' WHEN ' + args[i].trim() + ' THEN ' + args[i + 1].trim();
+          i += 2;
+        } else {
+          result += ' WHEN ' + args[i].trim() + ' THEN ' + args[i + 1].trim();
+          i += 2;
+        }
+      }
+      if (i < args.length) result += ' ELSE ' + args[i].trim();
+      result += ' END';
+      return result;
+    });
+  }
+
+  // NVL / IFNULL / COALESCE
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') b = b.replace(/\bNVL\s*\(/gi, 'IFNULL(');
+    else if (toDb === 'postgresql') b = b.replace(/\bNVL\s*\(/gi, 'COALESCE(');
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') b = b.replace(/\bIFNULL\s*\(/gi, 'NVL(');
+    else if (toDb === 'postgresql') b = b.replace(/\bIFNULL\s*\(/gi, 'COALESCE(');
+  } else if (fromDb === 'postgresql') {
+    if (toDb === 'oracle') b = b.replace(/\bCOALESCE\s*\(\s*([^,]+),\s*([^)]+)\)/gi, 'NVL($1, $2)');
+    else if (toDb === 'mysql') b = b.replace(/\bCOALESCE\s*\(\s*([^,]+),\s*([^)]+)\)/gi, 'IFNULL($1, $2)');
+  }
+
+  // TO_NUMBER / CAST / ::INTEGER
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') b = b.replace(/\bTO_NUMBER\s*\(\s*([^)]+)\s*\)/gi, 'CAST($1 AS SIGNED)');
+    else if (toDb === 'postgresql') b = b.replace(/\bTO_NUMBER\s*\(\s*([^)]+)\s*\)/gi, 'CAST($1 AS INTEGER)');
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') b = b.replace(/\bCAST\s*\(\s*([^)]+?)\s+AS\s+SIGNED\s*\)/gi, 'TO_NUMBER($1)');
+    else if (toDb === 'postgresql') b = b.replace(/\bCAST\s*\(\s*([^)]+?)\s+AS\s+SIGNED\s*\)/gi, 'CAST($1 AS INTEGER)');
+  } else if (fromDb === 'postgresql') {
+    b = b.replace(/(\w+)::INTEGER/gi, function(m, v) {
+      if (toDb === 'oracle') return 'TO_NUMBER(' + v + ')';
+      return 'CAST(' + v + ' AS SIGNED)';
+    });
+  }
+
+  // SYSDATE / SYSTIMESTAMP / NOW() / CURRENT_DATE / CLOCK_TIMESTAMP()
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') {
+      b = b.replace(/\bSYSTIMESTAMP\b/gi, 'NOW()');
+      b = b.replace(/\bSYSDATE\b/gi, 'NOW()');
+    } else if (toDb === 'postgresql') {
+      b = b.replace(/\bSYSTIMESTAMP\b/gi, 'CLOCK_TIMESTAMP()');
+      b = b.replace(/\bSYSDATE\b/gi, 'CURRENT_DATE');
+    }
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') {
+      b = b.replace(/\bNOW\s*\(\s*\)/gi, 'SYSDATE');
+      b = b.replace(/\bCURRENT_DATE\b(?!\s*\()/gi, 'SYSDATE');
+    } else if (toDb === 'postgresql') {
+      b = b.replace(/\bNOW\s*\(\s*\)/gi, 'CURRENT_DATE');
+    }
+  } else if (fromDb === 'postgresql') {
+    if (toDb === 'oracle') {
+      b = b.replace(/\bCLOCK_TIMESTAMP\s*\(\s*\)/gi, 'SYSTIMESTAMP');
+      b = b.replace(/\bCURRENT_DATE\b/gi, 'SYSDATE');
+      b = b.replace(/\bNOW\s*\(\s*\)/gi, 'SYSDATE');
+    } else if (toDb === 'mysql') {
+      b = b.replace(/\bCLOCK_TIMESTAMP\s*\(\s*\)/gi, 'NOW()');
+      b = b.replace(/\bCURRENT_DATE\b/gi, 'NOW()');
+    }
+  }
+
+  // TO_CHAR / DATE_FORMAT
+  if (fromDb === 'oracle' && toDb === 'mysql') {
+    b = b.replace(/\bTO_CHAR\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "DATE_FORMAT($1, '$2')");
+  } else if (fromDb === 'mysql' && toDb === 'oracle') {
+    b = b.replace(/\bDATE_FORMAT\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_CHAR($1, '$2')");
+  } else if (fromDb === 'mysql' && toDb === 'postgresql') {
+    b = b.replace(/\bDATE_FORMAT\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_CHAR($1, '$2')");
+  } else if (fromDb === 'postgresql' && toDb === 'mysql') {
+    b = b.replace(/\bTO_CHAR\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "DATE_FORMAT($1, '$2')");
+  }
+
+  // TO_DATE / STR_TO_DATE
+  if (fromDb === 'oracle' && toDb === 'mysql') {
+    b = b.replace(/\bTO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "STR_TO_DATE($1, '$2')");
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') b = b.replace(/\bSTR_TO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_DATE($1, '$2')");
+    else if (toDb === 'postgresql') b = b.replace(/\bSTR_TO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_DATE($1, '$2')");
+  } else if (fromDb === 'postgresql' && toDb === 'mysql') {
+    b = b.replace(/\bTO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "STR_TO_DATE($1, '$2')");
+  }
+
+  // SUBSTR / SUBSTRING
+  if (fromDb === 'postgresql' && (toDb === 'oracle' || toDb === 'mysql')) {
+    b = b.replace(/\bSUBSTRING\s*\(\s*([^,]+?)\s+FROM\s+(\S+)\s+FOR\s+(\S+)\s*\)/gi, 'SUBSTR($1, $2, $3)');
+  } else if ((fromDb === 'oracle' || fromDb === 'mysql') && toDb === 'postgresql') {
+    b = b.replace(/\bSUBSTR\s*\(\s*([^,]+),\s*([^,]+),\s*([^)]+)\)/gi, 'SUBSTRING($1 FROM $2 FOR $3)');
+  }
+
+  // String concatenation: || vs CONCAT
+  if (fromDb === 'mysql' && (toDb === 'oracle' || toDb === 'postgresql')) {
+    var prev = '';
+    while (prev !== b) {
+      prev = b;
+      b = b.replace(/\bCONCAT\s*\(\s*([^,()]+(?:\([^()]*\)[^,()]*)*)\s*,\s*([^,()]+(?:\([^()]*\)[^,()]*)*)\s*\)/gi, '($1 || $2)');
+    }
+  } else if ((fromDb === 'oracle' || fromDb === 'postgresql') && toDb === 'mysql') {
+    var lines = b.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+      if (lines[li].includes('||') && !lines[li].match(/^\s*--/)) {
+        lines[li] = _convertConcatToFunction(lines[li]);
+      }
+    }
+    b = lines.join('\n');
+  }
+
+  // DBMS_OUTPUT.PUT_LINE / SELECT / RAISE NOTICE
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') {
+      b = b.replace(/\bDBMS_OUTPUT\.PUT_LINE\s*\(\s*([^;]+)\)\s*;/gi, 'SELECT $1;');
+    } else if (toDb === 'postgresql') {
+      b = b.replace(/\bDBMS_OUTPUT\.PUT_LINE\s*\(\s*([^;]+)\)\s*;/gi, "RAISE NOTICE '%', $1;");
+    }
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') {
+      b = b.replace(/\bSELECT\s+(.+?)\s*;\s*(?=\n|$)/gi, function(m, expr) {
+        if (/\b(INTO|FROM|WHERE)\b/i.test(expr)) return m;
+        return 'DBMS_OUTPUT.PUT_LINE(' + expr.trim() + ');';
+      });
+    } else if (toDb === 'postgresql') {
+      b = b.replace(/\bSELECT\s+(.+?)\s*;\s*(?=\n|$)/gi, function(m, expr) {
+        if (/\b(INTO|FROM|WHERE)\b/i.test(expr)) return m;
+        return "RAISE NOTICE '%', " + expr.trim() + ';';
+      });
+    }
+  } else if (fromDb === 'postgresql') {
+    if (toDb === 'oracle') {
+      b = b.replace(/\bRAISE\s+NOTICE\s+'[^']*',\s*([^;]+);/gi, 'DBMS_OUTPUT.PUT_LINE($1);');
+    } else if (toDb === 'mysql') {
+      b = b.replace(/\bRAISE\s+NOTICE\s+'[^']*',\s*([^;]+);/gi, 'SELECT $1;');
+    }
+  }
+
+  // EXCEPTION handling
+  if (fromDb === 'oracle') {
+    if (toDb === 'mysql') {
+      b = b.replace(/\bEXCEPTION\s+WHEN\s+NO_DATA_FOUND\s+THEN\b/gi,
+        '-- [注意: Oracle EXCEPTION 已转换; MySQL 请使用 DECLARE HANDLER]\n  -- DECLARE CONTINUE HANDLER FOR NOT FOUND');
+      b = b.replace(/\bEXCEPTION\s+WHEN\s+OTHERS\s+THEN\b/gi,
+        '-- [注意: Oracle EXCEPTION 已转换]\n  -- DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN\n  --');
+    }
+  } else if (fromDb === 'mysql') {
+    if (toDb === 'oracle') {
+      b = b.replace(/\bDECLARE\s+(EXIT|CONTINUE)\s+HANDLER\s+FOR\s+SQLEXCEPTION\b/gi,
+        '-- [注意: MySQL HANDLER -> Oracle 请使用 EXCEPTION WHEN OTHERS THEN]');
+      b = b.replace(/\bDECLARE\s+(EXIT|CONTINUE)\s+HANDLER\s+FOR\s+NOT\s+FOUND\b/gi,
+        '-- [注意: MySQL HANDLER -> Oracle 请使用 EXCEPTION WHEN NO_DATA_FOUND THEN]');
+    } else if (toDb === 'postgresql') {
+      b = b.replace(/\bDECLARE\s+(EXIT|CONTINUE)\s+HANDLER\s+FOR\s+SQLEXCEPTION\b/gi,
+        '-- [注意: MySQL HANDLER -> PG 请使用 EXCEPTION WHEN OTHERS THEN]');
+      b = b.replace(/\bDECLARE\s+(EXIT|CONTINUE)\s+HANDLER\s+FOR\s+NOT\s+FOUND\b/gi,
+        '-- [注意: MySQL HANDLER -> PG 请使用 EXCEPTION WHEN NO_DATA_FOUND THEN]');
+    }
+  } else if (fromDb === 'postgresql') {
+    if (toDb === 'mysql') {
+      b = b.replace(/\bEXCEPTION\s+WHEN\s+NO_DATA_FOUND\s+THEN\b/gi,
+        '-- [注意: PG EXCEPTION -> MySQL 请使用 DECLARE HANDLER]');
+      b = b.replace(/\bEXCEPTION\s+WHEN\s+OTHERS\s+THEN\b/gi,
+        '-- [注意: PG EXCEPTION -> MySQL 请使用 DECLARE EXIT HANDLER FOR SQLEXCEPTION]');
+    }
+  }
+
+  // ROWNUM -> LIMIT
+  if (fromDb === 'oracle' && (toDb === 'mysql' || toDb === 'postgresql')) {
+    b = b.replace(/\bWHERE\s+ROWNUM\s*<=?\s*(\d+)/gi, 'LIMIT $1');
+    b = b.replace(/\bAND\s+ROWNUM\s*<=?\s*(\d+)/gi, '\n  LIMIT $1');
+  }
+
+  // Type names inside body
+  if (fromDb === 'oracle' && (toDb === 'mysql' || toDb === 'postgresql')) {
+    b = b.replace(/\bVARCHAR2\b/gi, 'VARCHAR');
+  }
+
+  return b;
+}
+
+/* --- Parameter parsers --- */
+
+function _parseOracleParam(paramStr) {
+  var s = paramStr.trim();
+  if (!s) return null;
+  var m = s.match(/^(\w+)\s+(IN\s+OUT|IN|OUT)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (m) {
+    return { name: m[1], direction: m[2].replace(/\s+/g, ' ').toUpperCase(), type: m[3].trim(), defaultVal: m[4] || null };
+  }
+  var m2 = s.match(/^(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (!m2) return null;
+  return { name: m2[1], direction: 'IN', type: m2[2].trim(), defaultVal: m2[3] || null };
+}
+
+function _parseMySQLParam(paramStr) {
+  var s = paramStr.trim();
+  if (!s) return null;
+  var m = s.match(/^(IN\s*OUT|INOUT|IN|OUT)\s+(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (m) {
+    var dir = m[1].toUpperCase().replace(/\s+/g, ' ');
+    if (dir === 'INOUT') dir = 'IN OUT';
+    return { name: m[2], direction: dir, type: m[3].trim(), defaultVal: m[4] || null };
+  }
+  var m2 = s.match(/^(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (!m2) return null;
+  return { name: m2[1], direction: 'IN', type: m2[2].trim(), defaultVal: m2[3] || null };
+}
+
+function _parsePGParam(paramStr) {
+  var s = paramStr.trim();
+  if (!s) return null;
+  var m = s.match(/^(\w+)\s+(IN\s*OUT|INOUT|IN|OUT)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (m) {
+    var dir = m[2].toUpperCase().replace(/\s+/g, ' ');
+    if (dir === 'INOUT') dir = 'IN OUT';
+    return { name: m[1], direction: dir, type: m[3].trim(), defaultVal: m[4] || null };
+  }
+  var m2 = s.match(/^(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+))?$/i);
+  if (!m2) return null;
+  return { name: m2[1], direction: 'IN', type: m2[2].trim(), defaultVal: m2[3] || null };
+}
+
+function _parseOracleVarDecl(declBlock) {
+  var vars = [];
+  if (!declBlock) return vars;
+  var parts = declBlock.split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var s = parts[i].trim();
+    if (!s) continue;
+    if (/^--/.test(s)) { vars.push({ raw: s + ';' }); continue; }
+    var m = s.match(/^(\w+)\s+(.+?)(?:\s*:=\s*(.+))?$/i);
+    if (m) {
+      vars.push({ name: m[1], type: m[2].trim(), defaultVal: m[3] ? m[3].trim() : null });
+    } else {
+      vars.push({ raw: s + ';' });
+    }
+  }
+  return vars;
+}
+
+/* ===== FUNCTION TRANSLATION ENGINE ===== */
+
+function convertFunction(input, sourceDb, targetDb) {
+  if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源函数定义';
+  if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
+
+  var blocks = input.split(/(?=\bCREATE\b)/i).filter(function(b) { return b.trim().length > 0; });
+  var results = [];
+  var errCount = 0;
+
+  for (var i = 0; i < blocks.length; i++) {
+    try {
+      results.push(_convertSingleFunction(blocks[i].trim(), sourceDb, targetDb));
+    } catch (e) {
+      errCount++;
+      results.push('-- 翻译失败: ' + e.message + '\n-- 原始代码:\n' + blocks[i].trim());
+    }
+  }
+
+  var header = '-- 函数翻译: ' + DB_LABELS[sourceDb] + ' \u2192 ' + DB_LABELS[targetDb] +
+    ' | 共 ' + results.length + ' 个函数' +
+    (errCount > 0 ? ' (' + errCount + ' 个失败)' : '') +
+    ' | ' + new Date().toLocaleString('zh-CN') + '\n';
+
+  return header + '\n' + results.join('\n\n');
+}
+
+function _convertSingleFunction(input, sourceDb, targetDb) {
+  var parsed;
+  if (sourceDb === 'oracle') parsed = _parseOracleFunction(input);
+  else if (sourceDb === 'mysql') parsed = _parseMySQLFunction(input);
+  else parsed = _parsePGFunction(input);
+
+  if (!parsed) throw new Error('无法解析函数定义，请检查语法');
+
+  var mappedParams = parsed.params.map(function(p) {
+    return { name: p.name, direction: p.direction, type: mapParamType(p.type, sourceDb, targetDb), defaultVal: p.defaultVal };
+  });
+  var mappedReturnType = mapParamType(parsed.returnType, sourceDb, targetDb);
+  var transformedBody = transformBody(parsed.body, sourceDb, targetDb);
+  var mappedVars = parsed.vars.map(function(v) {
+    if (v.raw) return v;
+    return { name: v.name, type: mapParamType(v.type, sourceDb, targetDb), defaultVal: v.defaultVal };
+  });
+
+  if (targetDb === 'oracle') return _genOracleFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  if (targetDb === 'mysql') return _genMySQLFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  return _genPGFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+}
+
+/* --- Function parsers --- */
+
+function _parseOracleFunction(input) {
+  var src = input.replace(/\n\s*\/\s*$/, '').trim();
+  var headerRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)\s*\(([^)]*)\)\s*RETURN\s+(\S+(?:\s*\([^)]*\))?)\s+(IS|AS)\b/i;
+  var m = src.match(headerRe);
+  if (!m) throw new Error('无法解析Oracle函数头');
+  var name = m[1], paramStr = m[2], returnType = m[3];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var beginIdx = afterHeader.search(/\bBEGIN\b/i);
+  var declBlock = '', bodyPart = afterHeader;
+  if (beginIdx >= 0) { declBlock = afterHeader.substring(0, beginIdx).trim(); bodyPart = afterHeader.substring(beginIdx); }
+  var params = _splitParamList(paramStr).map(_parseOracleParam).filter(Boolean);
+  var vars = _parseOracleVarDecl(declBlock);
+  var bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i);
+  var body = bodyMatch ? bodyMatch[1] : bodyPart;
+  return { name: name, params: params, returnType: returnType, vars: vars, body: body };
+}
+
+function _parseMySQLFunction(input) {
+  var src = input.replace(/^\s*DELIMITER\s+\S+\s*$/gm, '').trim();
+  src = src.replace(/\$\$\s*$/g, '').trim();
+  var headerRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?FUNCTION\s+(\w+)\s*\(([^)]*)\)\s*RETURNS\s+(\S+(?:\s*\([^)]*\))?)\s*(?:DETERMINISTIC\s*)?(?:READS\s+SQL\s+DATA\s*)?/i;
+  var m = src.match(headerRe);
+  if (!m) throw new Error('无法解析MySQL函数头');
+  var name = m[1], paramStr = m[2], returnType = m[3];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var bodyMatch = afterHeader.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*;?\s*$/i);
+  if (!bodyMatch) throw new Error('无法找到MySQL函数体 BEGIN...END');
+  var bodyContent = bodyMatch[1];
+  var vars = [], bodyLines = bodyContent.split('\n'), nonDeclLines = [];
+  for (var i = 0; i < bodyLines.length; i++) {
+    var declMatch = bodyLines[i].match(/^\s*DECLARE\s+(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+?))?\s*;\s*$/i);
+    if (declMatch) {
+      vars.push({ name: declMatch[1], type: declMatch[2].trim(), defaultVal: declMatch[3] ? declMatch[3].trim() : null });
+    } else { nonDeclLines.push(bodyLines[i]); }
+  }
+  var params = _splitParamList(paramStr).map(_parseMySQLParam).filter(Boolean);
+  return { name: name, params: params, returnType: returnType, vars: vars, body: nonDeclLines.join('\n') };
+}
+
+function _parsePGFunction(input) {
+  var src = input.trim();
+  var headerRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)\s*\(([^)]*)\)\s*RETURNS\s+(\S+(?:\s*\([^)]*\))?)\s*(?:AS\s*\$\$|LANGUAGE\s+\w+\s*AS\s*\$\$)/i;
+  var m = src.match(headerRe);
+  if (!m) throw new Error('无法解析PostgreSQL函数头');
+  var name = m[1], paramStr = m[2], returnType = m[3];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  var vars = [];
+  var declareMatch = inner.match(/\bDECLARE\b([\s\S]*?)\bBEGIN\b/i);
+  if (declareMatch) {
+    var declParts = declareMatch[1].split(';');
+    for (var i = 0; i < declParts.length; i++) {
+      var s = declParts[i].trim();
+      if (!s) continue;
+      var vm = s.match(/^(\w+)\s+(.+?)(?:\s*:=\s*(.+))?$/i);
+      if (vm) vars.push({ name: vm[1], type: vm[2].trim(), defaultVal: vm[3] ? vm[3].trim() : null });
+    }
+  }
+  var bodyMatch = inner.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*;?\s*$/i);
+  var body = bodyMatch ? bodyMatch[1] : inner;
+  var params = _splitParamList(paramStr).map(_parsePGParam).filter(Boolean);
+  return { name: name, params: params, returnType: returnType, vars: vars, body: body };
+}
+
+/* --- Function generators --- */
+
+function _genOracleFunction(name, params, returnType, vars, body) {
+  var out = 'CREATE OR REPLACE FUNCTION ' + name + '(\n';
+  var pLines = params.map(function(p) {
+    var line = '  ' + p.name;
+    line += ' ' + (p.direction || 'IN');
+    line += ' ' + p.type;
+    if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
+    return line;
+  });
+  out += pLines.join(',\n') + ')\nRETURN ' + returnType + '\nIS\n';
+  for (var i = 0; i < vars.length; i++) {
+    var v = vars[i];
+    if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+    out += '  ' + v.name + ' ' + v.type;
+    if (v.defaultVal) out += ' := ' + v.defaultVal;
+    out += ';\n';
+  }
+  out += 'BEGIN' + body;
+  if (!/\bEND\s*;?\s*$/i.test(out.trim())) out += '\nEND;\n';
+  if (!out.trimEnd().match(/END\s*;\s*$/i)) out = out.trimEnd() + ';\n';
+  out += '/';
+  return out;
+}
+
+function _genMySQLFunction(name, params, returnType, vars, body) {
+  var out = 'DELIMITER $$\nCREATE FUNCTION ' + name + '(\n';
+  var filteredParams = [], hasOutNote = false;
+  for (var i = 0; i < params.length; i++) {
+    if (params[i].direction === 'OUT' || params[i].direction === 'IN OUT') { hasOutNote = true; continue; }
+    filteredParams.push(params[i]);
+  }
+  var pLines = filteredParams.map(function(p) { return '  ' + p.name + ' ' + p.type; });
+  out += pLines.join(',\n') + ')\nRETURNS ' + returnType + '\nDETERMINISTIC\nBEGIN\n';
+  if (hasOutNote) out += '  -- 注意: MySQL函数不支持OUT参数，已移除OUT/IN OUT参数\n';
+  for (var j = 0; j < vars.length; j++) {
+    var v = vars[j];
+    if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+    out += '  DECLARE ' + v.name + ' ' + v.type;
+    if (v.defaultVal) out += ' DEFAULT ' + v.defaultVal;
+    out += ';\n';
+  }
+  out += body;
+  // Ensure proper END
+  var afterBegin = out.substring(out.lastIndexOf('BEGIN'));
+  if (!/\bEND\b/i.test(afterBegin.split('BEGIN').pop())) out += '\nEND';
+  out = out.replace(/\bEND\s*;?\s*$/, 'END$$');
+  if (!out.trimEnd().endsWith('$$')) out = out.trimEnd() + '$$';
+  out += '\nDELIMITER ;';
+  return out;
+}
+
+function _genPGFunction(name, params, returnType, vars, body) {
+  var out = 'CREATE OR REPLACE FUNCTION ' + name + '(\n';
+  var pLines = params.map(function(p) {
+    var line = '  ' + p.name;
+    if (p.direction) line += ' ' + p.direction;
+    line += ' ' + p.type;
+    if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
+    return line;
+  });
+  out += pLines.join(',\n') + ')\nRETURNS ' + returnType + '\nLANGUAGE plpgsql\nAS $$\n';
+  if (vars.length > 0) {
+    out += 'DECLARE\n';
+    for (var i = 0; i < vars.length; i++) {
+      var v = vars[i];
+      if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+      out += '  ' + v.name + ' ' + v.type;
+      if (v.defaultVal) out += ' := ' + v.defaultVal;
+      out += ';\n';
+    }
+  }
+  out += 'BEGIN' + body;
+  if (!/\bEND\s*;?\s*$/i.test(out.trim())) out += '\nEND;\n';
+  out = out.replace(/END\s*;?\s*$/, 'END;\n$$;');
+  return out;
+}
+
+/* ===== STORED PROCEDURE TRANSLATION ENGINE ===== */
+
+function convertProcedure(input, sourceDb, targetDb) {
+  if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源存储过程定义';
+  if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
+
+  var blocks = input.split(/(?=\bCREATE\b)/i).filter(function(b) { return b.trim().length > 0; });
+  var results = [];
+  var errCount = 0;
+
+  for (var i = 0; i < blocks.length; i++) {
+    try {
+      results.push(_convertSingleProcedure(blocks[i].trim(), sourceDb, targetDb));
+    } catch (e) {
+      errCount++;
+      results.push('-- 翻译失败: ' + e.message + '\n-- 原始代码:\n' + blocks[i].trim());
+    }
+  }
+
+  var header = '-- 存储过程翻译: ' + DB_LABELS[sourceDb] + ' \u2192 ' + DB_LABELS[targetDb] +
+    ' | 共 ' + results.length + ' 个存储过程' +
+    (errCount > 0 ? ' (' + errCount + ' 个失败)' : '') +
+    ' | ' + new Date().toLocaleString('zh-CN') + '\n';
+
+  return header + '\n' + results.join('\n\n');
+}
+
+function _convertSingleProcedure(input, sourceDb, targetDb) {
+  var parsed;
+  if (sourceDb === 'oracle') parsed = _parseOracleProcedure(input);
+  else if (sourceDb === 'mysql') parsed = _parseMySQLProcedure(input);
+  else parsed = _parsePGProcedure(input);
+
+  if (!parsed) throw new Error('无法解析存储过程定义，请检查语法');
+
+  var mappedParams = parsed.params.map(function(p) {
+    return { name: p.name, direction: p.direction, type: mapParamType(p.type, sourceDb, targetDb), defaultVal: p.defaultVal };
+  });
+  var transformedBody = transformBody(parsed.body, sourceDb, targetDb);
+  var mappedVars = parsed.vars.map(function(v) {
+    if (v.raw) return v;
+    return { name: v.name, type: mapParamType(v.type, sourceDb, targetDb), defaultVal: v.defaultVal };
+  });
+
+  if (targetDb === 'oracle') return _genOracleProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
+  if (targetDb === 'mysql') return _genMySQLProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
+  return _genPGProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
+}
+
+/* --- Procedure parsers --- */
+
+function _parseOracleProcedure(input) {
+  var src = input.replace(/\n\s*\/\s*$/, '').trim();
+  var headerRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*\(([^)]*)\)\s*(IS|AS)\b/i;
+  var m = src.match(headerRe);
+  if (!m) {
+    // Try without params
+    var headerRe2 = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*(IS|AS)\b/i;
+    m = src.match(headerRe2);
+    if (!m) throw new Error('无法解析Oracle存储过程头');
+    var name = m[1];
+    var afterHeader = src.substring(m.index + m[0].length);
+    var beginIdx = afterHeader.search(/\bBEGIN\b/i);
+    var declBlock = '', bodyPart = afterHeader;
+    if (beginIdx >= 0) { declBlock = afterHeader.substring(0, beginIdx).trim(); bodyPart = afterHeader.substring(beginIdx); }
+    var vars = _parseOracleVarDecl(declBlock);
+    var bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i);
+    var body = bodyMatch ? bodyMatch[1] : bodyPart;
+    return { name: name, params: [], vars: vars, body: body };
+  }
+  var name = m[1], paramStr = m[2];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var beginIdx = afterHeader.search(/\bBEGIN\b/i);
+  var declBlock = '', bodyPart = afterHeader;
+  if (beginIdx >= 0) { declBlock = afterHeader.substring(0, beginIdx).trim(); bodyPart = afterHeader.substring(beginIdx); }
+  var params = _splitParamList(paramStr).map(_parseOracleParam).filter(Boolean);
+  var vars = _parseOracleVarDecl(declBlock);
+  var bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i);
+  var body = bodyMatch ? bodyMatch[1] : bodyPart;
+  return { name: name, params: params, vars: vars, body: body };
+}
+
+function _parseMySQLProcedure(input) {
+  var src = input.replace(/^\s*DELIMITER\s+\S+\s*$/gm, '').trim();
+  src = src.replace(/\$\$\s*$/g, '').trim();
+  var headerRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?PROCEDURE\s+(\w+)\s*\(([^)]*)\)/i;
+  var m = src.match(headerRe);
+  if (!m) throw new Error('无法解析MySQL存储过程头');
+  var name = m[1], paramStr = m[2];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var bodyMatch = afterHeader.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*;?\s*$/i);
+  if (!bodyMatch) throw new Error('无法找到MySQL存储过程体 BEGIN...END');
+  var bodyContent = bodyMatch[1];
+  var vars = [], bodyLines = bodyContent.split('\n'), nonDeclLines = [];
+  for (var i = 0; i < bodyLines.length; i++) {
+    var declMatch = bodyLines[i].match(/^\s*DECLARE\s+(\w+)\s+(.+?)(?:\s+DEFAULT\s+(.+?))?\s*;\s*$/i);
+    if (declMatch) {
+      vars.push({ name: declMatch[1], type: declMatch[2].trim(), defaultVal: declMatch[3] ? declMatch[3].trim() : null });
+    } else { nonDeclLines.push(bodyLines[i]); }
+  }
+  var params = _splitParamList(paramStr).map(_parseMySQLParam).filter(Boolean);
+  return { name: name, params: params, vars: vars, body: nonDeclLines.join('\n') };
+}
+
+function _parsePGProcedure(input) {
+  var src = input.trim();
+  var headerRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*\(([^)]*)\)\s*(?:LANGUAGE\s+\w+\s*)?(?:AS\s*\$\$)/i;
+  var m = src.match(headerRe);
+  if (!m) {
+    // Try with LANGUAGE after AS $$
+    var headerRe2 = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*\(([^)]*)\)\s*AS\s*\$\$/i;
+    m = src.match(headerRe2);
+    if (!m) throw new Error('无法解析PostgreSQL存储过程头');
+  }
+  var name = m[1], paramStr = m[2];
+  var afterHeader = src.substring(m.index + m[0].length);
+  var inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  var vars = [];
+  var declareMatch = inner.match(/\bDECLARE\b([\s\S]*?)\bBEGIN\b/i);
+  if (declareMatch) {
+    var declParts = declareMatch[1].split(';');
+    for (var i = 0; i < declParts.length; i++) {
+      var s = declParts[i].trim();
+      if (!s) continue;
+      var vm = s.match(/^(\w+)\s+(.+?)(?:\s*:=\s*(.+))?$/i);
+      if (vm) vars.push({ name: vm[1], type: vm[2].trim(), defaultVal: vm[3] ? vm[3].trim() : null });
+    }
+  }
+  var bodyMatch = inner.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*;?\s*$/i);
+  var body = bodyMatch ? bodyMatch[1] : inner;
+  var params = _splitParamList(paramStr).map(_parsePGParam).filter(Boolean);
+  return { name: name, params: params, vars: vars, body: body };
+}
+
+/* --- Procedure generators --- */
+
+function _genOracleProcedure(name, params, vars, body) {
+  var out = 'CREATE OR REPLACE PROCEDURE ' + name;
+  if (params.length > 0) {
+    out += '(\n';
+    var pLines = params.map(function(p) {
+      var line = '  ' + p.name;
+      line += ' ' + (p.direction || 'IN');
+      line += ' ' + p.type;
+      if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
+      return line;
+    });
+    out += pLines.join(',\n') + ')\n';
+  } else {
+    out += '\n';
+  }
+  out += 'IS\n';
+  for (var i = 0; i < vars.length; i++) {
+    var v = vars[i];
+    if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+    out += '  ' + v.name + ' ' + v.type;
+    if (v.defaultVal) out += ' := ' + v.defaultVal;
+    out += ';\n';
+  }
+  out += 'BEGIN' + body;
+  if (!/\bEND\s*;?\s*$/i.test(out.trim())) out += '\nEND;\n';
+  if (!out.trimEnd().match(/END\s*;\s*$/i)) out = out.trimEnd() + ';\n';
+  out += '/';
+  return out;
+}
+
+function _genMySQLProcedure(name, params, vars, body) {
+  var out = 'DELIMITER $$\nCREATE PROCEDURE ' + name + '(\n';
+  var pLines = params.map(function(p) {
+    var dir = p.direction || 'IN';
+    if (dir === 'IN OUT') dir = 'INOUT';
+    return '  ' + dir + ' ' + p.name + ' ' + p.type;
+  });
+  out += pLines.join(',\n') + ')\nBEGIN\n';
+  for (var i = 0; i < vars.length; i++) {
+    var v = vars[i];
+    if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+    out += '  DECLARE ' + v.name + ' ' + v.type;
+    if (v.defaultVal) out += ' DEFAULT ' + v.defaultVal;
+    out += ';\n';
+  }
+  out += body;
+  var afterBegin = out.substring(out.lastIndexOf('BEGIN'));
+  if (!/\bEND\b/i.test(afterBegin.split('BEGIN').pop())) out += '\nEND';
+  out = out.replace(/\bEND\s*;?\s*$/, 'END$$');
+  if (!out.trimEnd().endsWith('$$')) out = out.trimEnd() + '$$';
+  out += '\nDELIMITER ;';
+  return out;
+}
+
+function _genPGProcedure(name, params, vars, body) {
+  var out = 'CREATE OR REPLACE PROCEDURE ' + name + '(\n';
+  var pLines = params.map(function(p) {
+    var line = '  ' + p.name;
+    if (p.direction) line += ' ' + p.direction;
+    line += ' ' + p.type;
+    if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
+    return line;
+  });
+  out += pLines.join(',\n') + ')\nLANGUAGE plpgsql\nAS $$\n';
+  if (vars.length > 0) {
+    out += 'DECLARE\n';
+    for (var i = 0; i < vars.length; i++) {
+      var v = vars[i];
+      if (v.raw) { out += '  ' + v.raw + '\n'; continue; }
+      out += '  ' + v.name + ' ' + v.type;
+      if (v.defaultVal) out += ' := ' + v.defaultVal;
+      out += ';\n';
+    }
+  }
+  out += 'BEGIN' + body;
+  if (!/\bEND\s*;?\s*$/i.test(out.trim())) out += '\nEND;\n';
+  out = out.replace(/END\s*;?\s*$/, 'END;\n$$;');
+  return out;
+}
+
 /* ===== VUE 3 APP ===== */
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
 const app = createApp({
   setup() {
+    const activePage = ref('ddl');
+
+    // DDL state
     const sourceDb = ref('oracle');
     const targetDb = ref('mysql');
-    const inputDdl = ref(SAMPLES.oracle);
+    const inputDdl = ref('');
     const outputDdl = ref('');
+
+    // Function state
+    const funcSourceDb = ref('oracle');
+    const funcTargetDb = ref('mysql');
+    const funcInput = ref('');
+    const funcOutput = ref('');
+
+    // Procedure state
+    const procSourceDb = ref('oracle');
+    const procTargetDb = ref('mysql');
+    const procInput = ref('');
+    const procOutput = ref('');
+
     const statusText = ref('');
     const fileInput = ref(null);
 
-    const modes = [
-      { key: 'oracle', label: 'Oracle' },
-      { key: 'mysql', label: 'MySQL' },
-      { key: 'postgresql', label: 'PostgreSQL' }
-    ];
-
+    // --- Computed labels ---
     const sourceLabel = computed(() => DB_LABELS[sourceDb.value] || sourceDb.value);
     const targetLabel = computed(() => DB_LABELS[targetDb.value] || targetDb.value);
+    const funcSourceLabel = computed(() => DB_LABELS[funcSourceDb.value] || funcSourceDb.value);
+    const funcTargetLabel = computed(() => DB_LABELS[funcTargetDb.value] || funcTargetDb.value);
+    const procSourceLabel = computed(() => DB_LABELS[procSourceDb.value] || procSourceDb.value);
+    const procTargetLabel = computed(() => DB_LABELS[procTargetDb.value] || procTargetDb.value);
+
+    // --- Computed line counts and meta ---
     const inputLineCount = computed(() => inputDdl.value ? inputDdl.value.split('\n').length : 0);
     const outputMeta = computed(() => {
-      if (!outputDdl.value) return '等待翻译';
-      return outputDdl.value.split('\n').length + ' 行 / ' + outputDdl.value.length + ' 字符';
+      if (!outputDdl.value) return '\u7B49\u5F85\u7FFB\u8BD1';
+      return outputDdl.value.split('\n').length + ' \u884C / ' + outputDdl.value.length + ' \u5B57\u7B26';
+    });
+    const funcInputLineCount = computed(() => funcInput.value ? funcInput.value.split('\n').length : 0);
+    const funcOutputMeta = computed(() => {
+      if (!funcOutput.value) return '\u7B49\u5F85\u7FFB\u8BD1';
+      return funcOutput.value.split('\n').length + ' \u884C / ' + funcOutput.value.length + ' \u5B57\u7B26';
+    });
+    const procInputLineCount = computed(() => procInput.value ? procInput.value.split('\n').length : 0);
+    const procOutputMeta = computed(() => {
+      if (!procOutput.value) return '\u7B49\u5F85\u7FFB\u8BD1';
+      return procOutput.value.split('\n').length + ' \u884C / ' + procOutput.value.length + ' \u5B57\u7B26';
     });
 
-    function swapDbs() {
-      const tmp = sourceDb.value;
-      sourceDb.value = targetDb.value;
-      targetDb.value = tmp;
-      // Swap content too
-      const tmpDdl = inputDdl.value;
-      inputDdl.value = outputDdl.value || SAMPLES[sourceDb.value] || '';
-      outputDdl.value = '';
-      statusText.value = '已交换: ' + sourceLabel.value + ' → ' + targetLabel.value;
-    }
-
-    function loadSample() {
-      inputDdl.value = SAMPLES[sourceDb.value] || '-- 暂无 ' + sourceLabel.value + ' 示例';
-      outputDdl.value = '';
-      statusText.value = '已加载 ' + sourceLabel.value + ' 示例';
-    }
-
-    function clearAll() {
-      inputDdl.value = '';
-      outputDdl.value = '';
-      statusText.value = '已清空';
-    }
-
-    function convert() {
-      try {
-        const result = convertDDL(inputDdl.value, sourceDb.value, targetDb.value);
-        outputDdl.value = result;
-        if (result.startsWith('-- 解析失败') || result.startsWith('-- 生成失败') || result.startsWith('-- 未识别')) {
-          statusText.value = '转换遇到问题，请检查输出区域的提示信息';
-        } else {
-          statusText.value = '翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value;
-        }
-      } catch (e) {
-        outputDdl.value = '-- 转换异常: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确';
-        statusText.value = '转换异常: ' + e.message;
-      }
-    }
-
-    function copyOutput() {
-      const t = outputDdl.value;
-      if (!t.trim()) { statusText.value = '暂无可复制内容'; return; }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(t).then(() => statusText.value = '已复制到剪贴板').catch(() => fallbackCopy(t));
-      } else {
-        fallbackCopy(t);
-      }
-    }
+    // --- Clipboard helper ---
     function fallbackCopy(t) {
       const ta = document.createElement('textarea');
       ta.value = t; ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
       document.body.appendChild(ta); ta.focus(); ta.select();
-      try { document.execCommand('copy'); statusText.value = '已复制到剪贴板'; }
-      catch(e) { statusText.value = '复制失败，请手动选择复制'; }
+      try { document.execCommand('copy'); statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F'; }
+      catch(e) { statusText.value = '\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u590D\u5236'; }
       finally { document.body.removeChild(ta); }
     }
 
-    function saveOutput() {
-      const t = outputDdl.value;
-      if (!t.trim()) { statusText.value = '暂无可保存内容'; return; }
-      const ext = targetDb.value === 'mysql' ? 'mysql' : targetDb.value === 'postgresql' ? 'pgsql' : 'oracle';
-      const fileName = 'ddl_' + ext + '_' + new Date().toISOString().slice(0,10) + '.sql';
-      const blob = new Blob([t], { type: 'text/sql;charset=utf-8' });
+    function clipboardWrite(text) {
+      if (!text.trim()) { statusText.value = '\u6682\u65E0\u53EF\u590D\u5236\u5185\u5BB9'; return; }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F').catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function saveFile(text, prefix, dbKey) {
+      if (!text.trim()) { statusText.value = '\u6682\u65E0\u53EF\u4FDD\u5B58\u5185\u5BB9'; return; }
+      const ext = dbKey === 'mysql' ? 'mysql' : dbKey === 'postgresql' ? 'pgsql' : 'oracle';
+      const fileName = prefix + '_' + ext + '_' + new Date().toISOString().slice(0,10) + '.sql';
+      const blob = new Blob([text], { type: 'text/sql;charset=utf-8' });
       const a = document.createElement('a');
       const objUrl = URL.createObjectURL(blob);
       a.href = objUrl; a.download = fileName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
-      statusText.value = '已保存为 ' + fileName;
+      statusText.value = '\u5DF2\u4FDD\u5B58\u4E3A ' + fileName;
     }
 
+    // ========== DDL Methods ==========
+    function swapDbs() {
+      const tmp = sourceDb.value;
+      sourceDb.value = targetDb.value;
+      targetDb.value = tmp;
+      const tmpDdl = inputDdl.value;
+      inputDdl.value = outputDdl.value || (typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES[sourceDb.value] : '') || '';
+      outputDdl.value = '';
+      statusText.value = '\u5DF2\u4EA4\u6362: ' + sourceLabel.value + ' \u2192 ' + targetLabel.value;
+    }
+
+    function loadSample() {
+      inputDdl.value = (typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES[sourceDb.value] : '') || '-- \u6682\u65E0 ' + sourceLabel.value + ' \u793A\u4F8B';
+      outputDdl.value = '';
+      statusText.value = '\u5DF2\u52A0\u8F7D ' + sourceLabel.value + ' DDL \u793A\u4F8B';
+    }
+
+    function clearAll() {
+      inputDdl.value = ''; outputDdl.value = '';
+      statusText.value = '\u5DF2\u6E05\u7A7A';
+    }
+
+    function convert() {
+      try {
+        if (typeof convertDDL === 'function') {
+          const result = convertDDL(inputDdl.value, sourceDb.value, targetDb.value);
+          outputDdl.value = result;
+          statusText.value = result.startsWith('-- \u89E3\u6790\u5931\u8D25') || result.startsWith('-- \u751F\u6210\u5931\u8D25') || result.startsWith('-- \u672A\u8BC6\u522B')
+            ? '\u8F6C\u6362\u9047\u5230\u95EE\u9898\uFF0C\u8BF7\u68C0\u67E5\u8F93\u51FA\u533A\u57DF\u7684\u63D0\u793A\u4FE1\u606F'
+            : '\u7FFB\u8BD1\u5B8C\u6210: ' + sourceLabel.value + ' \u2192 ' + targetLabel.value;
+        } else {
+          outputDdl.value = '-- DDL \u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
+          statusText.value = 'DDL \u5F15\u64CE\u672A\u5C31\u7EEA';
+        }
+      } catch (e) {
+        outputDdl.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
+        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
+      }
+    }
+
+    function copyOutput() { clipboardWrite(outputDdl.value); }
+    function saveOutput() { saveFile(outputDdl.value, 'ddl', targetDb.value); }
+
+    // ========== Function Methods ==========
+    function swapFuncDbs() {
+      const tmp = funcSourceDb.value;
+      funcSourceDb.value = funcTargetDb.value;
+      funcTargetDb.value = tmp;
+      const tmpF = funcInput.value;
+      funcInput.value = funcOutput.value || (typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES[funcSourceDb.value] : '') || '';
+      funcOutput.value = '';
+      statusText.value = '\u5DF2\u4EA4\u6362: ' + funcSourceLabel.value + ' \u2192 ' + funcTargetLabel.value;
+    }
+
+    function loadFuncSample() {
+      funcInput.value = (typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES[funcSourceDb.value] : '') || '-- \u6682\u65E0 ' + funcSourceLabel.value + ' \u51FD\u6570\u793A\u4F8B';
+      funcOutput.value = '';
+      statusText.value = '\u5DF2\u52A0\u8F7D ' + funcSourceLabel.value + ' \u51FD\u6570\u793A\u4F8B';
+    }
+
+    function clearFunc() {
+      funcInput.value = ''; funcOutput.value = '';
+      statusText.value = '\u5DF2\u6E05\u7A7A';
+    }
+
+    function convertFunc() {
+      try {
+        if (typeof convertFunction === 'function') {
+          const result = convertFunction(funcInput.value, funcSourceDb.value, funcTargetDb.value);
+          funcOutput.value = result;
+          statusText.value = '\u51FD\u6570\u7FFB\u8BD1\u5B8C\u6210: ' + funcSourceLabel.value + ' \u2192 ' + funcTargetLabel.value;
+        } else {
+          funcOutput.value = '-- \u51FD\u6570\u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
+          statusText.value = '\u51FD\u6570\u5F15\u64CE\u672A\u5C31\u7EEA';
+        }
+      } catch (e) {
+        funcOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
+        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
+      }
+    }
+
+    function copyFuncOutput() { clipboardWrite(funcOutput.value); }
+    function saveFuncOutput() { saveFile(funcOutput.value, 'func', funcTargetDb.value); }
+
+    // ========== Procedure Methods ==========
+    function swapProcDbs() {
+      const tmp = procSourceDb.value;
+      procSourceDb.value = procTargetDb.value;
+      procTargetDb.value = tmp;
+      const tmpP = procInput.value;
+      procInput.value = procOutput.value || (typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES[procSourceDb.value] : '') || '';
+      procOutput.value = '';
+      statusText.value = '\u5DF2\u4EA4\u6362: ' + procSourceLabel.value + ' \u2192 ' + procTargetLabel.value;
+    }
+
+    function loadProcSample() {
+      procInput.value = (typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES[procSourceDb.value] : '') || '-- \u6682\u65E0 ' + procSourceLabel.value + ' \u5B58\u50A8\u8FC7\u7A0B\u793A\u4F8B';
+      procOutput.value = '';
+      statusText.value = '\u5DF2\u52A0\u8F7D ' + procSourceLabel.value + ' \u5B58\u50A8\u8FC7\u7A0B\u793A\u4F8B';
+    }
+
+    function clearProc() {
+      procInput.value = ''; procOutput.value = '';
+      statusText.value = '\u5DF2\u6E05\u7A7A';
+    }
+
+    function convertProc() {
+      try {
+        if (typeof convertProcedure === 'function') {
+          const result = convertProcedure(procInput.value, procSourceDb.value, procTargetDb.value);
+          procOutput.value = result;
+          statusText.value = '\u5B58\u50A8\u8FC7\u7A0B\u7FFB\u8BD1\u5B8C\u6210: ' + procSourceLabel.value + ' \u2192 ' + procTargetLabel.value;
+        } else {
+          procOutput.value = '-- \u5B58\u50A8\u8FC7\u7A0B\u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
+          statusText.value = '\u5B58\u50A8\u8FC7\u7A0B\u5F15\u64CE\u672A\u5C31\u7EEA';
+        }
+      } catch (e) {
+        procOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
+        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
+      }
+    }
+
+    function copyProcOutput() { clipboardWrite(procOutput.value); }
+    function saveProcOutput() { saveFile(procOutput.value, 'proc', procTargetDb.value); }
+
+    // ========== File upload (shared) ==========
     function uploadFile() {
       if (fileInput.value) { fileInput.value.value = ''; fileInput.value.click(); }
     }
@@ -1872,28 +3390,30 @@ const app = createApp({
     function handleFileUpload(e) {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      if (file.size > 5 * 1024 * 1024) { statusText.value = '文件过大（最大5MB）'; return; }
-      if (file.size === 0) { statusText.value = '文件为空'; return; }
+      if (file.size > 5 * 1024 * 1024) { statusText.value = '\u6587\u4EF6\u8FC7\u5927\uFF08\u6700\u59275MB\uFF09'; return; }
+      if (file.size === 0) { statusText.value = '\u6587\u4EF6\u4E3A\u7A7A'; return; }
       const reader = new FileReader();
       reader.onload = function(ev) {
         const content = ev.target.result;
-        // Basic validation: check if it looks like SQL
-        if (content && !/CREATE|ALTER|COMMENT|INSERT|DROP|TABLE|INDEX/i.test(content.substring(0, 2000))) {
-          statusText.value = '警告: 文件内容可能不是有效的 SQL/DDL 语句';
+        if (content && !/CREATE|ALTER|COMMENT|INSERT|DROP|TABLE|INDEX|FUNCTION|PROCEDURE/i.test(content.substring(0, 2000))) {
+          statusText.value = '\u8B66\u544A: \u6587\u4EF6\u5185\u5BB9\u53EF\u80FD\u4E0D\u662F\u6709\u6548\u7684 SQL \u8BED\u53E5';
         } else {
-          statusText.value = '已加载文件: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+          statusText.value = '\u5DF2\u52A0\u8F7D\u6587\u4EF6: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
         }
-        inputDdl.value = content;
-        outputDdl.value = '';
+        // Load into the active page's input
+        if (activePage.value === 'func') { funcInput.value = content; funcOutput.value = ''; }
+        else if (activePage.value === 'proc') { procInput.value = content; procOutput.value = ''; }
+        else { inputDdl.value = content; outputDdl.value = ''; }
       };
-      reader.onerror = function() { statusText.value = '文件读取失败'; };
+      reader.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
       reader.readAsText(file, 'UTF-8');
     }
 
-    // Auto-load sample when sourceDb changes
+    // ========== Scroll to top ==========
     const showScrollTop = ref(false);
     function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
+    // ========== Lifecycle ==========
     let scrollHandler;
     let keyHandler;
     onMounted(() => {
@@ -1902,7 +3422,9 @@ const app = createApp({
       keyHandler = (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
           e.preventDefault();
-          convert();
+          if (activePage.value === 'func') convertFunc();
+          else if (activePage.value === 'proc') convertProc();
+          else convert();
         }
       };
       window.addEventListener('keydown', keyHandler);
@@ -1913,10 +3435,21 @@ const app = createApp({
     });
 
     return {
-      sourceDb, targetDb, inputDdl, outputDdl, statusText, fileInput,
-      modes, sourceLabel, targetLabel, inputLineCount, outputMeta,
+      activePage,
+      // DDL
+      sourceDb, targetDb, inputDdl, outputDdl,
+      sourceLabel, targetLabel, inputLineCount, outputMeta,
       swapDbs, loadSample, clearAll, convert, copyOutput, saveOutput,
-      uploadFile, handleFileUpload,
+      // Function
+      funcSourceDb, funcTargetDb, funcInput, funcOutput,
+      funcSourceLabel, funcTargetLabel, funcInputLineCount, funcOutputMeta,
+      swapFuncDbs, loadFuncSample, clearFunc, convertFunc, copyFuncOutput, saveFuncOutput,
+      // Procedure
+      procSourceDb, procTargetDb, procInput, procOutput,
+      procSourceLabel, procTargetLabel, procInputLineCount, procOutputMeta,
+      swapProcDbs, loadProcSample, clearProc, convertProc, copyProcOutput, saveProcOutput,
+      // Shared
+      statusText, fileInput, uploadFile, handleFileUpload,
       showScrollTop, scrollToTop
     };
   }
