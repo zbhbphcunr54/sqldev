@@ -2719,8 +2719,8 @@ function transformBody(body, fromDb, toDb) {
     if (toDb === 'mysql') b = b.replace(/\bTO_NUMBER\s*\(\s*([^)]+)\s*\)/gi, 'CAST($1 AS SIGNED)');
     else if (toDb === 'postgresql') b = b.replace(/\bTO_NUMBER\s*\(\s*([^)]+)\s*\)/gi, 'CAST($1 AS INTEGER)');
   } else if (fromDb === 'mysql') {
-    if (toDb === 'oracle') b = b.replace(/\bCAST\s*\(\s*([^)]+?)\s+AS\s+SIGNED\s*\)/gi, 'TO_NUMBER($1)');
-    else if (toDb === 'postgresql') b = b.replace(/\bCAST\s*\(\s*([^)]+?)\s+AS\s+SIGNED\s*\)/gi, 'CAST($1 AS INTEGER)');
+    if (toDb === 'oracle') b = b.replace(/\bCAST\s*\(\s*((?:[^,()]+|\([^)]*\))+)\s+AS\s+SIGNED(?:\s+INTEGER)?\s*\)/gi, 'TO_NUMBER($1)');
+    else if (toDb === 'postgresql') b = b.replace(/\bCAST\s*\(\s*((?:[^,()]+|\([^)]*\))+)\s+AS\s+SIGNED(?:\s+INTEGER)?\s*\)/gi, 'CAST($1 AS INTEGER)');
   } else if (fromDb === 'postgresql') {
     b = b.replace(/(\w+)::INTEGER/gi, function(m, v) {
       if (toDb === 'oracle') return 'TO_NUMBER(' + v + ')';
@@ -2755,25 +2755,25 @@ function transformBody(body, fromDb, toDb) {
     }
   }
 
-  // TO_CHAR / DATE_FORMAT (with format string conversion)
+  // TO_CHAR / DATE_FORMAT (with format string conversion) - use nested-paren-aware first arg
   if (fromDb === 'oracle' && toDb === 'mysql') {
-    b = b.replace(/\bTO_CHAR\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "DATE_FORMAT(" + expr + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
+    b = b.replace(/\bTO_CHAR\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "DATE_FORMAT(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   } else if (fromDb === 'mysql' && toDb === 'oracle') {
-    b = b.replace(/\bDATE_FORMAT\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "TO_CHAR(" + expr + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
+    b = b.replace(/\bDATE_FORMAT\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "TO_CHAR(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   } else if (fromDb === 'mysql' && toDb === 'postgresql') {
-    b = b.replace(/\bDATE_FORMAT\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "TO_CHAR(" + expr + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
+    b = b.replace(/\bDATE_FORMAT\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "to_char(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   } else if (fromDb === 'postgresql' && toDb === 'mysql') {
-    b = b.replace(/\bTO_CHAR\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "DATE_FORMAT(" + expr + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
+    b = b.replace(/\bTO_CHAR\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "DATE_FORMAT(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   }
 
-  // TO_DATE / STR_TO_DATE
+  // TO_DATE / STR_TO_DATE - use nested-paren-aware first arg
   if (fromDb === 'oracle' && toDb === 'mysql') {
-    b = b.replace(/\bTO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "STR_TO_DATE($1, '$2')");
+    b = b.replace(/\bTO_DATE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "STR_TO_DATE(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   } else if (fromDb === 'mysql') {
-    if (toDb === 'oracle') b = b.replace(/\bSTR_TO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_DATE($1, '$2')");
-    else if (toDb === 'postgresql') b = b.replace(/\bSTR_TO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "TO_DATE($1, '$2')");
+    if (toDb === 'oracle') b = b.replace(/\bSTR_TO_DATE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "TO_DATE(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
+    else if (toDb === 'postgresql') b = b.replace(/\bSTR_TO_DATE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "to_date(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   } else if (fromDb === 'postgresql' && toDb === 'mysql') {
-    b = b.replace(/\bTO_DATE\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi, "STR_TO_DATE($1, '$2')");
+    b = b.replace(/\bTO_DATE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*'([^']+)'\s*\)/gi, function(m, expr, fmt) { return "STR_TO_DATE(" + expr.trim() + ", '" + _convertDateFormat(fmt, fromDb, toDb) + "')"; });
   }
 
   // SUBSTR / SUBSTRING
@@ -2795,6 +2795,55 @@ function transformBody(body, fromDb, toDb) {
       }
     }
     b = lines.join('\n');
+  }
+
+  // CONCAT_WS (MySQL-specific) -> Oracle || / PG concat_ws
+  if (fromDb === 'mysql' && (toDb === 'oracle' || toDb === 'postgresql')) {
+    const concatWsRe = /\bCONCAT_WS\s*\(/gi;
+    let cwMatch;
+    let newB = '';
+    let lastIdx = 0;
+    while ((cwMatch = concatWsRe.exec(b)) !== null) {
+      newB += b.substring(lastIdx, cwMatch.index);
+      const startPos = cwMatch.index + cwMatch[0].length;
+      let depth = 1, ci = startPos;
+      while (ci < b.length && depth > 0) {
+        if (b[ci] === '(') depth++;
+        else if (b[ci] === ')') depth--;
+        if (depth > 0) ci++;
+      }
+      const inner = b.substring(startPos, ci);
+      const cwArgs = _splitArgs(inner);
+      if (cwArgs.length < 2) {
+        newB += cwMatch[0] + inner + ')';
+      } else {
+        const sep = cwArgs[0].trim();
+        const parts = cwArgs.slice(1).map(function(a) { return a.trim(); });
+        if (toDb === 'oracle') {
+          if (sep === "''" || sep === "''") newB += '(' + parts.join(' || ') + ')';
+          else newB += '(' + parts.join(' || ' + sep + ' || ') + ')';
+        } else {
+          newB += 'concat_ws(' + inner + ')';
+        }
+      }
+      lastIdx = ci + 1; // skip closing paren
+    }
+    if (lastIdx > 0) {
+      newB += b.substring(lastIdx);
+      b = newB;
+    }
+  }
+
+  // SUBSTRING_INDEX (MySQL-specific) -> Oracle/PG: add one inline comment at first occurrence
+  if (fromDb === 'mysql' && (toDb === 'oracle' || toDb === 'postgresql')) {
+    const dbName = toDb === 'oracle' ? 'Oracle' : 'PG';
+    if (/\bSUBSTRING_INDEX\s*\(/i.test(b)) {
+      let siDone = false;
+      b = b.replace(/\bSUBSTRING_INDEX\s*\(/gi, function(m) {
+        if (!siDone) { siDone = true; return '/* [注意: ' + dbName + ' 无 SUBSTRING_INDEX, 请改用 SUBSTR+INSTR 或正则] */ ' + m; }
+        return m;
+      });
+    }
   }
 
   // DBMS_OUTPUT.PUT_LINE / SELECT / RAISE NOTICE
@@ -3026,9 +3075,14 @@ function transformBody(body, fromDb, toDb) {
   if ((fromDb === 'oracle' || fromDb === 'postgresql') && toDb === 'mysql') {
     b = b.replace(/^(\s*)(\w+)\s*:=\s*(.+);/gm, '$1SET $2 = $3;');
   } else if (fromDb === 'mysql' && (toDb === 'oracle' || toDb === 'postgresql')) {
-    b = b.replace(/^\s*SET\s+(\w+)\s*=\s*(.+);/gim, function(m, vname, expr) {
-      if (/^(TRANSACTION|SESSION|GLOBAL|NAMES|CHARACTER)/i.test(vname)) return m;
-      return '  ' + vname + ' := ' + expr.trim() + ';';
+    // Match SET anywhere on a line, but NOT inside UPDATE...SET (check preceding text on same line)
+    b = b.replace(/\bSET\s+(\w+)\s*=\s*(.+?)\s*;/gim, function(m, vname, expr, offset) {
+      if (/^(TRANSACTION|SESSION|GLOBAL|NAMES|CHARACTER|MESSAGE_TEXT)/i.test(vname)) return m;
+      // Check if this SET is part of an UPDATE statement
+      const lineStart = b.lastIndexOf('\n', offset);
+      const beforeSet = b.substring(lineStart >= 0 ? lineStart : 0, offset);
+      if (/\bUPDATE\b/i.test(beforeSet)) return m;
+      return vname + ' := ' + expr.trim() + ';';
     });
   }
 
@@ -3081,11 +3135,22 @@ function transformBody(body, fromDb, toDb) {
     b = b.replace(/\bINITCAP\s*\(\s*([^)]+)\)/gi, '/* [注意: MySQL 无 INITCAP, 需自定义函数] */ INITCAP($1)');
   }
 
-  // REGEXP_LIKE (Oracle -> MySQL: REGEXP)
+  // REGEXP_LIKE / REGEXP / ~ operator
   if (fromDb === 'oracle' && toDb === 'mysql') {
-    b = b.replace(/\bREGEXP_LIKE\s*\(\s*([^,]+),\s*([^)]+)\)/gi, '$1 REGEXP $2');
+    b = b.replace(/\bREGEXP_LIKE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*([^)]+)\)/gi, '$1 REGEXP $2');
+  } else if (fromDb === 'oracle' && toDb === 'postgresql') {
+    // PG supports regexp_like (PG15+), or use ~ operator
+    b = b.replace(/\bREGEXP_LIKE\s*\(\s*((?:[^,()]+|\([^)]*\))+),\s*([^)]+)\)/gi, '$1 ~ $2');
   } else if (fromDb === 'mysql' && toDb === 'oracle') {
-    b = b.replace(/\b(\w+)\s+REGEXP\s+(\S+)/gi, 'REGEXP_LIKE($1, $2)');
+    b = b.replace(/\b(\S+)\s+REGEXP\s+('(?:[^']*)'|\S+)/gi, 'REGEXP_LIKE($1, $2)');
+  } else if (fromDb === 'mysql' && toDb === 'postgresql') {
+    b = b.replace(/\b(\S+)\s+REGEXP\s+('(?:[^']*)'|\S+)/gi, '$1 ~ $2');
+  } else if (fromDb === 'postgresql') {
+    // PG ~ operator to Oracle/MySQL
+    b = b.replace(/\b(\S+)\s+~\s+('(?:[^']*)'|\S+)/gi, function(m, expr, pat) {
+      if (toDb === 'oracle') return 'REGEXP_LIKE(' + expr + ', ' + pat + ')';
+      return expr + ' REGEXP ' + pat;
+    });
   }
 
   // CURRENT_TIMESTAMP -> Oracle SYSTIMESTAMP
