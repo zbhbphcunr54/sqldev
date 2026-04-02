@@ -159,6 +159,7 @@ textarea::placeholder{color:var(--text-muted)}
   .panel{border-right:none;border-bottom:1px solid var(--border)}
   textarea{min-height:240px}
   .ref-section{grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .rules-grid{grid-template-columns:1fr}
 }
 
 /* ===== RESPONSIVE: MOBILE ===== */
@@ -190,6 +191,7 @@ textarea::placeholder{color:var(--text-muted)}
   .scroll-top{bottom:12px;right:12px;width:32px;height:32px;font-size:14px}
   .swap-btn{padding:5px 8px;font-size:14px}
   .arrow-icon{font-size:14px}
+  .rules-page{padding:12px}
 }
 
 /* ===== RESPONSIVE: SMALL MOBILE ===== */
@@ -200,6 +202,46 @@ textarea::placeholder{color:var(--text-muted)}
 }
 .skip-link{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:var(--accent);color:#fff;text-decoration:none;font-size:14px;border-radius:var(--radius)}
 .skip-link:focus{position:fixed;left:8px;top:8px;width:auto;height:auto;overflow:visible}
+
+/* ===== RULES PAGE ===== */
+.rules-page{padding:20px 24px;min-height:calc(100vh - var(--header-h))}
+.rules-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.rules-header h2{font-size:16px;font-weight:700;color:var(--text)}
+.rules-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;height:calc(100vh - var(--header-h) - 80px)}
+.rules-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.rules-card-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-secondary);border-bottom:1px solid var(--border);flex-shrink:0}
+.rules-card-head h3{font-size:13px;font-weight:600;color:var(--accent)}
+.rules-card-body{padding:8px;overflow-y:auto;flex:1;min-height:0}
+.rule-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--bg-tertiary);cursor:pointer;border-radius:var(--radius-sm);transition:background .12s}
+.rule-row:last-child{border-bottom:none}
+.rule-row:hover{background:var(--accent-light)}
+.rule-source,.rule-target{flex:1;font-size:11px;font-family:var(--font-code);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rule-arrow{font-size:13px;color:var(--accent);flex-shrink:0;font-weight:700;letter-spacing:-1px}
+.btn-rule{padding:3px 8px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .15s}
+.btn-rule:hover{border-color:var(--accent);color:var(--accent)}
+.btn-add{padding:4px 12px;font-size:11px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--accent-light);color:var(--accent);cursor:pointer;font-weight:600;transition:all .15s}
+.btn-add:hover{background:var(--accent);color:#fff}
+/* Modal */
+.rule-modal-mask{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;animation:fadeIn .15s}
+.rule-modal{background:var(--bg);border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.18);width:420px;max-width:92vw;overflow:hidden;animation:slideUp .2s}
+.rule-modal-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.rule-modal-head h4{font-size:14px;font-weight:700;color:var(--text);margin:0}
+.rule-modal-close{background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1}
+.rule-modal-close:hover{background:var(--bg-secondary);color:var(--text)}
+.rule-modal-body{padding:18px}
+.rule-modal-field{margin-bottom:14px}
+.rule-modal-field label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px}
+.rule-modal-field input{width:100%;padding:8px 12px;font-size:13px;font-family:var(--font-code);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);box-sizing:border-box}
+.rule-modal-field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.rule-modal-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:var(--bg-secondary)}
+.rule-modal-foot .btn-modal{padding:6px 18px;font-size:12px;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;transition:all .15s;border:1px solid var(--border)}
+.rule-modal-foot .btn-modal.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.rule-modal-foot .btn-modal.primary:hover{background:#1d4ed8}
+.rule-modal-foot .btn-modal.cancel{background:var(--bg);color:var(--text-secondary)}
+.rule-modal-foot .btn-modal.cancel:hover{background:var(--bg-tertiary)}
+.rule-modal-hint{font-size:11px;color:var(--text-muted);margin-top:4px;font-style:italic}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
 </style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/oracle-java-workbench/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
@@ -230,6 +272,14 @@ textarea::placeholder{color:var(--text-muted)}
         <div class="nav-item" role="tab" tabindex="0" :class="{active: activePage==='proc'}" @click="activePage='proc';sidebarOpen=false">
           <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="5.5" y="10" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 6v2h4.5M12.5 6v2h-4.5M8 8v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           &#23384;&#20648;&#36807;&#31243;
+        </div>
+        <div class="nav-item" role="tab" tabindex="0" :class="{active: activePage==='rules'}" @click="activePage='rules';sidebarOpen=false">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="3" r="1.2" fill="currentColor"/><circle cx="11" cy="6.5" r="1.2" fill="currentColor"/><circle cx="7" cy="10" r="1.2" fill="currentColor"/><circle cx="9" cy="13.5" r="1.2" fill="currentColor"/></svg></span>
+          DDL &#26144;&#23556;&#35268;&#21017;
+        </div>
+        <div class="nav-item" role="tab" tabindex="0" :class="{active: activePage==='bodyRules'}" @click="activePage='bodyRules';sidebarOpen=false">
+          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5v5H2z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M9 2h5v5H9z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5.5 9.5h5v5h-5z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 7v1.5h3.5M11.5 7v1.5h-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M8 8.5v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+          &#31243;&#24207;&#22359;&#26144;&#23556;&#35268;&#21017;
         </div>
       </nav>
       <div class="sidebar-footer">v2.0.0</div>
@@ -618,6 +668,132 @@ $$;</pre>
           </div>
         </section>
       </template>
+
+      <!-- ==================== RULES PAGE ==================== -->
+      <template v-if="activePage==='rules'">
+        <section class="rules-page">
+          <div class="rules-header">
+            <h2>DDL 映射规则管理</h2>
+          </div>
+          <div class="rules-grid">
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>Oracle ↔ PostgreSQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('ddl','oraclePg',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in ddlRules.oraclePg" :key="'op'+idx" @click="openRuleModal('ddl','oraclePg',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>Oracle ↔ MySQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('ddl','oracleMysql',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in ddlRules.oracleMysql" :key="'om'+idx" @click="openRuleModal('ddl','oracleMysql',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>MySQL ↔ PostgreSQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('ddl','mysqlPg',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in ddlRules.mysqlPg" :key="'mp'+idx" @click="openRuleModal('ddl','mysqlPg',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- ==================== BODY RULES PAGE ==================== -->
+      <template v-if="activePage==='bodyRules'">
+        <section class="rules-page">
+          <div class="rules-header">
+            <h2>程序块映射规则管理</h2>
+            <span style="font-size:12px;color:var(--text-muted)">函数 / 存储过程体内语法转换规则</span>
+          </div>
+          <div class="rules-grid">
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>Oracle ↔ PostgreSQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('body','oraclePg',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in bodyRules.oraclePg" :key="'bop'+idx" @click="openRuleModal('body','oraclePg',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>Oracle ↔ MySQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('body','oracleMysql',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in bodyRules.oracleMysql" :key="'bom'+idx" @click="openRuleModal('body','oracleMysql',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="rules-card">
+              <div class="rules-card-head">
+                <h3>MySQL ↔ PostgreSQL 规则</h3>
+                <button class="btn-add" @click="openRuleModal('body','mysqlPg',-1)">新增</button>
+              </div>
+              <div class="rules-card-body">
+                <div class="rule-row" v-for="(rule, idx) in bodyRules.mysqlPg" :key="'bmp'+idx" @click="openRuleModal('body','mysqlPg',idx)">
+                  <span class="rule-source">{{rule.source}}</span>
+                  <span class="rule-arrow">⇄</span>
+                  <span class="rule-target">{{rule.target}}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- ==================== RULE EDIT MODAL ==================== -->
+      <div class="rule-modal-mask" v-if="ruleModal.visible" @click.self="ruleModal.visible=false">
+        <div class="rule-modal">
+          <div class="rule-modal-head">
+            <h4>{{ruleModal.index===-1 ? '新增规则' : '维护规则'}}</h4>
+            <button class="rule-modal-close" @click="ruleModal.visible=false">&times;</button>
+          </div>
+          <div class="rule-modal-body">
+            <div class="rule-modal-field">
+              <label>源语法 / 类型</label>
+              <input v-model="ruleModal.source" placeholder="请输入源语法或类型" @keyup.enter="confirmRuleModal"/>
+            </div>
+            <div class="rule-modal-field">
+              <label>目标语法 / 类型</label>
+              <input v-model="ruleModal.target" placeholder="请输入目标语法或类型" @keyup.enter="confirmRuleModal"/>
+            </div>
+            <div class="rule-modal-hint" v-if="ruleModal.index!==-1">提示: 两个输入框都清空后点击确定将删除该规则</div>
+          </div>
+          <div class="rule-modal-foot">
+            <button class="btn-modal cancel" @click="ruleModal.visible=false">取消</button>
+            <button class="btn-modal primary" @click="confirmRuleModal">确定</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Shared hidden file input (outside v-if sections so it always exists in DOM) -->
       <input type="file" ref="fileInput" accept=".sql,.txt,.ddl,.ora,.pgsql,.mysql" style="display:none" @change="handleFileUpload" aria-label="上传SQL文件"/>
@@ -2505,6 +2681,242 @@ function generatePostgreSQLDDL(tables, fromDb) {
   return lines.join('\n').trim();
 }
 
+/* ===== EXTRA DDL PARSER (SEQUENCE, ALTER TABLE) ===== */
+function parseExtraDDL(sql, sourceDb) {
+  const result = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] };
+  if (!sql || !sql.trim()) return result;
+  const cleaned = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
+
+  // --- CREATE SEQUENCE ---
+  const seqRe = /CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?([\w]+)["']?\s*([^;]*)/gi;
+  let m;
+  while ((m = seqRe.exec(cleaned)) !== null) {
+    const name = m[1];
+    const body = m[2] || '';
+    const seq = { name: name, startWith: null, incrementBy: null, minValue: null, maxValue: null, cache: null, cycle: false };
+    const startM = body.match(/START\s+(?:WITH\s+)?(\d+)/i);
+    if (startM) seq.startWith = parseInt(startM[1]);
+    const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
+    if (incM) seq.incrementBy = parseInt(incM[1]);
+    const minM = body.match(/MINVALUE\s+(\d+)/i);
+    if (minM) seq.minValue = parseInt(minM[1]);
+    const noMinM = body.match(/NO\s*MINVALUE/i);
+    if (noMinM) seq.minValue = null;
+    const maxM = body.match(/MAXVALUE\s+(\d+)/i);
+    if (maxM) seq.maxValue = parseInt(maxM[1]);
+    const noMaxM = body.match(/NO\s*MAXVALUE/i);
+    if (noMaxM) seq.maxValue = null;
+    const cacheM = body.match(/CACHE\s+(\d+)/i);
+    if (cacheM) seq.cache = parseInt(cacheM[1]);
+    if (/\bCYCLE\b/i.test(body) && !/\bNO\s*CYCLE\b/i.test(body)) seq.cycle = true;
+    if (/\bNOCYCLE\b/i.test(body)) seq.cycle = false;
+    result.sequences.push(seq);
+  }
+
+  // --- ALTER SEQUENCE ---
+  const altSeqRe = /ALTER\s+SEQUENCE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s*([^;]*)/gi;
+  while ((m = altSeqRe.exec(cleaned)) !== null) {
+    const name = m[1];
+    const body = m[2] || '';
+    const seq = { name: name, incrementBy: null, maxValue: null, cache: null, restartWith: null };
+    const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
+    if (incM) seq.incrementBy = parseInt(incM[1]);
+    const maxM = body.match(/MAXVALUE\s+(\d+)/i);
+    if (maxM) seq.maxValue = parseInt(maxM[1]);
+    const cacheM = body.match(/CACHE\s+(\d+)/i);
+    if (cacheM) seq.cache = parseInt(cacheM[1]);
+    const restartM = body.match(/RESTART\s+(?:WITH\s+)?(\d+)/i);
+    if (restartM) seq.restartWith = parseInt(restartM[1]);
+    result.alterSequences.push(seq);
+  }
+
+  // --- ALTER TABLE ... MODIFY / ALTER COLUMN (change type) ---
+  if (sourceDb === 'oracle') {
+    // Oracle: ALTER TABLE t MODIFY (col TYPE) or ALTER TABLE t MODIFY col TYPE
+    const modRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+MODIFY\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)\s*\)?/gi;
+    while ((m = modRe.exec(cleaned)) !== null) {
+      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
+    }
+  } else if (sourceDb === 'mysql') {
+    const modRe = /ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+MODIFY\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)/gi;
+    while ((m = modRe.exec(cleaned)) !== null) {
+      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
+    }
+  } else if (sourceDb === 'postgresql') {
+    const modRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ALTER\s+COLUMN\s+["']?([\w]+)["']?\s+(?:SET\s+DATA\s+)?TYPE\s+([\w]+(?:\s*\([^)]*\))?)/gi;
+    while ((m = modRe.exec(cleaned)) !== null) {
+      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
+    }
+  }
+
+  // --- ALTER TABLE ... ADD column ---
+  if (sourceDb === 'oracle') {
+    // Oracle: ALTER TABLE t ADD (col TYPE [DEFAULT x] [NOT NULL]) or without parens
+    const addRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^;)]*)\)?/gi;
+    while ((m = addRe.exec(cleaned)) !== null) {
+      // Skip if this is ADD CONSTRAINT or ADD PRIMARY or ADD FOREIGN or ADD UNIQUE
+      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(m[2])) continue;
+      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
+    }
+  } else if (sourceDb === 'mysql') {
+    const addRe = /ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+ADD\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)([^;]*)/gi;
+    while ((m = addRe.exec(cleaned)) !== null) {
+      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|KEY|CHECK)\b/i.test(m[2])) continue;
+      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
+    }
+  } else if (sourceDb === 'postgresql') {
+    const addRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+(?:COLUMN\s+)?["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^;]*)/gi;
+    while ((m = addRe.exec(cleaned)) !== null) {
+      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(m[2])) continue;
+      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
+    }
+  }
+
+  return result;
+}
+
+function parseAlterColType(table, column, typeStr, action) {
+  const result = { table: table, column: column, newType: '', newLength: null, newPrecision: null, newScale: null, action: action };
+  const tm = typeStr.match(/^([\w]+)(?:\s*\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\))?/i);
+  if (tm) {
+    result.newType = tm[1].toUpperCase();
+    if (tm[2] && tm[3]) { result.newPrecision = parseInt(tm[2]); result.newScale = parseInt(tm[3]); }
+    else if (tm[2]) { result.newLength = parseInt(tm[2]); }
+  }
+  return result;
+}
+
+function parseAddCol(table, column, typeStr, rest) {
+  const col = { table: table, column: column, type: '', length: null, precision: null, scale: null, nullable: true, defaultValue: null };
+  const tm = typeStr.match(/^([\w]+)(?:\s*\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\))?/i);
+  if (tm) {
+    col.type = tm[1].toUpperCase();
+    if (tm[2] && tm[3]) { col.precision = parseInt(tm[2]); col.scale = parseInt(tm[3]); }
+    else if (tm[2]) { col.length = parseInt(tm[2]); }
+  }
+  if (rest) {
+    if (/NOT\s+NULL/i.test(rest)) col.nullable = false;
+    const defM = rest.match(/DEFAULT\s+('(?:[^']*)'|[\w.()]+)/i);
+    if (defM) col.defaultValue = defM[1];
+  }
+  return col;
+}
+
+function convertExtraColType(typeStr, length, precision, scale, sourceDb, targetDb) {
+  // Build a pseudo-column object compatible with existing type mapping functions
+  const col = { type: typeStr, length: length, precision: precision, scale: scale };
+  if (sourceDb === 'oracle' && targetDb === 'mysql') return oracleTypeToMySQL(col);
+  if (sourceDb === 'oracle' && targetDb === 'postgresql') return oracleTypeToPG(col);
+  if (sourceDb === 'mysql' && targetDb === 'oracle') return mysqlTypeToOracle(col);
+  if (sourceDb === 'mysql' && targetDb === 'postgresql') return mysqlTypeToPG(col);
+  if (sourceDb === 'postgresql' && targetDb === 'oracle') return pgTypeToOracle(col);
+  if (sourceDb === 'postgresql' && targetDb === 'mysql') return pgTypeToMySQL(col);
+  // fallback
+  if (length) return typeStr + '(' + length + ')';
+  if (precision && scale) return typeStr + '(' + precision + ',' + scale + ')';
+  if (precision) return typeStr + '(' + precision + ')';
+  return typeStr;
+}
+
+function generateExtraDDL(parsed, sourceDb, targetDb) {
+  const lines = [];
+
+  // --- Sequences ---
+  if (parsed.sequences.length) {
+    lines.push('-- ========== SEQUENCES ==========');
+    for (const seq of parsed.sequences) {
+      if (targetDb === 'mysql') {
+        lines.push('-- MySQL 不原生支持 CREATE SEQUENCE (可使用 AUTO_INCREMENT 替代)');
+        lines.push('-- 原序列: ' + seq.name + ' START WITH ' + (seq.startWith || 1) + ' INCREMENT BY ' + (seq.incrementBy || 1));
+      } else if (targetDb === 'oracle') {
+        let s = 'CREATE SEQUENCE ' + seq.name;
+        if (seq.startWith != null) s += ' START WITH ' + seq.startWith;
+        if (seq.incrementBy != null) s += ' INCREMENT BY ' + seq.incrementBy;
+        if (seq.minValue != null) s += ' MINVALUE ' + seq.minValue;
+        if (seq.maxValue != null) s += ' MAXVALUE ' + seq.maxValue;
+        if (seq.cache != null) s += ' CACHE ' + seq.cache;
+        s += seq.cycle ? ' CYCLE' : ' NOCYCLE';
+        lines.push(s + ';');
+      } else {
+        let s = 'CREATE SEQUENCE ' + seq.name;
+        if (seq.startWith != null) s += ' START WITH ' + seq.startWith;
+        if (seq.incrementBy != null) s += ' INCREMENT BY ' + seq.incrementBy;
+        if (seq.minValue != null) s += ' MINVALUE ' + seq.minValue;
+        else lines.push('');  // just spacing
+        if (seq.maxValue != null) s += ' MAXVALUE ' + seq.maxValue;
+        if (seq.cache != null) s += ' CACHE ' + seq.cache;
+        s += seq.cycle ? ' CYCLE' : ' NO CYCLE';
+        lines.push(s + ';');
+      }
+    }
+    lines.push('');
+  }
+
+  // --- ALTER SEQUENCE ---
+  if (parsed.alterSequences.length) {
+    lines.push('-- ========== ALTER SEQUENCES ==========');
+    for (const seq of parsed.alterSequences) {
+      if (targetDb === 'mysql') {
+        lines.push('-- MySQL 不原生支持 ALTER SEQUENCE');
+        lines.push('-- 原序列: ALTER SEQUENCE ' + seq.name);
+      } else if (targetDb === 'oracle') {
+        let s = 'ALTER SEQUENCE ' + seq.name;
+        if (seq.incrementBy != null) s += ' INCREMENT BY ' + seq.incrementBy;
+        if (seq.maxValue != null) s += ' MAXVALUE ' + seq.maxValue;
+        if (seq.cache != null) s += ' CACHE ' + seq.cache;
+        // Oracle does not support RESTART, note it
+        if (seq.restartWith != null) s += ' /* RESTART WITH ' + seq.restartWith + ' - Oracle 不支持 RESTART, 需 DROP/CREATE */';
+        lines.push(s + ';');
+      } else {
+        let s = 'ALTER SEQUENCE ' + seq.name;
+        if (seq.incrementBy != null) s += ' INCREMENT BY ' + seq.incrementBy;
+        if (seq.maxValue != null) s += ' MAXVALUE ' + seq.maxValue;
+        if (seq.cache != null) s += ' CACHE ' + seq.cache;
+        if (seq.restartWith != null) s += ' RESTART WITH ' + seq.restartWith;
+        lines.push(s + ';');
+      }
+    }
+    lines.push('');
+  }
+
+  // --- ALTER TABLE MODIFY/ALTER COLUMN ---
+  if (parsed.alterColumns.length) {
+    lines.push('-- ========== ALTER COLUMN TYPE ==========');
+    for (const ac of parsed.alterColumns) {
+      const newType = convertExtraColType(ac.newType, ac.newLength, ac.newPrecision, ac.newScale, sourceDb, targetDb);
+      if (targetDb === 'oracle') {
+        lines.push('ALTER TABLE ' + ac.table + ' MODIFY (' + ac.column + ' ' + newType + ');');
+      } else if (targetDb === 'mysql') {
+        lines.push('ALTER TABLE ' + ac.table + ' MODIFY COLUMN ' + ac.column + ' ' + newType + ';');
+      } else {
+        lines.push('ALTER TABLE ' + ac.table + ' ALTER COLUMN ' + ac.column + ' TYPE ' + newType + ';');
+      }
+    }
+    lines.push('');
+  }
+
+  // --- ALTER TABLE ADD COLUMN ---
+  if (parsed.addColumns.length) {
+    lines.push('-- ========== ADD COLUMN ==========');
+    for (const ac of parsed.addColumns) {
+      const newType = convertExtraColType(ac.type, ac.length, ac.precision, ac.scale, sourceDb, targetDb);
+      let def = '';
+      if (ac.defaultValue != null) def = ' DEFAULT ' + ac.defaultValue;
+      let nullable = ac.nullable ? '' : ' NOT NULL';
+      if (targetDb === 'oracle') {
+        lines.push('ALTER TABLE ' + ac.table + ' ADD (' + ac.column + ' ' + newType + def + nullable + ');');
+      } else if (targetDb === 'mysql') {
+        lines.push('ALTER TABLE ' + ac.table + ' ADD COLUMN ' + ac.column + ' ' + newType + def + nullable + ';');
+      } else {
+        lines.push('ALTER TABLE ' + ac.table + ' ADD COLUMN ' + ac.column + ' ' + newType + def + nullable + ';');
+      }
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 /* ===== MAIN CONVERT ===== */
 function convertDDL(input, sourceDb, targetDb) {
   if (!input.trim()) return '-- 请输入 DDL 语句';
@@ -2517,21 +2929,42 @@ function convertDDL(input, sourceDb, targetDb) {
     else if (sourceDb === 'postgresql') tables = parsePostgreSQLDDL(input);
     else return '-- 不支持的源数据库: ' + sourceDb;
   } catch (e) { return '-- 解析失败: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确'; }
-  if (!tables || !tables.length) return '-- 未识别到 CREATE TABLE 语句，请检查输入格式';
-  let output;
-  try {
-    if (targetDb === 'oracle') output = generateOracleDDL(tables, sourceDb);
-    else if (targetDb === 'mysql') output = generateMySQLDDL(tables, sourceDb);
-    else if (targetDb === 'postgresql') output = generatePostgreSQLDDL(tables, sourceDb);
-    else return '-- 不支持的目标数据库: ' + targetDb;
-  } catch (e) { return '-- 生成失败: ' + e.message; }
+
+  // Parse extra DDL (sequences, alter table, etc.)
+  let extraParsed;
+  try { extraParsed = parseExtraDDL(input, sourceDb); } catch(e) { extraParsed = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] }; }
+  const hasExtra = extraParsed.sequences.length || extraParsed.alterSequences.length || extraParsed.alterColumns.length || extraParsed.addColumns.length;
+
+  if ((!tables || !tables.length) && !hasExtra) return '-- 未识别到 CREATE TABLE 语句，请检查输入格式';
+
+  let output = '';
+  if (tables && tables.length) {
+    try {
+      if (targetDb === 'oracle') output = generateOracleDDL(tables, sourceDb);
+      else if (targetDb === 'mysql') output = generateMySQLDDL(tables, sourceDb);
+      else if (targetDb === 'postgresql') output = generatePostgreSQLDDL(tables, sourceDb);
+      else return '-- 不支持的目标数据库: ' + targetDb;
+    } catch (e) { return '-- 生成失败: ' + e.message; }
+  }
+
+  // Generate extra DDL
+  let extraOutput = '';
+  if (hasExtra) {
+    try { extraOutput = generateExtraDDL(extraParsed, sourceDb, targetDb); } catch(e) { extraOutput = '-- 额外DDL生成失败: ' + e.message; }
+  }
+
+  const tableCount = (tables && tables.length) ? tables.length : 0;
   const header = '-- ============================================================\n'
     + '-- 自动生成: ' + DB_LABELS[sourceDb] + ' → ' + DB_LABELS[targetDb] + '\n'
-    + '-- 表数量: ' + tables.length + '\n'
+    + '-- 表数量: ' + tableCount + (hasExtra ? ' (含序列/ALTER语句)' : '') + '\n'
     + '-- 生成时间: ' + new Date().toISOString().slice(0,19).replace('T',' ') + '\n'
     + '-- 请检查类型映射和分区语法是否符合目标库版本要求\n'
     + '-- ============================================================\n\n';
-  return header + output;
+
+  let result = header;
+  if (output) result += output;
+  if (extraOutput) { if (output) result += '\n\n'; result += extraOutput; }
+  return result;
 }
 
 /* ===== SHARED UTILITIES FOR FUNCTION & PROCEDURE ENGINES ===== */
@@ -3194,6 +3627,10 @@ function transformBody(body, fromDb, toDb) {
           if (!hl) continue;
           // Convert := assignments to SET
           hl = hl.replace(/^(\w+)\s*:=\s*/i, 'SET $1 = ');
+          // Convert RAISE; to RESIGNAL;
+          hl = hl.replace(/^\s*RAISE\s*;\s*$/i, 'RESIGNAL;');
+          // Convert NULL; (PG/Oracle no-op) to comment
+          hl = hl.replace(/^\s*NULL\s*;\s*$/i, '-- NULL (no-op)');
           result += '              ' + hl + '\n';
         }
         result += '            END;\n';
@@ -3219,14 +3656,17 @@ function transformBody(body, fromDb, toDb) {
         // Generate NOT FOUND handler if NO_DATA_FOUND exists
         if (nodataMatch) {
           let ndBody = nodataMatch[1].trim().replace(/\bEND\b\s*\w*\s*;?\s*$/, '').trim();
-          result += '-- [MySQL 异常处理: NO_DATA_FOUND]\n';
-          result += '  -- DECLARE CONTINUE HANDLER FOR NOT FOUND BEGIN\n';
+          result += 'DECLARE CONTINUE HANDLER FOR NOT FOUND\n';
+          result += '  BEGIN\n';
           const ndLines = ndBody.split('\n');
           for (let li = 0; li < ndLines.length; li++) {
-            const tl = ndLines[li].trim();
-            if (tl) result += '  --   ' + tl + '\n';
+            let tl = ndLines[li].trim();
+            if (!tl) continue;
+            // Convert := assignments to SET
+            tl = tl.replace(/^(\w+)\s*:=\s*/i, 'SET $1 = ');
+            result += '    ' + tl + '\n';
           }
-          result += '  -- END;\n';
+          result += '  END;\n';
         }
 
         // Generate EXIT HANDLER FOR SQLEXCEPTION as real code
@@ -3403,6 +3843,22 @@ function transformBody(body, fromDb, toDb) {
     b = b.replace(/\bLAST_DAY\s*\(\s*([^)]+)\)/gi, "(date_trunc('month', $1) + interval '1 month - 1 day')::date");
   } else if (fromDb === 'postgresql' && (toDb === 'oracle' || toDb === 'mysql')) {
     b = b.replace(/\(\s*date_trunc\s*\(\s*'month'\s*,\s*([^)]+)\)\s*\+\s*interval\s*'1 month - 1 day'\s*\)::date/gi, 'LAST_DAY($1)');
+  }
+
+  // PG date_trunc() -> MySQL/Oracle equivalents
+  if (fromDb === 'postgresql' && toDb === 'mysql') {
+    b = b.replace(/\bdate_trunc\s*\(\s*'month'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "CAST(DATE_FORMAT($1, '%Y-%m-01') AS DATE)");
+    b = b.replace(/\bdate_trunc\s*\(\s*'year'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "CAST(DATE_FORMAT($1, '%Y-01-01') AS DATE)");
+    b = b.replace(/\bdate_trunc\s*\(\s*'day'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "CAST($1 AS DATE)");
+    b = b.replace(/\bdate_trunc\s*\(\s*'hour'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "DATE_FORMAT($1, '%Y-%m-%d %H:00:00')");
+    b = b.replace(/\bdate_trunc\s*\(\s*'minute'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "DATE_FORMAT($1, '%Y-%m-%d %H:%i:00')");
+    b = b.replace(/\bdate_trunc\s*\(\s*'second'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "CAST($1 AS DATETIME)");
+    b = b.replace(/\bdate_trunc\s*\(\s*'quarter'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "MAKEDATE(YEAR($1), 1) + INTERVAL (QUARTER($1) - 1) QUARTER");
+    b = b.replace(/\bdate_trunc\s*\(\s*'week'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "DATE_SUB($1, INTERVAL WEEKDAY($1) DAY)");
+  } else if (fromDb === 'postgresql' && toDb === 'oracle') {
+    b = b.replace(/\bdate_trunc\s*\(\s*'month'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "TRUNC($1, 'MM')");
+    b = b.replace(/\bdate_trunc\s*\(\s*'year'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "TRUNC($1, 'YYYY')");
+    b = b.replace(/\bdate_trunc\s*\(\s*'day'\s*,\s*((?:[^,()]+|\((?:[^()]*|\([^()]*\))*\))+)\)/gi, "TRUNC($1)");
   }
 
   // TRUNC for dates: TRUNC(dt, 'MM') / TRUNC(dt, 'MONTH')
@@ -3665,6 +4121,24 @@ function transformBody(body, fromDb, toDb) {
     b = b.replace(/\bEXECUTE\s+(?!IMMEDIATE\b)([^;]+);/gi, function(m, expr) {
       var v = expr.trim();
       if (/^\s*(stmt|_dyn_stmt)\b/i.test(v)) return m;
+      // Handle EXECUTE expr USING param1, param2 ...
+      var usingMatch = v.match(/^([\s\S]+?)\s+USING\s+([\s\S]+)$/i);
+      if (usingMatch) {
+        var sqlExpr = usingMatch[1].trim();
+        var usingParams = usingMatch[2].trim().split(/\s*,\s*/);
+        var result = 'SET @_dyn_sql = ' + sqlExpr + ';\n  PREPARE _dyn_stmt FROM @_dyn_sql;';
+        var uSets = [];
+        var uRefs = [];
+        for (var ui = 0; ui < usingParams.length; ui++) {
+          var uv = usingParams[ui].trim();
+          uSets.push('SET @_p' + ui + ' = ' + uv + ';');
+          uRefs.push('@_p' + ui);
+        }
+        result += '\n  ' + uSets.join('\n  ');
+        result += '\n  EXECUTE _dyn_stmt USING ' + uRefs.join(', ') + ';';
+        result += '\n  DEALLOCATE PREPARE _dyn_stmt;';
+        return result;
+      }
       return 'SET @_dyn_sql = ' + v + ';\n  PREPARE _dyn_stmt FROM @_dyn_sql;\n  EXECUTE _dyn_stmt;\n  DEALLOCATE PREPARE _dyn_stmt;';
     });
   } else if (fromDb === 'mysql') {
@@ -3696,6 +4170,7 @@ function transformBody(body, fromDb, toDb) {
     const lines = b.split('\n');
     const loopStack = []; // track loop types
     var basicLoopCount = 0;
+    var queryForCount = 0;
     for (let li = 0; li < lines.length; li++) {
       // Skip comment lines to avoid false matches
       if (/^\s*--/.test(lines[li])) continue;
@@ -3707,7 +4182,8 @@ function transformBody(body, fromDb, toDb) {
         if (/\bFOR\s+\w+\s+IN\s+\S+?\s*\.\./i.test(lines[li])) {
           loopStack.push('for'); // numeric FOR -> becomes WHILE
         } else {
-          loopStack.push('query_for'); // query FOR -> becomes cursor LOOP
+          queryForCount++;
+          loopStack.push({ type: 'query_for', label: '_for_loop_' + queryForCount }); // query FOR -> becomes cursor LOOP
         }
       } else if (/^\s*(?:\w+\s*:\s*)?LOOP\b/i.test(lines[li])) {
         basicLoopCount++;
@@ -3724,8 +4200,8 @@ function transformBody(body, fromDb, toDb) {
         const loopType = loopStack.pop();
         if (loopType === 'while' || loopType === 'for') {
           lines[li] = lines[li].replace(/\bEND\s+LOOP\b/gi, 'END WHILE');
-        } else if (loopType === 'query_for') {
-          lines[li] = lines[li].replace(/\bEND\s+LOOP\b/gi, 'END LOOP _for_loop');
+        } else if (loopType && loopType.type === 'query_for') {
+          lines[li] = lines[li].replace(/\bEND\s+LOOP\b/gi, 'END LOOP ' + loopType.label);
         } else if (loopType && loopType.type === 'basic') {
           lines[li] = lines[li].replace(/\bEND\s+LOOP\b/gi, 'END LOOP ' + loopType.label);
         }
@@ -3806,6 +4282,7 @@ function transformBody(body, fromDb, toDb) {
   // Query FOR loop: Oracle "FOR r IN (SELECT...) LOOP...END LOOP" -> MySQL cursor + WHILE
   if (fromDb === 'oracle' && toDb === 'mysql') {
     var _forLoopRecVars = [];
+    var _oraForLoopCount = 0;
     b = b.replace(/(^|\n)(\s*)FOR\s+(\w+)\s+IN\s*\(([\s\S]*?)\)\s*LOOP\b/gi, function(m, pre, indent, recVar, query) {
       // Collapse query to single line to avoid breaking DECLARE CURSOR parsing
       var q = query.trim().replace(/\s*\n\s*/g, ' ');
@@ -3834,7 +4311,9 @@ function transformBody(body, fromDb, toDb) {
         fetchVars = colNames.map(function(c) { return '_rec_' + c; }).join(', ');
         _forLoopRecVars.push({ recVar: recVar, colNames: colNames });
       }
-      return pre + declares + indent + 'DECLARE _done INT DEFAULT 0;\n' + indent + 'DECLARE _cur CURSOR FOR ' + q + ';\n' + indent + 'DECLARE CONTINUE HANDLER FOR NOT FOUND SET _done = 1;\n' + indent + 'OPEN _cur;\n' + indent + '_for_loop: LOOP\n' + indent + '  FETCH _cur INTO ' + fetchVars + ';\n' + indent + '  IF _done THEN LEAVE _for_loop; END IF;';
+      _oraForLoopCount++;
+      var _curLabel = '_for_loop_' + _oraForLoopCount;
+      return pre + declares + indent + 'DECLARE _done INT DEFAULT 0;\n' + indent + 'DECLARE _cur CURSOR FOR ' + q + ';\n' + indent + 'DECLARE CONTINUE HANDLER FOR NOT FOUND SET _done = 1;\n' + indent + 'OPEN _cur;\n' + indent + _curLabel + ': LOOP\n' + indent + '  FETCH _cur INTO ' + fetchVars + ';\n' + indent + '  IF _done THEN LEAVE ' + _curLabel + '; END IF;';
     });
     // Replace recVar.colName references with _rec_colName
     for (var ri = 0; ri < _forLoopRecVars.length; ri++) {
@@ -3853,6 +4332,7 @@ function transformBody(body, fromDb, toDb) {
   // PG query FOR loop -> MySQL cursor
   if (fromDb === 'postgresql' && toDb === 'mysql') {
     var _forLoopRecVarsPG = [];
+    var _pgForLoopCount = 0;
     // PG: FOR rec IN SELECT ... LOOP (no parens around query, query ends at LOOP)
     b = b.replace(/(^|\n)(\s*)FOR\s+(\w+)\s+IN\s+(SELECT\s+[\s\S]*?)\s+LOOP\b/gi, function(m, pre, indent, recVar, query) {
       var q = query.trim().replace(/\s*\n\s*/g, ' ');
@@ -3874,7 +4354,9 @@ function transformBody(body, fromDb, toDb) {
         fetchVars = colNames.map(function(c) { return '_rec_' + c; }).join(', ');
         _forLoopRecVarsPG.push({ recVar: recVar, colNames: colNames });
       }
-      return pre + declares + indent + 'DECLARE _done INT DEFAULT 0;\n' + indent + 'DECLARE _cur CURSOR FOR ' + q + ';\n' + indent + 'DECLARE CONTINUE HANDLER FOR NOT FOUND SET _done = 1;\n' + indent + 'OPEN _cur;\n' + indent + '_for_loop: LOOP\n' + indent + '  FETCH _cur INTO ' + fetchVars + ';\n' + indent + '  IF _done THEN LEAVE _for_loop; END IF;';
+      _pgForLoopCount++;
+      var _curLabel = '_for_loop_' + _pgForLoopCount;
+      return pre + declares + indent + 'DECLARE _done INT DEFAULT 0;\n' + indent + 'DECLARE _cur CURSOR FOR ' + q + ';\n' + indent + 'DECLARE CONTINUE HANDLER FOR NOT FOUND SET _done = 1;\n' + indent + 'OPEN _cur;\n' + indent + _curLabel + ': LOOP\n' + indent + '  FETCH _cur INTO ' + fetchVars + ';\n' + indent + '  IF _done THEN LEAVE ' + _curLabel + '; END IF;';
     });
     for (var ri = 0; ri < _forLoopRecVarsPG.length; ri++) {
       var rv = _forLoopRecVarsPG[ri];
@@ -3921,8 +4403,15 @@ function transformBody(body, fromDb, toDb) {
   }
 
   // INITCAP (Oracle/PG -> MySQL: no native equivalent)
+  // Replace with CONCAT(UPPER(LEFT(x,1)), LOWER(SUBSTRING(x,2))) for single-word approximation
   if ((fromDb === 'oracle' || fromDb === 'postgresql') && toDb === 'mysql') {
-    b = b.replace(/\bINITCAP\s*\(\s*([^)]+)\)/gi, '/* [注意: MySQL 无 INITCAP, 需自定义函数] */ INITCAP($1)');
+    b = b.replace(/\bINITCAP\s*\(\s*([^)]+)\)/gi, function(m, arg) {
+      var a = arg.trim();
+      return 'CONCAT(UPPER(LEFT(' + a + ', 1)), LOWER(SUBSTRING(' + a + ', 2))) /* INITCAP: 仅首字母大写, 多单词请自定义函数 */';
+    });
+  } else if (fromDb === 'mysql' && toDb === 'postgresql') {
+    // Reverse: detect the CONCAT(UPPER(LEFT(...)),LOWER(SUBSTRING(...))) pattern
+    // Not feasible to reverse reliably, so skip
   }
 
   // REGEXP_LIKE / REGEXP / ~ operator
@@ -4906,6 +5395,319 @@ const app = createApp({
     const statusText = ref('');
     const fileInput = ref(null);
 
+    // --- DDL Rules state ---
+    const ddlRules = ref({
+      oraclePg: [
+        {source:'NUMBER(p,s)',target:'NUMERIC(p,s)'},
+        {source:'NUMBER(p)',target:'NUMERIC(p)'},
+        {source:'NUMBER',target:'NUMERIC'},
+        {source:'VARCHAR2(n)',target:'VARCHAR(n)'},
+        {source:'NVARCHAR2(n)',target:'VARCHAR(n)'},
+        {source:'CHAR(n)',target:'CHAR(n)'},
+        {source:'CLOB',target:'TEXT'},
+        {source:'BLOB',target:'BYTEA'},
+        {source:'DATE',target:'TIMESTAMP'},
+        {source:'TIMESTAMP',target:'TIMESTAMP'},
+        {source:'RAW(n)',target:'BYTEA'},
+        {source:'LONG',target:'TEXT'},
+        {source:'NCLOB',target:'TEXT'},
+        {source:'BINARY_FLOAT',target:'REAL'},
+        {source:'BINARY_DOUBLE',target:'DOUBLE PRECISION'},
+        {source:'XMLTYPE',target:'XML'},
+        {source:'GENERATED...AS IDENTITY',target:'GENERATED...AS IDENTITY'},
+        {source:'SYSDATE',target:'CURRENT_DATE'},
+        {source:'SYSTIMESTAMP',target:'CLOCK_TIMESTAMP()'},
+        {source:'NVL',target:'COALESCE'}
+      ],
+      oracleMysql: [
+        {source:'NUMBER(p,s)',target:'DECIMAL(p,s)'},
+        {source:'NUMBER(p) [p<=10]',target:'INT'},
+        {source:'NUMBER(p) [p>10]',target:'BIGINT'},
+        {source:'NUMBER',target:'DECIMAL(38,10)'},
+        {source:'VARCHAR2(n)',target:'VARCHAR(n)'},
+        {source:'NVARCHAR2(n)',target:'VARCHAR(n)'},
+        {source:'CHAR(n)',target:'CHAR(n)'},
+        {source:'CLOB',target:'LONGTEXT'},
+        {source:'BLOB',target:'LONGBLOB'},
+        {source:'DATE',target:'DATETIME'},
+        {source:'TIMESTAMP',target:'DATETIME(6)'},
+        {source:'RAW(n)',target:'VARBINARY(n)'},
+        {source:'LONG',target:'LONGTEXT'},
+        {source:'NCLOB',target:'LONGTEXT'},
+        {source:'BINARY_FLOAT',target:'FLOAT'},
+        {source:'BINARY_DOUBLE',target:'DOUBLE'},
+        {source:'XMLTYPE',target:'LONGTEXT'},
+        {source:'GENERATED...AS IDENTITY',target:'AUTO_INCREMENT'},
+        {source:'SYSDATE',target:'NOW()'},
+        {source:'NVL',target:'IFNULL'}
+      ],
+      mysqlPg: [
+        {source:'INT',target:'INTEGER'},
+        {source:'BIGINT',target:'BIGINT'},
+        {source:'TINYINT(1)',target:'BOOLEAN'},
+        {source:'TINYINT',target:'SMALLINT'},
+        {source:'SMALLINT',target:'SMALLINT'},
+        {source:'MEDIUMINT',target:'INTEGER'},
+        {source:'FLOAT',target:'REAL'},
+        {source:'DOUBLE',target:'DOUBLE PRECISION'},
+        {source:'DECIMAL(p,s)',target:'NUMERIC(p,s)'},
+        {source:'VARCHAR(n)',target:'VARCHAR(n)'},
+        {source:'CHAR(n)',target:'CHAR(n)'},
+        {source:'TEXT',target:'TEXT'},
+        {source:'LONGTEXT',target:'TEXT'},
+        {source:'MEDIUMTEXT',target:'TEXT'},
+        {source:'TINYTEXT',target:'TEXT'},
+        {source:'BLOB',target:'BYTEA'},
+        {source:'LONGBLOB',target:'BYTEA'},
+        {source:'DATETIME',target:'TIMESTAMP'},
+        {source:'DATETIME(6)',target:'TIMESTAMP(6)'},
+        {source:'DATE',target:'DATE'},
+        {source:'TIME',target:'TIME'},
+        {source:'JSON',target:'JSONB'},
+        {source:'ENUM(...)',target:'VARCHAR(255)'},
+        {source:'SET(...)',target:'VARCHAR(255)'},
+        {source:'AUTO_INCREMENT',target:'GENERATED...AS IDENTITY'},
+        {source:'NOW()',target:'CURRENT_TIMESTAMP'},
+        {source:'IFNULL',target:'COALESCE'}
+      ]
+    });
+
+    function addRule(category) {
+      ddlRules.value[category].push({source:'',target:''});
+    }
+    function deleteRule(category, index) {
+      ddlRules.value[category].splice(index, 1);
+    }
+    function saveRule(category, index) {
+      statusText.value = '规则已保存: ' + ddlRules.value[category][index].source + ' → ' + ddlRules.value[category][index].target;
+    }
+
+    // --- Body (Function/Procedure) Rules state ---
+    const bodyRules = ref({
+      oraclePg: [
+        {source:'NVL(a, b)',target:'COALESCE(a, b)'},
+        {source:'NVL2(a, b, c)',target:'CASE WHEN a IS NOT NULL THEN b ELSE c END'},
+        {source:'DECODE(expr, v1, r1, ..., def)',target:'CASE expr WHEN v1 THEN r1 ... ELSE def END'},
+        {source:'TO_NUMBER(x)',target:'CAST(x AS INTEGER)'},
+        {source:'SYSDATE',target:'CURRENT_DATE'},
+        {source:'SYSTIMESTAMP',target:'CLOCK_TIMESTAMP()'},
+        {source:'TO_CHAR(expr, fmt)',target:'to_char(expr, fmt) 格式符转换'},
+        {source:'TO_CHAR(expr) 单参数',target:'expr::TEXT'},
+        {source:'TO_DATE(expr, fmt)',target:'to_date(expr, fmt) 格式符转换'},
+        {source:'SUBSTR(a, b, c)',target:'SUBSTRING(a FROM b FOR c)'},
+        {source:'RAISE_APPLICATION_ERROR(-code, msg)',target:"RAISE EXCEPTION msg USING ERRCODE = 'P0001'"},
+        {source:'|| 字符串拼接',target:'|| 保持不变'},
+        {source:'DBMS_OUTPUT.PUT_LINE(expr)',target:"RAISE NOTICE '%', expr"},
+        {source:'EXCEPTION WHEN OTHERS THEN',target:'EXCEPTION WHEN OTHERS THEN 保持'},
+        {source:'ROWNUM <= n',target:'LIMIT n'},
+        {source:'EXECUTE IMMEDIATE expr',target:'EXECUTE expr'},
+        {source:'SQL%ROWCOUNT',target:'GET DIAGNOSTICS var = ROW_COUNT'},
+        {source:'ELSIF',target:'ELSIF 保持'},
+        {source:'WHILE ... LOOP / END LOOP',target:'WHILE ... LOOP / END LOOP 保持'},
+        {source:'seq.NEXTVAL',target:"nextval('seq')"},
+        {source:'seq.CURRVAL',target:"currval('seq')"},
+        {source:'MONTHS_BETWEEN(a, b)',target:'EXTRACT(YEAR/MONTH FROM AGE(a,b))'},
+        {source:'ADD_MONTHS(dt, n)',target:"(dt + (n || ' month')::interval)"},
+        {source:'LAST_DAY(dt)',target:"(date_trunc('month', dt) + interval '1 month - 1 day')::date"},
+        {source:"TRUNC(dt, 'MM')",target:"date_trunc('month', dt)"},
+        {source:"TRUNC(dt, 'YYYY')",target:"date_trunc('year', dt)"},
+        {source:'TRUNC(SYSDATE)',target:'CURRENT_DATE'},
+        {source:'LENGTHB(x)',target:'OCTET_LENGTH(x)'},
+        {source:'INSTR(a, b)',target:'strpos(a, b)'},
+        {source:'DBMS_RANDOM.VALUE',target:'random()'},
+        {source:'DBMS_RANDOM.VALUE(lo, hi)',target:'(lo + random() * (hi - lo))'},
+        {source:'LISTAGG(col, sep) WITHIN GROUP(ORDER BY x)',target:'string_agg(col, sep ORDER BY x)'},
+        {source:'cursor%NOTFOUND',target:'NOT FOUND'},
+        {source:'cursor%FOUND',target:'FOUND'},
+        {source:'cursor%ROWTYPE',target:'RECORD'},
+        {source:'CURSOR c IS SELECT ...',target:'c CURSOR FOR SELECT ...'},
+        {source:'FOR r IN (SELECT...) LOOP',target:'FOR r IN SELECT... LOOP'},
+        {source:'REGEXP_LIKE(expr, pat)',target:'expr ~ pat'},
+        {source:'SQLCODE',target:'SQLSTATE'},
+        {source:'DBMS_UTILITY.FORMAT_ERROR_BACKTRACE',target:'PG_EXCEPTION_CONTEXT'},
+        {source:'RAISE; 重新抛出',target:'RAISE;'},
+        {source:'VARCHAR2',target:'VARCHAR'},
+        {source:'NUMBER(p,s)',target:'NUMERIC(p,s)'},
+        {source:'CLOB',target:'TEXT'},
+        {source:'BLOB',target:'BYTEA'},
+        {source:'PLS_INTEGER / BINARY_INTEGER',target:'INTEGER'},
+        {source:'BOOLEAN',target:'BOOLEAN'},
+        {source:'DATE 格式符: YYYY MM DD HH24 MI SS',target:'格式符: YYYY MM DD HH24 MI SS 保持'}
+      ],
+      oracleMysql: [
+        {source:'NVL(a, b)',target:'IFNULL(a, b)'},
+        {source:'NVL2(a, b, c)',target:'IF(a IS NOT NULL, b, c)'},
+        {source:'DECODE(expr, v1, r1, ..., def)',target:'CASE expr WHEN v1 THEN r1 ... ELSE def END'},
+        {source:'TO_NUMBER(x)',target:'CAST(x AS SIGNED)'},
+        {source:'SYSDATE',target:'NOW()'},
+        {source:'SYSTIMESTAMP',target:'NOW()'},
+        {source:'TO_CHAR(expr, fmt)',target:'DATE_FORMAT(expr, fmt) 格式符转换'},
+        {source:'TO_CHAR(expr) 单参数',target:'CAST(expr AS CHAR)'},
+        {source:'TO_DATE(expr, fmt)',target:'STR_TO_DATE(expr, fmt) 格式符转换'},
+        {source:'SUBSTR(a, b, c)',target:'SUBSTRING(a, b, c)'},
+        {source:'RAISE_APPLICATION_ERROR(-code, msg)',target:"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg"},
+        {source:'RAISE; 重新抛出',target:'RESIGNAL;'},
+        {source:'|| 字符串拼接',target:'CONCAT(a, b, ...)'},
+        {source:'DBMS_OUTPUT.PUT_LINE(expr)',target:'SELECT expr;'},
+        {source:'EXCEPTION WHEN OTHERS THEN ...',target:'DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN...END'},
+        {source:'EXCEPTION WHEN NO_DATA_FOUND',target:'DECLARE CONTINUE HANDLER FOR NOT FOUND BEGIN...END'},
+        {source:'ROWNUM <= n',target:'LIMIT n'},
+        {source:'EXECUTE IMMEDIATE expr USING ...',target:'PREPARE/EXECUTE/DEALLOCATE 模式'},
+        {source:'var := expr;',target:'SET var = expr;'},
+        {source:'SQL%ROWCOUNT',target:'ROW_COUNT()'},
+        {source:'ELSIF',target:'ELSEIF'},
+        {source:'WHILE ... LOOP / END LOOP',target:'WHILE ... DO / END WHILE'},
+        {source:'LOOP / END LOOP 基本循环',target:'label: LOOP / END LOOP label'},
+        {source:'EXIT WHEN condition;',target:'IF condition THEN LEAVE label; END IF;'},
+        {source:'seq.NEXTVAL',target:'/* MySQL 无序列, 用 AUTO_INCREMENT */'},
+        {source:'seq.CURRVAL',target:'LAST_INSERT_ID()'},
+        {source:'MONTHS_BETWEEN(a, b)',target:'TIMESTAMPDIFF(MONTH, b, a)'},
+        {source:'ADD_MONTHS(dt, n)',target:'DATE_ADD(dt, INTERVAL n MONTH)'},
+        {source:"TRUNC(dt, 'MM')",target:"CAST(DATE_FORMAT(dt, '%Y-%m-01') AS DATE)"},
+        {source:"TRUNC(dt, 'YYYY')",target:"CAST(DATE_FORMAT(dt, '%Y-01-01') AS DATE)"},
+        {source:'TRUNC(SYSDATE)',target:'CURDATE()'},
+        {source:'TRUNC(x, n) 数值截断',target:'TRUNCATE(x, n)'},
+        {source:'LENGTH(x) 字符长度',target:'CHAR_LENGTH(x)'},
+        {source:'LENGTHB(x)',target:'LENGTH(x)'},
+        {source:'DBMS_RANDOM.VALUE',target:'RAND()'},
+        {source:'DBMS_RANDOM.VALUE(lo, hi)',target:'(lo + RAND() * (hi - lo))'},
+        {source:'LISTAGG(col, sep) WITHIN GROUP(ORDER BY x)',target:"GROUP_CONCAT(col ORDER BY x SEPARATOR sep)"},
+        {source:'cursor%NOTFOUND',target:'_done (配合 HANDLER FOR NOT FOUND)'},
+        {source:'cursor%FOUND',target:'NOT _done'},
+        {source:'cursor%ROWCOUNT',target:'ROW_COUNT()'},
+        {source:'CURSOR c IS SELECT ...',target:'DECLARE c CURSOR FOR SELECT ...'},
+        {source:'FOR r IN (SELECT...) LOOP',target:'DECLARE CURSOR + OPEN + FETCH 循环'},
+        {source:'FOR i IN 1..10 LOOP',target:'DECLARE i INT DEFAULT 1; WHILE i<=10 DO'},
+        {source:'REGEXP_LIKE(expr, pat)',target:'expr REGEXP pat'},
+        {source:'INITCAP(x)',target:'CONCAT(UPPER(LEFT(x,1)), LOWER(SUBSTRING(x,2)))'},
+        {source:'SQLCODE',target:'@_err_code'},
+        {source:'SQLERRM',target:'@_err_msg'},
+        {source:'DBMS_UTILITY.FORMAT_ERROR_BACKTRACE',target:"'' (MySQL 无等价函数)"},
+        {source:'MERGE INTO ... WHEN MATCHED/NOT MATCHED',target:'INSERT...ON DUPLICATE KEY UPDATE'},
+        {source:'VARCHAR2',target:'VARCHAR'},
+        {source:'NUMBER(p,s)',target:'DECIMAL(p,s)'},
+        {source:'CLOB',target:'LONGTEXT'},
+        {source:'BLOB',target:'LONGBLOB'},
+        {source:'DATE (Oracle)',target:'DATETIME'},
+        {source:'TIMESTAMP',target:'DATETIME(6)'},
+        {source:'PLS_INTEGER / BINARY_INTEGER',target:'INT'},
+        {source:'BOOLEAN',target:'TINYINT(1)'},
+        {source:'%ROWTYPE',target:'VARCHAR(4000) (MySQL 无等价)'},
+        {source:'格式符: YYYY MM DD HH24 MI SS',target:'格式符: %Y %m %d %H %i %s'}
+      ],
+      mysqlPg: [
+        {source:'IFNULL(a, b)',target:'COALESCE(a, b)'},
+        {source:'IF(cond, a, b)',target:'CASE WHEN cond THEN a ELSE b END'},
+        {source:'CONCAT(a, b, ...)',target:'(a || b || ...)'},
+        {source:'CAST(x AS SIGNED)',target:'CAST(x AS INTEGER)'},
+        {source:'CAST(x AS UNSIGNED)',target:'CAST(x AS INTEGER)'},
+        {source:'NOW()',target:'CURRENT_DATE'},
+        {source:'CURRENT_TIMESTAMP',target:'CURRENT_TIMESTAMP 保持'},
+        {source:'DATE_FORMAT(expr, fmt)',target:'to_char(expr, fmt) 格式符转换'},
+        {source:'STR_TO_DATE(expr, fmt)',target:'to_date(expr, fmt) 格式符转换'},
+        {source:"SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT",target:"RAISE EXCEPTION msg USING ERRCODE = 'P0001'"},
+        {source:'RESIGNAL;',target:'RAISE;'},
+        {source:'DECLARE HANDLER FOR SQLEXCEPTION',target:'EXCEPTION WHEN OTHERS THEN'},
+        {source:'DECLARE HANDLER FOR NOT FOUND',target:'EXCEPTION WHEN NO_DATA_FOUND THEN'},
+        {source:'ELSEIF',target:'ELSIF'},
+        {source:'WHILE ... DO / END WHILE',target:'WHILE ... LOOP / END LOOP'},
+        {source:'SET var = expr;',target:'var := expr;'},
+        {source:'ROW_COUNT()',target:'GET DIAGNOSTICS var = ROW_COUNT'},
+        {source:'PREPARE/EXECUTE/DEALLOCATE',target:'EXECUTE expr;'},
+        {source:'TIMESTAMPDIFF(MONTH, a, b)',target:'EXTRACT(YEAR/MONTH FROM AGE(b, a))'},
+        {source:'DATE_ADD(dt, INTERVAL n MONTH)',target:"(dt + (n || ' month')::interval)"},
+        {source:'LAST_DAY(dt)',target:"(date_trunc('month', dt) + interval '1 month - 1 day')::date"},
+        {source:'TRUNCATE(x, n)',target:'TRUNC(x, n)'},
+        {source:'CHAR_LENGTH(x)',target:'LENGTH(x)'},
+        {source:'RAND()',target:'random()'},
+        {source:'GROUP_CONCAT(col ORDER BY x SEPARATOR sep)',target:'string_agg(col, sep ORDER BY x)'},
+        {source:'DECLARE c CURSOR FOR SELECT ...',target:'c CURSOR FOR SELECT ...'},
+        {source:'expr REGEXP pat',target:'expr ~ pat'},
+        {source:'LIMIT n OFFSET m',target:'LIMIT n OFFSET m 保持'},
+        {source:'ON DUPLICATE KEY UPDATE col=VALUES(col)',target:'ON CONFLICT DO UPDATE SET col=EXCLUDED.col'},
+        {source:'INSERT IGNORE INTO',target:'INSERT INTO ... ON CONFLICT DO NOTHING'},
+        {source:'label: LOOP',target:'<<label>> LOOP'},
+        {source:'LEAVE label;',target:'EXIT label;'},
+        {source:'LEAVE;',target:'EXIT;'},
+        {source:'IF _done THEN LEAVE ...',target:'EXIT WHEN NOT FOUND;'},
+        {source:'@_err_msg',target:'SQLERRM'},
+        {source:'@_err_code',target:'SQLSTATE'},
+        {source:'DECIMAL(p,s)',target:'NUMERIC(p,s)'},
+        {source:'TINYINT(1)',target:'BOOLEAN'},
+        {source:'TINYINT',target:'SMALLINT'},
+        {source:'INT',target:'INTEGER'},
+        {source:'DOUBLE',target:'DOUBLE PRECISION'},
+        {source:'LONGTEXT / MEDIUMTEXT',target:'TEXT'},
+        {source:'LONGBLOB',target:'BYTEA'},
+        {source:'DATETIME',target:'TIMESTAMP'},
+        {source:'DATETIME(n)',target:'TIMESTAMP(n)'},
+        {source:'格式符: %Y %m %d %H %i %s',target:'格式符: YYYY MM DD HH24 MI SS'}
+      ]
+    });
+
+    function addBodyRule(category) {
+      bodyRules.value[category].push({source:'',target:''});
+    }
+    function deleteBodyRule(category, index) {
+      bodyRules.value[category].splice(index, 1);
+    }
+    function saveBodyRule(category, index) {
+      statusText.value = '规则已保存: ' + bodyRules.value[category][index].source + ' → ' + bodyRules.value[category][index].target;
+    }
+
+    // --- Rule Modal state ---
+    const ruleModal = ref({
+      visible: false,
+      type: '', // 'ddl' or 'body'
+      category: '', // 'oraclePg', 'oracleMysql', 'mysqlPg'
+      index: -1, // -1 = new
+      source: '',
+      target: ''
+    });
+
+    function openRuleModal(type, category, index) {
+      ruleModal.value.type = type;
+      ruleModal.value.category = category;
+      ruleModal.value.index = index;
+      if (index >= 0) {
+        var store = type === 'ddl' ? ddlRules : bodyRules;
+        var rule = store.value[category][index];
+        ruleModal.value.source = rule.source;
+        ruleModal.value.target = rule.target;
+      } else {
+        ruleModal.value.source = '';
+        ruleModal.value.target = '';
+      }
+      ruleModal.value.visible = true;
+    }
+
+    function confirmRuleModal() {
+      var m = ruleModal.value;
+      var store = m.type === 'ddl' ? ddlRules : bodyRules;
+      var src = m.source.trim();
+      var tgt = m.target.trim();
+      if (m.index === -1) {
+        // New rule: only add if at least one field is non-empty
+        if (!src && !tgt) {
+          ruleModal.value.visible = false;
+          return;
+        }
+        store.value[m.category].push({source: src, target: tgt});
+        statusText.value = '已新增规则: ' + src + ' ⇄ ' + tgt;
+      } else {
+        // Edit existing: if both empty, delete the record
+        if (!src && !tgt) {
+          store.value[m.category].splice(m.index, 1);
+          statusText.value = '已删除空规则';
+        } else {
+          store.value[m.category][m.index].source = src;
+          store.value[m.category][m.index].target = tgt;
+          statusText.value = '已保存规则: ' + src + ' ⇄ ' + tgt;
+        }
+      }
+      ruleModal.value.visible = false;
+    }
+
     // --- Computed labels ---
     const sourceLabel = computed(() => DB_LABELS[sourceDb.value] || sourceDb.value);
     const targetLabel = computed(() => DB_LABELS[targetDb.value] || targetDb.value);
@@ -5175,7 +5977,11 @@ const app = createApp({
       swapProcDbs, loadProcSample, clearProc, convertProc, copyProcOutput, saveProcOutput,
       // Shared
       statusText, fileInput, uploadFile, handleFileUpload,
-      showScrollTop, scrollToTop
+      showScrollTop, scrollToTop,
+      // Rules
+      ddlRules, addRule, deleteRule, saveRule,
+      bodyRules, addBodyRule, deleteBodyRule, saveBodyRule,
+      ruleModal, openRuleModal, confirmRuleModal
     };
   }
 });
