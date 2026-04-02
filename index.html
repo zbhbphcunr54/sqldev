@@ -5318,7 +5318,7 @@ function _genPGProcedure(name, params, vars, body) {
 }
 
 /* ===== VUE 3 APP ===== */
-const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+const { createApp, ref, computed, onMounted, onUnmounted, triggerRef } = Vue;
 
 const app = createApp({
   setup() {
@@ -5447,15 +5447,18 @@ const app = createApp({
         if (m.index === -1) {
           if (!src && !tgt) { ruleModal.value.visible = false; return; }
           arr.push({s: sVal, t: tVal, fwd: null, rev: null});
+          triggerRef(_bodyRulesRef);
           statusText.value = '已新增规则: ' + src + ' → ' + tgt;
         } else {
           if (!src && !tgt) {
-            if (!_isAdmin()) { statusText.value = '⚠ 非管理员不允许删除规则'; ruleModal.value.visible = false; return; }
+            if (!_isAdmin()) { alert('非管理员不允许删除规则'); ruleModal.value.visible = false; return; }
             arr.splice(m.index, 1);
-            statusText.value = '已删除空规则';
+            triggerRef(_bodyRulesRef);
+            statusText.value = '已删除规则';
           } else {
             arr[m.index].s = sVal;
             arr[m.index].t = tVal;
+            triggerRef(_bodyRulesRef);
             statusText.value = '已保存规则: ' + src + ' → ' + tgt;
           }
         }
@@ -5467,9 +5470,9 @@ const app = createApp({
           statusText.value = '已新增规则: ' + src + ' → ' + tgt;
         } else {
           if (!src && !tgt) {
-            if (!_isAdmin()) { statusText.value = '⚠ 非管理员不允许删除规则'; ruleModal.value.visible = false; return; }
+            if (!_isAdmin()) { alert('非管理员不允许删除规则'); ruleModal.value.visible = false; return; }
             store.value[m.category].splice(m.index, 1);
-            statusText.value = '已删除空规则';
+            statusText.value = '已删除规则';
           } else {
             store.value[m.category][m.index].source = src;
             store.value[m.category][m.index].target = tgt;
