@@ -2253,7 +2253,7 @@ function generateExtraDDL(parsed, sourceDb, targetDb) {
 /* ===== MAIN CONVERT ===== */
 function convertDDL(input, sourceDb, targetDb) {
   if (!input.trim()) return '-- 请输入 DDL 语句';
-  if (input.length > 500000) return '-- 输入内容过大（超过500KB），请分批处理';
+  if (input.length > 5 * 1024 * 1024) return '-- 输入内容过大（超过5MB），请分批处理';
   if (sourceDb === targetDb) return '-- 源数据库与目标数据库相同，无需转换';
   let tables;
   try {
@@ -3871,7 +3871,7 @@ function _parseOracleVarDecl(declBlock) {
 
 function convertFunction(input, sourceDb, targetDb) {
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源函数定义';
-  if (input.length > 500000) return '-- 错误：输入超过500KB限制\n';
+  if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
 
   const blocks = input.split(/\n(?=\s*CREATE\b)/i).filter(function(b) { return /\bCREATE\b/i.test(b); });
@@ -4250,7 +4250,7 @@ function _genPGFunction(name, params, returnType, vars, body) {
 
 function convertProcedure(input, sourceDb, targetDb) {
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源存储过程定义';
-  if (input.length > 500000) return '-- 错误：输入超过500KB限制\n';
+  if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
 
   const blocks = input.split(/\n(?=\s*CREATE\b)/i).filter(function(b) { return /\bCREATE\b/i.test(b); });
@@ -4635,12 +4635,10 @@ const app = createApp({
   setup() {
     const activePage = ref('ddl');
     const sidebarOpen = ref(false);
-    const advancedOpen = ref(false);
     const NAV_PAGES = ['ddl', 'func', 'proc', 'rules', 'bodyRules'];
     function setPage(page) {
       activePage.value = page;
       sidebarOpen.value = false;
-      if (page === 'rules' || page === 'bodyRules') advancedOpen.value = true;
     }
     function navKeydown(e) {
       var idx = NAV_PAGES.indexOf(activePage.value);
@@ -5310,7 +5308,7 @@ const app = createApp({
       if (file.size === 0) { statusText.value = '\u6587\u4EF6\u4E3A\u7A7A'; return; }
 
       function _loadContent(content, enc) {
-        if (content.length > 500000) { statusText.value = '文件内容超过500KB限制'; return; }
+        if (content.length > 5 * 1024 * 1024) { statusText.value = '文件内容过大（最大5MB）'; return; }
         if (content && !/CREATE|ALTER|COMMENT|INSERT|DROP|TABLE|INDEX|FUNCTION|PROCEDURE/i.test(content.substring(0, 2000))) {
           statusText.value = '\u8B66\u544A: \u6587\u4EF6\u5185\u5BB9\u53EF\u80FD\u4E0D\u662F\u6709\u6548\u7684 SQL \u8BED\u53E5';
         } else {
@@ -5390,7 +5388,7 @@ const app = createApp({
       window.addEventListener('keydown', keyHandler);
       // Close floating panels on outside click
       outsideClickHandler = function(e) {
-        if (showRulesMenu.value && !e.target.closest('.rules-dropdown')) {
+        if (showRulesMenu.value && !e.target.closest('.settings-dropdown')) {
           showRulesMenu.value = false;
         }
       };
@@ -5408,7 +5406,7 @@ const app = createApp({
     });
 
     return {
-      activePage, sidebarOpen, advancedOpen, setPage, navKeydown,
+      activePage, sidebarOpen, setPage, navKeydown,
       // Theme
       themeMode, themeLabel, toggleTheme,
       // DDL
