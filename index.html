@@ -3865,10 +3865,15 @@ var _handlePgExtractAgeToOracle = function(b) {
 
 
 function _splitArgs(str) {
-  let result = [], depth = 0, current = '';
+  let result = [], depth = 0, current = '', inQ = false, qChar = '';
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
-    if (ch === '(') { depth++; current += ch; }
+    if (inQ) {
+      current += ch;
+      if (ch === qChar && str[i - 1] !== '\\') inQ = false;
+    } else if (ch === "'" || ch === '"') {
+      inQ = true; qChar = ch; current += ch;
+    } else if (ch === '(') { depth++; current += ch; }
     else if (ch === ')') { depth--; current += ch; }
     else if (ch === ',' && depth === 0) { result.push(current); current = ''; }
     else { current += ch; }
@@ -4064,12 +4069,17 @@ function _convertConcatToPipe(body) {
 
 function _convertDateFormat(fmt, fromDb, toDb) {
   if (fromDb === toDb) return fmt;
-  const oracleToMySQL = {'YYYY':'%Y','YY':'%y','MM':'%m','DD':'%d','HH24':'%H','HH':'%h','MI':'%i','SS':'%s','MON':'%b','MONTH':'%M','DY':'%a','DAY':'%W','D':'%w','J':'%j'};
-  const mysqlToOracle = {'%Y':'YYYY','%y':'YY','%m':'MM','%d':'DD','%H':'HH24','%h':'HH','%i':'MI','%s':'SS','%b':'MON','%M':'MONTH','%a':'DY','%W':'DAY','%w':'D','%j':'J'};
+  const oracleToMySQL = {'MONTH':'%M','YYYY':'%Y','MON':'%b','HH24':'%H','DAY':'%W','DD':'%d','DY':'%a','HH':'%h','MI':'%i','MM':'%m','SS':'%s','YY':'%y','D':'%w','J':'%j'};
+  const mysqlToOracle = {'%M':'MONTH','%Y':'YYYY','%b':'MON','%H':'HH24','%W':'DAY','%d':'DD','%a':'DY','%h':'HH','%i':'MI','%m':'MM','%s':'SS','%y':'YY','%w':'D','%j':'J'};
+  function _replaceByMap(str, map) {
+    var keys = Object.keys(map).sort(function(a, b) { return b.length - a.length; });
+    var pattern = keys.map(function(k) { return k.replace(/[.*+?^${}()|[\]\\%]/g, '\\$&'); }).join('|');
+    return str.replace(new RegExp(pattern, 'gi'), function(m) { return map[m] || map[m.toUpperCase()] || m; });
+  }
   if (toDb === 'mysql' && fromDb !== 'mysql') {
-    Object.keys(oracleToMySQL).forEach(function(k) { fmt = fmt.replace(new RegExp(k, 'g'), oracleToMySQL[k]); });
+    fmt = _replaceByMap(fmt, oracleToMySQL);
   } else if (fromDb === 'mysql' && toDb !== 'mysql') {
-    Object.keys(mysqlToOracle).forEach(function(k) { fmt = fmt.replace(new RegExp(k.replace('%','\\%'), 'g'), mysqlToOracle[k]); });
+    fmt = _replaceByMap(fmt, mysqlToOracle);
   }
   return fmt;
 }
