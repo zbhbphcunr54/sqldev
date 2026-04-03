@@ -4635,8 +4635,13 @@ const app = createApp({
   setup() {
     const activePage = ref('ddl');
     const sidebarOpen = ref(false);
+    const advancedOpen = ref(false);
     const NAV_PAGES = ['ddl', 'func', 'proc', 'rules', 'bodyRules'];
-    function setPage(page) { activePage.value = page; sidebarOpen.value = false; }
+    function setPage(page) {
+      activePage.value = page;
+      sidebarOpen.value = false;
+      if (page === 'rules' || page === 'bodyRules') advancedOpen.value = true;
+    }
     function navKeydown(e) {
       var idx = NAV_PAGES.indexOf(activePage.value);
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
@@ -5403,7 +5408,7 @@ const app = createApp({
     });
 
     return {
-      activePage, sidebarOpen, setPage, navKeydown,
+      activePage, sidebarOpen, advancedOpen, setPage, navKeydown,
       // Theme
       themeMode, themeLabel, toggleTheme,
       // DDL
