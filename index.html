@@ -34,6 +34,37 @@
   --sidebar-w:232px;
   --header-h:56px;
 }
+/* ===== DARK THEME ===== */
+[data-theme="dark"]{
+  --bg:#0f172a;--bg-secondary:#1e293b;--bg-tertiary:#334155;
+  --bg-card:#1e293b;--bg-code:#1e293b;
+  --border:#334155;--border-hover:#475569;
+  --text:#e2e8f0;--text-secondary:#94a3b8;--text-muted:#64748b;
+  --accent:#3b82f6;--accent-hover:#60a5fa;--accent-light:rgba(59,130,246,.15);--accent-bg:rgba(59,130,246,.1);
+  --green:#4ade80;--amber:#fbbf24;--blue:#60a5fa;--red:#f87171;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);--shadow-md:0 4px 6px -1px rgba(0,0,0,.4),0 2px 4px -2px rgba(0,0,0,.3);
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f172a;--bg-secondary:#1e293b;--bg-tertiary:#334155;
+    --bg-card:#1e293b;--bg-code:#1e293b;
+    --border:#334155;--border-hover:#475569;
+    --text:#e2e8f0;--text-secondary:#94a3b8;--text-muted:#64748b;
+    --accent:#3b82f6;--accent-hover:#60a5fa;--accent-light:rgba(59,130,246,.15);--accent-bg:rgba(59,130,246,.1);
+    --green:#4ade80;--amber:#fbbf24;--blue:#60a5fa;--red:#f87171;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);--shadow-md:0 4px 6px -1px rgba(0,0,0,.4),0 2px 4px -2px rgba(0,0,0,.3);
+  }
+}
+[data-theme="dark"] textarea:focus,
+:root:not([data-theme="light"]) textarea:focus{background:var(--bg)}
+[data-theme="dark"] textarea.output-area:focus,
+:root:not([data-theme="light"]) textarea.output-area:focus{background:var(--bg-secondary)}
+[data-theme="dark"] .error-msg,
+:root:not([data-theme="light"]) .error-msg{background:#3b1a1a;border-color:#7f1d1d}
+.theme-toggle{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);cursor:pointer;transition:all .2s;margin-left:8px;flex-shrink:0}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.theme-toggle svg{width:16px;height:16px}
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondary);min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:14px;line-height:1.6}
@@ -312,6 +343,11 @@ textarea::placeholder{color:var(--text-muted)}
         <div class="version-box">
           <span class="version">v2.0.0</span>
           <span class="build">Vue 3</span>
+          <button class="theme-toggle" @click="toggleTheme" :title="themeLabel">
+            <svg v-if="themeMode==='dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg v-else-if="themeMode==='light'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </button>
         </div>
       </section>
 
@@ -5384,6 +5420,28 @@ const app = createApp({
     const activePage = ref('ddl');
     const sidebarOpen = ref(false);
     const showRulesMenu = ref(false);
+
+    // Theme: 'system' | 'light' | 'dark'
+    const themeMode = ref(localStorage.getItem('theme') || 'system');
+    const themeLabel = computed(() => {
+      if (themeMode.value === 'dark') return '切换到亮色模式';
+      if (themeMode.value === 'light') return '切换到跟随系统';
+      return '切换到深色模式';
+    });
+    function applyTheme(mode) {
+      const root = document.documentElement;
+      if (mode === 'dark') root.setAttribute('data-theme', 'dark');
+      else if (mode === 'light') root.setAttribute('data-theme', 'light');
+      else root.removeAttribute('data-theme');
+    }
+    function toggleTheme() {
+      const order = ['system', 'dark', 'light'];
+      const idx = order.indexOf(themeMode.value);
+      themeMode.value = order[(idx + 1) % order.length];
+      localStorage.setItem('theme', themeMode.value);
+      applyTheme(themeMode.value);
+    }
+    applyTheme(themeMode.value);
     const refCollapsed = ref(true);
     const ruleSearchQuery = ref('');
     const ruleFilterDir = ref('all');
@@ -6006,6 +6064,8 @@ const app = createApp({
 
     return {
       activePage, sidebarOpen,
+      // Theme
+      themeMode, themeLabel, toggleTheme,
       // DDL
       sourceDb, targetDb, inputDdl, outputDdl,
       sourceLabel, targetLabel, inputLineCount, outputMeta,
