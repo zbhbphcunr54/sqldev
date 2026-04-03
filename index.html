@@ -135,8 +135,9 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .sidebar-logo{width:32px;height:32px;border-radius:var(--radius);flex-shrink:0;background:var(--accent);display:grid;place-items:center;font-family:var(--font-code);font-size:9px;font-weight:700;color:#fff;letter-spacing:.5px}
 .sidebar-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px}
 .sidebar-nav{flex:1;padding:12px;display:flex;flex-direction:column;gap:2px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13.5px;font-weight:500;transition:all .15s;user-select:none}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13.5px;font-weight:500;transition:all .15s;user-select:none;background:none;border:none;width:100%;text-align:left;font-family:inherit;line-height:inherit}
 .nav-item:hover{background:var(--bg-tertiary);color:var(--text)}
+.nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--radius-sm)}
 .nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:600}
 .nav-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);flex-shrink:0}
 .nav-item.active .nav-icon{color:var(--accent)}
@@ -169,7 +170,10 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .arrow-icon{color:var(--accent);font-size:16px;font-weight:700;padding:0 2px;user-select:none}
 .swap-btn{border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);border-radius:var(--radius-sm);padding:5px 10px;font-size:16px;cursor:pointer;transition:all .15s;line-height:1}
 .swap-btn:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
-.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.encoding-select{font-size:12px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-family:var(--font-body);cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;transition:border-color .15s}
+.encoding-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.encoding-select option{background:var(--bg)}
 .btn{border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 14px;font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;color:var(--text-secondary);background:var(--bg);transition:all .15s;white-space:nowrap}
 .btn:hover{background:var(--bg-tertiary);color:var(--text);border-color:var(--border-hover)}
 .btn.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:600;box-shadow:var(--shadow-sm)}
@@ -179,6 +183,14 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .status-bar{display:flex;justify-content:space-between;align-items:center;padding:6px 24px;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg-secondary);min-height:30px}
 .status-text{font-family:var(--font-code);font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px}
 .status-text::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.status-bar.status-error .status-text{color:var(--red)}
+.status-bar.status-error .status-text::before{background:var(--red)}
+.status-bar.status-warning .status-text{color:var(--amber)}
+.status-bar.status-warning .status-text::before{background:var(--amber)}
+.status-bar.status-info .status-text{color:var(--accent)}
+.status-bar.status-info .status-text::before{background:var(--accent)}
+.status-bar.status-success .status-text{color:var(--green)}
+.status-bar.status-success .status-text::before{background:var(--green)}
 .status-info{display:flex;gap:12px}
 .status-info span{font-family:var(--font-code);font-size:11px;color:var(--text-muted)}
 .status-info strong{color:var(--text-secondary)}
@@ -363,27 +375,27 @@ textarea::placeholder{color:var(--text-muted)}
         <div class="sidebar-logo">SQL</div>
         <span class="sidebar-title">SQL &#24037;&#20316;&#21488;</span>
       </div>
-      <nav class="sidebar-nav" aria-label="主导航">
-        <div class="nav-item" role="button" tabindex="0" :aria-pressed="activePage==='ddl'" :class="{active: activePage==='ddl'}" @click="activePage='ddl';sidebarOpen=false" @keydown.enter="activePage='ddl';sidebarOpen=false" @keydown.space.prevent="activePage='ddl';sidebarOpen=false">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg></span>
+      <nav class="sidebar-nav" role="tablist" aria-label="主导航" aria-orientation="vertical">
+        <button class="nav-item" role="tab" :id="'tab-ddl'" :aria-selected="activePage==='ddl'" :tabindex="activePage==='ddl'?0:-1" aria-controls="panel-ddl" :class="{active: activePage==='ddl'}" @click="setPage('ddl')" @keydown="navKeydown">
+          <span class="nav-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg></span>
           DDL &#35821;&#21477;
-        </div>
-        <div class="nav-item" role="button" tabindex="0" :aria-pressed="activePage==='func'" :class="{active: activePage==='func'}" @click="activePage='func';sidebarOpen=false" @keydown.enter="activePage='func';sidebarOpen=false" @keydown.space.prevent="activePage='func';sidebarOpen=false">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3C3 2 4 1 5.5 1C7 1 8 2 8 3C8 5 5 5 5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 8h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 8c0 3 3 3 3 5c0 1-1 2-2.5 2S3 14 3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="5" r="1" fill="currentColor"/><path d="M10 9l2-2 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <button class="nav-item" role="tab" :id="'tab-func'" :aria-selected="activePage==='func'" :tabindex="activePage==='func'?0:-1" aria-controls="panel-func" :class="{active: activePage==='func'}" @click="setPage('func')" @keydown="navKeydown">
+          <span class="nav-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3C3 2 4 1 5.5 1C7 1 8 2 8 3C8 5 5 5 5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 8h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M5 8c0 3 3 3 3 5c0 1-1 2-2.5 2S3 14 3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="5" r="1" fill="currentColor"/><path d="M10 9l2-2 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           &#20989;&#25968;
-        </div>
-        <div class="nav-item" role="button" tabindex="0" :aria-pressed="activePage==='proc'" :class="{active: activePage==='proc'}" @click="activePage='proc';sidebarOpen=false" @keydown.enter="activePage='proc';sidebarOpen=false" @keydown.space.prevent="activePage='proc';sidebarOpen=false">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="5.5" y="10" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 6v2h4.5M12.5 6v2h-4.5M8 8v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <button class="nav-item" role="tab" :id="'tab-proc'" :aria-selected="activePage==='proc'" :tabindex="activePage==='proc'?0:-1" aria-controls="panel-proc" :class="{active: activePage==='proc'}" @click="setPage('proc')" @keydown="navKeydown">
+          <span class="nav-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="10" y="2" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="5.5" y="10" width="5" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 6v2h4.5M12.5 6v2h-4.5M8 8v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           &#23384;&#20648;&#36807;&#31243;
-        </div>
-        <div class="nav-item" role="button" tabindex="0" :aria-pressed="activePage==='rules'" :class="{active: activePage==='rules'}" @click="activePage='rules';sidebarOpen=false" @keydown.enter="activePage='rules';sidebarOpen=false" @keydown.space.prevent="activePage='rules';sidebarOpen=false">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="3" r="1.2" fill="currentColor"/><circle cx="11" cy="6.5" r="1.2" fill="currentColor"/><circle cx="7" cy="10" r="1.2" fill="currentColor"/><circle cx="9" cy="13.5" r="1.2" fill="currentColor"/></svg></span>
+        </button>
+        <button class="nav-item" role="tab" :id="'tab-rules'" :aria-selected="activePage==='rules'" :tabindex="activePage==='rules'?0:-1" aria-controls="panel-rules" :class="{active: activePage==='rules'}" @click="setPage('rules')" @keydown="navKeydown">
+          <span class="nav-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="3" r="1.2" fill="currentColor"/><circle cx="11" cy="6.5" r="1.2" fill="currentColor"/><circle cx="7" cy="10" r="1.2" fill="currentColor"/><circle cx="9" cy="13.5" r="1.2" fill="currentColor"/></svg></span>
           DDL &#26144;&#23556;&#35268;&#21017;
-        </div>
-        <div class="nav-item" role="button" tabindex="0" :aria-pressed="activePage==='bodyRules'" :class="{active: activePage==='bodyRules'}" @click="activePage='bodyRules';sidebarOpen=false" @keydown.enter="activePage='bodyRules';sidebarOpen=false" @keydown.space.prevent="activePage='bodyRules';sidebarOpen=false">
-          <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5v5H2z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M9 2h5v5H9z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5.5 9.5h5v5h-5z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 7v1.5h3.5M11.5 7v1.5h-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M8 8.5v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+        </button>
+        <button class="nav-item" role="tab" :id="'tab-bodyRules'" :aria-selected="activePage==='bodyRules'" :tabindex="activePage==='bodyRules'?0:-1" aria-controls="panel-bodyRules" :class="{active: activePage==='bodyRules'}" @click="setPage('bodyRules')" @keydown="navKeydown">
+          <span class="nav-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5v5H2z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M9 2h5v5H9z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5.5 9.5h5v5h-5z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 7v1.5h3.5M11.5 7v1.5h-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M8 8.5v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
           &#31243;&#24207;&#22359;&#26144;&#23556;&#35268;&#21017;
-        </div>
+        </button>
       </nav>
       <div class="sidebar-footer">v2.0.0</div>
     </aside>
@@ -412,7 +424,7 @@ textarea::placeholder{color:var(--text-muted)}
 
       <!-- ==================== DDL PAGE ==================== -->
       <template v-if="activePage==='ddl'">
-        <section class="toolbar">
+        <section class="toolbar" id="panel-ddl" role="tabpanel" aria-labelledby="tab-ddl">
           <div class="tool-left">
             <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
             <select class="db-select" v-model="sourceDb" aria-label="源数据库">
@@ -430,7 +442,7 @@ textarea::placeholder{color:var(--text-muted)}
           </div>
           <div class="actions">
             <button class="btn" @click="loadSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
             <button class="btn" @click="clearAll">&#28165;&#31354;</button>
             <button class="btn" @click="copyOutput">&#22797;&#21046;&#36755;&#20986;</button>
             <button class="btn" @click="saveOutput">&#20445;&#23384;&#25991;&#20214;</button>
@@ -438,7 +450,7 @@ textarea::placeholder{color:var(--text-muted)}
           </div>
         </section>
 
-        <div class="status-bar" v-if="statusText">
+        <div class="status-bar" :class="'status-' + outputStatus.type" v-if="statusText">
           <span class="status-text">{{statusText}}</span>
           <div class="status-info">
             <span>&#26041;&#21521;: <strong>{{sourceLabel}} &rarr; {{targetLabel}}</strong></span>
@@ -522,7 +534,7 @@ textarea::placeholder{color:var(--text-muted)}
 
       <!-- ==================== FUNCTION PAGE ==================== -->
       <template v-if="activePage==='func'">
-        <section class="toolbar">
+        <section class="toolbar" id="panel-func" role="tabpanel" aria-labelledby="tab-func">
           <div class="tool-left">
             <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
             <select class="db-select" v-model="funcSourceDb" aria-label="源数据库">
@@ -540,7 +552,7 @@ textarea::placeholder{color:var(--text-muted)}
           </div>
           <div class="actions">
             <button class="btn" @click="loadFuncSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
             <button class="btn" @click="clearFunc">&#28165;&#31354;</button>
             <button class="btn" @click="copyFuncOutput">&#22797;&#21046;&#36755;&#20986;</button>
             <button class="btn" @click="saveFuncOutput">&#20445;&#23384;&#25991;&#20214;</button>
@@ -548,7 +560,7 @@ textarea::placeholder{color:var(--text-muted)}
           </div>
         </section>
 
-        <div class="status-bar" v-if="statusText">
+        <div class="status-bar" :class="'status-' + outputStatus.type" v-if="statusText">
           <span class="status-text">{{statusText}}</span>
           <div class="status-info">
             <span>&#26041;&#21521;: <strong>{{funcSourceLabel}} &rarr; {{funcTargetLabel}}</strong></span>
@@ -643,7 +655,7 @@ $$;</pre>
 
       <!-- ==================== PROCEDURE PAGE ==================== -->
       <template v-if="activePage==='proc'">
-        <section class="toolbar">
+        <section class="toolbar" id="panel-proc" role="tabpanel" aria-labelledby="tab-proc">
           <div class="tool-left">
             <span class="tool-label">&#36716;&#25442;&#26041;&#21521;</span>
             <select class="db-select" v-model="procSourceDb" aria-label="源数据库">
@@ -661,7 +673,7 @@ $$;</pre>
           </div>
           <div class="actions">
             <button class="btn" @click="loadProcSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button>
+            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
             <button class="btn" @click="clearProc">&#28165;&#31354;</button>
             <button class="btn" @click="copyProcOutput">&#22797;&#21046;&#36755;&#20986;</button>
             <button class="btn" @click="saveProcOutput">&#20445;&#23384;&#25991;&#20214;</button>
@@ -669,7 +681,7 @@ $$;</pre>
           </div>
         </section>
 
-        <div class="status-bar" v-if="statusText">
+        <div class="status-bar" :class="'status-' + outputStatus.type" v-if="statusText">
           <span class="status-text">{{statusText}}</span>
           <div class="status-info">
             <span>&#26041;&#21521;: <strong>{{procSourceLabel}} &rarr; {{procTargetLabel}}</strong></span>
@@ -780,7 +792,7 @@ $$;</pre>
 
       <!-- ==================== RULES PAGE ==================== -->
       <template v-if="activePage==='rules'">
-        <section class="rules-page">
+        <section class="rules-page" id="panel-rules" role="tabpanel" aria-labelledby="tab-rules">
           <div class="rules-header">
             <h2>DDL 映射规则管理</h2>
             <div style="display:flex;align-items:center;gap:8px">
@@ -813,7 +825,7 @@ $$;</pre>
 
       <!-- ==================== BODY RULES PAGE ==================== -->
       <template v-if="activePage==='bodyRules'">
-        <section class="rules-page">
+        <section class="rules-page" id="panel-bodyRules" role="tabpanel" aria-labelledby="tab-bodyRules">
           <div class="rules-header">
             <h2>程序块映射规则管理</h2>
             <div style="display:flex;align-items:center;gap:8px">
@@ -856,6 +868,23 @@ $$;</pre>
           </div>
           <div class="rule-modal-foot" style="justify-content:center">
             <button class="btn-modal primary" @click="alertModal.visible=false">知道了</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== CONFIRM MODAL ==================== -->
+      <div class="rule-modal-mask" v-if="confirmModal.visible" @click.self="confirmModalCancel">
+        <div class="rule-modal" ref="confirmModalRef" style="width:370px" :style="confirmModal.dragStyle">
+          <div class="rule-modal-head" @mousedown="startDrag($event, 'confirm')">
+            <h4>{{confirmModal.title}}</h4>
+            <button class="rule-modal-close" @click="confirmModalCancel">&times;</button>
+          </div>
+          <div class="rule-modal-body" style="text-align:center;padding:24px 18px">
+            <p style="font-size:13px;color:var(--text);margin:0">{{confirmModal.message}}</p>
+          </div>
+          <div class="rule-modal-foot" style="justify-content:center;gap:12px">
+            <button class="btn-modal" @click="confirmModalCancel">取消</button>
+            <button class="btn-modal primary" @click="confirmModalOk">确认</button>
           </div>
         </div>
       </div>
@@ -2643,14 +2672,14 @@ function _applyDdlTarget(col, targetStr) {
 }
 
 function _mapTypeByRules(col, rules) {
-  if (!rules || !rules.length) return col.rawType || col.type;
+  if (!rules || !rules.length) return (col.rawType || col.type) + ' /* [注意: 无可用映射规则, 请人工确认] */';
   for (var i=0; i<rules.length; i++) {
     var r = rules[i];
     if (!r.source || !r.target) continue;
     var parsed = _parseDdlSource(r.source);
     if (_matchDdlSource(col, parsed)) return _applyDdlTarget(col, r.target);
   }
-  return col.rawType || col.type;
+  return (col.rawType || col.type) + ' /* [注意: 未匹配到映射规则, 类型原样保留] */';
 }
 
 /* ===== TYPE MAPPER WRAPPERS (read from _ddlRulesData) ===== */
@@ -4583,6 +4612,61 @@ function _deepCloneBodyRules(src) {
 }
 var _bodyRulesDefault = _deepCloneBodyRules(_bodyRulesData);
 
+/* ===== localStorage persistence for rules ===== */
+var _STORAGE_KEY_DDL  = 'ojw_ddlRules';
+var _STORAGE_KEY_BODY = 'ojw_bodyRules';
+
+function _saveDdlRulesToStorage() {
+  try { localStorage.setItem(_STORAGE_KEY_DDL, JSON.stringify(_ddlRulesData)); } catch(e) {}
+}
+function _saveBodyRulesToStorage() {
+  var out = {};
+  for (var k in _bodyRulesData) {
+    out[k] = _bodyRulesData[k].map(function(r) { return { s: r.s, t: r.t }; });
+  }
+  try { localStorage.setItem(_STORAGE_KEY_BODY, JSON.stringify(out)); } catch(e) {}
+}
+function _persistRules() { _saveDdlRulesToStorage(); _saveBodyRulesToStorage(); }
+
+function _loadDdlRulesFromStorage() {
+  try {
+    var s = localStorage.getItem(_STORAGE_KEY_DDL);
+    if (s) { var d = JSON.parse(s); if (d && typeof d === 'object') return d; }
+  } catch(e) {}
+  return null;
+}
+function _loadBodyRulesFromStorage() {
+  try {
+    var s = localStorage.getItem(_STORAGE_KEY_BODY);
+    if (!s) return null;
+    var saved = JSON.parse(s);
+    if (!saved || typeof saved !== 'object') return null;
+    var result = {};
+    for (var pair in saved) {
+      if (!_bodyRulesDefault[pair]) continue;
+      var defLookup = {};
+      _bodyRulesDefault[pair].forEach(function(r) {
+        defLookup[r.s + '\x00' + r.t] = r;
+      });
+      result[pair] = saved[pair].map(function(sr) {
+        var def = defLookup[sr.s + '\x00' + sr.t];
+        if (def) return { s: sr.s, t: sr.t, fwd: def.fwd, rev: def.rev, typeFwd: def.typeFwd || null, typeRev: def.typeRev || null };
+        return { s: sr.s, t: sr.t, fwd: null, rev: null };
+      });
+    }
+    return result;
+  } catch(e) {}
+  return null;
+}
+
+// Hydrate from localStorage on script load
+(function _hydrateRules() {
+  var ddl = _loadDdlRulesFromStorage();
+  if (ddl) { for (var k in ddl) { if (_ddlRulesData.hasOwnProperty(k)) _ddlRulesData[k] = ddl[k]; } }
+  var body = _loadBodyRulesFromStorage();
+  if (body) { for (var k in body) { if (_bodyRulesData.hasOwnProperty(k)) _bodyRulesData[k] = body[k]; } }
+})();
+
 /* ===== New rule-driven mapParamType ===== */
 function mapParamType(typeStr, fromDb, toDb) {
   if (!typeStr) return typeStr;
@@ -5482,6 +5566,34 @@ const app = createApp({
   setup() {
     const activePage = ref('ddl');
     const sidebarOpen = ref(false);
+    const NAV_PAGES = ['ddl', 'func', 'proc', 'rules', 'bodyRules'];
+    function setPage(page) { activePage.value = page; sidebarOpen.value = false; }
+    function navKeydown(e) {
+      var idx = NAV_PAGES.indexOf(activePage.value);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        idx = (idx + 1) % NAV_PAGES.length;
+        setPage(NAV_PAGES[idx]);
+        var next = e.currentTarget.parentElement.querySelectorAll('[role=tab]')[idx];
+        if (next) next.focus();
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        idx = (idx - 1 + NAV_PAGES.length) % NAV_PAGES.length;
+        setPage(NAV_PAGES[idx]);
+        var prev = e.currentTarget.parentElement.querySelectorAll('[role=tab]')[idx];
+        if (prev) prev.focus();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setPage(NAV_PAGES[0]);
+        var first = e.currentTarget.parentElement.querySelectorAll('[role=tab]')[0];
+        if (first) first.focus();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setPage(NAV_PAGES[NAV_PAGES.length - 1]);
+        var last = e.currentTarget.parentElement.querySelectorAll('[role=tab]');
+        if (last.length) last[last.length - 1].focus();
+      }
+    }
     const showRulesMenu = ref(false);
 
     // Theme: 'system' | 'light' | 'dark'
@@ -5531,6 +5643,14 @@ const app = createApp({
 
     const statusText = ref('');
     const fileInput = ref(null);
+    const fileEncoding = ref('auto');
+    const ENCODING_OPTIONS = [
+      { value: 'auto', label: '自动探测' },
+      { value: 'UTF-8', label: 'UTF-8' },
+      { value: 'GBK', label: 'GBK / GB2312 / GB18030' },
+      { value: 'Big5', label: 'Big5 (繁体)' },
+      { value: 'Shift_JIS', label: 'Shift_JIS (日文)' }
+    ];
 
     // --- DDL Rules state (reads from global _ddlRulesData, shared with engine) ---
     const ddlRules = ref(_ddlRulesData);
@@ -5579,6 +5699,7 @@ const app = createApp({
       }
       canUndoRule.value = _ruleUndoStack.length > 0;
       statusText.value = '已撤销上一步规则操作';
+      _persistRules();
     }
 
     function resetDdlRules() {
@@ -5589,6 +5710,7 @@ const app = createApp({
       ddlRules.value = _ddlRulesData;
       triggerRef(ddlRules);
       statusText.value = 'DDL 映射规则已重置为默认';
+      _persistRules();
     }
 
     function resetBodyRules() {
@@ -5599,17 +5721,21 @@ const app = createApp({
       _bodyRulesRef.value = _bodyRulesData;
       triggerRef(_bodyRulesRef);
       statusText.value = '程序块映射规则已重置为默认';
+      _persistRules();
     }
 
     function addRule(category) {
       _pushUndo('ddl');
       ddlRules.value[category].unshift({source:'',target:''});
+      _persistRules();
     }
     function deleteRule(category, index) {
       _pushUndo('ddl');
       ddlRules.value[category].splice(index, 1);
+      _persistRules();
     }
     function saveRule(category, index) {
+      _persistRules();
       statusText.value = '规则已保存: ' + ddlRules.value[category][index].source + ' → ' + ddlRules.value[category][index].target;
     }
 
@@ -5635,17 +5761,20 @@ const app = createApp({
       var info = _bodyDirInfo(category);
       if (!info) return;
       _bodyRulesRef.value[info.pair].unshift({s:'', t:'', fwd:null, rev:null});
+      _persistRules();
     }
     function deleteBodyRule(category, index) {
       _pushUndo('body');
       var info = _bodyDirInfo(category);
       if (!info) return;
       _bodyRulesRef.value[info.pair].splice(index, 1);
+      _persistRules();
     }
     function saveBodyRule(category, index) {
       var info = _bodyDirInfo(category);
       if (!info) return;
       var r = _bodyRulesRef.value[info.pair][index];
+      _persistRules();
       statusText.value = '规则已保存: ' + r.s + ' → ' + r.t;
     }
 
@@ -5664,6 +5793,23 @@ const app = createApp({
     const alertModal = ref({ visible: false, title: '', message: '', dragStyle: {} });
     const alertModalRef = ref(null);
 
+    const confirmModal = ref({ visible: false, title: '', message: '', dragStyle: {}, _resolve: null });
+    const confirmModalRef = ref(null);
+
+    function _showConfirm(title, message) {
+      return new Promise(resolve => {
+        confirmModal.value = { visible: true, title, message, dragStyle: {}, _resolve: resolve };
+      });
+    }
+    function confirmModalOk() {
+      if (confirmModal.value._resolve) confirmModal.value._resolve(true);
+      confirmModal.value.visible = false;
+    }
+    function confirmModalCancel() {
+      if (confirmModal.value._resolve) confirmModal.value._resolve(false);
+      confirmModal.value.visible = false;
+    }
+
     function _showAlert(title, message) {
       alertModal.value = { visible: true, title: title, message: message, dragStyle: {} };
     }
@@ -5672,7 +5818,7 @@ const app = createApp({
     var _dragState = null;
     function startDrag(e, which) {
       if (e.button !== 0) return;
-      var modalEl = which === 'rule' ? ruleModalRef.value : alertModalRef.value;
+      var modalEl = which === 'rule' ? ruleModalRef.value : which === 'confirm' ? confirmModalRef.value : alertModalRef.value;
       if (!modalEl) return;
       var rect = modalEl.getBoundingClientRect();
       _dragState = { which: which, startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top, w: rect.width, h: rect.height };
@@ -5686,6 +5832,7 @@ const app = createApp({
       var newTop = _dragState.origTop + dy;
       var style = { position: 'fixed', left: newLeft + 'px', top: newTop + 'px', margin: '0' };
       if (_dragState.which === 'rule') { ruleModal.value.dragStyle = style; }
+      else if (_dragState.which === 'confirm') { confirmModal.value.dragStyle = style; }
       else { alertModal.value.dragStyle = style; }
     }
     function _onDragEnd() { _dragState = null; }
@@ -5772,19 +5919,15 @@ const app = createApp({
         }
       }
       ruleModal.value.visible = false;
+      _persistRules();
     }
-
-    // --- Output status analysis ---
     const outputStatus = computed(() => {
       var output = '';
       if (activePage.value === 'ddl') output = outputDdl.value;
       else if (activePage.value === 'func') output = funcOutput.value;
       else if (activePage.value === 'proc') output = procOutput.value;
-      if (!output) return { type: 'none', text: '' };
-      var warnings = (output.match(/\[注意/g) || []).length;
-      if (/^-- 解析失败|^-- 未识别|^-- 语法/m.test(output)) return { type: 'error', text: '语法未完整识别，请检查输入' };
-      if (warnings > 0) return { type: 'warning', text: '发现 ' + warnings + ' 处需人工确认' };
-      return { type: 'success', text: '未发现明显兼容问题' };
+      var cls = _classifyResult(output);
+      return { type: cls.level, text: cls.summary };
     });
 
     // --- DDL rule category labels ---
@@ -5919,14 +6062,37 @@ const app = createApp({
       statusText.value = '\u5DF2\u4FDD\u5B58\u4E3A ' + fileName;
     }
 
+    // ========== Unified result classifier ==========
+    var _RE_FAIL = /^-- (解析失败|生成失败|未识别|不支持的|请输入|输入内容过大|错误[：:]|翻译失败|转换异常|额外DDL生成失败)/m;
+    var _RE_NO_CONV = /^-- 源(数据)?库与目标(数据)?库相同/m;
+    var _RE_WARN = /\[注意/;
+    var _RE_PARTIAL = /\(\d+ 个失败\)/;
+
+    /**
+     * Classify engine output into { level, summary }.
+     * level: 'error' | 'info' | 'warning' | 'success'
+     */
+    function _classifyResult(output) {
+      if (!output || !output.trim()) return { level: 'none', summary: '' };
+      if (_RE_FAIL.test(output))    return { level: 'error',   summary: '转换遇到问题，请检查输出区域的提示信息' };
+      if (_RE_NO_CONV.test(output)) return { level: 'info',    summary: '源库与目标库相同，无需转换' };
+      var warnCount = (output.match(/\[注意/g) || []).length;
+      var partial   = _RE_PARTIAL.test(output);
+      if (partial)                  return { level: 'warning',  summary: '部分翻译失败，' + (warnCount > 0 ? '另有 ' + warnCount + ' 处需人工确认' : '请检查输出') };
+      if (warnCount > 0)           return { level: 'warning',  summary: '发现 ' + warnCount + ' 处需人工确认' };
+      return { level: 'success', summary: '未发现明显兼容问题' };
+    }
+
     // ========== DDL Methods ==========
-    function swapDbs() {
+    async function swapDbs() {
+      if ((inputDdl.value.trim() || outputDdl.value.trim()) &&
+          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
       const tmp = sourceDb.value;
       sourceDb.value = targetDb.value;
       targetDb.value = tmp;
       const tmpDdl = inputDdl.value;
-      inputDdl.value = outputDdl.value || (typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES[sourceDb.value] : '') || '';
-      outputDdl.value = '';
+      inputDdl.value = outputDdl.value;
+      outputDdl.value = tmpDdl;
       statusText.value = '\u5DF2\u4EA4\u6362: ' + sourceLabel.value + ' \u2192 ' + targetLabel.value;
     }
 
@@ -5946,9 +6112,11 @@ const app = createApp({
         if (typeof convertDDL === 'function') {
           const result = convertDDL(inputDdl.value, sourceDb.value, targetDb.value);
           outputDdl.value = result;
-          statusText.value = result.startsWith('-- \u89E3\u6790\u5931\u8D25') || result.startsWith('-- \u751F\u6210\u5931\u8D25') || result.startsWith('-- \u672A\u8BC6\u522B')
-            ? '\u8F6C\u6362\u9047\u5230\u95EE\u9898\uFF0C\u8BF7\u68C0\u67E5\u8F93\u51FA\u533A\u57DF\u7684\u63D0\u793A\u4FE1\u606F'
-            : '\u7FFB\u8BD1\u5B8C\u6210: ' + sourceLabel.value + ' \u2192 ' + targetLabel.value;
+          var cls = _classifyResult(result);
+          statusText.value = cls.level === 'error'   ? cls.summary
+                           : cls.level === 'info'    ? cls.summary
+                           : cls.level === 'warning' ? 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value + ' (' + cls.summary + ')'
+                           : 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value;
         } else {
           outputDdl.value = '-- DDL \u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
           statusText.value = 'DDL \u5F15\u64CE\u672A\u5C31\u7EEA';
@@ -5963,13 +6131,15 @@ const app = createApp({
     function saveOutput() { saveFile(outputDdl.value, 'ddl', targetDb.value); }
 
     // ========== Function Methods ==========
-    function swapFuncDbs() {
+    async function swapFuncDbs() {
+      if ((funcInput.value.trim() || funcOutput.value.trim()) &&
+          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
       const tmp = funcSourceDb.value;
       funcSourceDb.value = funcTargetDb.value;
       funcTargetDb.value = tmp;
       const tmpF = funcInput.value;
-      funcInput.value = funcOutput.value || (typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES[funcSourceDb.value] : '') || '';
-      funcOutput.value = '';
+      funcInput.value = funcOutput.value;
+      funcOutput.value = tmpF;
       statusText.value = '\u5DF2\u4EA4\u6362: ' + funcSourceLabel.value + ' \u2192 ' + funcTargetLabel.value;
     }
 
@@ -5989,7 +6159,11 @@ const app = createApp({
         if (typeof convertFunction === 'function') {
           const result = convertFunction(funcInput.value, funcSourceDb.value, funcTargetDb.value);
           funcOutput.value = result;
-          statusText.value = '\u51FD\u6570\u7FFB\u8BD1\u5B8C\u6210: ' + funcSourceLabel.value + ' \u2192 ' + funcTargetLabel.value;
+          var cls = _classifyResult(result);
+          statusText.value = cls.level === 'error'   ? cls.summary
+                           : cls.level === 'info'    ? cls.summary
+                           : cls.level === 'warning' ? '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value + ' (' + cls.summary + ')'
+                           : '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value;
         } else {
           funcOutput.value = '-- \u51FD\u6570\u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
           statusText.value = '\u51FD\u6570\u5F15\u64CE\u672A\u5C31\u7EEA';
@@ -6004,13 +6178,15 @@ const app = createApp({
     function saveFuncOutput() { saveFile(funcOutput.value, 'func', funcTargetDb.value); }
 
     // ========== Procedure Methods ==========
-    function swapProcDbs() {
+    async function swapProcDbs() {
+      if ((procInput.value.trim() || procOutput.value.trim()) &&
+          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
       const tmp = procSourceDb.value;
       procSourceDb.value = procTargetDb.value;
       procTargetDb.value = tmp;
       const tmpP = procInput.value;
-      procInput.value = procOutput.value || (typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES[procSourceDb.value] : '') || '';
-      procOutput.value = '';
+      procInput.value = procOutput.value;
+      procOutput.value = tmpP;
       statusText.value = '\u5DF2\u4EA4\u6362: ' + procSourceLabel.value + ' \u2192 ' + procTargetLabel.value;
     }
 
@@ -6030,7 +6206,11 @@ const app = createApp({
         if (typeof convertProcedure === 'function') {
           const result = convertProcedure(procInput.value, procSourceDb.value, procTargetDb.value);
           procOutput.value = result;
-          statusText.value = '\u5B58\u50A8\u8FC7\u7A0B\u7FFB\u8BD1\u5B8C\u6210: ' + procSourceLabel.value + ' \u2192 ' + procTargetLabel.value;
+          var cls = _classifyResult(result);
+          statusText.value = cls.level === 'error'   ? cls.summary
+                           : cls.level === 'info'    ? cls.summary
+                           : cls.level === 'warning' ? '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value + ' (' + cls.summary + ')'
+                           : '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value;
         } else {
           procOutput.value = '-- \u5B58\u50A8\u8FC7\u7A0B\u7FFB\u8BD1\u5F15\u64CE\u672A\u52A0\u8F7D';
           statusText.value = '\u5B58\u50A8\u8FC7\u7A0B\u5F15\u64CE\u672A\u5C31\u7EEA';
@@ -6054,22 +6234,50 @@ const app = createApp({
       if (!file) return;
       if (file.size > 5 * 1024 * 1024) { statusText.value = '\u6587\u4EF6\u8FC7\u5927\uFF08\u6700\u59275MB\uFF09'; return; }
       if (file.size === 0) { statusText.value = '\u6587\u4EF6\u4E3A\u7A7A'; return; }
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-        const content = ev.target.result;
+
+      function _loadContent(content, enc) {
         if (content.length > 500000) { statusText.value = '文件内容超过500KB限制'; return; }
         if (content && !/CREATE|ALTER|COMMENT|INSERT|DROP|TABLE|INDEX|FUNCTION|PROCEDURE/i.test(content.substring(0, 2000))) {
           statusText.value = '\u8B66\u544A: \u6587\u4EF6\u5185\u5BB9\u53EF\u80FD\u4E0D\u662F\u6709\u6548\u7684 SQL \u8BED\u53E5';
         } else {
-          statusText.value = '\u5DF2\u52A0\u8F7D\u6587\u4EF6: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+          statusText.value = '\u5DF2\u52A0\u8F7D\u6587\u4EF6: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB, ' + enc + ')';
         }
-        // Load into the active page's input
         if (activePage.value === 'func') { funcInput.value = content; funcOutput.value = ''; }
         else if (activePage.value === 'proc') { procInput.value = content; procOutput.value = ''; }
         else { inputDdl.value = content; outputDdl.value = ''; }
+      }
+
+      function _readAs(enc) {
+        var r = new FileReader();
+        r.onload = function(ev) { _loadContent(ev.target.result, enc); };
+        r.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
+        r.readAsText(file, enc);
+      }
+
+      if (fileEncoding.value !== 'auto') {
+        _readAs(fileEncoding.value);
+        return;
+      }
+
+      // Auto-detect: read raw bytes, check BOM and heuristics
+      var rawReader = new FileReader();
+      rawReader.onload = function(ev) {
+        var buf = new Uint8Array(ev.target.result);
+        // BOM detection
+        if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) { _readAs('UTF-8'); return; }
+        if (buf[0] === 0xFF && buf[1] === 0xFE) { _readAs('UTF-16LE'); return; }
+        if (buf[0] === 0xFE && buf[1] === 0xFF) { _readAs('UTF-16BE'); return; }
+
+        // Heuristic: try UTF-8 first, check for replacement char
+        var td;
+        try { td = new TextDecoder('UTF-8', { fatal: true }); td.decode(buf); _readAs('UTF-8'); return; }
+        catch(e) { /* not valid UTF-8 */ }
+
+        // Likely GBK / GB18030
+        _readAs('GBK');
       };
-      reader.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
-      reader.readAsText(file, 'UTF-8');
+      rawReader.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
+      rawReader.readAsArrayBuffer(file);
     }
 
     // ========== Scroll to top ==========
@@ -6126,7 +6334,7 @@ const app = createApp({
     });
 
     return {
-      activePage, sidebarOpen,
+      activePage, sidebarOpen, setPage, navKeydown,
       // Theme
       themeMode, themeLabel, toggleTheme,
       // DDL
@@ -6142,13 +6350,14 @@ const app = createApp({
       procSourceLabel, procTargetLabel, procInputLineCount, procOutputMeta,
       swapProcDbs, loadProcSample, clearProc, convertProc, copyProcOutput, saveProcOutput,
       // Shared
-      statusText, fileInput, uploadFile, handleFileUpload,
+      statusText, fileInput, fileEncoding, ENCODING_OPTIONS, uploadFile, handleFileUpload,
       showScrollTop, scrollToTop,
       // Rules
       ddlRules, addRule, deleteRule, saveRule,
       bodyRules, addBodyRule, deleteBodyRule, saveBodyRule,
       ruleModal, ruleModalRef, openRuleModal, confirmRuleModal,
       alertModal, alertModalRef, startDrag,
+      confirmModal, confirmModalRef, confirmModalOk, confirmModalCancel,
       canUndoRule, undoRule, resetDdlRules, resetBodyRules,
       // New redesign state
       showRulesMenu, refCollapsed, ruleSearchQuery, ruleFilterDir,
