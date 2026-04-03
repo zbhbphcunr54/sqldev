@@ -1777,15 +1777,29 @@ function makeColumn() {
   return { name:'', type:'', precision:null, scale:null, length:null, nullable:true, defaultValue:null, comment:'', autoIncrement:false, rawType:'' };
 }
 
-/* Helper: split statements on ; respecting quotes */
+/* Helper: split statements on ; respecting quotes and comments (-- and block) */
 function splitStatements(sql) {
-  const result = []; let buf = '', inSQ = false, inDQ = false, i = 0;
+  const result = []; let buf = '', inSQ = false, inDQ = false, inBlock = false, i = 0;
   while (i < sql.length) {
     const ch = sql[i];
+    // Inside /* */ block comment
+    if (inBlock) {
+      if (ch === '*' && i + 1 < sql.length && sql[i + 1] === '/') { inBlock = false; buf += ' '; i += 2; } else { i++; }
+      continue;
+    }
+    // Single-quoted string
     if (ch === "'" && !inDQ) { buf += ch; if (inSQ && i+1 < sql.length && sql[i+1] === "'") { buf += "'"; i += 2; continue; } inSQ = !inSQ; i++; continue; }
+    // Double-quoted identifier
     if (ch === '"' && !inSQ) { buf += ch; inDQ = !inDQ; i++; continue; }
-    if (ch === ';' && !inSQ && !inDQ) { const s = buf.trim(); if (s && !/^--/.test(s)) result.push(s); buf = ''; i++; continue; }
-    if (ch === '-' && sql[i+1] === '-' && !inSQ && !inDQ) { while (i < sql.length && sql[i] !== '\n') i++; buf += '\n'; continue; }
+    // Outside any quote
+    if (!inSQ && !inDQ) {
+      // Block comment start
+      if (ch === '/' && i + 1 < sql.length && sql[i + 1] === '*') { inBlock = true; i += 2; continue; }
+      // Line comment
+      if (ch === '-' && i + 1 < sql.length && sql[i + 1] === '-') { while (i < sql.length && sql[i] !== '\n') i++; buf += '\n'; continue; }
+      // Statement separator
+      if (ch === ';') { const s = buf.trim(); if (s && !/^--/.test(s)) result.push(s); buf = ''; i++; continue; }
+    }
     buf += ch; i++;
   }
   const tail = buf.trim(); if (tail && !/^--/.test(tail)) result.push(tail);
@@ -2803,90 +2817,83 @@ function generatePostgreSQLDDL(tables, fromDb) {
 function parseExtraDDL(sql, sourceDb) {
   const result = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] };
   if (!sql || !sql.trim()) return result;
-  const cleaned = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
+  const stmts = splitStatements(sql);
 
-  // --- CREATE SEQUENCE ---
-  const seqRe = /CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?([\w]+)["']?\s*([^;]*)/gi;
-  let m;
-  while ((m = seqRe.exec(cleaned)) !== null) {
-    const name = m[1];
-    const body = m[2] || '';
-    const seq = { name: name, startWith: null, incrementBy: null, minValue: null, maxValue: null, cache: null, cycle: false };
-    const startM = body.match(/START\s+(?:WITH\s+)?(\d+)/i);
-    if (startM) seq.startWith = parseInt(startM[1]);
-    const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
-    if (incM) seq.incrementBy = parseInt(incM[1]);
-    const minM = body.match(/MINVALUE\s+(\d+)/i);
-    if (minM) seq.minValue = parseInt(minM[1]);
-    const noMinM = body.match(/NO\s*MINVALUE/i);
-    if (noMinM) seq.minValue = null;
-    const maxM = body.match(/MAXVALUE\s+(\d+)/i);
-    if (maxM) seq.maxValue = parseInt(maxM[1]);
-    const noMaxM = body.match(/NO\s*MAXVALUE/i);
-    if (noMaxM) seq.maxValue = null;
-    const cacheM = body.match(/CACHE\s+(\d+)/i);
-    if (cacheM) seq.cache = parseInt(cacheM[1]);
-    if (/\bCYCLE\b/i.test(body) && !/\bNO\s*CYCLE\b/i.test(body)) seq.cycle = true;
-    if (/\bNOCYCLE\b/i.test(body)) seq.cycle = false;
-    result.sequences.push(seq);
-  }
+  for (const stmt of stmts) {
+    const s = stmt.trim();
 
-  // --- ALTER SEQUENCE ---
-  const altSeqRe = /ALTER\s+SEQUENCE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s*([^;]*)/gi;
-  while ((m = altSeqRe.exec(cleaned)) !== null) {
-    const name = m[1];
-    const body = m[2] || '';
-    const seq = { name: name, incrementBy: null, maxValue: null, cache: null, restartWith: null };
-    const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
-    if (incM) seq.incrementBy = parseInt(incM[1]);
-    const maxM = body.match(/MAXVALUE\s+(\d+)/i);
-    if (maxM) seq.maxValue = parseInt(maxM[1]);
-    const cacheM = body.match(/CACHE\s+(\d+)/i);
-    if (cacheM) seq.cache = parseInt(cacheM[1]);
-    const restartM = body.match(/RESTART\s+(?:WITH\s+)?(\d+)/i);
-    if (restartM) seq.restartWith = parseInt(restartM[1]);
-    result.alterSequences.push(seq);
-  }
+    // --- CREATE SEQUENCE ---
+    const seqM = s.match(/^CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i);
+    if (seqM) {
+      const name = seqM[1];
+      const body = seqM[2] || '';
+      const seq = { name: name, startWith: null, incrementBy: null, minValue: null, maxValue: null, cache: null, cycle: false };
+      const startM = body.match(/START\s+(?:WITH\s+)?(\d+)/i);
+      if (startM) seq.startWith = parseInt(startM[1]);
+      const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
+      if (incM) seq.incrementBy = parseInt(incM[1]);
+      const minM = body.match(/MINVALUE\s+(\d+)/i);
+      if (minM) seq.minValue = parseInt(minM[1]);
+      const noMinM = body.match(/NO\s*MINVALUE/i);
+      if (noMinM) seq.minValue = null;
+      const maxM = body.match(/MAXVALUE\s+(\d+)/i);
+      if (maxM) seq.maxValue = parseInt(maxM[1]);
+      const noMaxM = body.match(/NO\s*MAXVALUE/i);
+      if (noMaxM) seq.maxValue = null;
+      const cacheM = body.match(/CACHE\s+(\d+)/i);
+      if (cacheM) seq.cache = parseInt(cacheM[1]);
+      if (/\bCYCLE\b/i.test(body) && !/\bNO\s*CYCLE\b/i.test(body)) seq.cycle = true;
+      if (/\bNOCYCLE\b/i.test(body)) seq.cycle = false;
+      result.sequences.push(seq);
+      continue;
+    }
 
-  // --- ALTER TABLE ... MODIFY / ALTER COLUMN (change type) ---
-  if (sourceDb === 'oracle') {
-    // Oracle: ALTER TABLE t MODIFY (col TYPE) or ALTER TABLE t MODIFY col TYPE
-    const modRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+MODIFY\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)\s*\)?/gi;
-    while ((m = modRe.exec(cleaned)) !== null) {
-      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
+    // --- ALTER SEQUENCE ---
+    const altSeqM = s.match(/^ALTER\s+SEQUENCE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i);
+    if (altSeqM) {
+      const name = altSeqM[1];
+      const body = altSeqM[2] || '';
+      const seq = { name: name, incrementBy: null, maxValue: null, cache: null, restartWith: null };
+      const incM = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i);
+      if (incM) seq.incrementBy = parseInt(incM[1]);
+      const maxM = body.match(/MAXVALUE\s+(\d+)/i);
+      if (maxM) seq.maxValue = parseInt(maxM[1]);
+      const cacheM = body.match(/CACHE\s+(\d+)/i);
+      if (cacheM) seq.cache = parseInt(cacheM[1]);
+      const restartM = body.match(/RESTART\s+(?:WITH\s+)?(\d+)/i);
+      if (restartM) seq.restartWith = parseInt(restartM[1]);
+      result.alterSequences.push(seq);
+      continue;
     }
-  } else if (sourceDb === 'mysql') {
-    const modRe = /ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+MODIFY\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)/gi;
-    while ((m = modRe.exec(cleaned)) !== null) {
-      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
-    }
-  } else if (sourceDb === 'postgresql') {
-    const modRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ALTER\s+COLUMN\s+["']?([\w]+)["']?\s+(?:SET\s+DATA\s+)?TYPE\s+([\w]+(?:\s*\([^)]*\))?)/gi;
-    while ((m = modRe.exec(cleaned)) !== null) {
-      result.alterColumns.push(parseAlterColType(m[1], m[2], m[3], 'modify'));
-    }
-  }
 
-  // --- ALTER TABLE ... ADD column ---
-  if (sourceDb === 'oracle') {
-    // Oracle: ALTER TABLE t ADD (col TYPE [DEFAULT x] [NOT NULL]) or without parens
-    const addRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^;)]*)\)?/gi;
-    while ((m = addRe.exec(cleaned)) !== null) {
-      // Skip if this is ADD CONSTRAINT or ADD PRIMARY or ADD FOREIGN or ADD UNIQUE
-      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(m[2])) continue;
-      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
+    // --- ALTER TABLE ... MODIFY / ALTER COLUMN (change type) ---
+    if (sourceDb === 'oracle') {
+      const modM = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+MODIFY\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)\s*\)?/i);
+      if (modM) { result.alterColumns.push(parseAlterColType(modM[1], modM[2], modM[3], 'modify')); continue; }
+    } else if (sourceDb === 'mysql') {
+      const modM = s.match(/^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+MODIFY\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)/i);
+      if (modM) { result.alterColumns.push(parseAlterColType(modM[1], modM[2], modM[3], 'modify')); continue; }
+    } else if (sourceDb === 'postgresql') {
+      const modM = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ALTER\s+COLUMN\s+["']?([\w]+)["']?\s+(?:SET\s+DATA\s+)?TYPE\s+([\w]+(?:\s*\([^)]*\))?)/i);
+      if (modM) { result.alterColumns.push(parseAlterColType(modM[1], modM[2], modM[3], 'modify')); continue; }
     }
-  } else if (sourceDb === 'mysql') {
-    const addRe = /ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+ADD\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)([^;]*)/gi;
-    while ((m = addRe.exec(cleaned)) !== null) {
-      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|KEY|CHECK)\b/i.test(m[2])) continue;
-      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
-    }
-  } else if (sourceDb === 'postgresql') {
-    const addRe = /ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+(?:COLUMN\s+)?["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^;]*)/gi;
-    while ((m = addRe.exec(cleaned)) !== null) {
-      if (/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(m[2])) continue;
-      result.addColumns.push(parseAddCol(m[1], m[2], m[3], m[4]));
+
+    // --- ALTER TABLE ... ADD column ---
+    if (sourceDb === 'oracle') {
+      const addM = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^)]*)\)?/i);
+      if (addM && !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(addM[2])) {
+        result.addColumns.push(parseAddCol(addM[1], addM[2], addM[3], addM[4])); continue;
+      }
+    } else if (sourceDb === 'mysql') {
+      const addM = s.match(/^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+ADD\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i);
+      if (addM && !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|KEY|CHECK)\b/i.test(addM[2])) {
+        result.addColumns.push(parseAddCol(addM[1], addM[2], addM[3], addM[4])); continue;
+      }
+    } else if (sourceDb === 'postgresql') {
+      const addM = s.match(/^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+(?:COLUMN\s+)?["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i);
+      if (addM && !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(addM[2])) {
+        result.addColumns.push(parseAddCol(addM[1], addM[2], addM[3], addM[4])); continue;
+      }
     }
   }
 
