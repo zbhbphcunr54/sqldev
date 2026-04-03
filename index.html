@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="description" content="Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://github.com"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://github.com"/>
 <meta property="og:title" content="SQL 翻译工作台"/>
 <meta property="og:description" content="Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转"/>
 <meta property="og:type" content="website"/>
@@ -18,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://unpkg.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css"/>
 <style>
 
 :root{
@@ -64,6 +65,62 @@
 .theme-toggle{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);cursor:pointer;transition:all .2s;margin-left:8px;flex-shrink:0}
 .theme-toggle:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
 .theme-toggle svg{width:16px;height:16px}
+
+/* ===== CODEMIRROR INTEGRATION ===== */
+.CodeMirror{font-family:var(--font-code);font-size:13px;line-height:1.7;height:auto;min-height:400px;background:var(--bg);color:var(--text);border:none;padding:6px 0}
+.CodeMirror-focused{background:var(--bg)}
+.panel .CodeMirror{flex:1}
+.output-editor .CodeMirror{background:var(--bg-secondary)}
+.output-editor .CodeMirror-focused{background:var(--bg-secondary);outline:2px solid var(--accent);outline-offset:-2px}
+.CodeMirror-gutters{background:var(--bg-secondary);border-right:1px solid var(--border);padding-right:2px}
+.CodeMirror-linenumber{color:var(--text-muted);font-size:11px;padding:0 6px 0 8px}
+.CodeMirror-cursor{border-left:1.5px solid var(--text)}
+.CodeMirror-selected{background:var(--accent-light) !important}
+.CodeMirror-activeline-background{background:var(--accent-bg)}
+.CodeMirror-scroll{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.CodeMirror-scroll::-webkit-scrollbar{width:6px;height:6px}
+.CodeMirror-scroll::-webkit-scrollbar-track{background:transparent}
+.CodeMirror-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* SQL syntax colors — light */
+.cm-s-default .cm-keyword{color:#7c3aed;font-weight:600}
+.cm-s-default .cm-def{color:#2563eb}
+.cm-s-default .cm-variable,.cm-s-default .cm-variable-2,.cm-s-default .cm-variable-3{color:var(--text)}
+.cm-s-default .cm-type{color:#0891b2}
+.cm-s-default .cm-builtin{color:#0891b2}
+.cm-s-default .cm-string,.cm-s-default .cm-string-2{color:#16a34a}
+.cm-s-default .cm-number{color:#d97706}
+.cm-s-default .cm-comment{color:#94a3b8;font-style:italic}
+.cm-s-default .cm-operator{color:#be185d}
+.cm-s-default .cm-bracket{color:var(--text-secondary)}
+.cm-s-default .cm-punctuation{color:var(--text-secondary)}
+.cm-s-default .cm-atom{color:#d97706}
+/* SQL syntax colors — dark */
+[data-theme="dark"] .cm-s-default .cm-keyword{color:#c084fc;font-weight:600}
+[data-theme="dark"] .cm-s-default .cm-def{color:#60a5fa}
+[data-theme="dark"] .cm-s-default .cm-variable,[data-theme="dark"] .cm-s-default .cm-variable-2,[data-theme="dark"] .cm-s-default .cm-variable-3{color:var(--text)}
+[data-theme="dark"] .cm-s-default .cm-type{color:#22d3ee}
+[data-theme="dark"] .cm-s-default .cm-builtin{color:#22d3ee}
+[data-theme="dark"] .cm-s-default .cm-string,[data-theme="dark"] .cm-s-default .cm-string-2{color:#4ade80}
+[data-theme="dark"] .cm-s-default .cm-number{color:#fbbf24}
+[data-theme="dark"] .cm-s-default .cm-comment{color:#64748b;font-style:italic}
+[data-theme="dark"] .cm-s-default .cm-operator{color:#f472b6}
+[data-theme="dark"] .cm-s-default .cm-bracket{color:var(--text-secondary)}
+[data-theme="dark"] .cm-s-default .cm-atom{color:#fbbf24}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .cm-s-default .cm-keyword{color:#c084fc;font-weight:600}
+  :root:not([data-theme="light"]) .cm-s-default .cm-def{color:#60a5fa}
+  :root:not([data-theme="light"]) .cm-s-default .cm-variable,:root:not([data-theme="light"]) .cm-s-default .cm-variable-2,:root:not([data-theme="light"]) .cm-s-default .cm-variable-3{color:var(--text)}
+  :root:not([data-theme="light"]) .cm-s-default .cm-type{color:#22d3ee}
+  :root:not([data-theme="light"]) .cm-s-default .cm-builtin{color:#22d3ee}
+  :root:not([data-theme="light"]) .cm-s-default .cm-string,:root:not([data-theme="light"]) .cm-s-default .cm-string-2{color:#4ade80}
+  :root:not([data-theme="light"]) .cm-s-default .cm-number{color:#fbbf24}
+  :root:not([data-theme="light"]) .cm-s-default .cm-comment{color:#64748b;font-style:italic}
+  :root:not([data-theme="light"]) .cm-s-default .cm-operator{color:#f472b6}
+  :root:not([data-theme="light"]) .cm-s-default .cm-bracket{color:var(--text-secondary)}
+  :root:not([data-theme="light"]) .cm-s-default .cm-atom{color:#fbbf24}
+}
+/* Editor placeholder */
+.cm-placeholder{color:var(--text-muted) !important;font-family:var(--font-body) !important;font-style:italic}
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -190,6 +247,7 @@ textarea::placeholder{color:var(--text-muted)}
   .workspace{grid-template-columns:1fr}
   .panel{border-right:none;border-bottom:1px solid var(--border)}
   textarea{min-height:240px}
+  .CodeMirror{min-height:240px}
   .ref-section{grid-template-columns:1fr 1fr 1fr;gap:10px}
   .rules-grid{grid-template-columns:1fr}
 }
@@ -213,6 +271,7 @@ textarea::placeholder{color:var(--text-muted)}
   .panel-head{padding:6px 12px}
   .panel-desc{padding:4px 12px;font-size:11px}
   textarea{padding:10px 12px;min-height:180px;font-size:12px}
+  .CodeMirror{min-height:180px;font-size:12px}
   .ref-wrapper{padding:12px}
   .ref-section{grid-template-columns:1fr;gap:8px}
   .ref-card{padding:10px 12px}
@@ -397,7 +456,7 @@ textarea::placeholder{color:var(--text-muted)}
               <span class="panel-meta">{{inputLineCount}} &#34892;</span>
             </div>
             <p class="panel-desc">&#31896;&#36148; {{sourceLabel}} &#24314;&#34920;&#35821;&#21477;&#65288;CREATE TABLE&#12289;COMMENT&#12289;CREATE INDEX&#12289;&#20998;&#21306;&#31561;&#65289;</p>
-            <textarea v-model="inputDdl" spellcheck="false" aria-label="SQL输入" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + sourceLabel + ' DDL ...'"></textarea>
+            <sql-editor v-model="inputDdl" :placeholder="'在此粘贴 ' + sourceLabel + ' DDL ...'" aria-label="SQL输入"></sql-editor>
           </article>
           <article class="panel">
             <div class="panel-head">
@@ -409,7 +468,7 @@ textarea::placeholder{color:var(--text-muted)}
               <span class="panel-meta">{{outputMeta}}</span>
             </div>
             <p class="panel-desc">&#36755;&#20986; {{targetLabel}} &#20860;&#23481;&#30340; DDL&#65292;&#21253;&#21547;&#24314;&#34920;&#12289;&#27880;&#37322;&#12289;&#32034;&#24341;&#12289;&#20027;&#38190;&#12289;&#22806;&#38190;&#12289;&#20998;&#21306;</p>
-            <textarea v-model="outputDdl" class="output-area" spellcheck="false" aria-label="SQL输出" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+            <sql-editor v-model="outputDdl" class="output-editor" :placeholder="'点击「开始翻译」后输出结果'" aria-label="SQL输出"></sql-editor>
           </article>
         </section>
 
@@ -507,7 +566,7 @@ textarea::placeholder{color:var(--text-muted)}
               <span class="panel-meta">{{funcInputLineCount}} &#34892;</span>
             </div>
             <p class="panel-desc">&#31896;&#36148; {{funcSourceLabel}} &#20989;&#25968;&#23450;&#20041;&#65288;CREATE FUNCTION / CREATE OR REPLACE FUNCTION&#65289;</p>
-            <textarea v-model="funcInput" spellcheck="false" aria-label="SQL输入" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + funcSourceLabel + ' &#20989;&#25968; ...'"></textarea>
+            <sql-editor v-model="funcInput" :placeholder="'在此粘贴 ' + funcSourceLabel + ' 函数 ...'" aria-label="SQL输入"></sql-editor>
           </article>
           <article class="panel">
             <div class="panel-head">
@@ -519,7 +578,7 @@ textarea::placeholder{color:var(--text-muted)}
               <span class="panel-meta">{{funcOutputMeta}}</span>
             </div>
             <p class="panel-desc">&#36755;&#20986; {{funcTargetLabel}} &#20860;&#23481;&#30340;&#20989;&#25968;&#23450;&#20041;</p>
-            <textarea v-model="funcOutput" class="output-area" spellcheck="false" aria-label="SQL输出" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+            <sql-editor v-model="funcOutput" class="output-editor" :placeholder="'点击「开始翻译」后输出结果'" aria-label="SQL输出"></sql-editor>
           </article>
         </section>
 
@@ -628,7 +687,7 @@ $$;</pre>
               <span class="panel-meta">{{procInputLineCount}} &#34892;</span>
             </div>
             <p class="panel-desc">&#31896;&#36148; {{procSourceLabel}} &#23384;&#20648;&#36807;&#31243;&#65288;CREATE PROCEDURE / CREATE OR REPLACE PROCEDURE&#65289;</p>
-            <textarea v-model="procInput" spellcheck="false" aria-label="SQL输入" :placeholder="'&#22312;&#27492;&#31896;&#36148; ' + procSourceLabel + ' &#23384;&#20648;&#36807;&#31243; ...'"></textarea>
+            <sql-editor v-model="procInput" :placeholder="'在此粘贴 ' + procSourceLabel + ' 存储过程 ...'" aria-label="SQL输入"></sql-editor>
           </article>
           <article class="panel">
             <div class="panel-head">
@@ -640,7 +699,7 @@ $$;</pre>
               <span class="panel-meta">{{procOutputMeta}}</span>
             </div>
             <p class="panel-desc">&#36755;&#20986; {{procTargetLabel}} &#20860;&#23481;&#30340;&#23384;&#20648;&#36807;&#31243;&#23450;&#20041;</p>
-            <textarea v-model="procOutput" class="output-area" spellcheck="false" aria-label="SQL输出" placeholder="&#28857;&#20987;&#12300;&#24320;&#22987;&#32763;&#35793;&#12301;&#21518;&#36755;&#20986;&#32467;&#26524;"></textarea>
+            <sql-editor v-model="procOutput" class="output-editor" :placeholder="'点击「开始翻译」后输出结果'" aria-label="SQL输出"></sql-editor>
           </article>
         </section>
 
@@ -835,6 +894,10 @@ $$;</pre>
     </div>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/display/placeholder.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/selection/active-line.min.js"></script>
 <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js" integrity="sha384-W/1Fp/LgAYO/oTn9Gs+PbeWuMuq1eQCnUMPCeg8POmMYchhzxctjEqtbiCIxDOON" crossorigin="anonymous"></script>
 <script>
 const DB_LABELS = { oracle: 'Oracle', mysql: 'MySQL', postgresql: 'PostgreSQL' };
@@ -6096,6 +6159,50 @@ const app = createApp({
     };
   }
 });
+
+// ===== SQL Editor Component (CodeMirror wrapper) =====
+app.component('sql-editor', {
+  props: {
+    modelValue: { type: String, default: '' },
+    placeholder: { type: String, default: '' }
+  },
+  emits: ['update:modelValue'],
+  template: '<div ref="wrap"></div>',
+  setup(props, { emit }) {
+    const wrap = Vue.ref(null);
+    let cm = null;
+    let ignoreChange = false;
+    Vue.onMounted(() => {
+      cm = CodeMirror(wrap.value, {
+        value: props.modelValue || '',
+        mode: 'text/x-sql',
+        lineNumbers: true,
+        lineWrapping: true,
+        styleActiveLine: true,
+        matchBrackets: true,
+        placeholder: props.placeholder,
+        indentWithTabs: false,
+        tabSize: 2,
+        indentUnit: 2
+      });
+      cm.on('change', () => {
+        if (ignoreChange) return;
+        emit('update:modelValue', cm.getValue());
+      });
+    });
+    Vue.watch(() => props.modelValue, (val) => {
+      if (cm && val !== cm.getValue()) {
+        ignoreChange = true;
+        const cursor = cm.getCursor();
+        cm.setValue(val || '');
+        cm.setCursor(cursor);
+        ignoreChange = false;
+      }
+    });
+    return { wrap };
+  }
+});
+
 app.mount('#app');
 </script>
 </body></html>
