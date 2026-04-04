@@ -131,36 +131,28 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .shell{display:flex;min-height:100vh;width:100%}
 
 /* ===== SIDEBAR ===== */
-.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:30;transition:width .25s ease,min-width .25s ease,transform .3s ease}
+.sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:30;transition:transform .3s cubic-bezier(.4,0,.2,1)}
 .sidebar-brand{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;height:var(--header-h)}
 .sidebar-logo{width:32px;height:32px;border-radius:var(--radius);flex-shrink:0;background:var(--accent);display:grid;place-items:center;font-family:var(--font-code);font-size:9px;font-weight:700;color:#fff;letter-spacing:.5px}
-.sidebar-title{font-family:'Instrument Serif',serif;font-size:17px;font-weight:400;font-style:italic;color:var(--text);letter-spacing:0;white-space:nowrap;overflow:hidden;transition:opacity .2s}
+.sidebar-title{font-family:'Instrument Serif',serif;font-size:17px;font-weight:400;font-style:italic;color:var(--text);letter-spacing:0}
 .sidebar-nav{flex:1;padding:12px;display:flex;flex-direction:column;gap:2px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13.5px;font-weight:500;transition:all .15s;user-select:none;background:none;border:none;width:100%;text-align:left;font-family:inherit;line-height:inherit;white-space:nowrap;overflow:hidden}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);font-size:13.5px;font-weight:500;transition:all .15s;user-select:none;background:none;border:none;width:100%;text-align:left;font-family:inherit;line-height:inherit}
 .nav-item:hover{background:var(--bg-tertiary);color:var(--text)}
 .nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--radius-sm)}
 .nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:600}
 .nav-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);flex-shrink:0}
 .nav-item.active .nav-icon{color:var(--accent)}
-.sidebar-footer{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);font-family:var(--font-code);white-space:nowrap;overflow:hidden;transition:opacity .2s}
-/* Sidebar collapse toggle */
-.sidebar-collapse-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;margin-left:auto;flex-shrink:0;transition:all .15s}
-.sidebar-collapse-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
-.sidebar-collapse-btn svg{transition:transform .25s}
-/* Collapsed state */
-.sidebar.collapsed{width:64px;min-width:64px}
-.sidebar.collapsed .sidebar-title{opacity:0;width:0}
-.sidebar.collapsed .sidebar-footer{opacity:0}
-.sidebar.collapsed .sidebar-brand{padding:16px 0;justify-content:center;gap:0}
-.sidebar.collapsed .sidebar-collapse-btn{display:none}
-.sidebar.collapsed .sidebar-nav{padding:12px 6px}
-.sidebar.collapsed .nav-item{justify-content:center;padding:9px 0}
-.sidebar.collapsed .nav-item span:not(.nav-icon){display:none}
-/* Expand btn shown only when collapsed */
-.sidebar-expand-btn{display:none;position:fixed;top:14px;left:64px;z-index:31;width:20px;height:32px;border:1px solid var(--border);border-left:none;border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--bg);color:var(--text-muted);cursor:pointer;align-items:center;justify-content:center;transition:all .15s}
-.sidebar-expand-btn:hover{color:var(--accent);border-color:var(--accent)}
-.shell.sidebar-is-collapsed .sidebar-expand-btn{display:flex}
-.shell.sidebar-is-collapsed .main-content{margin-left:64px}
+.sidebar-footer{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);font-family:var(--font-code)}
+/* Sidebar toggle — sits on the border between sidebar and content */
+.sidebar-toggle{position:fixed;top:50%;z-index:31;width:16px;height:40px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:left .3s cubic-bezier(.4,0,.2,1),background .15s,color .15s,border-color .15s}
+.sidebar-toggle{left:calc(var(--sidebar-w) - 8px);border-radius:8px;transform:translateY(-50%)}
+.sidebar-toggle:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.sidebar-toggle svg{width:10px;height:10px;transition:transform .3s}
+/* Collapsed: sidebar fully off-screen */
+.sidebar.collapsed{transform:translateX(-100%)}
+.shell.sidebar-is-collapsed .main-content{margin-left:0}
+.shell.sidebar-is-collapsed .sidebar-toggle{left:-8px;border-radius:0 8px 8px 0;border-left:none;width:20px}
+.shell.sidebar-is-collapsed .sidebar-toggle svg{transform:rotate(180deg)}
 
 /* ===== SETTINGS DROPDOWN ===== */
 .settings-dropdown{position:relative}
@@ -465,7 +457,6 @@ body.splash-active{overflow:hidden}
       <div class="sidebar-brand">
         <div class="sidebar-logo">SQL</div>
         <span class="sidebar-title">SQL &#24037;&#20316;&#21488;</span>
-        <button class="sidebar-collapse-btn" @click="toggleSidebar" title="收起侧边栏"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
       <nav class="sidebar-nav" role="tablist" aria-label="主导航" aria-orientation="vertical">
         <button class="nav-item" role="tab" :id="'tab-ddl'" :aria-selected="activePage==='ddl'" :tabindex="activePage==='ddl'?0:-1" aria-controls="panel-ddl" :class="{active: activePage==='ddl'}" @click="setPage('ddl')" @keydown="navKeydown">
@@ -483,7 +474,7 @@ body.splash-active{overflow:hidden}
       </nav>
       <div class="sidebar-footer">v2.0.0</div>
     </aside>
-    <button class="sidebar-expand-btn" @click="toggleSidebar" title="展开侧边栏"><svg width="10" height="14" viewBox="0 0 10 14" fill="none"><path d="M3 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="sidebar-toggle" @click="toggleSidebar" :title="sidebarCollapsed?'展开侧边栏':'收起侧边栏'"><svg viewBox="0 0 10 10" fill="none"><path d="M7 2L3 5l4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 
     <!-- ======== MAIN CONTENT ======== -->
     <div class="main-content" id="main-content">
