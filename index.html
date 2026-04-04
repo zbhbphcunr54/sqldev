@@ -144,14 +144,14 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .nav-item.active .nav-icon{color:var(--accent)}
 .sidebar-footer{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);font-family:var(--font-code)}
 /* Sidebar toggle — sits on the border between sidebar and content */
-.sidebar-toggle{position:fixed;top:50%;z-index:31;width:16px;height:40px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:left .3s cubic-bezier(.4,0,.2,1),background .15s,color .15s,border-color .15s}
-.sidebar-toggle{left:calc(var(--sidebar-w) - 8px);border-radius:8px;transform:translateY(-50%)}
+.sidebar-toggle{position:fixed;top:50%;z-index:31;width:28px;height:48px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:left .3s cubic-bezier(.4,0,.2,1),background .15s,color .15s,border-color .15s}
+.sidebar-toggle{left:calc(var(--sidebar-w) - 14px);border-radius:8px;transform:translateY(-50%)}
 .sidebar-toggle:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
-.sidebar-toggle svg{width:10px;height:10px;transition:transform .3s}
+.sidebar-toggle svg{width:12px;height:12px;transition:transform .3s}
 /* Collapsed: sidebar fully off-screen */
 .sidebar.collapsed{transform:translateX(-100%)}
 .shell.sidebar-is-collapsed .main-content{margin-left:0}
-.shell.sidebar-is-collapsed .sidebar-toggle{left:-8px;border-radius:0 8px 8px 0;border-left:none;width:20px}
+.shell.sidebar-is-collapsed .sidebar-toggle{left:0;border-radius:0 8px 8px 0;border-left:none;width:28px}
 .shell.sidebar-is-collapsed .sidebar-toggle svg{transform:rotate(180deg)}
 
 /* ===== SETTINGS DROPDOWN ===== */
