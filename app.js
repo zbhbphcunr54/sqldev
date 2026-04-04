@@ -2890,13 +2890,15 @@ const app = createApp({
 
 // ===== SQL Editor Component (CodeMirror wrapper) =====
 app.component('sql-editor', {
+  inheritAttrs: false,
   props: {
     modelValue: { type: String, default: '' },
-    placeholder: { type: String, default: '' }
+    placeholder: { type: String, default: '' },
+    ariaLabel: { type: String, default: '' }
   },
   emits: ['update:modelValue'],
   template: '<div ref="wrap"></div>',
-  setup(props, { emit }) {
+  setup(props, { emit, attrs }) {
     const wrap = Vue.ref(null);
     let cm = null;
     let ignoreChange = false;
@@ -2918,6 +2920,11 @@ app.component('sql-editor', {
         indentUnit: 2
       });
       cm.on('change', changeHandler);
+      // Forward aria-label to the actual editable textarea for accessibility
+      const label = props.ariaLabel || attrs['aria-label'] || '';
+      if (label) {
+        cm.getInputField().setAttribute('aria-label', label);
+      }
     });
     Vue.onUnmounted(() => {
       if (cm) {
