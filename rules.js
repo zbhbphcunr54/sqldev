@@ -1609,7 +1609,7 @@ var _bodyRulesData = {
     /* SET -> := */
     {s:'SET var = expr;',t:'var := expr;', fwd: _handleSetToAssign, rev: _handleAssignToSet},
     /* ROW_COUNT() -> GET DIAGNOSTICS */
-    {s:'ROW_COUNT()',t:'GET DIAGNOSTICS var = ROW_COUNT', fwd: function(b) { return b.replace(/\bROW_COUNT\s*\(\s*\)/gi, '/* [\u6ce8\u610f: PG \u8bf7\u4f7f\u7528 GET DIAGNOSTICS v_cnt = ROW_COUNT;] */ ROW_COUNT()'); }, rev: function(b) { return b.replace(/\bGET\s+DIAGNOSTICS\s+(\w+)\s*=\s*ROW_COUNT\s*;/gi, 'SET $1 = ROW_COUNT();'); }},
+    {s:'ROW_COUNT()',t:'GET DIAGNOSTICS var = ROW_COUNT', fwd: function(b) { return b.replace(/(\w+)\s*:=\s*ROW_COUNT\s*\(\s*\)\s*;/gi, function(m, v) { return 'GET DIAGNOSTICS ' + v + ' = ROW_COUNT;'; }); }, rev: function(b) { return b.replace(/\bGET\s+DIAGNOSTICS\s+(\w+)\s*=\s*ROW_COUNT\s*;/gi, 'SET $1 = ROW_COUNT();'); }},
     /* PREPARE/EXECUTE -> PG EXECUTE */
     {s:'PREPARE/EXECUTE/DEALLOCATE',t:'EXECUTE expr;', fwd: _handleMysqlPrepExecToOraclePg('postgresql'), rev: _handlePgExecuteToMysql},
     /* TIMESTAMPDIFF -> AGE/EXTRACT */
@@ -1625,7 +1625,7 @@ var _bodyRulesData = {
     /* RAND -> random */
     {s:'RAND()',t:'random()', fwd: function(b) { return b.replace(/\bRAND\s*\(\s*\)/gi, 'random()'); }, rev: function(b) { return b.replace(/\brandom\s*\(\s*\)/gi, 'RAND()'); }},
     /* GROUP_CONCAT -> string_agg */
-    {s:'GROUP_CONCAT(col ORDER BY x SEPARATOR sep)',t:'string_agg(col, sep ORDER BY x)', fwd: function(b) { return b.replace(/\bGROUP_CONCAT\s*\(\s*([^)]*?)\s+ORDER\s+BY\s+([^)]*?)\s+SEPARATOR\s+'([^']*)'\s*\)/gi, function(m, col, orderBy, sep) { return "string_agg(" + col.trim() + ", '" + sep + "' ORDER BY " + orderBy.trim() + ")"; }); }, rev: function(b) { return b.replace(/\bstring_agg\s*\(\s*([^,]+),\s*'([^']*)'\s+ORDER\s+BY\s+([^)]+)\)/gi, function(m, col, sep, orderBy) { return "GROUP_CONCAT(" + col.trim() + " ORDER BY " + orderBy.trim() + " SEPARATOR '" + sep + "')"; }); }},
+    {s:'GROUP_CONCAT(col ORDER BY x SEPARATOR sep)',t:'string_agg(col::TEXT, sep ORDER BY x)', fwd: function(b) { return b.replace(/\bGROUP_CONCAT\s*\(\s*([^)]*?)\s+ORDER\s+BY\s+([^)]*?)\s+SEPARATOR\s+'([^']*)'\s*\)/gi, function(m, col, orderBy, sep) { var c = col.trim(); if (!/::TEXT$/i.test(c)) c = c + '::TEXT'; return "string_agg(" + c + ", '" + sep + "' ORDER BY " + orderBy.trim() + ")"; }); }, rev: function(b) { return b.replace(/\bstring_agg\s*\(\s*([^,]+),\s*'([^']*)'\s+ORDER\s+BY\s+([^)]+)\)/gi, function(m, col, sep, orderBy) { var c = col.trim().replace(/::TEXT$/i, ''); return "GROUP_CONCAT(" + c + " ORDER BY " + orderBy.trim() + " SEPARATOR '" + sep + "')"; }); }},
     /* Cursor declaration */
     {s:'DECLARE c CURSOR FOR SELECT ...',t:'c CURSOR FOR SELECT ...', fwd: function(b) { return b.replace(/\bDECLARE\s+(\w+)\s+CURSOR\s+FOR\b/gi, '$1 CURSOR FOR'); }, rev: function(b) { return b.replace(/\b(\w+)\s+CURSOR\s+FOR\b/gi, 'DECLARE $1 CURSOR FOR'); }},
     /* REGEXP */
@@ -1633,7 +1633,7 @@ var _bodyRulesData = {
     /* LIMIT OFFSET (keep) */
     {s:'LIMIT n OFFSET m',t:'LIMIT n OFFSET m \u4fdd\u6301', fwd: null, rev: null},
     /* ON DUPLICATE KEY UPDATE -> ON CONFLICT */
-    {s:'ON DUPLICATE KEY UPDATE col=VALUES(col)',t:'ON CONFLICT DO UPDATE SET col=EXCLUDED.col', fwd: function(b) { return b.replace(/^(\s*)ON\s+DUPLICATE\s+KEY\s+UPDATE\b([\s\S]*?)(?=;)/gim, function(m, indent, updateClause) { var converted = updateClause.replace(/\bVALUES\s*\(\s*(\w+)\s*\)/gi, 'EXCLUDED.$1'); return indent + 'ON CONFLICT DO UPDATE SET' + converted; }); }, rev: null},
+    {s:'ON DUPLICATE KEY UPDATE col=VALUES(col)',t:'ON CONFLICT (pk) DO UPDATE SET col=EXCLUDED.col', fwd: function(b) { return b.replace(/(INSERT\s+INTO\s+\w+\s*\(\s*(\w+)[^)]*\)\s*\n?\s*VALUES\s*\([^)]*\)\s*\n?\s*)ON\s+DUPLICATE\s+KEY\s+UPDATE\b([\s\S]*?)(?=;)/gim, function(m, insertPart, firstCol, updateClause) { var converted = updateClause.replace(/\bVALUES\s*\(\s*(\w+)\s*\)/gi, 'EXCLUDED.$1'); return insertPart + 'ON CONFLICT (' + firstCol + ') DO UPDATE SET' + converted; }); }, rev: null},
     /* INSERT IGNORE -> ON CONFLICT DO NOTHING */
     {s:'INSERT IGNORE INTO',t:'INSERT INTO ... ON CONFLICT DO NOTHING', fwd: function(b) { return b.replace(/\bINSERT\s+IGNORE\s+INTO\b/gi, 'INSERT INTO'); }, rev: null},
     /* label: LOOP -> <<label>> LOOP */

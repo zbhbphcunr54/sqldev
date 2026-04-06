@@ -2025,6 +2025,26 @@ function _convertSingleProcedure(input, sourceDb, targetDb) {
     transformedBody = _rowtypeResult.body;
   }
 
+  // Fix BOOLEAN 0/1 -> FALSE/TRUE when targeting PostgreSQL (or Oracle)
+  if (targetDb === 'postgresql' || targetDb === 'oracle') {
+    var _boolVarNames = [];
+    for (var bi = 0; bi < mappedVars.length; bi++) {
+      var bv = mappedVars[bi];
+      if (bv.type && /\bBOOLEAN\b/i.test(bv.type)) {
+        _boolVarNames.push(bv.name);
+        if (bv.defaultVal === '0') bv.defaultVal = 'FALSE';
+        else if (bv.defaultVal === '1') bv.defaultVal = 'TRUE';
+      }
+    }
+    // Convert body assignments for known BOOLEAN variables: var := 0/1 -> var := FALSE/TRUE
+    if (_boolVarNames.length > 0) {
+      var _boolRe = new RegExp('\\b(' + _boolVarNames.join('|') + ')\\s*:=\\s*(0|1)\\s*;', 'gi');
+      transformedBody = transformedBody.replace(_boolRe, function(m, vname, val) {
+        return vname + ' := ' + (val === '1' ? 'TRUE' : 'FALSE') + ';';
+      });
+    }
+  }
+
   if (targetDb === 'oracle') return _genOracleProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
   if (targetDb === 'mysql') return _genMySQLProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
   return _genPGProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
