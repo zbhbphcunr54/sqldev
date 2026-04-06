@@ -532,6 +532,9 @@ var _handleExceptionToMysqlHandler = function(b) {
     var result = '';
     if (nodataMatch) {
       var ndBody = nodataMatch[1].trim().replace(/\bEND\b\s*\w*\s*;?\s*$/, '').trim();
+      result += '/* [注意: Oracle NO_DATA_FOUND 仅在 SELECT INTO 无行时触发,\n';
+      result += '   而 MySQL HANDLER FOR NOT FOUND 会被所有 FETCH/SELECT INTO 无数据触发,\n';
+      result += '   语义更宽泛, 如有 CURSOR FETCH 操作请检查是否产生误触发] */\n';
       result += 'DECLARE CONTINUE HANDLER FOR NOT FOUND\n';
       result += '  BEGIN\n';
       var ndLines = ndBody.split('\n');
@@ -869,12 +872,13 @@ var _handleMergeToMysql = function(b) {
       var cleanUpdate = updateSet.trim().replace(new RegExp('\\b' + tgtAlias + '\\.', 'gi'), '').replace(new RegExp('\\b' + srcAlias + '\\.', 'gi'), '');
       var cleanVals = insertVals.trim().replace(new RegExp('\\b' + srcAlias + '\\.', 'gi'), '');
       var cleanCols = insertCols.trim().replace(new RegExp('\\b' + tgtAlias + '\\.', 'gi'), '').replace(new RegExp('\\b' + srcAlias + '\\.', 'gi'), '');
+      /* Use MySQL 8.0.20+ alias syntax: INSERT INTO ... AS _new ON DUPLICATE KEY UPDATE col = _new.col */
       var updateParts = cleanUpdate.split(',').map(function(p) {
         var parts = p.trim().split(/\s*=\s*/);
-        if (parts.length === 2) return parts[0].trim() + ' = VALUES(' + parts[0].trim() + ')';
+        if (parts.length === 2) return parts[0].trim() + ' = _new.' + parts[0].trim();
         return p.trim();
       });
-      return 'INSERT INTO ' + tgt + ' (' + cleanCols + ')\nSELECT ' + cleanVals + '\n  FROM (' + subquery.trim() + ') ' + srcAlias + '\nON DUPLICATE KEY UPDATE\n  ' + updateParts.join(',\n  ') + ';';
+      return 'INSERT INTO ' + tgt + ' (' + cleanCols + ')\nSELECT ' + cleanVals + '\n  FROM (' + subquery.trim() + ') ' + srcAlias + ' AS _new\nON DUPLICATE KEY UPDATE\n  ' + updateParts.join(',\n  ') + ';';
     });
 };
 
@@ -941,9 +945,25 @@ var _handlePgExecuteToMysql = function(b) {
 
 var _handleMysqlPrepExecToOraclePg = function(toDb) {
   return function(b) {
-    return b.replace(/SET\s+@(\w+)\s*=\s*([^;]+);\s*\n\s*PREPARE\s+(\w+)\s+FROM\s+@\1;\s*\n\s*EXECUTE\s+\3;\s*\n\s*DEALLOCATE\s+PREPARE\s+\3;/gi, function(m, varName, expr) {
-      if (toDb === 'oracle') return 'EXECUTE IMMEDIATE ' + expr.trim() + ';';
-      return 'EXECUTE ' + expr.trim() + ';';
+    /* Tolerant pattern: allow variable whitespace, comments, blank lines between the four statements.
+       Also handle optional USING clause in EXECUTE. */
+    return b.replace(/SET\s+@(\w+)\s*=\s*([^;]+);\s*\n[\s\S]*?PREPARE\s+(\w+)\s+FROM\s+@\1\s*;\s*\n[\s\S]*?EXECUTE\s+\3(?:\s+USING\s+([^;]*))?\s*;\s*\n[\s\S]*?DEALLOCATE\s+PREPARE\s+\3\s*;/gi, function(m, varName, expr, stmtName, usingClause) {
+      var cleanExpr = expr.trim();
+      if (usingClause) {
+        /* Convert USING @var1, @var2 to bind syntax */
+        var params = usingClause.split(',').map(function(p) { return p.trim().replace(/^@/, ''); });
+        if (toDb === 'oracle') {
+          /* Replace ? or concat placeholders with :p1, :p2 */
+          var idx = 0;
+          var oraExpr = cleanExpr.replace(/\?/g, function() { return ':p' + (++idx); });
+          return 'EXECUTE IMMEDIATE ' + oraExpr + ' USING ' + params.join(', ') + ';';
+        }
+        var idx2 = 0;
+        var pgExpr = cleanExpr.replace(/\?/g, function() { return '$' + (++idx2); });
+        return 'EXECUTE ' + pgExpr + ' USING ' + params.join(', ') + ';';
+      }
+      if (toDb === 'oracle') return 'EXECUTE IMMEDIATE ' + cleanExpr + ';';
+      return 'EXECUTE ' + cleanExpr + ';';
     });
   };
 };
@@ -1587,6 +1607,22 @@ var _bodyRulesData = {
     {s:'LAST_DAY(dt)',t:'LAST_DAY(dt) (MySQL \u539f\u751f\u652f\u6301)', fwd: null, rev: null},
     /* PG ::TYPE (reverse via MySQL CAST) */
     {s:'::INTEGER (PG reverse)',t:'CAST AS SIGNED (MySQL reverse)', fwd: null, rev: null},
+    /* COMMIT/ROLLBACK -> START TRANSACTION + COMMIT/ROLLBACK */
+    {s:'COMMIT; / ROLLBACK;',t:'START TRANSACTION; ... COMMIT; / ROLLBACK;', fwd: function(b) {
+      /* Oracle uses implicit transactions; MySQL stored procedures need explicit START TRANSACTION.
+         Insert START TRANSACTION before the first COMMIT or ROLLBACK if not already present. */
+      if (/\b(?:COMMIT|ROLLBACK)\s*;/i.test(b) && !/\bSTART\s+TRANSACTION\b/i.test(b)) {
+        b = b.replace(/^(\s*)((?:INSERT|UPDATE|DELETE|MERGE)\b)/im, '$1START TRANSACTION;\n$1$2');
+        /* If no DML found before COMMIT, prepend at start */
+        if (!/\bSTART\s+TRANSACTION\b/i.test(b)) {
+          b = '  START TRANSACTION;\n' + b;
+        }
+      }
+      return b;
+    }, rev: function(b) {
+      /* MySQL -> Oracle: remove START TRANSACTION (Oracle auto-starts) */
+      return b.replace(/^\s*START\s+TRANSACTION\s*;\s*\n?/gim, '');
+    }},
     /* Type-only rules */
     {s:'NUMBER(p,s)',t:'DECIMAL(p,s)', fwd: null, rev: null, typeFwd: _typeChain(_typeReplace(/\bNUMBER\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'DECIMAL($1,$2)'), _typeReplace(/\bNUMBER\s*\(\s*(\d+)\s*\)/gi, 'BIGINT'), _typeReplace(/\bNUMBER\b/gi, 'BIGINT')), typeRev: _typeChain(_typeReplace(/\bDECIMAL\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)/gi, 'NUMBER($1,$2)'), _typeReplace(/\bBIGINT\b/gi, 'NUMBER(19)'), _typeReplace(/\bTINYINT\s*\(\s*1\s*\)/gi, 'NUMBER(1)'), _typeReplace(/\bTINYINT\b/gi, 'NUMBER(3)'), _typeReplace(/\bSMALLINT\b/gi, 'NUMBER(5)'), _typeReplace(/\bINT\b/gi, 'NUMBER(10)'), _typeReplace(/\bDOUBLE\b/gi, 'NUMBER'), _typeReplace(/\bFLOAT\b/gi, 'NUMBER'))},
     {s:'CLOB',t:'LONGTEXT', fwd: null, rev: null, typeFwd: _typeReplace(/\bCLOB\b/gi, 'LONGTEXT'), typeRev: _typeChain(_typeReplace(/\bLONGTEXT\b/gi, 'CLOB'), _typeReplace(/\bMEDIUMTEXT\b/gi, 'CLOB'), _typeReplace(/\bTEXT\b/gi, 'CLOB'))},
@@ -1669,7 +1705,26 @@ var _bodyRulesData = {
     /* LIMIT OFFSET (keep) */
     {s:'LIMIT n OFFSET m',t:'LIMIT n OFFSET m \u4fdd\u6301', fwd: null, rev: null},
     /* ON DUPLICATE KEY UPDATE -> ON CONFLICT */
-    {s:'ON DUPLICATE KEY UPDATE col=VALUES(col)',t:'ON CONFLICT (pk) DO UPDATE SET col=EXCLUDED.col', fwd: function(b) { return b.replace(/(INSERT\s+INTO\s+\w+\s*\(\s*(\w+)[^)]*\)\s*\n?\s*VALUES\s*\([^)]*\)\s*\n?\s*)ON\s+DUPLICATE\s+KEY\s+UPDATE\b([\s\S]*?)(?=;)/gim, function(m, insertPart, firstCol, updateClause) { var converted = updateClause.replace(/\bVALUES\s*\(\s*(\w+)\s*\)/gi, 'EXCLUDED.$1'); return insertPart + 'ON CONFLICT (' + firstCol + ') DO UPDATE SET' + converted; }); }, rev: null},
+    {s:'ON DUPLICATE KEY UPDATE col=VALUES(col)',t:'ON CONFLICT (pk) DO UPDATE SET col=EXCLUDED.col', fwd: function(b) { return b.replace(/(INSERT\s+INTO\s+(\w+)\s*\(\s*([\w\s,]+)\)\s*\n?\s*VALUES\s*\([^)]*\)\s*\n?\s*)ON\s+DUPLICATE\s+KEY\s+UPDATE\b([\s\S]*?)(?=;)/gim, function(m, insertPart, tableName, colList, updateClause) {
+      /* Determine conflict columns: use columns in UPDATE SET that are NOT being updated (i.e. likely PK/unique).
+         Heuristic: columns in the INSERT column list that do NOT appear on the left side of assignments in the UPDATE clause are the key columns. */
+      var insertCols = colList.split(',').map(function(c) { return c.trim().toUpperCase(); });
+      var updateAssignments = updateClause.split(',');
+      var updatedCols = {};
+      for (var ui = 0; ui < updateAssignments.length; ui++) {
+        var parts = updateAssignments[ui].trim().split(/\s*=\s*/);
+        if (parts.length >= 2) updatedCols[parts[0].trim().toUpperCase()] = true;
+      }
+      var conflictCols = [];
+      for (var ic = 0; ic < insertCols.length; ic++) {
+        if (!updatedCols[insertCols[ic]]) conflictCols.push(insertCols[ic].toLowerCase());
+      }
+      if (conflictCols.length === 0) conflictCols.push(insertCols[0].toLowerCase());
+      /* Convert VALUES(col) and _new.col to EXCLUDED.col */
+      var converted = updateClause.replace(/\bVALUES\s*\(\s*(\w+)\s*\)/gi, 'EXCLUDED.$1');
+      converted = converted.replace(/\b_new\.(\w+)/gi, 'EXCLUDED.$1');
+      return insertPart + 'ON CONFLICT (' + conflictCols.join(', ') + ') DO UPDATE SET' + converted;
+    }); }, rev: null},
     /* INSERT IGNORE -> ON CONFLICT DO NOTHING */
     {s:'INSERT IGNORE INTO',t:'INSERT INTO ... ON CONFLICT DO NOTHING', fwd: function(b) { return b.replace(/\bINSERT\s+IGNORE\s+INTO\b/gi, 'INSERT INTO'); }, rev: null},
     /* label: LOOP -> <<label>> LOOP */

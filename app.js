@@ -372,7 +372,9 @@ function parseMySQLColumn(def) {
   if (/\bAUTO_INCREMENT\b/i.test(rest)) { col.autoIncrement = true; rest = rest.replace(/\bAUTO_INCREMENT\b/i, '').trim(); }
   const dm = rest.match(/\bDEFAULT\s+('(?:''|[^'])*'|[\w()]+(?:\(\d*\))?)/i);
   if (dm) { col.defaultValue = dm[1].trim(); rest = rest.replace(dm[0], '').trim(); }
-  rest = rest.replace(/\bON\s+UPDATE\s+\S+/i, '').trim();
+  var onUpdateMatch = rest.match(/\bON\s+UPDATE\s+(\S+(?:\(\d*\))?)/i);
+  if (onUpdateMatch) { col.extra.onUpdate = onUpdateMatch[1]; }
+  rest = rest.replace(/\bON\s+UPDATE\s+\S+(?:\(\d*\))?/i, '').trim();
   if (/\bNOT\s+NULL\b/i.test(rest)) col.nullable = false;
   const cm = rest.match(/\bCOMMENT\s+'((?:''|[^'])*)'/i);
   if (cm) col.comment = cm[1].replace(/''/g, "'");
@@ -591,8 +593,8 @@ function convertDefault(val, from, to) {
   if (from === 'postgresql') {
     if (v === 'CLOCK_TIMESTAMP()' || v === 'NOW()' || v === 'CURRENT_TIMESTAMP') return to === 'oracle' ? 'SYSTIMESTAMP' : 'CURRENT_TIMESTAMP(6)';
     if (v === 'GEN_RANDOM_UUID()') return to === 'oracle' ? 'SYS_GUID()' : 'UUID()';
-    if (v === 'TRUE') return to === 'oracle' ? '1' : 'TRUE';
-    if (v === 'FALSE') return to === 'oracle' ? '0' : 'FALSE';
+    if (v === 'TRUE') return to === 'oracle' ? '1' : (to === 'mysql' ? '1' : 'TRUE');
+    if (v === 'FALSE') return to === 'oracle' ? '0' : (to === 'mysql' ? '0' : 'FALSE');
   }
   return val;
 }
@@ -614,6 +616,7 @@ function generateOracleDDL(tables, fromDb) {
       const dv = convertDefault(col.defaultValue, fromDb, 'oracle');
       if (dv && !col.autoIncrement) line += ' DEFAULT ' + dv;
       if (!col.nullable) line += ' NOT NULL';
+      if (col.extra && col.extra.onUpdate) line += ' /* [注意: MySQL ON UPDATE ' + col.extra.onUpdate + ' — Oracle 无等价功能, 需用触发器实现] */';
       colLines.push(line);
     }
     if (tbl.primaryKey) colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toUpperCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toUpperCase()).join(', ') + ')');
@@ -765,6 +768,7 @@ function generatePostgreSQLDDL(tables, fromDb) {
       let line = '    ' + pad(cname, 18) + ' ' + pad(t, 20);
       if (!col.autoIncrement) { const dv = convertDefault(col.defaultValue, fromDb, 'postgresql'); if (dv) line += ' DEFAULT ' + dv; }
       if (!col.nullable) line += ' NOT NULL';
+      if (col.extra && col.extra.onUpdate) line += ' /* [注意: MySQL ON UPDATE ' + col.extra.onUpdate + ' — PostgreSQL 无等价功能, 需用触发器实现] */';
       colLines.push(line);
     }
     if (tbl.primaryKey) colLines.push('    CONSTRAINT ' + tbl.primaryKey.name.toLowerCase() + ' PRIMARY KEY (' + tbl.primaryKey.columns.map(c=>c.toLowerCase()).join(', ') + ')');
@@ -1583,9 +1587,34 @@ function _convertSingleFunction(input, sourceDb, targetDb) {
     }
   }
 
-  if (targetDb === 'oracle') return _genOracleFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
-  if (targetDb === 'mysql') return _genMySQLFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
-  return _genPGFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  /* Detect semantic divergence: warn when converted body uses fundamentally different
+     algorithmic patterns that may not produce equivalent results across databases.
+     Examples: Oracle sequence-based token vs PG FOR-loop+random token generation. */
+  var _semanticWarnings = [];
+  var _srcBody = parsed.body;
+  /* Sequence-based vs random-based logic divergence */
+  if (/\b\w+\.NEXTVAL\b/i.test(_srcBody) && !/\brandom\b/i.test(_srcBody) && /\brandom\b|\bRAND\s*\(/i.test(transformedBody)) {
+    _semanticWarnings.push('源函数使用序列(SEQUENCE)生成值, 但目标数据库转换为随机数, 两者语义不同');
+  }
+  if (/\brandom\b|\bRAND\s*\(/i.test(_srcBody) && !/\brandom\b|\bRAND\s*\(/i.test(transformedBody)) {
+    _semanticWarnings.push('源函数使用随机数, 但目标数据库可能使用不同的生成逻辑');
+  }
+  /* FOR loop vs cursor loop divergence */
+  if (/\bFOR\s+\w+\s+IN\b/i.test(_srcBody) && /\bCURSOR\b/i.test(transformedBody) && !/\bCURSOR\b/i.test(_srcBody)) {
+    _semanticWarnings.push('源函数使用 FOR-IN 循环, 目标已转换为游标循环, 请验证行为等价性');
+  }
+  var _warnComment = '';
+  if (_semanticWarnings.length > 0) {
+    _warnComment = '/* [语义差异警告]\n';
+    for (var wi = 0; wi < _semanticWarnings.length; wi++) {
+      _warnComment += '   - ' + _semanticWarnings[wi] + '\n';
+    }
+    _warnComment += '   请人工审查转换后的逻辑是否满足业务需求 */\n';
+  }
+
+  if (targetDb === 'oracle') return _warnComment + _genOracleFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  if (targetDb === 'mysql') return _warnComment + _genMySQLFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  return _warnComment + _genPGFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
 }
 
 /* --- Function parsers --- */
@@ -1959,7 +1988,7 @@ function convertProcedure(input, sourceDb, targetDb) {
 
 /* --- Expand %ROWTYPE vars into individual column variables for MySQL --- */
 function _expandRowTypeVarsForMySQL(originalVars, mappedVars, body) {
-  // Build cursor name → column names map
+  // Build cursor name → { colNames, colExprs } map
   var cursorCols = {};
   for (var i = 0; i < originalVars.length; i++) {
     var ov = originalVars[i];
@@ -1967,6 +1996,7 @@ function _expandRowTypeVarsForMySQL(originalVars, mappedVars, body) {
       var selMatch = ov.query.match(/^\s*SELECT\s+([\s\S]+?)\s+FROM\s/i);
       if (selMatch) {
         var cols = [];
+        var colExprs = [];
         var parts = selMatch[1].split(',');
         for (var ci = 0; ci < parts.length; ci++) {
           var colExpr = parts[ci].trim();
@@ -1977,10 +2007,33 @@ function _expandRowTypeVarsForMySQL(originalVars, mappedVars, body) {
             var lastWord = colExpr.match(/(\w+)\s*$/);
             if (lastWord) cols.push(lastWord[1]);
           }
+          colExprs.push(colExpr);
         }
-        cursorCols[ov.name.toUpperCase()] = cols;
+        cursorCols[ov.name.toUpperCase()] = { names: cols, exprs: colExprs };
       }
     }
+  }
+
+  /* Infer a MySQL-compatible type from a cursor SELECT expression.
+     Uses heuristics on the expression text — not a full type resolver,
+     but much better than the old blanket VARCHAR(4000). */
+  function _inferColType(expr) {
+    var e = expr.trim().toUpperCase();
+    /* Aggregates that return numeric results */
+    if (/^COUNT\s*\(/i.test(e)) return 'BIGINT';
+    if (/^SUM\s*\(/i.test(e) || /^AVG\s*\(/i.test(e)) return 'DECIMAL(18,2)';
+    if (/^MAX\s*\(|^MIN\s*\(/i.test(e)) return 'VARCHAR(4000) /* [注意: MAX/MIN 类型依赖源列, 请按实际调整] */';
+    /* CAST expressions */
+    var castMatch = e.match(/\bCAST\s*\(.*?\bAS\s+([\w()]+)/i);
+    if (castMatch) return castMatch[1];
+    /* Common column name patterns (heuristic) */
+    var colName = e.replace(/^.*\.\s*/, ''); /* strip table alias prefix */
+    if (/^(ID|_ID|SEQ|NUM|NO)$/i.test(colName) || /_ID$/i.test(colName)) return 'BIGINT';
+    if (/AMOUNT|BALANCE|PRICE|RATE|TOTAL|SUM|QTY|QUANTITY/i.test(colName)) return 'DECIMAL(18,2)';
+    if (/DATE|TIME|_AT$/i.test(colName)) return 'DATETIME';
+    if (/^(STATUS|FLAG|IS_|HAS_)/i.test(colName) || /STATUS$/i.test(colName)) return 'INT';
+    /* Fallback */
+    return 'VARCHAR(4000)';
   }
 
   // Find %ROWTYPE variables and expand them
@@ -1994,11 +2047,13 @@ function _expandRowTypeVarsForMySQL(originalVars, mappedVars, body) {
       var cursorRef = ov.type.replace(/%ROWTYPE\b/i, '').trim();
       var cursorKey = cursorRef.toUpperCase();
       if (cursorCols[cursorKey]) {
-        var cols = cursorCols[cursorKey];
+        var info = cursorCols[cursorKey];
+        var cols = info.names;
         rowtypeExpansions.push({ varName: ov.name, cursorName: cursorRef, colNames: cols });
-        // Generate individual column variable declarations instead
+        // Generate individual column variable declarations with inferred types
         for (var ci = 0; ci < cols.length; ci++) {
-          newVars.push({ name: '_' + ov.name.toLowerCase() + '_' + cols[ci].toLowerCase(), type: 'VARCHAR(4000)', defaultVal: null });
+          var inferredType = _inferColType(info.exprs[ci] || cols[ci]);
+          newVars.push({ name: '_' + ov.name.toLowerCase() + '_' + cols[ci].toLowerCase(), type: inferredType, defaultVal: null });
         }
       } else {
         newVars.push(mv);

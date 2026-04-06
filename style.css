@@ -366,7 +366,7 @@ body.splash-active{overflow:hidden}
 .sp-tokens{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .sp-tok{position:absolute;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(37,99,235,.25);white-space:nowrap;animation:tokFloat linear infinite}
 @keyframes tokFloat{0%{transform:translateY(0) rotate(var(--r));opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(calc(-100vh - 40px)) rotate(var(--r));opacity:0}}
-.sp-content{position:relative;z-index:2;text-align:center;max-width:720px;padding:0 24px}
+.sp-content{position:relative;z-index:2;text-align:center;max-width:760px;padding:0 24px}
 .sp-badge{display:inline-block;padding:6px 18px;border:1px solid rgba(37,99,235,.35);border-radius:100px;font-family:var(--font-body);font-size:12px;letter-spacing:.08em;color:#60a5fa;margin-bottom:28px;opacity:0;animation:spFadeUp .8s .3s forwards}
 .sp-title{font-family:'Instrument Serif',serif;font-size:clamp(32px,6vw,68px);line-height:1.1;color:#f1f5f9;margin:0 0 8px;white-space:nowrap;opacity:0;animation:spFadeUp .8s .5s forwards}
 .sp-title em{font-style:italic;color:#2563eb}
@@ -381,6 +381,13 @@ body.splash-active{overflow:hidden}
 .sp-arrow-bi{display:flex;flex-direction:column;gap:4px;color:#2563eb;font-size:18px;line-height:1;opacity:.7}
 .sp-features{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:44px;opacity:0;animation:spFadeUp .8s 1.1s forwards}
 .sp-feat{padding:8px 20px;border-radius:8px;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.15);font-family:'Noto Sans SC',sans-serif;font-size:13px;color:#93c5fd}
+.sp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:44px;width:100%;max-width:640px;opacity:0;animation:spFadeUp .8s 1.15s forwards}
+.sp-stat{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 8px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);transition:border-color .3s,background .3s}
+.sp-stat:hover{border-color:rgba(37,99,235,.3);background:rgba(37,99,235,.06)}
+.sp-stat-num{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;color:#f1f5f9;line-height:1}
+.sp-stat-num small{font-size:20px;font-weight:500;color:#60a5fa}
+.sp-stat-label{font-family:'Noto Sans SC',sans-serif;font-size:13px;color:#94a3b8;line-height:1.2}
+.sp-stat-detail{font-family:'Noto Sans SC',sans-serif;font-size:11px;color:#475569;line-height:1.2}
 .sp-cta{display:inline-flex;align-items:center;gap:8px;padding:16px 44px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-family:'Noto Sans SC',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:transform .2s,box-shadow .2s;opacity:0;animation:spFadeUp .8s 1.3s forwards}
 .sp-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(37,99,235,.4)}
 .sp-cta svg{transition:transform .2s}
@@ -398,6 +405,12 @@ body.splash-active{overflow:hidden}
 .sp-arrow-bi{font-size:16px}
 .sp-features{gap:8px;margin-bottom:28px}
 .sp-feat{padding:6px 14px;font-size:12px}
+.sp-stats{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:28px;max-width:320px}
+.sp-stat{padding:14px 10px}
+.sp-stat-num{font-size:26px}
+.sp-stat-num small{font-size:16px}
+.sp-stat-label{font-size:12px}
+.sp-stat-detail{font-size:10px}
 .sp-cta{padding:14px 36px;font-size:15px}
 .sp-scroll{bottom:20px}
 }
@@ -415,6 +428,12 @@ body.splash-active{overflow:hidden}
 .sp-arrow-bi{font-size:14px}
 .sp-features{gap:6px;margin-bottom:14px}
 .sp-feat{padding:4px 12px;font-size:11px}
+.sp-stats{grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;max-width:none}
+.sp-stat{padding:8px 4px;border-radius:8px}
+.sp-stat-num{font-size:20px}
+.sp-stat-num small{font-size:14px}
+.sp-stat-label{font-size:10px}
+.sp-stat-detail{display:none}
 .sp-cta{padding:10px 28px;font-size:14px;border-radius:8px}
 .sp-scroll{display:none}
 }
@@ -423,7 +442,7 @@ body.splash-active{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
 #splash-poster{transition:opacity .2s ease}
 #splash-poster.leaving{transform:none;opacity:0}
-.sp-badge,.sp-title,.sp-sub,.sp-triad,.sp-features,.sp-cta,.sp-scroll{animation:none;opacity:1;transform:none}
+.sp-badge,.sp-title,.sp-sub,.sp-triad,.sp-features,.sp-stats,.sp-cta,.sp-scroll{animation:none;opacity:1;transform:none}
 .sp-tok{animation:none;display:none}
 .sp-scroll-line{animation:none;opacity:.6;transform:none}
 .sp-cta:hover{transform:none}
