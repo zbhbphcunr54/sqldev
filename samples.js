@@ -106,7 +106,39 @@ PARTITION BY HASH (USER_ID) PARTITIONS 8;
 COMMENT ON TABLE T_LOG_DATA IS '日志数据表-按用户HASH分区';
 COMMENT ON COLUMN T_LOG_DATA.LOG_ID IS '日志ID';
 COMMENT ON COLUMN T_LOG_DATA.USER_ID IS '用户ID-分区键';
-COMMENT ON COLUMN T_LOG_DATA.LOG_MSG IS '日志内容';`,
+COMMENT ON COLUMN T_LOG_DATA.LOG_MSG IS '日志内容';
+
+-- 活跃客户视图
+CREATE OR REPLACE VIEW V_ACTIVE_CLIENTS AS
+SELECT C.CLIENT_ID, C.CLIENT_NO, C.CLIENT_NAME, C.BALANCE,
+       NVL(C.PHONE, '未填写') AS PHONE,
+       DECODE(C.STATUS, 'ACTIVE', '有效', 'FROZEN', '冻结', '未知') AS STATUS_DESC,
+       TO_CHAR(C.CREATE_TIME, 'YYYY-MM-DD') AS CREATED_DATE
+  FROM T_CLIENT_INFO C
+ WHERE C.STATUS = 'ACTIVE';
+
+COMMENT ON TABLE V_ACTIVE_CLIENTS IS '活跃客户视图';
+
+-- 客户交易汇总视图（含聚合、JOIN）
+CREATE OR REPLACE VIEW V_CLIENT_TRADE_SUMMARY AS
+SELECT C.CLIENT_NO, C.CLIENT_NAME,
+       COUNT(T.TRADE_ID) AS TRADE_COUNT,
+       NVL(SUM(T.AMOUNT), 0) AS TOTAL_AMOUNT,
+       MAX(T.TRADE_DATE) AS LAST_TRADE_DATE
+  FROM T_CLIENT_INFO C
+  LEFT JOIN T_TRADE_RECORD T ON C.CLIENT_NO = T.CLIENT_NO
+ GROUP BY C.CLIENT_NO, C.CLIENT_NAME;
+
+COMMENT ON TABLE V_CLIENT_TRADE_SUMMARY IS '客户交易汇总视图';
+
+-- VIP客户只读视图
+CREATE OR REPLACE VIEW V_VIP_CLIENTS AS
+SELECT CLIENT_ID, CLIENT_NO, CLIENT_NAME, BALANCE
+  FROM T_CLIENT_INFO
+ WHERE IS_VIP = 1
+  WITH READ ONLY;
+
+COMMENT ON TABLE V_VIP_CLIENTS IS 'VIP客户只读视图';`,
 
 mysql: `-- 客户信息主表
 CREATE TABLE t_client_info (
@@ -182,7 +214,33 @@ CREATE TABLE t_log_data (
     PRIMARY KEY (log_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   COMMENT='日志数据表-按用户HASH分区'
-  PARTITION BY HASH(user_id) PARTITIONS 8;`,
+  PARTITION BY HASH(user_id) PARTITIONS 8;
+
+-- 活跃客户视图
+CREATE OR REPLACE VIEW v_active_clients AS
+SELECT c.client_id, c.client_no, c.client_name, c.balance,
+       IFNULL(c.phone, '未填写') AS phone,
+       CASE c.status WHEN 'ACTIVE' THEN '有效' WHEN 'FROZEN' THEN '冻结' ELSE '未知' END AS status_desc,
+       DATE_FORMAT(c.create_time, '%Y-%m-%d') AS created_date
+  FROM t_client_info c
+ WHERE c.status = 'ACTIVE';
+
+-- 客户交易汇总视图
+CREATE OR REPLACE VIEW v_client_trade_summary AS
+SELECT c.client_no, c.client_name,
+       COUNT(t.trade_id) AS trade_count,
+       IFNULL(SUM(t.amount), 0) AS total_amount,
+       MAX(t.trade_date) AS last_trade_date
+  FROM t_client_info c
+  LEFT JOIN t_trade_record t ON c.client_no = t.client_no
+ GROUP BY c.client_no, c.client_name;
+
+-- VIP客户视图（带CHECK OPTION）
+CREATE OR REPLACE VIEW v_vip_clients AS
+SELECT client_id, client_no, client_name, balance
+  FROM t_client_info
+ WHERE is_vip = 1
+  WITH CASCADED CHECK OPTION;`,
 
 postgresql: `-- 客户信息主表
 CREATE TABLE t_client_info (
@@ -306,7 +364,39 @@ CREATE TABLE t_log_data_p7 PARTITION OF t_log_data
 COMMENT ON TABLE t_log_data IS '日志数据表-按用户HASH分区';
 COMMENT ON COLUMN t_log_data.log_id IS '日志ID';
 COMMENT ON COLUMN t_log_data.user_id IS '用户ID-分区键';
-COMMENT ON COLUMN t_log_data.log_msg IS '日志内容';`
+COMMENT ON COLUMN t_log_data.log_msg IS '日志内容';
+
+-- 活跃客户视图
+CREATE OR REPLACE VIEW v_active_clients AS
+SELECT c.client_id, c.client_no, c.client_name, c.balance,
+       COALESCE(c.phone, '未填写') AS phone,
+       CASE c.status WHEN 'ACTIVE' THEN '有效' WHEN 'FROZEN' THEN '冻结' ELSE '未知' END AS status_desc,
+       TO_CHAR(c.create_time, 'YYYY-MM-DD') AS created_date
+  FROM t_client_info c
+ WHERE c.status = 'ACTIVE';
+
+COMMENT ON VIEW v_active_clients IS '活跃客户视图';
+
+-- 客户交易汇总视图
+CREATE OR REPLACE VIEW v_client_trade_summary AS
+SELECT c.client_no, c.client_name,
+       COUNT(t.trade_id) AS trade_count,
+       COALESCE(SUM(t.amount), 0) AS total_amount,
+       MAX(t.trade_date) AS last_trade_date
+  FROM t_client_info c
+  LEFT JOIN t_trade_record t ON c.client_no = t.client_no
+ GROUP BY c.client_no, c.client_name;
+
+COMMENT ON VIEW v_client_trade_summary IS '客户交易汇总视图';
+
+-- VIP客户视图（带CHECK OPTION）
+CREATE OR REPLACE VIEW v_vip_clients AS
+SELECT client_id, client_no, client_name, balance
+  FROM t_client_info
+ WHERE is_vip = 1
+  WITH LOCAL CHECK OPTION;
+
+COMMENT ON VIEW v_vip_clients IS 'VIP客户视图-含CHECK OPTION';`
 };
 
 /* ===== FUNC SAMPLES ===== */

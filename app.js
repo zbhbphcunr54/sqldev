@@ -8,6 +8,9 @@ function makeTable() {
 function makeColumn() {
   return { name:'', type:'', precision:null, scale:null, length:null, nullable:true, defaultValue:null, comment:'', autoIncrement:false, rawType:'' };
 }
+function makeView() {
+  return { name:'', columns:[], query:'', comment:'', withCheckOption:false, checkOptionType:null, readOnly:false, orReplace:true, force:false, algorithm:null };
+}
 
 /* Helper: split statements on ; respecting quotes and comments (-- and block) */
 function splitStatements(sql) {
@@ -833,6 +836,180 @@ function generatePostgreSQLDDL(tables, fromDb) {
   return lines.join('\n').trim();
 }
 
+/* ===== VIEW PARSER ===== */
+function parseViews(sql, sourceDb) {
+  var views = [];
+  var clean = sql.replace(/\/\s*$/gm, '').replace(/\r\n/g, '\n');
+  var stmts = splitStatements(clean);
+
+  for (var si = 0; si < stmts.length; si++) {
+    var s = stmts[si].trim();
+    var viewRe = /^CREATE\s+(?:OR\s+REPLACE\s+)?(?:(FORCE|NOFORCE)\s+)?(?:ALGORITHM\s*=\s*(\w+)\s+)?(?:(?:TEMP|TEMPORARY)\s+)?(?:(?:DEFINER\s*=\s*\S+)\s+)?(?:SQL\s+SECURITY\s+\w+\s+)?VIEW\s+(?:[\w"`]+\.)?["`]?(\w+)["`]?\s*/i;
+    var vm = s.match(viewRe);
+    if (!vm) continue;
+
+    var view = makeView();
+    view.name = vm[3];
+    if (vm[1]) view.force = vm[1].toUpperCase() === 'FORCE';
+    if (vm[2]) view.algorithm = vm[2].toUpperCase();
+    view.orReplace = /OR\s+REPLACE/i.test(s);
+
+    var rest = s.slice(vm[0].length);
+
+    // Check for column alias list
+    if (rest.charAt(0) === '(') {
+      var depth = 0, ci = 0;
+      for (; ci < rest.length; ci++) {
+        if (rest[ci] === '(') depth++;
+        if (rest[ci] === ')') { depth--; if (depth === 0) break; }
+      }
+      var colBody = rest.slice(1, ci);
+      view.columns = colBody.split(',').map(function(c) { return c.trim().replace(/["`]/g, ''); });
+      rest = rest.slice(ci + 1).trim();
+    }
+
+    // Skip AS keyword
+    var asMatch = rest.match(/^AS\s+/i);
+    if (asMatch) rest = rest.slice(asMatch[0].length);
+
+    var query = rest;
+
+    // Check for WITH READ ONLY (Oracle)
+    var readOnlyMatch = query.match(/\s+WITH\s+READ\s+ONLY\s*$/i);
+    if (readOnlyMatch) {
+      view.readOnly = true;
+      query = query.slice(0, readOnlyMatch.index);
+    }
+
+    // Check for WITH [CASCADED|LOCAL] CHECK OPTION
+    var checkMatch = query.match(/\s+WITH\s+(CASCADED\s+|LOCAL\s+)?CHECK\s+OPTION\s*$/i);
+    if (checkMatch) {
+      view.withCheckOption = true;
+      view.checkOptionType = checkMatch[1] ? checkMatch[1].trim().toUpperCase() : null;
+      query = query.slice(0, checkMatch.index);
+    }
+
+    view.query = query.trim();
+    views.push(view);
+  }
+
+  // Parse COMMENT ON VIEW / COMMENT ON TABLE (for views)
+  for (var ci2 = 0; ci2 < stmts.length; ci2++) {
+    var s2 = stmts[ci2].trim();
+    var tcm = s2.match(/^COMMENT\s+ON\s+(?:TABLE|VIEW)\s+(?:[\w"]+\.)?["']?(\w+)["']?\s+IS\s+'((?:''|[^'])*)'/i);
+    if (tcm) {
+      var vw = views.find(function(v) { return v.name.toUpperCase() === tcm[1].toUpperCase(); });
+      if (vw) vw.comment = tcm[2].replace(/''/g, "'");
+    }
+  }
+
+  return views;
+}
+
+/* ===== VIEW QUERY TRANSFORMER ===== */
+function transformViewQuery(query, fromDb, toDb) {
+  if (!query || fromDb === toDb) return query;
+  var q = query;
+
+  // Use existing body rules for common transformations (NVL, DECODE, ||, etc.)
+  q = transformBody(q, fromDb, toDb);
+
+  // Additional view-specific: FROM DUAL removal for Oracle → PostgreSQL
+  if (fromDb === 'oracle' && toDb === 'postgresql') {
+    q = q.replace(/\s+FROM\s+DUAL\b/gi, '');
+  }
+
+  return q;
+}
+
+/* ===== VIEW GENERATORS ===== */
+function generateOracleViews(views, fromDb) {
+  var lines = [];
+  for (var i = 0; i < views.length; i++) {
+    var vw = views[i];
+    var vname = vw.name.toUpperCase();
+    if (vw.comment) lines.push('-- ' + vw.comment);
+    var header = 'CREATE OR REPLACE VIEW ' + vname;
+    if (vw.columns.length > 0) {
+      header += ' (' + vw.columns.map(function(c) { return c.toUpperCase(); }).join(', ') + ')';
+    }
+    header += ' AS';
+    lines.push(header);
+    var q = transformViewQuery(vw.query, fromDb, 'oracle');
+    lines.push(q);
+    if (vw.readOnly) {
+      lines[lines.length - 1] += '\nWITH READ ONLY';
+    } else if (vw.withCheckOption) {
+      lines[lines.length - 1] += '\nWITH CHECK OPTION';
+    }
+    lines.push(';');
+    lines.push('');
+    if (vw.comment) {
+      lines.push("COMMENT ON TABLE " + vname + " IS '" + vw.comment.replace(/'/g, "''") + "';");
+      lines.push('');
+    }
+  }
+  return lines.join('\n').trim();
+}
+
+function generateMySQLViews(views, fromDb) {
+  var lines = [];
+  for (var i = 0; i < views.length; i++) {
+    var vw = views[i];
+    var vname = vw.name.toLowerCase();
+    if (vw.comment) lines.push('-- ' + vw.comment);
+    var header = 'CREATE OR REPLACE';
+    if (vw.algorithm) header += ' ALGORITHM = ' + vw.algorithm;
+    header += ' VIEW `' + vname + '`';
+    if (vw.columns.length > 0) {
+      header += ' (' + vw.columns.map(function(c) { return '`' + c.toLowerCase() + '`'; }).join(', ') + ')';
+    }
+    header += ' AS';
+    lines.push(header);
+    var q = transformViewQuery(vw.query, fromDb, 'mysql');
+    lines.push(q);
+    if (vw.withCheckOption) {
+      var optType = vw.checkOptionType || 'CASCADED';
+      lines[lines.length - 1] += '\nWITH ' + optType + ' CHECK OPTION';
+    } else if (vw.readOnly) {
+      lines.push('/* [注意: MySQL 不支持 WITH READ ONLY, 请通过权限控制实现只读] */');
+    }
+    lines.push(';');
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+
+function generatePGViews(views, fromDb) {
+  var lines = [];
+  for (var i = 0; i < views.length; i++) {
+    var vw = views[i];
+    var vname = vw.name.toLowerCase();
+    if (vw.comment) lines.push('-- ' + vw.comment);
+    var header = 'CREATE OR REPLACE VIEW ' + vname;
+    if (vw.columns.length > 0) {
+      header += ' (' + vw.columns.map(function(c) { return c.toLowerCase(); }).join(', ') + ')';
+    }
+    header += ' AS';
+    lines.push(header);
+    var q = transformViewQuery(vw.query, fromDb, 'postgresql');
+    lines.push(q);
+    if (vw.withCheckOption) {
+      var optType = vw.checkOptionType || 'LOCAL';
+      lines[lines.length - 1] += '\nWITH ' + optType + ' CHECK OPTION';
+    } else if (vw.readOnly) {
+      lines.push('/* [注意: PostgreSQL 不支持 WITH READ ONLY, 可通过 security_barrier 或 GRANT 控制] */');
+    }
+    lines.push(';');
+    lines.push('');
+    if (vw.comment) {
+      lines.push("COMMENT ON VIEW " + vname + " IS '" + vw.comment.replace(/'/g, "''") + "';");
+      lines.push('');
+    }
+  }
+  return lines.join('\n').trim();
+}
+
 /* ===== EXTRA DDL PARSER (SEQUENCE, ALTER TABLE) ===== */
 function parseExtraDDL(sql, sourceDb) {
   const result = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] };
@@ -1075,12 +1252,17 @@ function convertDDL(input, sourceDb, targetDb) {
     else return '-- 不支持的源数据库: ' + sourceDb;
   } catch (e) { return '-- 解析失败: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确'; }
 
+  // Parse views
+  let views;
+  try { views = parseViews(input, sourceDb); } catch(e) { views = []; }
+
   // Parse extra DDL (sequences, alter table, etc.)
   let extraParsed;
   try { extraParsed = parseExtraDDL(input, sourceDb); } catch(e) { extraParsed = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] }; }
   const hasExtra = extraParsed.sequences.length || extraParsed.alterSequences.length || extraParsed.alterColumns.length || extraParsed.addColumns.length;
+  const hasViews = views && views.length > 0;
 
-  if ((!tables || !tables.length) && !hasExtra) return '-- 未识别到 CREATE TABLE 语句，请检查输入格式';
+  if ((!tables || !tables.length) && !hasExtra && !hasViews) return '-- 未识别到 CREATE TABLE / CREATE VIEW 语句，请检查输入格式';
 
   let output = '';
   if (tables && tables.length) {
@@ -1092,23 +1274,36 @@ function convertDDL(input, sourceDb, targetDb) {
     } catch (e) { return '-- 生成失败: ' + e.message; }
   }
 
-  // Generate extra DDL
+  // Generate view DDL
+  let viewOutput = '';
+  if (hasViews) {
+    try {
+      if (targetDb === 'oracle') viewOutput = generateOracleViews(views, sourceDb);
+      else if (targetDb === 'mysql') viewOutput = generateMySQLViews(views, sourceDb);
+      else if (targetDb === 'postgresql') viewOutput = generatePGViews(views, sourceDb);
+    } catch (e) { viewOutput = '-- 视图生成失败: ' + e.message; }
+  }
   let extraOutput = '';
   if (hasExtra) {
     try { extraOutput = generateExtraDDL(extraParsed, sourceDb, targetDb); } catch(e) { extraOutput = '-- 额外DDL生成失败: ' + e.message; }
   }
 
   const tableCount = (tables && tables.length) ? tables.length : 0;
+  const viewCount = hasViews ? views.length : 0;
+  var countDesc = '表数量: ' + tableCount;
+  if (viewCount > 0) countDesc += ', 视图: ' + viewCount;
+  if (hasExtra) countDesc += ' (含序列/ALTER语句)';
   const header = '-- ============================================================\n'
     + '-- 自动生成: ' + DB_LABELS[sourceDb] + ' → ' + DB_LABELS[targetDb] + '\n'
-    + '-- 表数量: ' + tableCount + (hasExtra ? ' (含序列/ALTER语句)' : '') + '\n'
+    + '-- ' + countDesc + '\n'
     + '-- 生成时间: ' + new Date().toISOString().slice(0,19).replace('T',' ') + '\n'
     + '-- 请检查类型映射和分区语法是否符合目标库版本要求\n'
     + '-- ============================================================\n\n';
 
   let result = header;
   if (output) result += output;
-  if (extraOutput) { if (output) result += '\n\n'; result += extraOutput; }
+  if (viewOutput) { if (output) result += '\n\n'; result += viewOutput; }
+  if (extraOutput) { if (output || viewOutput) result += '\n\n'; result += extraOutput; }
   return result;
 }
 
