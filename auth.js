@@ -109,9 +109,10 @@
 
   function toggleUserMenu() {
     if (!appUserPop || !appUserMenu) return;
-    var willOpen = appUserMenu.hidden;
+    var willOpen = !appUserPop.classList.contains('is-open');
     appUserMenu.hidden = !willOpen;
     appUserPop.classList.toggle('is-open', willOpen);
+    if (appUserBtn) appUserBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
   }
 
   function openAuthModal(message) {
@@ -365,7 +366,7 @@
     appUserBtn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      if (!user) {
+      if (appUserPop && appUserPop.hidden) {
         openAuthModal('请先登录');
         return;
       }
