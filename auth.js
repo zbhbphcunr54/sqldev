@@ -39,6 +39,14 @@
     }
   }
 
+  function refreshHeaderRefs() {
+    appAuthBtn = document.getElementById('app-auth-btn');
+    appUserPop = document.getElementById('app-user-pop');
+    appUserBtn = document.getElementById('app-user-btn');
+    appUserMenu = document.getElementById('app-user-menu');
+    appUserEmail = document.getElementById('app-user-email');
+  }
+
   function emit() {
     for (var i = 0; i < listeners.length; i++) listeners[i](user);
     window.dispatchEvent(new CustomEvent('auth:state-changed', { detail: { user: user } }));
@@ -91,6 +99,7 @@
   }
 
   function updatePosterCta() {
+    refreshHeaderRefs();
     var loggedIn = !!user;
     if (splashEnterBtn) splashEnterBtn.textContent = loggedIn ? '进入工作台' : '登录后进入工作台';
     if (splashAuthBtn) splashAuthBtn.textContent = loggedIn ? '退出登录' : '注册 / 登录';
@@ -103,11 +112,14 @@
   }
 
   function closeUserMenu() {
+    refreshHeaderRefs();
     if (appUserPop) appUserPop.classList.remove('is-open');
     if (appUserMenu) appUserMenu.hidden = true;
+    if (appUserBtn) appUserBtn.setAttribute('aria-expanded', 'false');
   }
 
   function toggleUserMenu() {
+    refreshHeaderRefs();
     if (!appUserPop || !appUserMenu) return;
     var willOpen = !appUserPop.classList.contains('is-open');
     appUserMenu.hidden = !willOpen;
@@ -352,18 +364,20 @@
     });
   }
 
-  if (appAuthBtn) {
-    appAuthBtn.addEventListener('click', async function () {
-      if (user) {
-        await signOut();
-      }
+  document.addEventListener('click', async function (e) {
+    refreshHeaderRefs();
+    var logoutBtn = e.target && e.target.closest ? e.target.closest('#app-auth-btn') : null;
+    if (logoutBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (user) await signOut();
       closeUserMenu();
       window.location.reload();
-    });
-  }
+      return;
+    }
 
-  if (appUserBtn) {
-    appUserBtn.addEventListener('click', function (e) {
+    var userBtn = e.target && e.target.closest ? e.target.closest('#app-user-btn') : null;
+    if (userBtn) {
       e.preventDefault();
       e.stopPropagation();
       if (appUserPop && appUserPop.hidden) {
@@ -371,16 +385,17 @@
         return;
       }
       toggleUserMenu();
-    });
-  }
+      return;
+    }
 
-  if (appUserMenu) {
-    appUserMenu.addEventListener('click', function (e) {
+    var inUserMenu = e.target && e.target.closest ? e.target.closest('#app-user-menu') : null;
+    if (inUserMenu) {
       e.stopPropagation();
-    });
-  }
+    }
+  });
 
   document.addEventListener('pointerdown', function (e) {
+    refreshHeaderRefs();
     if (!appUserPop) return;
     if (appUserPop.contains(e.target)) return;
     closeUserMenu();
