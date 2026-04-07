@@ -9,18 +9,12 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 
-const samplesCode = await Deno.readTextFile(new URL('./samples.js', import.meta.url))
-const rulesCode = await Deno.readTextFile(new URL('./rules.js', import.meta.url))
-const appEngineCode = await Deno.readTextFile(new URL('./app-engine.js', import.meta.url))
-
 let engineReady = false
+let convertDDLFn: ((input: string, from: string, to: string) => string) | null = null
+let convertFunctionFn: ((input: string, from: string, to: string) => string) | null = null
+let convertProcedureFn: ((input: string, from: string, to: string) => string) | null = null
 
-function evalGlobal(code: string) {
-  // Keep compatibility with existing browser-style engine declarations.
-  ;(0, eval)(code)
-}
-
-function ensureEngineReady() {
+async function ensureEngineReady() {
   if (engineReady) return
   const g = globalThis as Record<string, unknown>
   if (!g.localStorage) {
@@ -33,9 +27,16 @@ function ensureEngineReady() {
       }
     }
   }
-  evalGlobal(samplesCode.replace(/\bconst\b/g, 'var'))
-  evalGlobal(rulesCode.replace(/\bconst\b/g, 'var'))
-  evalGlobal(appEngineCode.replace(/\bconst\b/g, 'var'))
+  await import('./samples.js')
+  await import('./rules.js')
+  const engineModule = (await import('./app-engine.js')) as {
+    convertDDL?: (input: string, from: string, to: string) => string
+    convertFunction?: (input: string, from: string, to: string) => string
+    convertProcedure?: (input: string, from: string, to: string) => string
+  }
+  convertDDLFn = engineModule.convertDDL || null
+  convertFunctionFn = engineModule.convertFunction || null
+  convertProcedureFn = engineModule.convertProcedure || null
   engineReady = true
 }
 
@@ -83,20 +84,18 @@ Deno.serve(async (req) => {
     if (!input.trim()) return json({ error: 'Input is empty' }, 400)
     if (input.length > 5 * 1024 * 1024) return json({ error: 'Input too large (max 5MB)' }, 400)
 
-    ensureEngineReady()
-
-    const g = globalThis as Record<string, unknown>
+    await ensureEngineReady()
     let output = ''
     if (kind === 'ddl') {
-      const fn = g.convertDDL as ((input: string, from: string, to: string) => string) | undefined
+      const fn = convertDDLFn
       if (typeof fn !== 'function') return json({ error: 'DDL engine not ready' }, 500)
       output = fn(input, fromDb, toDb)
     } else if (kind === 'func') {
-      const fn = g.convertFunction as ((input: string, from: string, to: string) => string) | undefined
+      const fn = convertFunctionFn
       if (typeof fn !== 'function') return json({ error: 'Function engine not ready' }, 500)
       output = fn(input, fromDb, toDb)
     } else {
-      const fn = g.convertProcedure as ((input: string, from: string, to: string) => string) | undefined
+      const fn = convertProcedureFn
       if (typeof fn !== 'function') return json({ error: 'Procedure engine not ready' }, 500)
       output = fn(input, fromDb, toDb)
     }

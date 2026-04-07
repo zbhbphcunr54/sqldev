@@ -1,5 +1,5 @@
 /* ===== samples.js — 示例数据 (DDL / 函数 / 存储过程) ===== */
-const DB_LABELS = { oracle: 'Oracle', mysql: 'MySQL', postgresql: 'PostgreSQL' };
+export const DB_LABELS = { oracle: 'Oracle', mysql: 'MySQL', postgresql: 'PostgreSQL' };
 
 /* ===== DDL SAMPLES ===== */
 const DDL_SAMPLES = {

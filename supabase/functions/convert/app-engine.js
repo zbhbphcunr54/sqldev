@@ -1,5 +1,8 @@
 ﻿/* ===== app.js — 核心解析引擎 + Vue 应用 ===== */
 
+import { DB_LABELS } from './samples.js';
+import { _ddlRulesData, _bodyRulesData, _bodyRulesDefault } from './rules.js';
+
 /* ----- IR (Intermediate Representation) ----- */
 /* ===== IR (Intermediate Representation) ===== */
 function makeTable() {
@@ -2072,4 +2075,6 @@ function _genPGProcedure(name, params, vars, body) {
   }
   return out;
 }
+
+export { convertDDL, convertFunction, convertProcedure };
 
