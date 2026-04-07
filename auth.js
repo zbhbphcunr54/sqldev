@@ -45,6 +45,11 @@
     appUserBtn = document.getElementById('app-user-btn');
     appUserMenu = document.getElementById('app-user-menu');
     appUserEmail = document.getElementById('app-user-email');
+    if (appUserPop) appUserPop.removeAttribute('title');
+    if (appUserBtn) appUserBtn.removeAttribute('title');
+    if (appUserEmail) appUserEmail.removeAttribute('title');
+    var avatar = document.getElementById('app-user-avatar');
+    if (avatar) avatar.removeAttribute('title');
   }
 
   function emit() {
@@ -72,6 +77,20 @@
     return msg.indexOf('email not confirmed') >= 0 ||
            msg.indexOf('email_not_confirmed') >= 0 ||
            msg.indexOf('not confirmed') >= 0;
+  }
+
+  function localizeAuthError(err, fallback) {
+    var raw = String((err && err.message) || err || '').trim();
+    var msg = raw.toLowerCase();
+    if (!msg) return fallback;
+    if (msg.indexOf('invalid login credentials') >= 0) return '邮箱或密码错误';
+    if (msg.indexOf('email not confirmed') >= 0 || msg.indexOf('email_not_confirmed') >= 0) return '邮箱未验证，请先完成邮箱验证';
+    if (msg.indexOf('user already registered') >= 0) return '该邮箱已注册，请直接登录';
+    if (msg.indexOf('password should be at least') >= 0 || msg.indexOf('password is too short') >= 0) return '密码至少 6 位';
+    if (msg.indexOf('invalid email') >= 0 || msg.indexOf('email address') >= 0) return '邮箱格式不正确';
+    if (msg.indexOf('rate limit') >= 0 || msg.indexOf('too many requests') >= 0 || msg.indexOf('over_email_send_rate_limit') >= 0) return '操作过于频繁，请稍后再试';
+    if (msg.indexOf('networkerror') >= 0 || msg.indexOf('failed to fetch') >= 0 || msg.indexOf('fetch failed') >= 0) return '网络异常，请检查网络后重试';
+    return fallback;
   }
 
   async function resendSignupConfirmation(email) {
@@ -298,7 +317,7 @@
         }
         if (authPassword) authPassword.focus();
       } catch (err1) {
-        setStatus(err1.message || '注册失败', true);
+        setStatus(localizeAuthError(err1, '注册失败'), true);
       } finally {
         passwordRegistering = false;
         setBusy(false);
@@ -314,7 +333,7 @@
       setStatus('验证码已发送，请输入验证码后点击“验证码登录”', false);
       if (authCode) authCode.focus();
     } catch (err2) {
-      setStatus(err2.message || '发送验证码失败', true);
+      setStatus(localizeAuthError(err2, '发送验证码失败'), true);
     } finally {
       setBusy(false);
     }
@@ -348,7 +367,7 @@
         if (resent) hint += ' 已为你重新发送验证邮件。';
         setStatus(hint, true);
       } else {
-        setStatus(err.message || '登录失败', true);
+        setStatus(localizeAuthError(err, '登录失败'), true);
       }
     } finally {
       setBusy(false);
