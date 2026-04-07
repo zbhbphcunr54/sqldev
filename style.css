@@ -155,6 +155,7 @@ body{font-family:var(--font-body);color:var(--text);background:var(--bg-secondar
 .header-user-pop:hover .header-user-email{opacity:1;transform:translateY(0)}
 .header-user-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:92px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);z-index:61}
 .header-user-pop.is-open .header-user-menu{display:block}
+.header-user-menu[hidden]{display:none !important}
 .header-user-logout{width:100%;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);font-size:12px;font-weight:600;font-family:var(--font-body);cursor:pointer;transition:all .2s}
 .header-user-logout:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
 /* Mobile menu toggle */
@@ -416,7 +417,7 @@ body.splash-active{overflow:hidden}
 @keyframes spFadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 
 /* ===== Splash Auth Modal ===== */
-.auth-modal-mask{position:absolute;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.58);backdrop-filter:blur(4px);padding:18px}
+.auth-modal-mask{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.58);backdrop-filter:blur(4px);padding:18px}
 .auth-modal-mask[hidden]{display:none !important}
 .auth-modal{width:min(420px,96vw);background:linear-gradient(180deg,rgba(15,23,42,.96) 0%,rgba(8,14,27,.95) 100%);border:1px solid rgba(59,130,246,.35);border-radius:14px;box-shadow:0 14px 40px rgba(2,6,23,.45);padding:16px 16px 14px;text-align:left}
 .auth-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}

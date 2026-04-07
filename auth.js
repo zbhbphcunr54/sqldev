@@ -31,6 +31,14 @@
   var authMode = 'password';
   var passwordRegistering = false;
 
+  function ensureGlobalModalHost() {
+    if (!authModalMask) return;
+    var parent = authModalMask.parentElement;
+    if (parent && parent.id === 'splash-poster') {
+      document.body.appendChild(authModalMask);
+    }
+  }
+
   function emit() {
     for (var i = 0; i < listeners.length; i++) listeners[i](user);
     window.dispatchEvent(new CustomEvent('auth:state-changed', { detail: { user: user } }));
@@ -88,12 +96,26 @@
     if (splashAuthBtn) splashAuthBtn.textContent = loggedIn ? '退出登录' : '注册 / 登录';
     if (appUserPop) appUserPop.hidden = !loggedIn;
     if (!loggedIn && appUserPop) appUserPop.classList.remove('is-open');
+    if (!loggedIn && appUserMenu) appUserMenu.hidden = true;
     if (appAuthBtn) appAuthBtn.textContent = '退出登录';
     if (appUserEmail) appUserEmail.textContent = getEmail();
     if (appUserBtn) appUserBtn.title = getEmail() || '用户信息';
   }
 
+  function closeUserMenu() {
+    if (appUserPop) appUserPop.classList.remove('is-open');
+    if (appUserMenu) appUserMenu.hidden = true;
+  }
+
+  function toggleUserMenu() {
+    if (!appUserPop || !appUserMenu) return;
+    var willOpen = appUserMenu.hidden;
+    appUserMenu.hidden = !willOpen;
+    appUserPop.classList.toggle('is-open', willOpen);
+  }
+
   function openAuthModal(message) {
+    ensureGlobalModalHost();
     if (!authModalMask) return;
     authModalMask.hidden = false;
     setStatus(message || '', false);
@@ -181,6 +203,7 @@
   }
 
   async function init() {
+    ensureGlobalModalHost();
     if (!supabaseGlobal || !supabaseGlobal.createClient) {
       setStatus('Supabase SDK 未加载', true);
       return;
@@ -333,7 +356,7 @@
       if (user) {
         await signOut();
       }
-      if (appUserPop) appUserPop.classList.remove('is-open');
+      closeUserMenu();
       window.location.reload();
     });
   }
@@ -346,9 +369,7 @@
         openAuthModal('请先登录');
         return;
       }
-      if (appUserPop) {
-        appUserPop.classList.toggle('is-open');
-      }
+      toggleUserMenu();
     });
   }
 
@@ -361,11 +382,11 @@
   document.addEventListener('pointerdown', function (e) {
     if (!appUserPop) return;
     if (appUserPop.contains(e.target)) return;
-    appUserPop.classList.remove('is-open');
+    closeUserMenu();
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && appUserPop) appUserPop.classList.remove('is-open');
+    if (e.key === 'Escape' && appUserPop) closeUserMenu();
   });
 
   if (authRegisterBtn) authRegisterBtn.addEventListener('click', submitRegister);
@@ -398,6 +419,7 @@
     });
   }
 
+  closeUserMenu();
   setAuthMode('password');
   updatePosterCta();
   init();

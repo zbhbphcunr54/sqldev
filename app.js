@@ -3198,6 +3198,11 @@ const app = createApp({
 
     async function convert() {
       try {
+        if (!inputDdl.value.trim()) {
+          statusText.value = '请输入待转换的 DDL SQL';
+          return;
+        }
+        statusText.value = 'DDL 转换中，请稍候...';
         const result = await _convertViaBackend('ddl', inputDdl.value, sourceDb.value, targetDb.value);
         outputDdl.value = result;
         var cls = _classifyResult(result);
@@ -3240,6 +3245,11 @@ const app = createApp({
 
     async function convertFunc() {
       try {
+        if (!funcInput.value.trim()) {
+          statusText.value = '请输入待转换的函数 SQL';
+          return;
+        }
+        statusText.value = '函数转换中，请稍候...';
         const result = await _convertViaBackend('func', funcInput.value, funcSourceDb.value, funcTargetDb.value);
         funcOutput.value = result;
         var cls = _classifyResult(result);
@@ -3282,6 +3292,11 @@ const app = createApp({
 
     async function convertProc() {
       try {
+        if (!procInput.value.trim()) {
+          statusText.value = '请输入待转换的存储过程 SQL';
+          return;
+        }
+        statusText.value = '存储过程转换中，请稍候...';
         const result = await _convertViaBackend('proc', procInput.value, procSourceDb.value, procTargetDb.value);
         procOutput.value = result;
         var cls = _classifyResult(result);
