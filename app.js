@@ -3134,6 +3134,9 @@ const app = createApp({
         throw new Error('认证模块未初始化');
       }
       var token = window.authApi.getAccessToken();
+      if (!token && typeof window.authApi.ensureAccessToken === 'function') {
+        token = await window.authApi.ensureAccessToken(false);
+      }
       if (!token) {
         if (typeof window.authApi.openAuthModal === 'function') {
           window.authApi.openAuthModal('请先注册/登录后再进行 SQL 转换');
@@ -3145,37 +3148,45 @@ const app = createApp({
       }
       var base = String(window.SUPABASE_URL).replace(/\/+$/, '');
       var requestUrl = base + '/functions/v1/convert';
-      var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      var timeoutId = null;
-      if (controller) {
-        timeoutId = setTimeout(function () {
-          controller.abort();
-        }, 20000);
+      async function sendRequest(accessToken) {
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timeoutId = null;
+        if (controller) {
+          timeoutId = setTimeout(function () {
+            controller.abort();
+          }, 20000);
+        }
+        try {
+          return await fetch(requestUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + accessToken,
+              'apikey': window.SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+              kind: kind,
+              input: input,
+              fromDb: fromDb,
+              toDb: toDb
+            }),
+            signal: controller ? controller.signal : undefined
+          });
+        } catch (networkErr) {
+          var netMsg = networkErr && networkErr.name === 'AbortError'
+            ? '连接转换服务超时，请稍后重试'
+            : '无法连接转换服务，请检查网络，或确认 Supabase Edge Function `convert` 已部署';
+          throw new Error(netMsg + '：' + requestUrl);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
       }
-      var res;
-      try {
-        res = await fetch(requestUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-            'apikey': window.SUPABASE_ANON_KEY
-          },
-          body: JSON.stringify({
-            kind: kind,
-            input: input,
-            fromDb: fromDb,
-            toDb: toDb
-          }),
-          signal: controller ? controller.signal : undefined
-        });
-      } catch (networkErr) {
-        var netMsg = networkErr && networkErr.name === 'AbortError'
-          ? '连接转换服务超时，请稍后重试'
-          : '无法连接转换服务，请检查网络，或确认 Supabase Edge Function `convert` 已部署';
-        throw new Error(netMsg + '：' + requestUrl);
-      } finally {
-        if (timeoutId) clearTimeout(timeoutId);
+      var res = await sendRequest(token);
+      if (res.status === 401 && typeof window.authApi.ensureAccessToken === 'function') {
+        var refreshed = await window.authApi.ensureAccessToken(true);
+        if (refreshed) {
+          res = await sendRequest(refreshed);
+        }
       }
       var json;
       try { json = await res.json(); } catch(_e) { json = null; }

@@ -272,6 +272,32 @@
     return accessToken;
   }
 
+  async function ensureAccessToken(forceRefresh) {
+    if (!sb || !sb.auth) return accessToken || '';
+    try {
+      if (forceRefresh && typeof sb.auth.refreshSession === 'function') {
+        var refreshRes = await sb.auth.refreshSession();
+        var refreshSession = refreshRes && refreshRes.data ? refreshRes.data.session : null;
+        if (refreshSession && refreshSession.access_token) {
+          accessToken = refreshSession.access_token || '';
+          user = refreshSession.user || null;
+          updatePosterCta();
+          emit();
+          return accessToken;
+        }
+      }
+      var sessionRes = await sb.auth.getSession();
+      var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
+      accessToken = session && session.access_token ? session.access_token : '';
+      user = session && session.user ? session.user : null;
+      updatePosterCta();
+      emit();
+      return accessToken;
+    } catch (_e) {
+      return accessToken || '';
+    }
+  }
+
   function onUserChange(fn) {
     if (typeof fn === 'function') listeners.push(fn);
   }
@@ -403,6 +429,7 @@
     signOut: signOut,
     getUserSync: getUserSync,
     getAccessToken: getAccessToken,
+    ensureAccessToken: ensureAccessToken,
     onUserChange: onUserChange,
     openAuthModal: openAuthModal,
     closeAuthModal: closeAuthModal
