@@ -51,21 +51,37 @@ function bearerToken(req: Request): string {
   return match ? match[1].trim() : ''
 }
 
-async function validateUserToken(token: string): Promise<boolean> {
-  if (!token) return false
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
   try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      method: 'GET',
-      headers: {
-        authorization: `Bearer ${token}`,
-        apikey: SUPABASE_ANON_KEY
-      }
-    })
-    return res.ok
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padLen = (4 - (b64.length % 4)) % 4
+    const jsonText = atob(b64 + '='.repeat(padLen))
+    const payload = JSON.parse(jsonText)
+    return payload && typeof payload === 'object' ? payload : null
   } catch (_e) {
-    return false
+    return null
   }
+}
+
+function validateUserToken(token: string): boolean {
+  if (!token) return false
+  const payload = decodeJwtPayload(token)
+  if (!payload) return false
+
+  const exp = Number(payload.exp || 0)
+  const sub = String(payload.sub || '')
+  const iss = String(payload.iss || '')
+  const audRaw = payload.aud
+  const aud = Array.isArray(audRaw) ? audRaw.map((v) => String(v)) : [String(audRaw || '')]
+  const nowSec = Math.floor(Date.now() / 1000)
+
+  if (!Number.isFinite(exp) || exp <= nowSec) return false
+  if (!sub) return false
+  if (iss !== `${SUPABASE_URL}/auth/v1`) return false
+  if (!aud.includes('authenticated')) return false
+  return true
 }
 
 Deno.serve(async (req) => {
@@ -78,7 +94,7 @@ Deno.serve(async (req) => {
 
   try {
     const token = bearerToken(req)
-    const isAuthorized = await validateUserToken(token)
+    const isAuthorized = validateUserToken(token)
     if (!isAuthorized) return json({ error: 'Unauthorized' }, 401)
 
     const body = await req.json().catch(() => null)
