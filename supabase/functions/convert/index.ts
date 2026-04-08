@@ -45,16 +45,9 @@ function json(data: unknown, status = 200) {
   })
 }
 
-function bearerToken(req: Request): string {
-  const auth = req.headers.get('authorization') || ''
-  const match = auth.match(/^Bearer\s+(.+)$/i)
-  return match ? match[1].trim() : ''
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
-  if (!bearerToken(req)) return json({ error: 'Unauthorized' }, 401)
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return json({ error: 'Server env missing SUPABASE_URL or SUPABASE_ANON_KEY' }, 500)
