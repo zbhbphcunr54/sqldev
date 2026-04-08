@@ -89,6 +89,7 @@
     if (msg.indexOf('password should be at least') >= 0 || msg.indexOf('password is too short') >= 0) return '密码至少 6 位';
     if (msg.indexOf('invalid email') >= 0 || msg.indexOf('email address') >= 0) return '邮箱格式不正确';
     if (msg.indexOf('rate limit') >= 0 || msg.indexOf('too many requests') >= 0 || msg.indexOf('over_email_send_rate_limit') >= 0) return '操作过于频繁，请稍后再试';
+    if (msg.indexOf('invalid otp') >= 0 || msg.indexOf('otp') >= 0 || msg.indexOf('token has expired') >= 0 || msg.indexOf('expired') >= 0 || msg.indexOf('token') >= 0) return '验证码无效或已过期，请重新获取';
     if (msg.indexOf('networkerror') >= 0 || msg.indexOf('failed to fetch') >= 0 || msg.indexOf('fetch failed') >= 0) return '网络异常，请检查网络后重试';
     return fallback;
   }
@@ -202,21 +203,40 @@
 
   async function sendEmailCode(email) {
     var redirectTo = window.location.origin + window.location.pathname;
-    return sb.auth.signInWithOtp({
+    var firstTry = await sb.auth.signInWithOtp({
       email: email,
       options: {
-        shouldCreateUser: true,
+        shouldCreateUser: false,
         emailRedirectTo: redirectTo
       }
     });
+    if (!firstTry || !firstTry.error) return firstTry;
+    var msg = String(firstTry.error.message || '').toLowerCase();
+    if (msg.indexOf('user not found') >= 0 || msg.indexOf('no user') >= 0 || msg.indexOf('not registered') >= 0) {
+      return sb.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: redirectTo
+        }
+      });
+    }
+    return firstTry;
   }
 
   async function verifyEmailCode(email, token) {
-    return sb.auth.verifyOtp({
-      email: email,
-      token: token,
-      type: 'email'
-    });
+    var tryTypes = ['email', 'magiclink', 'signup'];
+    var lastError = null;
+    for (var i = 0; i < tryTypes.length; i++) {
+      var res = await sb.auth.verifyOtp({
+        email: email,
+        token: token,
+        type: tryTypes[i]
+      });
+      if (res && !res.error) return res;
+      lastError = res ? res.error : null;
+    }
+    return { data: null, error: lastError || new Error('验证码无效或已过期') };
   }
 
   async function registerWithPassword(email, password) {
