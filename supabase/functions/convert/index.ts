@@ -45,6 +45,29 @@ function json(data: unknown, status = 200) {
   })
 }
 
+function bearerToken(req: Request): string {
+  const auth = req.headers.get('authorization') || ''
+  const match = auth.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() : ''
+}
+
+async function validateUserToken(token: string): Promise<boolean> {
+  if (!token) return false
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY
+      }
+    })
+    return res.ok
+  } catch (_e) {
+    return false
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -54,6 +77,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const token = bearerToken(req)
+    const isAuthorized = await validateUserToken(token)
+    if (!isAuthorized) return json({ error: 'Unauthorized' }, 401)
+
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')
     const fromDb = String(body?.fromDb || '')
