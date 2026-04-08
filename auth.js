@@ -483,7 +483,6 @@
       e.stopPropagation();
       if (user) await signOut();
       closeUserMenu();
-      window.location.reload();
       return;
     }
 
