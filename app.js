@@ -3133,9 +3133,20 @@ const app = createApp({
       if (!window.authApi || typeof window.authApi.getAccessToken !== 'function') {
         throw new Error('认证模块未初始化');
       }
+      function hasSignedUser() {
+        return !!(window.authApi &&
+          typeof window.authApi.getUserSync === 'function' &&
+          window.authApi.getUserSync());
+      }
       var token = window.authApi.getAccessToken() || '';
       if (!token && typeof window.authApi.ensureAccessToken === 'function') {
         token = await window.authApi.ensureAccessToken(false);
+      }
+      if (!token && typeof window.authApi.ensureAccessToken === 'function') {
+        token = await window.authApi.ensureAccessToken(true);
+      }
+      if (!token && hasSignedUser()) {
+        throw new Error('登录会话异常，请点击右上角退出后重新登录');
       }
       if (!token) {
         if (typeof window.authApi.openAuthModal === 'function') {
@@ -3192,6 +3203,9 @@ const app = createApp({
       try { json = await res.json(); } catch(_e) { json = null; }
       if (!res.ok) {
         if (res.status === 401) {
+          if (hasSignedUser()) {
+            throw new Error((json && json.error) || '后端鉴权失败(401)：会话可能已失效，请点击右上角退出后重新登录');
+          }
           if (typeof window.authApi.openAuthModal === 'function') {
             window.authApi.openAuthModal('登录状态失效，请重新登录');
           }
