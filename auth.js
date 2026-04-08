@@ -488,6 +488,15 @@
     }
   }
 
+  async function invokeFunction(name, body) {
+    if (!sb) throw new Error('认证未初始化，请检查 Supabase 配置');
+    await ensureAccessToken(false);
+    if (!sb.functions || typeof sb.functions.invoke !== 'function') {
+      throw new Error('当前 Supabase SDK 不支持 functions.invoke');
+    }
+    return sb.functions.invoke(name, { body: body });
+  }
+
   window.authApi = {
     init: init,
     signUp: registerWithPassword,
@@ -498,6 +507,7 @@
     getUserSync: getUserSync,
     getAccessToken: getAccessToken,
     ensureAccessToken: ensureAccessToken,
+    invokeFunction: invokeFunction,
     onUserChange: onUserChange,
     openAuthModal: openAuthModal,
     closeAuthModal: closeAuthModal

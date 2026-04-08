@@ -3162,7 +3162,7 @@ const app = createApp({
     }
 
     async function _convertViaBackend(kind, input, fromDb, toDb) {
-      if (!window.authApi || typeof window.authApi.getAccessToken !== 'function') {
+      if (!window.authApi) {
         throw new Error('认证模块未初始化');
       }
       function hasSignedUser() {
@@ -3170,83 +3170,58 @@ const app = createApp({
           typeof window.authApi.getUserSync === 'function' &&
           window.authApi.getUserSync());
       }
-      var token = '';
-      if (typeof window.authApi.ensureAccessToken === 'function') {
-        token = await window.authApi.ensureAccessToken(false);
-      }
-      if (!token) {
-        token = window.authApi.getAccessToken() || '';
-      }
-      if (!token && hasSignedUser()) {
-        throw new Error('登录会话异常，请点击右上角退出后重新登录');
-      }
-      if (!token) {
+      if (!hasSignedUser()) {
         if (typeof window.authApi.openAuthModal === 'function') {
           window.authApi.openAuthModal('请先注册/登录后再进行 SQL 转换');
         }
         throw new Error('未登录，无法调用后端转换服务');
       }
-      if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
-        throw new Error('Supabase 配置缺失，请检查 supabase-config.js');
+      if (typeof window.authApi.invokeFunction !== 'function') {
+        throw new Error('认证模块版本过低，不支持 invokeFunction');
       }
-      var base = String(window.SUPABASE_URL).replace(/\/+$/, '');
-      var requestUrl = base + '/functions/v1/convert';
       var frontendRules = _buildFrontendRulesPayload();
-      async function sendRequest(accessToken) {
-        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        var timeoutId = null;
-        if (controller) {
-          timeoutId = setTimeout(function () {
-            controller.abort();
-          }, 20000);
-        }
-        try {
-          return await fetch(requestUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + accessToken,
-              'apikey': window.SUPABASE_ANON_KEY
-            },
-            body: JSON.stringify({
-              kind: kind,
-              input: input,
-              fromDb: fromDb,
-              toDb: toDb,
-              rules: frontendRules
-            }),
-            signal: controller ? controller.signal : undefined
-          });
-        } catch (networkErr) {
-          var netMsg = networkErr && networkErr.name === 'AbortError'
-            ? '连接转换服务超时，请稍后重试'
-            : '无法连接转换服务，请检查网络，或确认 Supabase Edge Function `convert` 已部署';
-          throw new Error(netMsg + '：' + requestUrl);
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
+      var result;
+      try {
+        result = await window.authApi.invokeFunction('convert', {
+          kind: kind,
+          input: input,
+          fromDb: fromDb,
+          toDb: toDb,
+          rules: frontendRules
+        });
+      } catch (networkErr) {
+        var netMsg = (networkErr && networkErr.name === 'AbortError')
+          ? '连接转换服务超时，请稍后重试'
+          : '无法连接转换服务，请检查网络，或确认 Supabase Edge Function `convert` 已部署';
+        throw new Error(netMsg);
+      }
+      if (result.error) {
+        var errMsg = String((result.error && result.error.message) || result.error || '');
+        var errLower = errMsg.toLowerCase();
+        if (errLower.indexOf('unauthorized') >= 0 || errLower.indexOf('401') >= 0 ||
+            errLower.indexOf('invalid jwt') >= 0 || errLower.indexOf('jwt') >= 0) {
+          // Try once more after force-refreshing the session
+          try {
+            if (typeof window.authApi.ensureAccessToken === 'function') {
+              var refreshed = await window.authApi.ensureAccessToken(true);
+              if (refreshed) {
+                result = await window.authApi.invokeFunction('convert', {
+                  kind: kind,
+                  input: input,
+                  fromDb: fromDb,
+                  toDb: toDb,
+                  rules: frontendRules
+                });
+              }
+            }
+          } catch (_retryErr) { /* fall through to error below */ }
         }
       }
-      var res = await sendRequest(token);
-      if (res.status === 401 && typeof window.authApi.ensureAccessToken === 'function') {
-        var refreshed = await window.authApi.ensureAccessToken(true);
-        if (refreshed) {
-          res = await sendRequest(refreshed);
-        }
+      if (result.error) {
+        var msg = String((result.error && result.error.message) || result.error || '后端请求失败');
+        throw new Error(msg);
       }
-      var json;
-      try { json = await res.json(); } catch(_e) { json = null; }
-      if (!res.ok) {
-        if (res.status === 401) {
-          if (hasSignedUser()) {
-            throw new Error((json && (json.error || json.message || json.msg)) || '后端鉴权失败(401)：会话可能已失效，请点击右上角退出后重新登录');
-          }
-          if (typeof window.authApi.openAuthModal === 'function') {
-            window.authApi.openAuthModal('登录状态失效，请重新登录');
-          }
-          throw new Error((json && (json.error || json.message || json.msg)) || '后端鉴权失败(401)，请重新登录后重试');
-        }
-        throw new Error((json && json.error) || ('后端请求失败: HTTP ' + res.status));
-      }
+      var json = result.data;
       if (!json || typeof json.output !== 'string') {
         throw new Error('后端返回格式异常');
       }
