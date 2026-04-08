@@ -88,6 +88,28 @@ function splitListValues(str) {
   return result;
 }
 
+function _splitArgs(str) {
+  let result = [], depth = 0, current = '', inQ = false, qChar = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (inQ) {
+      current += ch;
+      if (ch === qChar && str[i - 1] !== '\\') inQ = false;
+    } else if (ch === "'" || ch === '"') {
+      inQ = true; qChar = ch; current += ch;
+    } else if (ch === '(') { depth++; current += ch; }
+    else if (ch === ')') { depth--; current += ch; }
+    else if (ch === ',' && depth === 0) { result.push(current); current = ''; }
+    else { current += ch; }
+  }
+  if (current.trim()) result.push(current);
+  return result;
+}
+
+function _splitParamList(paramStr) {
+  return _splitArgs(paramStr).map(function(p) { return p.trim(); }).filter(function(p) { return p.length > 0; });
+}
+
 function pad(s, n) { return s + ' '.repeat(Math.max(0, n - s.length)); }
 
 /* ===== ORACLE PARSER ===== */
@@ -1078,12 +1100,17 @@ function convertDDL(input, sourceDb, targetDb) {
     else return '-- 不支持的源数据库: ' + sourceDb;
   } catch (e) { return '-- 解析失败: ' + e.message + '\n-- 请检查输入的 DDL 语法是否正确'; }
 
+  // Parse views
+  let views;
+  try { views = parseViews(input, sourceDb); } catch(e) { views = []; }
+
   // Parse extra DDL (sequences, alter table, etc.)
   let extraParsed;
   try { extraParsed = parseExtraDDL(input, sourceDb); } catch(e) { extraParsed = { sequences: [], alterSequences: [], alterColumns: [], addColumns: [] }; }
   const hasExtra = extraParsed.sequences.length || extraParsed.alterSequences.length || extraParsed.alterColumns.length || extraParsed.addColumns.length;
+  const hasViews = views && views.length > 0;
 
-  if ((!tables || !tables.length) && !hasExtra) return '-- 未识别到 CREATE TABLE 语句，请检查输入格式';
+  if ((!tables || !tables.length) && !hasExtra && !hasViews) return '-- 未识别到 CREATE TABLE / CREATE VIEW 语句，请检查输入格式';
 
   let output = '';
   if (tables && tables.length) {
@@ -1095,23 +1122,36 @@ function convertDDL(input, sourceDb, targetDb) {
     } catch (e) { return '-- 生成失败: ' + e.message; }
   }
 
-  // Generate extra DDL
+  // Generate view DDL
+  let viewOutput = '';
+  if (hasViews) {
+    try {
+      if (targetDb === 'oracle') viewOutput = generateOracleViews(views, sourceDb);
+      else if (targetDb === 'mysql') viewOutput = generateMySQLViews(views, sourceDb);
+      else if (targetDb === 'postgresql') viewOutput = generatePGViews(views, sourceDb);
+    } catch (e) { viewOutput = '-- 视图生成失败: ' + e.message; }
+  }
   let extraOutput = '';
   if (hasExtra) {
     try { extraOutput = generateExtraDDL(extraParsed, sourceDb, targetDb); } catch(e) { extraOutput = '-- 额外DDL生成失败: ' + e.message; }
   }
 
   const tableCount = (tables && tables.length) ? tables.length : 0;
+  const viewCount = hasViews ? views.length : 0;
+  var countDesc = '表数量: ' + tableCount;
+  if (viewCount > 0) countDesc += ', 视图: ' + viewCount;
+  if (hasExtra) countDesc += ' (含序列/ALTER语句)';
   const header = '-- ============================================================\n'
     + '-- 自动生成: ' + DB_LABELS[sourceDb] + ' → ' + DB_LABELS[targetDb] + '\n'
-    + '-- 表数量: ' + tableCount + (hasExtra ? ' (含序列/ALTER语句)' : '') + '\n'
+    + '-- ' + countDesc + '\n'
     + '-- 生成时间: ' + new Date().toISOString().slice(0,19).replace('T',' ') + '\n'
     + '-- 请检查类型映射和分区语法是否符合目标库版本要求\n'
     + '-- ============================================================\n\n';
 
   let result = header;
   if (output) result += output;
-  if (extraOutput) { if (output) result += '\n\n'; result += extraOutput; }
+  if (viewOutput) { if (output) result += '\n\n'; result += viewOutput; }
+  if (extraOutput) { if (output || viewOutput) result += '\n\n'; result += extraOutput; }
   return result;
 }
 
@@ -1355,16 +1395,67 @@ function _convertSingleFunction(input, sourceDb, targetDb) {
     return { name: p.name, direction: p.direction, type: mapParamType(p.type, sourceDb, targetDb), defaultVal: p.defaultVal };
   });
   const mappedReturnType = mapParamType(parsed.returnType, sourceDb, targetDb);
-  const transformedBody = transformBody(parsed.body, sourceDb, targetDb);
-  const mappedVars = parsed.vars.map(function(v) {
+  let transformedBody = transformBody(parsed.body, sourceDb, targetDb);
+  let mappedVars = parsed.vars.map(function(v) {
     if (v.raw) return v;
     if (v.cursor) return { cursor: true, name: v.name, query: transformBody(v.query, sourceDb, targetDb) };
     return { name: v.name, type: mapParamType(v.type, sourceDb, targetDb), defaultVal: v.defaultVal };
   });
 
-  if (targetDb === 'oracle') return _genOracleFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
-  if (targetDb === 'mysql') return _genMySQLFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
-  return _genPGFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  // Expand %ROWTYPE variables for MySQL: replace single record var with individual column vars
+  if (targetDb === 'mysql' && (sourceDb === 'oracle' || sourceDb === 'postgresql')) {
+    var _rowtypeResult = _expandRowTypeVarsForMySQL(parsed.vars, mappedVars, transformedBody);
+    mappedVars = _rowtypeResult.vars;
+    transformedBody = _rowtypeResult.body;
+  }
+
+  // Fix PG RECORD -> Oracle cursor%ROWTYPE (function variant)
+  if (targetDb === 'oracle' && (sourceDb === 'postgresql' || sourceDb === 'mysql')) {
+    var _cursorNamesF = [];
+    for (var ri = 0; ri < mappedVars.length; ri++) {
+      if (mappedVars[ri].cursor) _cursorNamesF.push(mappedVars[ri].name);
+    }
+    if (_cursorNamesF.length > 0) {
+      for (var ri2 = 0; ri2 < mappedVars.length; ri2++) {
+        var rv = mappedVars[ri2];
+        if (rv.type && /\bRECORD\b/i.test(rv.type)) {
+          var fetchRe = new RegExp('\\bFETCH\\s+(\\w+)\\s+INTO\\s+' + rv.name + '\\b', 'i');
+          var fm = transformedBody.match(fetchRe);
+          if (fm && _cursorNamesF.indexOf(fm[1]) >= 0) {
+            mappedVars[ri2] = { name: rv.name, type: fm[1] + '%ROWTYPE', defaultVal: rv.defaultVal };
+          } else if (_cursorNamesF.length === 1) {
+            mappedVars[ri2] = { name: rv.name, type: _cursorNamesF[0] + '%ROWTYPE', defaultVal: rv.defaultVal };
+          }
+        }
+      }
+    }
+  }
+
+  /* Detect semantic divergence: warn when converted body uses fundamentally different
+     algorithmic patterns that may not produce equivalent results across databases. */
+  var _semanticWarnings = [];
+  var _srcBody = parsed.body;
+  if (/\b\w+\.NEXTVAL\b/i.test(_srcBody) && !/\brandom\b/i.test(_srcBody) && /\brandom\b|\bRAND\s*\(/i.test(transformedBody)) {
+    _semanticWarnings.push('源函数使用序列(SEQUENCE)生成值, 但目标数据库转换为随机数, 两者语义不同');
+  }
+  if (/\brandom\b|\bRAND\s*\(/i.test(_srcBody) && !/\brandom\b|\bRAND\s*\(/i.test(transformedBody)) {
+    _semanticWarnings.push('源函数使用随机数, 但目标数据库可能使用不同的生成逻辑');
+  }
+  if (/\bFOR\s+\w+\s+IN\b/i.test(_srcBody) && /\bCURSOR\b/i.test(transformedBody) && !/\bCURSOR\b/i.test(_srcBody)) {
+    _semanticWarnings.push('源函数使用 FOR-IN 循环, 目标已转换为游标循环, 请验证行为等价性');
+  }
+  var _warnComment = '';
+  if (_semanticWarnings.length > 0) {
+    _warnComment = '/* [语义差异警告]\n';
+    for (var wi = 0; wi < _semanticWarnings.length; wi++) {
+      _warnComment += '   - ' + _semanticWarnings[wi] + '\n';
+    }
+    _warnComment += '   请人工审查转换后的逻辑是否满足业务需求 */\n';
+  }
+
+  if (targetDb === 'oracle') return _warnComment + _genOracleFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  if (targetDb === 'mysql') return _warnComment + _genMySQLFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
+  return _warnComment + _genPGFunction(parsed.name, mappedParams, mappedReturnType, mappedVars, transformedBody);
 }
 
 /* --- Function parsers --- */
@@ -1488,8 +1579,8 @@ function _parsePGFunction(input) {
   }
   const returnType = rm[1];
   const afterHeader = afterParams.substring(rm[0].length);
-  let inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
-  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  let inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').replace(/\$\$\s*;?\s*$/g, '').trim();
+  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').replace(/\$\$\s*;?\s*$/g, '').trim();
   const vars = [];
   const declareMatch = inner.match(/\bDECLARE\b([\s\S]*?)\bBEGIN\b/i);
   if (declareMatch) {
@@ -1520,7 +1611,10 @@ function _genOracleFunction(name, params, returnType, vars, body) {
   const pLines = params.map(function(p) {
     let line = '  ' + p.name;
     line += ' ' + (p.direction || 'IN');
-    line += ' ' + p.type;
+    /* Oracle formal params: strip size from VARCHAR2/CHAR/NVARCHAR2/RAW */
+    var ptype = p.type;
+    ptype = ptype.replace(/\b(VARCHAR2|VARCHAR|NVARCHAR2|CHAR|NCHAR|RAW)\s*\(\s*\d+\s*(?:\s+(?:BYTE|CHAR))?\s*\)/gi, '$1');
+    line += ' ' + ptype;
     if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
     return line;
   });
@@ -1537,9 +1631,10 @@ function _genOracleFunction(name, params, returnType, vars, body) {
   // Remove any leading BEGIN if body already has it
   cleanBody = cleanBody.replace(/^\s*BEGIN\b/i, '');
   out += 'BEGIN\n' + cleanBody.replace(/^\n+/,'') + '\n';
-  // Ensure proper END
-  if (!/\bEND\b/i.test(out.split('BEGIN').pop())) out += 'END;\n';
-  else out = out.replace(/\bEND\b\s*\w*\s*;?\s*$/i, 'END;\n');
+  // Ensure proper END — only match standalone END; (not END IF/LOOP/CASE)
+  var afterBeginF = out.split('BEGIN').pop();
+  if (!/^\s*END\s*;\s*$/im.test(afterBeginF)) out += 'END;\n';
+  else out = out.replace(/\bEND\b\s*;?\s*$/i, 'END;\n');
   out += '/';
   return out;
 }
@@ -1608,8 +1703,18 @@ function _genMySQLFunction(name, params, returnType, vars, body) {
     }
   }
   if (bodyDeclares.length > 0) {
+    // Deduplicate declarations
+    var _seenFnDecl = {};
+    var _dedupedFnDeclares = [];
+    for (var fdi = 0; fdi < bodyDeclares.length; fdi++) {
+      var _normFnDecl = bodyDeclares[fdi].trim().replace(/\s+/g, ' ').toUpperCase();
+      if (!_seenFnDecl[_normFnDecl]) {
+        _seenFnDecl[_normFnDecl] = true;
+        _dedupedFnDeclares.push(bodyDeclares[fdi]);
+      }
+    }
     // Sort: variables first, cursors second, handlers last (MySQL requirement)
-    bodyDeclares.sort(function(a, b) {
+    _dedupedFnDeclares.sort(function(a, b) {
       var aIsHandler = /^\s*DECLARE\s+(EXIT|CONTINUE)\s+HANDLER/i.test(a);
       var bIsHandler = /^\s*DECLARE\s+(EXIT|CONTINUE)\s+HANDLER/i.test(b);
       var aIsCursor = /^\s*DECLARE\s+\w+\s+CURSOR\b/i.test(a);
@@ -1618,7 +1723,7 @@ function _genMySQLFunction(name, params, returnType, vars, body) {
       var bOrder = bIsHandler ? 2 : (bIsCursor ? 1 : 0);
       return aOrder - bOrder;
     });
-    out += bodyDeclares.join('\n') + '\n';
+    out += _dedupedFnDeclares.join('\n') + '\n';
   }
   out += bodyOther.join('\n') + '\n';
   // Ensure it ends with END$$
@@ -1722,6 +1827,88 @@ function convertProcedure(input, sourceDb, targetDb) {
   return header + '\n' + results.join('\n\n');
 }
 
+/* --- Expand %ROWTYPE vars into individual column variables for MySQL --- */
+function _expandRowTypeVarsForMySQL(originalVars, mappedVars, body) {
+  // Build cursor name → { colNames, colExprs } map
+  var cursorCols = {};
+  for (var i = 0; i < originalVars.length; i++) {
+    var ov = originalVars[i];
+    if (ov.cursor && ov.query) {
+      var selMatch = ov.query.match(/^\s*SELECT\s+([\s\S]+?)\s+FROM\s/i);
+      if (selMatch) {
+        var cols = [];
+        var colExprs = [];
+        var parts = selMatch[1].split(',');
+        for (var ci = 0; ci < parts.length; ci++) {
+          var colExpr = parts[ci].trim();
+          var aliasMatch = colExpr.match(/\bAS\s+(\w+)\s*$/i);
+          if (aliasMatch) {
+            cols.push(aliasMatch[1]);
+          } else {
+            var lastWord = colExpr.match(/(\w+)\s*$/);
+            if (lastWord) cols.push(lastWord[1]);
+          }
+          colExprs.push(colExpr);
+        }
+        cursorCols[ov.name.toUpperCase()] = { names: cols, exprs: colExprs };
+      }
+    }
+  }
+
+  function _inferColType(expr) {
+    var e = expr.trim().toUpperCase();
+    if (/^COUNT\s*\(/i.test(e)) return 'BIGINT';
+    if (/^SUM\s*\(/i.test(e) || /^AVG\s*\(/i.test(e)) return 'DECIMAL(18,2)';
+    if (/^MAX\s*\(|^MIN\s*\(/i.test(e)) return 'VARCHAR(4000) /* [注意: MAX/MIN 类型依赖源列, 请按实际调整] */';
+    var castMatch = e.match(/\bCAST\s*\(.*?\bAS\s+([\w()]+)/i);
+    if (castMatch) return castMatch[1];
+    var colName = e.replace(/^.*\.\s*/, '');
+    if (/^(ID|_ID|SEQ|NUM|NO)$/i.test(colName) || /_ID$/i.test(colName)) return 'BIGINT';
+    if (/AMOUNT|BALANCE|PRICE|RATE|TOTAL|SUM|QTY|QUANTITY/i.test(colName)) return 'DECIMAL(18,2)';
+    if (/DATE|TIME|_AT$/i.test(colName)) return 'DATETIME';
+    if (/^(STATUS|FLAG|IS_|HAS_)/i.test(colName) || /STATUS$/i.test(colName)) return 'INT';
+    return 'VARCHAR(4000)';
+  }
+
+  var newVars = [];
+  var rowtypeExpansions = [];
+  for (var j = 0; j < originalVars.length; j++) {
+    var ov2 = originalVars[j];
+    var mv = mappedVars[j];
+    if (ov2.type && /%ROWTYPE\b/i.test(ov2.type)) {
+      var cursorRef = ov2.type.replace(/%ROWTYPE\b/i, '').trim();
+      var cursorKey = cursorRef.toUpperCase();
+      if (cursorCols[cursorKey]) {
+        var info = cursorCols[cursorKey];
+        var cols2 = info.names;
+        rowtypeExpansions.push({ varName: ov2.name, cursorName: cursorRef, colNames: cols2 });
+        for (var ci2 = 0; ci2 < cols2.length; ci2++) {
+          var inferredType = _inferColType(info.exprs[ci2] || cols2[ci2]);
+          newVars.push({ name: '_' + ov2.name.toLowerCase() + '_' + cols2[ci2].toLowerCase(), type: inferredType, defaultVal: null });
+        }
+      } else {
+        newVars.push(mv);
+      }
+    } else {
+      newVars.push(mv);
+    }
+  }
+
+  var newBody = body;
+  for (var ri = 0; ri < rowtypeExpansions.length; ri++) {
+    var exp = rowtypeExpansions[ri];
+    var fetchVars = exp.colNames.map(function(c) { return '_' + exp.varName.toLowerCase() + '_' + c.toLowerCase(); }).join(', ');
+    var fetchRe = new RegExp('(FETCH\\s+' + exp.cursorName + '\\s+INTO\\s+)' + exp.varName + '\\s*;', 'gi');
+    newBody = newBody.replace(fetchRe, '$1' + fetchVars + ';');
+    for (var ci3 = 0; ci3 < exp.colNames.length; ci3++) {
+      var fieldRe = new RegExp('\\b' + exp.varName + '\\.' + exp.colNames[ci3] + '\\b', 'gi');
+      newBody = newBody.replace(fieldRe, '_' + exp.varName.toLowerCase() + '_' + exp.colNames[ci3].toLowerCase());
+    }
+  }
+
+  return { vars: newVars, body: newBody };
+}
+
 function _convertSingleProcedure(input, sourceDb, targetDb) {
   let parsed;
   if (sourceDb === 'oracle') parsed = _parseOracleProcedure(input);
@@ -1733,12 +1920,60 @@ function _convertSingleProcedure(input, sourceDb, targetDb) {
   const mappedParams = parsed.params.map(function(p) {
     return { name: p.name, direction: p.direction, type: mapParamType(p.type, sourceDb, targetDb), defaultVal: p.defaultVal };
   });
-  const transformedBody = transformBody(parsed.body, sourceDb, targetDb);
-  const mappedVars = parsed.vars.map(function(v) {
+  let transformedBody = transformBody(parsed.body, sourceDb, targetDb);
+  let mappedVars = parsed.vars.map(function(v) {
     if (v.raw) return v;
     if (v.cursor) return { cursor: true, name: v.name, query: transformBody(v.query, sourceDb, targetDb) };
     return { name: v.name, type: mapParamType(v.type, sourceDb, targetDb), defaultVal: v.defaultVal };
   });
+
+  // Expand %ROWTYPE variables for MySQL
+  if (targetDb === 'mysql' && (sourceDb === 'oracle' || sourceDb === 'postgresql')) {
+    var _rowtypeResult = _expandRowTypeVarsForMySQL(parsed.vars, mappedVars, transformedBody);
+    mappedVars = _rowtypeResult.vars;
+    transformedBody = _rowtypeResult.body;
+  }
+
+  // Fix PG RECORD -> Oracle cursor%ROWTYPE
+  if (targetDb === 'oracle' && (sourceDb === 'postgresql' || sourceDb === 'mysql')) {
+    var _cursorNames = [];
+    for (var ri = 0; ri < mappedVars.length; ri++) {
+      if (mappedVars[ri].cursor) _cursorNames.push(mappedVars[ri].name);
+    }
+    if (_cursorNames.length > 0) {
+      for (var ri2 = 0; ri2 < mappedVars.length; ri2++) {
+        var rv = mappedVars[ri2];
+        if (rv.type && /\bRECORD\b/i.test(rv.type)) {
+          var fetchRe = new RegExp('\\bFETCH\\s+(\\w+)\\s+INTO\\s+' + rv.name + '\\b', 'i');
+          var fm = transformedBody.match(fetchRe);
+          if (fm && _cursorNames.indexOf(fm[1]) >= 0) {
+            mappedVars[ri2] = { name: rv.name, type: fm[1] + '%ROWTYPE', defaultVal: rv.defaultVal };
+          } else if (_cursorNames.length === 1) {
+            mappedVars[ri2] = { name: rv.name, type: _cursorNames[0] + '%ROWTYPE', defaultVal: rv.defaultVal };
+          }
+        }
+      }
+    }
+  }
+
+  // Fix BOOLEAN 0/1 -> FALSE/TRUE when targeting PostgreSQL (or Oracle)
+  if (targetDb === 'postgresql' || targetDb === 'oracle') {
+    var _boolVarNames = [];
+    for (var bi = 0; bi < mappedVars.length; bi++) {
+      var bv = mappedVars[bi];
+      if (bv.type && /\bBOOLEAN\b/i.test(bv.type)) {
+        _boolVarNames.push(bv.name);
+        if (bv.defaultVal === '0') bv.defaultVal = 'FALSE';
+        else if (bv.defaultVal === '1') bv.defaultVal = 'TRUE';
+      }
+    }
+    if (_boolVarNames.length > 0) {
+      var _boolRe = new RegExp('\\b(' + _boolVarNames.join('|') + ')\\s*:=\\s*(0|1)\\s*;', 'gi');
+      transformedBody = transformedBody.replace(_boolRe, function(m, vname, val) {
+        return vname + ' := ' + (val === '1' ? 'TRUE' : 'FALSE') + ';';
+      });
+    }
+  }
 
   if (targetDb === 'oracle') return _genOracleProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
   if (targetDb === 'mysql') return _genMySQLProcedure(parsed.name, mappedParams, mappedVars, transformedBody);
@@ -1857,8 +2092,8 @@ function _parsePGProcedure(input) {
     if (!am) throw new Error('无法解析PostgreSQL存储过程头 AS $$');
   }
   const afterHeader = afterParams.substring(am[0].length);
-  let inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
-  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').trim();
+  let inner = afterHeader.replace(/\$\$\s*;?\s*$/g, '').replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '').replace(/\$\$\s*;?\s*$/g, '').trim();
+  inner = inner.replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '').replace(/\$\$\s*;?\s*$/g, '').trim();
   const vars = [];
   const declareMatch = inner.match(/\bDECLARE\b([\s\S]*?)\bBEGIN\b/i);
   if (declareMatch) {
@@ -1891,7 +2126,10 @@ function _genOracleProcedure(name, params, vars, body) {
     const pLines = params.map(function(p) {
       let line = '  ' + p.name;
       line += ' ' + (p.direction || 'IN');
-      line += ' ' + p.type;
+      /* Oracle formal params: strip size from VARCHAR2/CHAR/NVARCHAR2/RAW */
+      var ptype = p.type;
+      ptype = ptype.replace(/\b(VARCHAR2|VARCHAR|NVARCHAR2|CHAR|NCHAR|RAW)\s*\(\s*\d+\s*(?:\s+(?:BYTE|CHAR))?\s*\)/gi, '$1');
+      line += ' ' + ptype;
       if (p.defaultVal) line += ' DEFAULT ' + p.defaultVal;
       return line;
     });
@@ -1908,11 +2146,31 @@ function _genOracleProcedure(name, params, vars, body) {
     if (v.defaultVal) out += ' := ' + v.defaultVal;
     out += ';\n';
   }
+  /* Fix #1: Extract cursor declarations from body (MySQL DECLARE CURSOR FOR -> Oracle IS section) */
   let cleanBody = body.replace(/^\s*\n/, '\n').replace(/\s+$/, '');
   cleanBody = cleanBody.replace(/^\s*BEGIN\b/i, '');
+  var cursorExtracted = [];
+  cleanBody = cleanBody.replace(/(^|\n)\s*CURSOR\s+(\w+)\s+IS\s+([\s\S]*?)\s*;/gi, function(m, pre, curName, curQuery) {
+    cursorExtracted.push({ name: curName, query: curQuery.trim() });
+    return pre;
+  });
+  cleanBody = cleanBody.replace(/(^|\n)\s*DECLARE\s+(\w+)\s+CURSOR\s+FOR\s+([\s\S]*?)\s*;/gi, function(m, pre, curName, curQuery) {
+    cursorExtracted.push({ name: curName, query: curQuery.trim() });
+    return pre;
+  });
+  for (var ci = 0; ci < cursorExtracted.length; ci++) {
+    out += '  CURSOR ' + cursorExtracted[ci].name + ' IS ' + cursorExtracted[ci].query + ';\n';
+  }
   out += 'BEGIN\n' + cleanBody.replace(/^\n+/,'') + '\n';
-  if (!/\bEND\b/i.test(out.split('BEGIN').pop())) out += 'END;\n';
-  else out = out.replace(/\bEND\b\s*\w*\s*;?\s*$/i, 'END;\n');
+  /* Robust END; detection — only match standalone END; */
+  var afterBegin = out.substring(out.lastIndexOf('BEGIN'));
+  var hasEnd = /^\s*END\s*;\s*$/im.test(afterBegin);
+  if (!hasEnd) {
+    out = out.replace(/\s*$/, '\n');
+    out += 'END;\n';
+  } else {
+    out = out.replace(/\bEND\s*;\s*$/i, 'END;\n');
+  }
   out += '/';
   return out;
 }
@@ -1980,6 +2238,17 @@ function _genMySQLProcedure(name, params, vars, body) {
       bodyOther.push(line);
     }
   }
+  // Deduplicate declarations by normalized content
+  var _seenDecl = {};
+  var _dedupedDeclares = [];
+  for (var di = 0; di < allDeclares.length; di++) {
+    var _normDecl = allDeclares[di].trim().replace(/\s+/g, ' ').toUpperCase();
+    if (!_seenDecl[_normDecl]) {
+      _seenDecl[_normDecl] = true;
+      _dedupedDeclares.push(allDeclares[di]);
+    }
+  }
+  allDeclares = _dedupedDeclares;
   // MySQL requires: variable DECLAREs, then cursor DECLAREs, then handler DECLAREs
   if (allDeclares.length > 0) {
     allDeclares.sort(function(a, b) {
