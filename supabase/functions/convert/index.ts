@@ -1,5 +1,6 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const PRIMARY_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
+const ALLOWED_ORIGINS = new Set([PRIMARY_WEB_ORIGIN])
+const corsBaseHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
@@ -35,6 +36,25 @@ function cloneJson<T>(value: T): T {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function defaultCorsHeaders() {
+  return {
+    ...corsBaseHeaders,
+    'Access-Control-Allow-Origin': PRIMARY_WEB_ORIGIN,
+    Vary: 'Origin'
+  }
+}
+
+function buildCorsHeaders(req: Request): Record<string, string> | null {
+  const origin = (req.headers.get('origin') || '').trim()
+  if (!origin) return defaultCorsHeaders()
+  if (!ALLOWED_ORIGINS.has(origin)) return null
+  return {
+    ...corsBaseHeaders,
+    'Access-Control-Allow-Origin': origin,
+    Vary: 'Origin'
+  }
 }
 
 function replaceRecord<T>(target: Record<string, T>, source: Record<string, T>) {
@@ -194,7 +214,7 @@ async function ensureEngineReady() {
   engineReady = true
 }
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, status = 200, corsHeaders: Record<string, string> = defaultCorsHeaders()) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
@@ -208,23 +228,53 @@ function bearerToken(req: Request): string {
 }
 
 function validateUserToken(token: string): boolean {
-  // For production strictness, prefer full JWT verification.
-  // For current rollout, require only a non-empty bearer token to avoid false 401s.
-  return typeof token === 'string' && token.trim().length > 20
+  const t = (token || '').trim()
+  return /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(t)
+}
+
+async function validateUserSession(token: string): Promise<boolean> {
+  if (!validateUserToken(token) || !SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY
+      },
+      signal: controller.signal
+    })
+    if (!res.ok) return false
+    const user = await res.json().catch(() => null) as { id?: unknown } | null
+    return !!(user && typeof user.id === 'string' && user.id.length > 0)
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+  const corsHeaders = buildCorsHeaders(req)
+
+  if (req.method === 'OPTIONS') {
+    if (!corsHeaders) return json({ error: 'CORS origin not allowed' }, 403)
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  if (!corsHeaders) return json({ error: 'CORS origin not allowed' }, 403)
+  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders)
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return json({ error: 'Server env missing SUPABASE_URL or SUPABASE_ANON_KEY' }, 500)
+    return json({ error: 'Server env missing SUPABASE_URL or SUPABASE_ANON_KEY' }, 500, corsHeaders)
   }
 
   try {
     const token = bearerToken(req)
-    const isAuthorized = validateUserToken(token)
-    if (!isAuthorized) return json({ error: 'Unauthorized' }, 401)
+    if (!validateUserToken(token)) return json({ error: 'Unauthorized' }, 401, corsHeaders)
+    const isSessionValid = await validateUserSession(token)
+    if (!isSessionValid) return json({ error: 'Unauthorized' }, 401, corsHeaders)
 
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')
@@ -232,14 +282,14 @@ Deno.serve(async (req) => {
     const toDb = String(body?.toDb || '')
     const input = String(body?.input || '')
     const runtimeRules = normalizeRuntimeRules(body?.rules)
-    if (body?.rules && !runtimeRules) return json({ error: 'Invalid rules payload' }, 400)
+    if (body?.rules && !runtimeRules) return json({ error: 'Invalid rules payload' }, 400, corsHeaders)
 
-    if (!['ddl', 'func', 'proc'].includes(kind)) return json({ error: 'Invalid kind' }, 400)
+    if (!['ddl', 'func', 'proc'].includes(kind)) return json({ error: 'Invalid kind' }, 400, corsHeaders)
     if (!['oracle', 'mysql', 'postgresql'].includes(fromDb) || !['oracle', 'mysql', 'postgresql'].includes(toDb)) {
-      return json({ error: 'Invalid database type' }, 400)
+      return json({ error: 'Invalid database type' }, 400, corsHeaders)
     }
-    if (!input.trim()) return json({ error: 'Input is empty' }, 400)
-    if (input.length > 5 * 1024 * 1024) return json({ error: 'Input too large (max 5MB)' }, 400)
+    if (!input.trim()) return json({ error: 'Input is empty' }, 400, corsHeaders)
+    if (input.length > 5 * 1024 * 1024) return json({ error: 'Input too large (max 5MB)' }, 400, corsHeaders)
 
     await ensureEngineReady()
     const runtimeApplied = runtimeRules ? applyRuntimeRules(runtimeRules) : false
@@ -248,15 +298,15 @@ Deno.serve(async (req) => {
     try {
       if (kind === 'ddl') {
         const fn = convertDDLFn
-        if (typeof fn !== 'function') return json({ error: 'DDL engine not ready' }, 500)
+        if (typeof fn !== 'function') return json({ error: 'DDL engine not ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       } else if (kind === 'func') {
         const fn = convertFunctionFn
-        if (typeof fn !== 'function') return json({ error: 'Function engine not ready' }, 500)
+        if (typeof fn !== 'function') return json({ error: 'Function engine not ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       } else {
         const fn = convertProcedureFn
-        if (typeof fn !== 'function') return json({ error: 'Procedure engine not ready' }, 500)
+        if (typeof fn !== 'function') return json({ error: 'Procedure engine not ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       }
     } finally {
@@ -270,9 +320,9 @@ Deno.serve(async (req) => {
       toDb,
       rulesSource: runtimeRules?.source || 'server-default',
       rulesVersion: runtimeRules?.version || 'server-default'
-    })
+    }, 200, corsHeaders)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return json({ error: msg }, 500)
+    return json({ error: msg }, 500, corsHeaders)
   }
 })
