@@ -542,13 +542,41 @@ function _parseDdlSource(src) {
   return {types:types, hasN:hasN, hasP:hasP, hasPS:hasPS, specificVal:specificVal, cond:cond};
 }
 
+function _normalizeDdlTypeName(typeName) {
+  var t = (typeName || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  if (!t) return t;
+  if (t === 'INT2') return 'SMALLINT';
+  if (t === 'INT4') return 'INTEGER';
+  if (t === 'INT8') return 'BIGINT';
+  if (t === 'SERIAL2') return 'SMALLSERIAL';
+  if (t === 'SERIAL4') return 'SERIAL';
+  if (t === 'SERIAL8') return 'BIGSERIAL';
+  if (t === 'BOOL') return 'BOOLEAN';
+  if (t === 'FLOAT4') return 'REAL';
+  if (t === 'FLOAT8') return 'DOUBLE PRECISION';
+  if (t === 'TIMESTAMPTZ') return 'TIMESTAMP WITH TIME ZONE';
+  if (t === 'TIMETZ') return 'TIME WITH TIME ZONE';
+  if (t === 'BPCHAR') return 'CHAR';
+  if (t === 'CHARACTER VARYING') return 'VARCHAR';
+  if (t === 'CHARACTER') return 'CHAR';
+  if (t === 'DEC') return 'DECIMAL';
+  if (t === 'DOUBLE') return 'DOUBLE PRECISION';
+  return t;
+}
+
 function _matchDdlSource(col, parsed) {
-  var t = col.type.toUpperCase();
+  var rawType = col && col.type ? col.type : (col && col.rawType ? String(col.rawType).replace(/\(.*$/, '') : '');
+  var t = _normalizeDdlTypeName(rawType);
   var matched = false;
   for (var i=0; i<parsed.types.length; i++) {
-    var pt = parsed.types[i];
+    var pt = _normalizeDdlTypeName(parsed.types[i]);
     if (t === pt) { matched=true; break; }
     if (pt === 'TIMESTAMP' && t.indexOf('TIMESTAMP') === 0) { matched=true; break; }
+    if (t === 'TIMESTAMP' && pt.indexOf('TIMESTAMP') === 0) { matched=true; break; }
+    if (pt === 'VARCHAR' && t === 'CHARACTER VARYING') { matched=true; break; }
+    if (pt === 'CHAR' && t === 'BPCHAR') { matched=true; break; }
+    if (pt === 'DOUBLE' && t === 'DOUBLE PRECISION') { matched=true; break; }
+    if (pt === 'DOUBLE PRECISION' && t === 'DOUBLE') { matched=true; break; }
   }
   if (!matched) return false;
   if (parsed.specificVal !== null) {
@@ -587,6 +615,26 @@ function _mapTypeByRules(col, rules) {
     if (!r.source || !r.target) continue;
     var parsed = _parseDdlSource(r.source);
     if (_matchDdlSource(col, parsed)) return _applyDdlTarget(col, r.target);
+  }
+  // Fallback: for char/varchar-like types without explicit length,
+  // try with a safe default length to reduce false unmatched warnings.
+  var normType = _normalizeDdlTypeName(col && col.type ? col.type : (col && col.rawType ? String(col.rawType).replace(/\(.*$/, '') : ''));
+  var needsLengthFallback = (
+    normType === 'VARCHAR' ||
+    normType === 'CHAR' ||
+    normType === 'NVARCHAR' ||
+    normType === 'NCHAR' ||
+    normType === 'VARBINARY' ||
+    normType === 'BINARY'
+  ) && !col.length;
+  if (needsLengthFallback) {
+    var colWithLen = Object.assign({}, col, { length: 255 });
+    for (var j=0; j<rules.length; j++) {
+      var r2 = rules[j];
+      if (!r2.source || !r2.target) continue;
+      var parsed2 = _parseDdlSource(r2.source);
+      if (_matchDdlSource(colWithLen, parsed2)) return _applyDdlTarget(colWithLen, r2.target);
+    }
   }
   return (col.rawType || col.type) + ' /* [注意: 未匹配到映射规则, 类型原样保留] */';
 }
@@ -1631,7 +1679,7 @@ function _parseOracleFunction(input) {
   // Strip trailing comments after the function body
   src = src.replace(/(\bEND\b\s*\w*\s*;?)\s*(?:\/\s*)?\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Find CREATE FUNCTION name( handling nested parens in params
-  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   let name, paramStr, afterParams;
   if (pm) {
@@ -1647,7 +1695,7 @@ function _parseOracleFunction(input) {
     afterParams = src.substring(pi + 1).trim();
   } else {
     // Try parameterless function: CREATE [OR REPLACE] FUNCTION name RETURN ...
-    const noParen = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)\s+/i;
+    const noParen = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s+/i;
     const npm = src.match(noParen);
     if (!npm) throw new Error('无法解析Oracle函数头');
     name = npm[1];
@@ -1676,7 +1724,7 @@ function _parseMySQLFunction(input) {
   // Strip trailing comments that come after END
   src = src.replace(/(\bEND\b\s*\w*\s*;?)\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Find CREATE FUNCTION name( and extract params handling nested parens
-  const prefixRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?FUNCTION\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?FUNCTION\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   if (!pm) throw new Error('无法解析MySQL函数头');
   const name = pm[1];
@@ -1721,7 +1769,7 @@ function _parsePGFunction(input) {
   // Strip trailing comments
   src = src.replace(/(\$\$\s*;?)\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Find CREATE FUNCTION name( with nested paren handling
-  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   if (!pm) throw new Error('无法解析PostgreSQL函数头');
   const name = pm[1];
@@ -2163,11 +2211,11 @@ function _parseOracleProcedure(input) {
   let src = input.replace(/\s*\/\s*$/, '').trim();
   src = src.replace(/(\bEND\b\s*\w*\s*;?)\s*(?:\/\s*)?\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Try to find CREATE PROCEDURE name(
-  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   if (!pm) {
     // Try without params
-    const headerRe2 = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*(IS|AS)\b/i;
+    const headerRe2 = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*(IS|AS)\b/i;
     const m2 = src.match(headerRe2);
     if (!m2) throw new Error('无法解析Oracle存储过程头');
     const name = m2[1];
@@ -2210,7 +2258,7 @@ function _parseMySQLProcedure(input) {
   src = src.replace(/\$\$/g, '').trim();
   src = src.replace(/(\bEND\b\s*\w*\s*;?)\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Find CREATE PROCEDURE name( and extract params handling nested parens
-  const prefixRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?PROCEDURE\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?PROCEDURE\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   if (!pm) throw new Error('无法解析MySQL存储过程头');
   const name = pm[1];
@@ -2247,7 +2295,7 @@ function _parsePGProcedure(input) {
   let src = input.trim();
   src = src.replace(/(\$\$\s*;?)\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1');
   // Find CREATE PROCEDURE name( with nested paren handling
-  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(\w+)\s*\(/i;
+  const prefixRe = /CREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\s+(?:["`]?[\w$#]+["`]?\.)?["`]?([\w$#]+)["`]?\s*\(/i;
   const pm = src.match(prefixRe);
   if (!pm) throw new Error('无法解析PostgreSQL存储过程头');
   const name = pm[1];
