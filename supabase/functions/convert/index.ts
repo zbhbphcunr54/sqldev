@@ -1,5 +1,3 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -65,10 +63,6 @@ Deno.serve(async (req) => {
   if (!token) return json({ error: 'Unauthorized' }, 401)
 
   try {
-    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    const { data: userData, error: authError } = await authClient.auth.getUser(token)
-    if (authError || !userData?.user) return json({ error: 'Unauthorized' }, 401)
-
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')
     const fromDb = String(body?.fromDb || '')
