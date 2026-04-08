@@ -3129,6 +3129,38 @@ const app = createApp({
       return { level: 'success', summary: '未发现明显兼容问题' };
     }
 
+    function _buildFrontendRulesPayload() {
+      var ddlRules = null;
+      var bodyRules = null;
+      if (typeof _ddlRulesData === 'object' && _ddlRulesData) ddlRules = _ddlRulesData;
+      else if (window._ddlRulesData && typeof window._ddlRulesData === 'object') ddlRules = window._ddlRulesData;
+      if (typeof _bodyRulesData === 'object' && _bodyRulesData) bodyRules = _bodyRulesData;
+      else if (window._bodyRulesData && typeof window._bodyRulesData === 'object') bodyRules = window._bodyRulesData;
+      if (!ddlRules && !bodyRules) return null;
+
+      var payload = { source: 'frontend', version: '', ddl: null, body: null };
+      if (ddlRules) payload.ddl = JSON.parse(JSON.stringify(ddlRules));
+      if (bodyRules) {
+        var plainBody = {};
+        for (var pair in bodyRules) {
+          if (!Object.prototype.hasOwnProperty.call(bodyRules, pair)) continue;
+          var list = Array.isArray(bodyRules[pair]) ? bodyRules[pair] : [];
+          plainBody[pair] = list.map(function (r) {
+            return { s: String((r && r.s) || ''), t: String((r && r.t) || '') };
+          });
+        }
+        payload.body = plainBody;
+      }
+
+      var seed = JSON.stringify({ ddl: payload.ddl, body: payload.body });
+      var hash = 0;
+      for (var i = 0; i < seed.length; i++) {
+        hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+      }
+      payload.version = 'frontend-' + (hash >>> 0).toString(16);
+      return payload;
+    }
+
     async function _convertViaBackend(kind, input, fromDb, toDb) {
       if (!window.authApi || typeof window.authApi.getAccessToken !== 'function') {
         throw new Error('认证模块未初始化');
@@ -3159,6 +3191,7 @@ const app = createApp({
       }
       var base = String(window.SUPABASE_URL).replace(/\/+$/, '');
       var requestUrl = base + '/functions/v1/convert';
+      var frontendRules = _buildFrontendRulesPayload();
       async function sendRequest(accessToken) {
         var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         var timeoutId = null;
@@ -3179,7 +3212,8 @@ const app = createApp({
               kind: kind,
               input: input,
               fromDb: fromDb,
-              toDb: toDb
+              toDb: toDb,
+              rules: frontendRules
             }),
             signal: controller ? controller.signal : undefined
           });
