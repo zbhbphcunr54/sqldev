@@ -67,6 +67,27 @@
     return (token || '').replace(/\s+/g, '').trim();
   }
 
+  function isJwtToken(token) {
+    return /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(normalizeToken(token));
+  }
+
+  function isJwtExpired(token) {
+    var t = normalizeToken(token);
+    if (!isJwtToken(t)) return true;
+    try {
+      var parts = t.split('.');
+      var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) payload += '=';
+      var json = JSON.parse(atob(payload));
+      var exp = Number(json && json.exp);
+      if (!Number.isFinite(exp) || exp <= 0) return false;
+      // Refresh a few seconds early to avoid edge expiry during request flight.
+      return (Date.now() + 5000) >= exp * 1000;
+    } catch (_e) {
+      return true;
+    }
+  }
+
   function getEmail() {
     if (!user) return '';
     return (user.email || '').trim();
@@ -278,8 +299,9 @@
       try {
         var refreshRes = await sb.auth.refreshSession();
         var refreshSession = refreshRes && refreshRes.data ? refreshRes.data.session : null;
-        if (refreshSession && refreshSession.access_token) {
-          accessToken = refreshSession.access_token || '';
+        var refreshedToken = normalizeToken(refreshSession && refreshSession.access_token ? refreshSession.access_token : '');
+        if (refreshedToken && !isJwtExpired(refreshedToken)) {
+          accessToken = refreshedToken;
           user = refreshSession.user || null;
           updatePosterCta();
           emit();
@@ -293,7 +315,8 @@
     try {
       var sessionRes = await sb.auth.getSession();
       var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
-      accessToken = session && session.access_token ? session.access_token : '';
+      var sessionToken = normalizeToken(session && session.access_token ? session.access_token : '');
+      accessToken = (sessionToken && !isJwtExpired(sessionToken)) ? sessionToken : '';
       user = session && session.user ? session.user : null;
       updatePosterCta();
       emit();
