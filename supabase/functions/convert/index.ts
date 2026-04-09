@@ -1,5 +1,6 @@
 const PRIMARY_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
 const ALLOWED_ORIGINS = new Set([PRIMARY_WEB_ORIGIN])
+const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i
 const corsBaseHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
@@ -49,7 +50,7 @@ function defaultCorsHeaders() {
 function buildCorsHeaders(req: Request): Record<string, string> | null {
   const origin = (req.headers.get('origin') || '').trim()
   if (!origin) return defaultCorsHeaders()
-  if (!ALLOWED_ORIGINS.has(origin)) return null
+  if (!ALLOWED_ORIGINS.has(origin) && !LOCAL_ORIGIN_RE.test(origin)) return null
   return {
     ...corsBaseHeaders,
     'Access-Control-Allow-Origin': origin,

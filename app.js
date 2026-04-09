@@ -3162,6 +3162,31 @@ const app = createApp({
     }
 
     async function _convertViaBackend(kind, input, fromDb, toDb) {
+      async function parseInvokeError(err) {
+        var status = 0;
+        var detail = '';
+        if (!err) return { status: 0, detail: '' };
+        try {
+          var ctx = err.context;
+          if (ctx && typeof ctx.status === 'number') status = ctx.status;
+          if (ctx && typeof ctx.clone === 'function') {
+            var txt = await ctx.clone().text();
+            if (txt) {
+              try {
+                var obj = JSON.parse(txt);
+                detail = String((obj && (obj.error || obj.message)) || txt || '');
+              } catch (_parseErr) {
+                detail = String(txt || '');
+              }
+            }
+          }
+        } catch (_ctxErr) {
+          // ignore
+        }
+        if (!detail) detail = String((err && err.message) || err || '');
+        return { status: status, detail: detail };
+      }
+
       if (!window.authApi) {
         throw new Error('认证模块未初始化');
       }
@@ -3196,9 +3221,10 @@ const app = createApp({
         throw new Error(netMsg);
       }
       if (result.error) {
-        var errMsg = String((result.error && result.error.message) || result.error || '');
+        var parsedErr = await parseInvokeError(result.error);
+        var errMsg = parsedErr.detail || String((result.error && result.error.message) || result.error || '');
         var errLower = errMsg.toLowerCase();
-        if (errLower.indexOf('unauthorized') >= 0 || errLower.indexOf('401') >= 0 ||
+        if (parsedErr.status === 401 || errLower.indexOf('unauthorized') >= 0 || errLower.indexOf('401') >= 0 ||
             errLower.indexOf('invalid jwt') >= 0 || errLower.indexOf('jwt') >= 0) {
           // Try once more after force-refreshing the session
           try {
@@ -3218,7 +3244,12 @@ const app = createApp({
         }
       }
       if (result.error) {
-        var msg = String((result.error && result.error.message) || result.error || '后端请求失败');
+        var finalErr = await parseInvokeError(result.error);
+        var status = Number(finalErr.status || 0);
+        var msg = String(finalErr.detail || (result.error && result.error.message) || result.error || '后端请求失败');
+        if (status === 401) throw new Error('后端鉴权失败(401)：请重新登录后重试');
+        if (status === 403) throw new Error('后端拒绝访问(403)：当前访问来源未在白名单，请使用线上地址或放开本地域名');
+        if (status >= 500) throw new Error('后端服务异常(' + status + ')：' + msg);
         throw new Error(msg);
       }
       var json = result.data;
