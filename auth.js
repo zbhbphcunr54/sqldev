@@ -504,30 +504,14 @@
       emit();
       throw new Error('登录状态已失效，请点击右上角头像退出后重新登录');
     }
-    if (!sb.functions || typeof sb.functions.invoke !== 'function') {
-      throw new Error('当前 Supabase SDK 不支持 functions.invoke');
-    }
     var requestBody = Object.assign({}, body || {}, {
       accessToken: token
     });
-    var invokeOptions = {
-      body: requestBody,
-      headers: {
-        Authorization: 'Bearer ' + token,
-        apikey: anonKey
-      }
-    };
-
-    var firstRes = await sb.functions.invoke(name, invokeOptions);
-    var firstStatus = Number(firstRes && firstRes.error && firstRes.error.context && firstRes.error.context.status || 0);
-    if (!firstRes || !firstRes.error || firstStatus !== 401) {
-      return firstRes;
-    }
-
-    // Fallback: bypass SDK invoke path and call function endpoint directly with explicit headers.
     var endpoint = String(projectUrl || '').replace(/\/+$/, '') + '/functions/v1/' + encodeURIComponent(name);
     var fetchRes = await fetch(endpoint, {
       method: 'POST',
+      mode: 'cors',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + token,
