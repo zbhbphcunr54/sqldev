@@ -4,6 +4,8 @@
   var anonKey = window.SUPABASE_ANON_KEY;
 
   var authModalMask = document.getElementById('auth-modal-mask');
+  var authModal = authModalMask ? authModalMask.querySelector('.auth-modal') : null;
+  var authModalHead = authModalMask ? authModalMask.querySelector('.auth-modal-head') : null;
   var authStatus = document.getElementById('auth-status');
   var authEmail = document.getElementById('auth-email');
   var authPassword = document.getElementById('auth-password');
@@ -45,6 +47,38 @@
   var passwordResetting = false;
   var resetCodeSent = false;
   var resetCompleted = false;
+  var authModalOffsetX = 0;
+  var authModalOffsetY = 0;
+  var authModalDragging = false;
+  var authModalDragStartX = 0;
+  var authModalDragStartY = 0;
+
+  function applyAuthModalPosition() {
+    if (!authModal) return;
+    authModal.style.transform = 'translate(calc(-50% + ' + authModalOffsetX + 'px), calc(-50% + ' + authModalOffsetY + 'px))';
+  }
+
+  function resetAuthModalPosition() {
+    authModalOffsetX = 0;
+    authModalOffsetY = 0;
+    applyAuthModalPosition();
+  }
+
+  function clampAuthModalOffset() {
+    if (!authModal) return;
+    var rect = authModal.getBoundingClientRect();
+    var maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - 12);
+    var maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - 12);
+    if (authModalOffsetX > maxX) authModalOffsetX = maxX;
+    if (authModalOffsetX < -maxX) authModalOffsetX = -maxX;
+    if (authModalOffsetY > maxY) authModalOffsetY = maxY;
+    if (authModalOffsetY < -maxY) authModalOffsetY = -maxY;
+  }
+
+  function stopAuthModalDrag() {
+    authModalDragging = false;
+    document.body.classList.remove('auth-dragging');
+  }
 
   function ensureGlobalModalHost() {
     if (!authModalMask) return;
@@ -270,6 +304,7 @@
     ensureGlobalModalHost();
     if (!authModalMask) return;
     authModalMask.hidden = false;
+    resetAuthModalPosition();
     setStatus(message || '', false);
     renderAuthForm();
     if (authView === 'reset' && authResetPassword) {
@@ -289,6 +324,7 @@
 
   function closeAuthModal() {
     if (!authModalMask) return;
+    stopAuthModalDrag();
     authModalMask.hidden = true;
     setStatus('', false);
   }
@@ -718,6 +754,31 @@
       if (e.target === authModalMask) closeAuthModal();
     });
   }
+  if (authModalHead) {
+    authModalHead.addEventListener('pointerdown', function (e) {
+      if (e.target && e.target.closest && e.target.closest('#auth-close-btn')) return;
+      if (e.button !== 0) return;
+      authModalDragging = true;
+      authModalDragStartX = e.clientX - authModalOffsetX;
+      authModalDragStartY = e.clientY - authModalOffsetY;
+      document.body.classList.add('auth-dragging');
+    });
+  }
+  document.addEventListener('pointermove', function (e) {
+    if (!authModalDragging) return;
+    authModalOffsetX = e.clientX - authModalDragStartX;
+    authModalOffsetY = e.clientY - authModalDragStartY;
+    clampAuthModalOffset();
+    applyAuthModalPosition();
+  });
+  document.addEventListener('pointerup', function () {
+    if (!authModalDragging) return;
+    stopAuthModalDrag();
+  });
+  window.addEventListener('resize', function () {
+    clampAuthModalOffset();
+    applyAuthModalPosition();
+  });
   if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
   if (authForgotBtn) {
     authForgotBtn.addEventListener('click', function () {
@@ -820,6 +881,12 @@
       submitResetPassword();
     });
   }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!authModalMask || authModalMask.hidden) return;
+    closeAuthModal();
+  });
 
   if (authPasswordToggles && authPasswordToggles.length) {
     for (var i = 0; i < authPasswordToggles.length; i++) {
