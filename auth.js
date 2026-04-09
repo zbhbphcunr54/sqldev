@@ -10,9 +10,11 @@
   var authCode = document.getElementById('auth-code');
   var authResetPassword = document.getElementById('auth-reset-password');
   var authResetConfirm = document.getElementById('auth-reset-confirm');
+  var authResetCode = document.getElementById('auth-reset-code');
   var authLoginBtn = document.getElementById('auth-login-btn');
   var authRegisterBtn = document.getElementById('auth-register-btn');
   var authResetBtn = document.getElementById('auth-reset-btn');
+  var authResetSendBtn = document.getElementById('auth-reset-send-btn');
   var authCloseBtn = document.getElementById('auth-close-btn');
   var authForgotBtn = document.getElementById('auth-forgot-btn');
   var authResetBackBtn = document.getElementById('auth-reset-back-btn');
@@ -30,8 +32,6 @@
   var splashEnterBtn = document.getElementById('sp-enter-btn');
   var appAuthBtn = document.getElementById('app-auth-btn');
   var appUserPop = document.getElementById('app-user-pop');
-  var appUserBtn = document.getElementById('app-user-btn');
-  var appUserMenu = document.getElementById('app-user-menu');
   var appUserEmail = document.getElementById('app-user-email');
 
   var user = null;
@@ -41,23 +41,20 @@
   var authMode = 'password';
   var authView = 'login';
   var passwordRegistering = false;
+  var resetCodeSent = false;
+  var resetCompleted = false;
 
   function ensureGlobalModalHost() {
     if (!authModalMask) return;
     var parent = authModalMask.parentElement;
-    if (parent && parent.id === 'splash-poster') {
-      document.body.appendChild(authModalMask);
-    }
+    if (parent && parent.id === 'splash-poster') document.body.appendChild(authModalMask);
   }
 
   function refreshHeaderRefs() {
     appAuthBtn = document.getElementById('app-auth-btn');
     appUserPop = document.getElementById('app-user-pop');
-    appUserBtn = document.getElementById('app-user-btn');
-    appUserMenu = document.getElementById('app-user-menu');
     appUserEmail = document.getElementById('app-user-email');
     if (appUserPop) appUserPop.removeAttribute('title');
-    if (appUserBtn) appUserBtn.removeAttribute('title');
     if (appUserEmail) appUserEmail.removeAttribute('title');
     var avatar = document.getElementById('app-user-avatar');
     if (avatar) avatar.removeAttribute('title');
@@ -92,7 +89,6 @@
       var json = JSON.parse(atob(payload));
       var exp = Number(json && json.exp);
       if (!Number.isFinite(exp) || exp <= 0) return false;
-      // Refresh a few seconds early to avoid edge expiry during request flight.
       return (Date.now() + 5000) >= exp * 1000;
     } catch (_e) {
       return true;
@@ -107,8 +103,8 @@
   function isEmailNotConfirmedError(err) {
     var msg = String((err && err.message) || err || '').toLowerCase();
     return msg.indexOf('email not confirmed') >= 0 ||
-           msg.indexOf('email_not_confirmed') >= 0 ||
-           msg.indexOf('not confirmed') >= 0;
+      msg.indexOf('email_not_confirmed') >= 0 ||
+      msg.indexOf('not confirmed') >= 0;
   }
 
   function localizeAuthError(err, fallback) {
@@ -145,11 +141,13 @@
     if (authLoginBtn) authLoginBtn.disabled = busy;
     if (authRegisterBtn) authRegisterBtn.disabled = busy;
     if (authResetBtn) authResetBtn.disabled = busy;
+    if (authResetSendBtn) authResetSendBtn.disabled = busy;
     if (authEmail) authEmail.disabled = busy;
     if (authPassword) authPassword.disabled = busy;
     if (authCode) authCode.disabled = busy;
     if (authResetPassword) authResetPassword.disabled = busy;
     if (authResetConfirm) authResetConfirm.disabled = busy;
+    if (authResetCode) authResetCode.disabled = busy;
     if (authModePasswordBtn) authModePasswordBtn.disabled = busy;
     if (authModeCodeBtn) authModeCodeBtn.disabled = busy;
     if (authForgotBtn) authForgotBtn.disabled = busy;
@@ -159,7 +157,10 @@
   function renderAuthForm() {
     var resetMode = authView === 'reset';
     var passwordMode = authMode === 'password';
+
     if (authModeSwitch) authModeSwitch.hidden = resetMode;
+    if (authEmail) authEmail.readOnly = resetMode;
+
     if (authModePasswordBtn) {
       authModePasswordBtn.classList.toggle('active', passwordMode);
       authModePasswordBtn.setAttribute('aria-selected', passwordMode ? 'true' : 'false');
@@ -168,10 +169,12 @@
       authModeCodeBtn.classList.toggle('active', !passwordMode);
       authModeCodeBtn.setAttribute('aria-selected', passwordMode ? 'false' : 'true');
     }
+
     if (authPasswordWrap) authPasswordWrap.hidden = resetMode || !passwordMode;
     if (authCodeWrap) authCodeWrap.hidden = resetMode || passwordMode;
     if (authResetWrap) authResetWrap.hidden = !resetMode;
     if (authPasswordActions) authPasswordActions.hidden = resetMode || !passwordMode;
+
     if (authRegisterBtn) {
       authRegisterBtn.hidden = resetMode;
       authRegisterBtn.textContent = passwordMode ? '密码注册' : '发送验证码';
@@ -180,33 +183,57 @@
       authLoginBtn.hidden = resetMode;
       authLoginBtn.textContent = passwordMode ? '密码登录' : '验证码登录';
     }
-    if (authResetBtn) authResetBtn.hidden = !resetMode;
+    if (authResetBtn) {
+      authResetBtn.hidden = !resetMode || resetCompleted;
+      authResetBtn.textContent = '确定重置';
+    }
+    if (authResetSendBtn) {
+      authResetSendBtn.hidden = !resetMode || resetCompleted;
+      authResetSendBtn.textContent = resetCodeSent ? '重新发送验证码' : '发送验证码';
+    }
+    if (authResetBackBtn) authResetBackBtn.textContent = resetCompleted ? '重新登录' : '返回登录';
     if (authModalTitle) authModalTitle.textContent = resetMode ? '重置密码' : '账号登录';
     if (authModalDesc) {
       authModalDesc.textContent = resetMode
-        ? '请输入新的密码，提交后将立即更新当前账号密码。'
+        ? '账号会自动带入，请先填写新密码并发送邮箱验证码，收到验证码后再确认重置。'
         : '支持密码和验证码两种登录方式，可自行切换。';
     }
+    if (authResetPassword) authResetPassword.readOnly = resetCompleted;
+    if (authResetConfirm) authResetConfirm.readOnly = resetCompleted;
+    if (authResetCode) authResetCode.readOnly = resetCompleted;
   }
 
   function setAuthMode(mode) {
     authMode = mode === 'code' ? 'code' : 'password';
     authView = 'login';
+    resetCodeSent = false;
+    resetCompleted = false;
+    if (authResetPassword) authResetPassword.value = '';
+    if (authResetConfirm) authResetConfirm.value = '';
+    if (authResetCode) authResetCode.value = '';
     renderAuthForm();
     setStatus('', false);
   }
 
   function enterResetPasswordMode(message) {
     authView = 'reset';
+    resetCodeSent = false;
+    resetCompleted = false;
     if (authResetPassword) authResetPassword.value = '';
     if (authResetConfirm) authResetConfirm.value = '';
+    if (authResetCode) authResetCode.value = '';
     renderAuthForm();
-    setStatus(message || '请设置新的密码', false);
+    setStatus(message || '请输入新密码，然后发送验证码。', false);
   }
 
   function exitResetPasswordMode(message) {
     authView = 'login';
     authMode = 'password';
+    resetCodeSent = false;
+    resetCompleted = false;
+    if (authResetPassword) authResetPassword.value = '';
+    if (authResetConfirm) authResetConfirm.value = '';
+    if (authResetCode) authResetCode.value = '';
     renderAuthForm();
     setStatus(message || '', false);
   }
@@ -335,25 +362,41 @@
     });
   }
 
-  async function sendPasswordResetEmail(email) {
-    var redirectTo = window.location.origin + window.location.pathname;
-    return sb.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectTo
-    });
+  function validateResetForm() {
+    var email = (authEmail && authEmail.value || '').trim();
+    var nextPassword = (authResetPassword && authResetPassword.value || '').trim();
+    var confirmPassword = (authResetConfirm && authResetConfirm.value || '').trim();
+    if (!email) throw new Error('请先输入邮箱');
+    if (!nextPassword) throw new Error('请输入新密码');
+    if (nextPassword.length < 6) throw new Error('密码至少 6 位');
+    if (nextPassword !== confirmPassword) throw new Error('两次输入的新密码不一致');
+    return {
+      email: email,
+      nextPassword: nextPassword
+    };
   }
 
   async function submitPasswordResetRequest() {
     if (!sb) return setStatus('认证未初始化，请检查 Supabase 配置', true);
     var email = (authEmail && authEmail.value || '').trim();
-    if (!email) return setStatus('请先输入邮箱，再发送重置密码邮件', true);
-    setBusy(true);
-    setStatus('正在发送重置密码邮件...');
+    if (!email) return setStatus('请先输入邮箱，再进入密码重置', true);
+    enterResetPasswordMode('请先输入新密码，然后发送验证码。');
+  }
+
+  async function sendResetPasswordCode() {
+    if (!sb) return setStatus('认证未初始化，请检查 Supabase 配置', true);
     try {
-      var res = await sendPasswordResetEmail(email);
+      var resetInfo = validateResetForm();
+      setBusy(true);
+      setStatus('正在发送验证码...');
+      var res = await sendEmailCode(resetInfo.email);
       if (res.error) throw res.error;
-      setStatus('重置密码邮件已发送，请打开邮件链接后返回此页面设置新密码', false);
+      resetCodeSent = true;
+      renderAuthForm();
+      setStatus('验证码已发送，请查收邮箱后输入验证码。', false);
+      if (authResetCode) authResetCode.focus();
     } catch (err) {
-      setStatus(localizeAuthError(err, '发送重置密码邮件失败'), true);
+      setStatus(localizeAuthError(err, '发送验证码失败'), true);
     } finally {
       setBusy(false);
     }
@@ -361,20 +404,27 @@
 
   async function submitResetPassword() {
     if (!sb) return setStatus('认证未初始化，请检查 Supabase 配置', true);
-    var nextPassword = (authResetPassword && authResetPassword.value || '').trim();
-    var confirmPassword = (authResetConfirm && authResetConfirm.value || '').trim();
-    if (!nextPassword) return setStatus('请输入新密码', true);
-    if (nextPassword.length < 6) return setStatus('密码至少 6 位', true);
-    if (nextPassword !== confirmPassword) return setStatus('两次输入的新密码不一致', true);
-    setBusy(true);
-    setStatus('正在重置密码...');
     try {
-      var res = await sb.auth.updateUser({ password: nextPassword });
-      if (res.error) throw res.error;
-      if (authResetPassword) authResetPassword.value = '';
-      if (authResetConfirm) authResetConfirm.value = '';
-      exitResetPasswordMode('密码重置成功，请使用新密码继续登录');
-      if (authPassword) authPassword.focus();
+      var resetInfo = validateResetForm();
+      var token = normalizeToken(authResetCode && authResetCode.value);
+      if (!token) throw new Error('请输入验证码');
+      setBusy(true);
+      setStatus('正在校验验证码并重置密码...');
+      var verifyRes = await verifyEmailCode(resetInfo.email, token);
+      if (verifyRes.error) throw verifyRes.error;
+      var updateRes = await sb.auth.updateUser({ password: resetInfo.nextPassword });
+      if (updateRes.error) throw updateRes.error;
+      try {
+        await sb.auth.signOut();
+      } catch (_e) {}
+      user = null;
+      accessToken = '';
+      resetCompleted = true;
+      resetCodeSent = false;
+      renderAuthForm();
+      updatePosterCta();
+      emit();
+      setStatus('重置密码成功，请点击“重新登录”返回登录弹框。', false);
     } catch (err) {
       setStatus(localizeAuthError(err, '重置密码失败'), true);
     } finally {
@@ -430,10 +480,7 @@
           emit();
           return accessToken;
         }
-      } catch (_refreshErr) {
-        // Ignore refresh failure and continue with getSession below.
-        // This avoids returning a stale revoked token.
-      }
+      } catch (_refreshErr) {}
     }
     try {
       var sessionRes = await sb.auth.getSession();
@@ -472,19 +519,12 @@
     sb = supabaseGlobal.createClient(projectUrl, anonKey);
     await syncSession();
 
-    sb.auth.onAuthStateChange(function (event, session) {
+    sb.auth.onAuthStateChange(function (_event, session) {
       var sessionToken = normalizeToken(session && session.access_token ? session.access_token : '');
       accessToken = (sessionToken && !isJwtExpired(sessionToken)) ? sessionToken : '';
       user = accessToken && session && session.user ? session.user : null;
       updatePosterCta();
       emit();
-
-      if (event === 'PASSWORD_RECOVERY') {
-        openAuthModal();
-        enterResetPasswordMode('请设置新的密码');
-        if (authResetPassword) authResetPassword.focus();
-        return;
-      }
 
       if (user && !passwordRegistering) {
         if (authCode) authCode.value = '';
@@ -492,11 +532,6 @@
         window.dispatchEvent(new CustomEvent('auth:login-success', { detail: { user: user } }));
       }
     });
-
-    if ((window.location.hash || '').indexOf('type=recovery') >= 0) {
-      openAuthModal();
-      enterResetPasswordMode('请设置新的密码');
-    }
   }
 
   async function submitRegister() {
@@ -527,7 +562,7 @@
         if (needsConfirm) {
           setStatus('注册成功。当前项目已开启邮箱验证，请先在邮件中完成验证后再密码登录。', false);
         } else {
-          setStatus('注册成功，请重新输入密码后点击“密码登录”进入', false);
+          setStatus('注册成功，请重新输入密码后点击“密码登录”进入。', false);
         }
         if (authPassword) authPassword.focus();
       } catch (err1) {
@@ -544,7 +579,7 @@
     try {
       var codeRes = await sendEmailCode(email);
       if (codeRes.error) throw codeRes.error;
-      setStatus('验证码已发送，请输入验证码后点击“验证码登录”', false);
+      setStatus('验证码已发送，请输入验证码后点击“验证码登录”。', false);
       if (authCode) authCode.focus();
     } catch (err2) {
       setStatus(localizeAuthError(err2, '发送验证码失败'), true);
@@ -591,20 +626,16 @@
   async function invokeFunction(name, body) {
     if (!sb) throw new Error('认证未初始化，请检查 Supabase 配置');
     var token = await ensureAccessToken(false);
-    if (!token || isJwtExpired(token)) {
-      token = await ensureAccessToken(true);
-    }
+    if (!token || isJwtExpired(token)) token = await ensureAccessToken(true);
     if (!token || isJwtExpired(token)) {
       user = null;
       accessToken = '';
       closeUserMenu();
       updatePosterCta();
       emit();
-      throw new Error('登录状态已失效，请点击右上角头像退出后重新登录');
+      throw new Error('登录状态已失效，请点击右上角退出后重新登录');
     }
-    var requestBody = Object.assign({}, body || {}, {
-      accessToken: token
-    });
+    var requestBody = Object.assign({}, body || {}, { accessToken: token });
     var endpoint = String(projectUrl || '').replace(/\/+$/, '') + '/functions/v1/' + encodeURIComponent(name);
     var fetchRes = await fetch(endpoint, {
       method: 'POST',
@@ -659,10 +690,15 @@
     });
   }
   if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
-  if (authForgotBtn) authForgotBtn.addEventListener('click', submitPasswordResetRequest);
+  if (authForgotBtn) {
+    authForgotBtn.addEventListener('click', function () {
+      submitPasswordResetRequest();
+    });
+  }
+  if (authResetSendBtn) authResetSendBtn.addEventListener('click', sendResetPasswordCode);
   if (authResetBackBtn) {
     authResetBackBtn.addEventListener('click', function () {
-      exitResetPasswordMode();
+      exitResetPasswordMode(resetCompleted ? '请使用新密码重新登录。' : '');
       if (authPassword) authPassword.focus();
     });
   }
@@ -700,36 +736,7 @@
       e.stopPropagation();
       if (user) await signOut();
       returnToSplashHome();
-      return;
     }
-
-    var userBtn = e.target && e.target.closest ? e.target.closest('#app-user-btn') : null;
-    if (userBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (appUserPop && appUserPop.hidden) {
-        openAuthModal('请先登录');
-        return;
-      }
-      toggleUserMenu();
-      return;
-    }
-
-    var inUserMenu = e.target && e.target.closest ? e.target.closest('#app-user-menu') : null;
-    if (inUserMenu) {
-      e.stopPropagation();
-    }
-  });
-
-  document.addEventListener('pointerdown', function (e) {
-    refreshHeaderRefs();
-    if (!appUserPop) return;
-    if (appUserPop.contains(e.target)) return;
-    closeUserMenu();
-  });
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && appUserPop) closeUserMenu();
   });
 
   if (authRegisterBtn) authRegisterBtn.addEventListener('click', submitRegister);
@@ -740,6 +747,10 @@
     authEmail.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
       e.preventDefault();
+      if (authView === 'reset' && authResetPassword) {
+        authResetPassword.focus();
+        return;
+      }
       if (authMode === 'password' && authPassword) authPassword.focus();
       if (authMode === 'code' && authCode) authCode.focus();
     });
@@ -747,28 +758,37 @@
 
   if (authPassword) {
     authPassword.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter') return;
-      if (authMode !== 'password') return;
+      if (e.key !== 'Enter' || authMode !== 'password') return;
       e.preventDefault();
       submitLogin();
     });
   }
 
-  if (authResetConfirm) {
-    authResetConfirm.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter') return;
-      if (authView !== 'reset') return;
+  if (authCode) {
+    authCode.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || authMode !== 'code') return;
       e.preventDefault();
-      submitResetPassword();
+      setStatus('请点击“验证码登录”按钮完成登录。', false);
     });
   }
 
-  if (authCode) {
-    authCode.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter') return;
-      if (authMode !== 'code') return;
+  if (authResetConfirm) {
+    authResetConfirm.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || authView !== 'reset') return;
       e.preventDefault();
-      setStatus('请点击“验证码登录”按钮完成登录', false);
+      if (!resetCodeSent) {
+        sendResetPasswordCode();
+        return;
+      }
+      if (authResetCode) authResetCode.focus();
+    });
+  }
+
+  if (authResetCode) {
+    authResetCode.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || authView !== 'reset' || resetCompleted) return;
+      e.preventDefault();
+      submitResetPassword();
     });
   }
 

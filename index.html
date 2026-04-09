@@ -109,8 +109,14 @@
         <input class="auth-input" id="auth-reset-password" type="password" autocomplete="new-password" placeholder="请输入新密码"/>
         <label class="auth-label" for="auth-reset-confirm">确认新密码</label>
         <input class="auth-input" id="auth-reset-confirm" type="password" autocomplete="new-password" placeholder="请再次输入新密码"/>
-        <div class="auth-inline-actions">
-          <button class="auth-text-btn" id="auth-reset-back-btn" type="button">返回登录</button>
+        <label class="auth-label" for="auth-reset-code">验证码</label>
+        <input class="auth-input" id="auth-reset-code" type="text" autocomplete="one-time-code" placeholder="请输入邮箱收到的验证码"/>
+        <div class="auth-actions auth-reset-actions">
+          <button class="auth-btn" id="auth-reset-send-btn" type="button">发送验证码</button>
+          <button class="auth-btn primary" id="auth-reset-btn" type="button">确定重置</button>
+        </div>
+        <div class="auth-inline-actions auth-reset-footer">
+          <button class="auth-text-btn" id="auth-reset-back-btn" type="button">重新登录</button>
         </div>
       </div>
       <p class="auth-status" id="auth-status" aria-live="polite"></p>
@@ -118,7 +124,6 @@
         <button class="auth-btn" id="auth-register-btn" type="button">密码注册</button>
         <button class="auth-btn primary" id="auth-login-btn" type="button">密码登录</button>
       </div>
-      <button class="auth-btn primary auth-reset-btn" id="auth-reset-btn" type="button" hidden>重置密码</button>
     </div>
   </div>
 </div>
@@ -181,12 +186,6 @@
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M8 3 5.5 5.5M8 3l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11.5v1h10v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                   上传文件
                 </button>
-                <div class="settings-select-row">
-                  <label class="settings-select-label" for="settings-file-encoding">文件编码</label>
-                  <select class="settings-select" id="settings-file-encoding" v-model="fileEncoding" aria-label="文件编码">
-                    <option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option>
-                  </select>
-                </div>
                 <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('clear')">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 2.5h4M5 4v8.5h6V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   清空
