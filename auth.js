@@ -116,6 +116,7 @@
     if (msg.indexOf('email not confirmed') >= 0 || msg.indexOf('email_not_confirmed') >= 0) return '邮箱未验证，请先完成邮箱验证';
     if (msg.indexOf('user already registered') >= 0) return '该邮箱已注册，请直接登录';
     if (msg.indexOf('new password should be different from the old password') >= 0) return '新密码不能与旧密码相同，请换一个新密码';
+    if (msg.indexOf('password should contain at least one character of each') >= 0) return '密码需同时包含大写字母、小写字母、数字和特殊字符';
     if (msg.indexOf('password should be at least') >= 0 || msg.indexOf('password is too short') >= 0) return '密码至少 6 位';
     if (msg.indexOf('invalid email') >= 0 || msg.indexOf('email address') >= 0) return '邮箱格式不正确';
     if (msg.indexOf('rate limit') >= 0 || msg.indexOf('too many requests') >= 0 || msg.indexOf('over_email_send_rate_limit') >= 0) return '操作过于频繁，请稍后再试';
