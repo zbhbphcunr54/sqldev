@@ -233,31 +233,36 @@ function validateUserToken(token: string): boolean {
   return /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(t)
 }
 
-type SessionValidationResult = 'valid' | 'invalid' | 'unknown'
+type JwtPayload = {
+  sub?: unknown
+  exp?: unknown
+  aud?: unknown
+  role?: unknown
+}
 
-async function validateUserSession(token: string): Promise<SessionValidationResult> {
-  if (!validateUserToken(token) || !SUPABASE_URL || !SUPABASE_ANON_KEY) return 'invalid'
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 5000)
+function parseJwtPayload(token: string): JwtPayload | null {
+  const t = (token || '').trim()
+  if (!validateUserToken(t)) return null
+  const parts = t.split('.')
+  if (parts.length !== 3) return null
   try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: SUPABASE_ANON_KEY
-      },
-      signal: controller.signal
-    })
-    if (res.status === 401 || res.status === 403) return 'invalid'
-    if (!res.ok) return 'unknown'
-    const user = await res.json().catch(() => null) as { id?: unknown } | null
-    if (user && typeof user.id === 'string' && user.id.length > 0) return 'valid'
-    return 'invalid'
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const normalized = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+    const json = atob(normalized)
+    const payload = JSON.parse(json) as JwtPayload
+    return payload && typeof payload === 'object' ? payload : null
   } catch {
-    return 'unknown'
-  } finally {
-    clearTimeout(timeoutId)
+    return null
   }
+}
+
+function validateJwtClaims(payload: JwtPayload | null): boolean {
+  if (!payload || typeof payload.sub !== 'string' || payload.sub.length === 0) return false
+  if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+    if (Date.now() >= payload.exp * 1000) return false
+  }
+  if (typeof payload.aud === 'string' && payload.aud !== 'authenticated') return false
+  return true
 }
 
 Deno.serve(async (req) => {
@@ -278,8 +283,8 @@ Deno.serve(async (req) => {
   try {
     const token = bearerToken(req)
     if (!validateUserToken(token)) return json({ error: 'Unauthorized' }, 401, corsHeaders)
-    const sessionState = await validateUserSession(token)
-    if (sessionState === 'invalid') return json({ error: 'Unauthorized' }, 401, corsHeaders)
+    const payload = parseJwtPayload(token)
+    if (!validateJwtClaims(payload)) return json({ error: 'Unauthorized' }, 401, corsHeaders)
 
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')
