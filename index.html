@@ -96,16 +96,29 @@
       <div id="auth-password-wrap">
         <label class="auth-label" for="auth-password">密码</label>
         <input class="auth-input" id="auth-password" type="password" autocomplete="current-password" placeholder="至少 6 位"/>
+        <div class="auth-inline-actions" id="auth-password-actions">
+          <button class="auth-text-btn" id="auth-forgot-btn" type="button">忘记密码？</button>
+        </div>
       </div>
       <div id="auth-code-wrap" hidden>
         <label class="auth-label" for="auth-code">验证码</label>
         <input class="auth-input" id="auth-code" type="text" autocomplete="one-time-code" placeholder="请输入邮箱收到的验证码"/>
+      </div>
+      <div id="auth-reset-wrap" hidden>
+        <label class="auth-label" for="auth-reset-password">新密码</label>
+        <input class="auth-input" id="auth-reset-password" type="password" autocomplete="new-password" placeholder="请输入新密码"/>
+        <label class="auth-label" for="auth-reset-confirm">确认新密码</label>
+        <input class="auth-input" id="auth-reset-confirm" type="password" autocomplete="new-password" placeholder="请再次输入新密码"/>
+        <div class="auth-inline-actions">
+          <button class="auth-text-btn" id="auth-reset-back-btn" type="button">返回登录</button>
+        </div>
       </div>
       <p class="auth-status" id="auth-status" aria-live="polite"></p>
       <div class="auth-actions">
         <button class="auth-btn" id="auth-register-btn" type="button">密码注册</button>
         <button class="auth-btn primary" id="auth-login-btn" type="button">密码登录</button>
       </div>
+      <button class="auth-btn primary auth-reset-btn" id="auth-reset-btn" type="button" hidden>重置密码</button>
     </div>
   </div>
 </div>
@@ -158,7 +171,40 @@
             <button class="theme-toggle" id="settings-trigger" aria-haspopup="true" :aria-expanded="String(showRulesMenu)" @click="showRulesMenu=!showRulesMenu" title="高级设置">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
-            <div class="settings-menu" v-if="showRulesMenu" role="menu" aria-labelledby="settings-trigger" @keydown="handleMenuKey">
+            <div class="settings-menu" v-show="showRulesMenu" role="menu" aria-labelledby="settings-trigger" @keydown="handleMenuKey">
+              <div class="settings-menu-group" v-if="isWorkbenchPage">
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('sample')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h10v11H3z" stroke="currentColor" stroke-width="1.3"/><path d="M5 5.5h6M5 8h6M5 10.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  加载示例
+                </button>
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('upload')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M8 3 5.5 5.5M8 3l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11.5v1h10v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  上传文件
+                </button>
+                <div class="settings-select-row">
+                  <label class="settings-select-label" for="settings-file-encoding">文件编码</label>
+                  <select class="settings-select" id="settings-file-encoding" v-model="fileEncoding" aria-label="文件编码">
+                    <option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option>
+                  </select>
+                </div>
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('clear')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 2.5h4M5 4v8.5h6V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  清空
+                </button>
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('copy')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="5" y="3" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V4.5A1.5 1.5 0 0 1 4.5 3H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  复制输出
+                </button>
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('save')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h8l2 2v9H3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 2.5v3h5v-3M5 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  保存文件
+                </button>
+                <button class="settings-menu-item" role="menuitem" tabindex="-1" @click="runWorkbenchAction('theme')">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v1.5M8 13v1.5M13 8h1.5M1.5 8H3M12.4 3.6l-1 1M4.6 11.4l-1 1M12.4 12.4l-1-1M4.6 4.6l-1-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  {{ themeMenuLabel }}
+                </button>
+                <div class="settings-divider"></div>
+              </div>
               <button class="settings-menu-item" role="menuitem" tabindex="-1" :class="{active: activePage==='rules'}" @click="setPage('rules');showRulesMenu=false">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="3" r="1.2" fill="currentColor"/><circle cx="11" cy="6.5" r="1.2" fill="currentColor"/></svg>
                 DDL &#26144;&#23556;&#35268;&#21017;
@@ -167,20 +213,19 @@
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5v5H2z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M9 2h5v5H9z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5.5 9.5h5v5h-5z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
                 &#31243;&#24207;&#22359;&#26144;&#23556;&#35268;&#21017;
               </button>
-            </div>
-          </div>
-          <button class="theme-toggle" @click="toggleTheme" :title="themeLabel">
-            <svg v-if="themeMode==='dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <svg v-else-if="themeMode==='light'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </button>
-          <div class="header-user-pop" id="app-user-pop" hidden>
-            <button class="header-user-btn" id="app-user-btn" type="button" aria-label="用户信息">
-              <img class="header-user-avatar" id="app-user-avatar" src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="avatar"/>
-            </button>
-            <div class="header-user-email" id="app-user-email"></div>
-            <div class="header-user-menu" id="app-user-menu">
-              <button class="header-user-logout" id="app-auth-btn" type="button">退出登录</button>
+              <div class="settings-account" id="app-user-pop" hidden>
+                <div class="settings-account-card">
+                  <img class="settings-account-avatar" id="app-user-avatar" src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="avatar"/>
+                  <div class="settings-account-meta">
+                    <div class="settings-account-label">当前账号</div>
+                    <div class="settings-account-email" id="app-user-email"></div>
+                  </div>
+                </div>
+                <button class="settings-menu-item settings-menu-danger" id="app-auth-btn" type="button" @click="showRulesMenu=false">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 2.5H3.5A1.5 1.5 0 0 0 2 4v8a1.5 1.5 0 0 0 1.5 1.5H6M10 11.5 14 8l-4-3.5M14 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  退出登录
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -205,11 +250,6 @@
             <button class="swap-btn" @click="swapDbs" title="交换源和目标">&#8646;</button>
           </div>
           <div class="actions">
-            <button class="btn" @click="loadSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
-            <button class="btn" @click="clearAll">&#28165;&#31354;</button>
-            <button class="btn" @click="copyOutput">&#22797;&#21046;&#36755;&#20986;</button>
-            <button class="btn" @click="saveOutput">&#20445;&#23384;&#25991;&#20214;</button>
             <button class="btn primary" @click="convert">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
           </div>
         </section>
@@ -315,11 +355,6 @@
             <button class="swap-btn" @click="swapFuncDbs" title="交换源和目标">&#8646;</button>
           </div>
           <div class="actions">
-            <button class="btn" @click="loadFuncSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
-            <button class="btn" @click="clearFunc">&#28165;&#31354;</button>
-            <button class="btn" @click="copyFuncOutput">&#22797;&#21046;&#36755;&#20986;</button>
-            <button class="btn" @click="saveFuncOutput">&#20445;&#23384;&#25991;&#20214;</button>
             <button class="btn primary" @click="convertFunc">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
           </div>
         </section>
@@ -436,11 +471,6 @@ $$;</pre>
             <button class="swap-btn" @click="swapProcDbs" title="交换源和目标">&#8646;</button>
           </div>
           <div class="actions">
-            <button class="btn" @click="loadProcSample">&#21152;&#36733;&#31034;&#20363;</button>
-            <button class="btn" @click="uploadFile">&#19978;&#20256;&#25991;&#20214;</button><select class="encoding-select" v-model="fileEncoding" title="文件编码" aria-label="文件编码"><option v-for="enc in ENCODING_OPTIONS" :key="enc.value" :value="enc.value">{{enc.label}}</option></select>
-            <button class="btn" @click="clearProc">&#28165;&#31354;</button>
-            <button class="btn" @click="copyProcOutput">&#22797;&#21046;&#36755;&#20986;</button>
-            <button class="btn" @click="saveProcOutput">&#20445;&#23384;&#25991;&#20214;</button>
             <button class="btn primary" @click="convertProc">&#24320;&#22987;&#32763;&#35793; <span class="kbd">Ctrl+Enter</span></button>
           </div>
         </section>

@@ -2542,6 +2542,7 @@ const app = createApp({
     }
     /* navKeydown removed: sidebar is now role="navigation" with aria-current, not tablist */
     const showRulesMenu = ref(false);
+    const isWorkbenchPage = computed(() => NAV_PAGES.indexOf(activePage.value) >= 0);
     /* ARIA menu keyboard: arrow cycle, Home/End, Escape, auto-focus first item */
     function handleMenuKey(e) {
       var items = e.currentTarget.querySelectorAll('[role="menuitem"]');
@@ -2560,6 +2561,11 @@ const app = createApp({
     // Theme: 'system' | 'light' | 'dark'
     const themeMode = ref(localStorage.getItem('theme') || 'system');
     const themeLabel = computed(() => {
+      if (themeMode.value === 'dark') return '切换到亮色模式';
+      if (themeMode.value === 'light') return '切换到跟随系统';
+      return '切换到深色模式';
+    });
+    const themeMenuLabel = computed(() => {
       if (themeMode.value === 'dark') return '切换到亮色模式';
       if (themeMode.value === 'light') return '切换到跟随系统';
       return '切换到深色模式';
@@ -2620,14 +2626,16 @@ const app = createApp({
       }
     }
     const fileInput = ref(null);
-    const fileEncoding = ref('auto');
+    const fileEncoding = ref(localStorage.getItem('fileEncoding') || 'UTF-8');
     const ENCODING_OPTIONS = [
-      { value: 'auto', label: '自动探测' },
       { value: 'UTF-8', label: 'UTF-8' },
       { value: 'GBK', label: 'GBK / GB2312 / GB18030' },
       { value: 'Big5', label: 'Big5 (繁体)' },
       { value: 'Shift_JIS', label: 'Shift_JIS (日文)' }
     ];
+    watch(fileEncoding, function(value) {
+      localStorage.setItem('fileEncoding', value);
+    });
 
     // --- DDL Rules state (reads from global _ddlRulesData, shared with engine) ---
     const ddlRules = ref(_ddlRulesData);
@@ -3405,6 +3413,46 @@ const app = createApp({
       if (fileInput.value) { fileInput.value.value = ''; fileInput.value.click(); }
     }
 
+    function closeSettingsMenu() {
+      showRulesMenu.value = false;
+    }
+
+    function runWorkbenchAction(action) {
+      var page = activePage.value;
+      if (page !== 'ddl' && page !== 'func' && page !== 'proc') {
+        statusText.value = '当前页面暂无此操作';
+        closeSettingsMenu();
+        return;
+      }
+      if (action === 'theme') {
+        toggleTheme();
+        closeSettingsMenu();
+        return;
+      }
+      if (action === 'upload') {
+        uploadFile();
+        closeSettingsMenu();
+        return;
+      }
+      if (page === 'ddl') {
+        if (action === 'sample') loadSample();
+        else if (action === 'clear') clearAll();
+        else if (action === 'copy') copyOutput();
+        else if (action === 'save') saveOutput();
+      } else if (page === 'func') {
+        if (action === 'sample') loadFuncSample();
+        else if (action === 'clear') clearFunc();
+        else if (action === 'copy') copyFuncOutput();
+        else if (action === 'save') saveFuncOutput();
+      } else {
+        if (action === 'sample') loadProcSample();
+        else if (action === 'clear') clearProc();
+        else if (action === 'copy') copyProcOutput();
+        else if (action === 'save') saveProcOutput();
+      }
+      closeSettingsMenu();
+    }
+
     function handleFileUpload(e) {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
@@ -3429,31 +3477,7 @@ const app = createApp({
         r.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
         r.readAsText(file, enc);
       }
-
-      if (fileEncoding.value !== 'auto') {
-        _readAs(fileEncoding.value);
-        return;
-      }
-
-      // Auto-detect: read raw bytes, check BOM and heuristics
-      var rawReader = new FileReader();
-      rawReader.onload = function(ev) {
-        var buf = new Uint8Array(ev.target.result);
-        // BOM detection
-        if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) { _readAs('UTF-8'); return; }
-        if (buf[0] === 0xFF && buf[1] === 0xFE) { _readAs('UTF-16LE'); return; }
-        if (buf[0] === 0xFE && buf[1] === 0xFF) { _readAs('UTF-16BE'); return; }
-
-        // Heuristic: try UTF-8 first, check for replacement char
-        var td;
-        try { td = new TextDecoder('UTF-8', { fatal: true }); td.decode(buf); _readAs('UTF-8'); return; }
-        catch(e) { /* not valid UTF-8 */ }
-
-        // Likely GBK / GB18030
-        _readAs('GBK');
-      };
-      rawReader.onerror = function() { statusText.value = '\u6587\u4EF6\u8BFB\u53D6\u5931\u8D25'; };
-      rawReader.readAsArrayBuffer(file);
+      _readAs(fileEncoding.value || 'UTF-8');
     }
 
     // ========== Scroll to top ==========
@@ -3534,7 +3558,7 @@ const app = createApp({
     return {
       activePage, sidebarOpen, sidebarCollapsed, toggleSidebar, setPage,
       // Theme
-      themeMode, themeLabel, toggleTheme,
+      themeMode, themeLabel, themeMenuLabel, toggleTheme,
       // DDL
       sourceDb, targetDb, inputDdl, outputDdl,
       sourceLabel, targetLabel, inputLineCount, outputMeta,
@@ -3549,6 +3573,7 @@ const app = createApp({
       swapProcDbs, loadProcSample, clearProc, convertProc, copyProcOutput, saveProcOutput,
       // Shared
       statusText, fileInput, fileEncoding, ENCODING_OPTIONS, uploadFile, handleFileUpload,
+      isWorkbenchPage, runWorkbenchAction,
       showScrollTop, scrollToTop,
       // Rules
       ddlRules, addRule, deleteRule, saveRule,
