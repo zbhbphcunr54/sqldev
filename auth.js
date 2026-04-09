@@ -417,6 +417,20 @@
       setStatus('正在校验验证码并重置密码...');
       var verifyRes = await verifyEmailCode(resetInfo.email, token);
       if (verifyRes.error) throw verifyRes.error;
+      var verifiedSession = verifyRes && verifyRes.data ? verifyRes.data.session : null;
+      if (verifiedSession && verifiedSession.access_token && verifiedSession.refresh_token &&
+          sb.auth && typeof sb.auth.setSession === 'function') {
+        var setSessionRes = await sb.auth.setSession({
+          access_token: verifiedSession.access_token,
+          refresh_token: verifiedSession.refresh_token
+        });
+        if (setSessionRes && setSessionRes.error) throw setSessionRes.error;
+      }
+      var currentSessionRes = await sb.auth.getSession();
+      var currentSession = currentSessionRes && currentSessionRes.data ? currentSessionRes.data.session : null;
+      if (!currentSession || !currentSession.access_token) {
+        throw new Error('验证码校验成功，但登录会话建立失败，请重新获取验证码后重试');
+      }
       var updateRes = await sb.auth.updateUser({ password: resetInfo.nextPassword });
       if (updateRes.error) throw updateRes.error;
       try {
@@ -431,7 +445,12 @@
       emit();
       setStatus('重置密码成功，请点击“重新登录”返回登录弹框。', false);
     } catch (err) {
-      setStatus(localizeAuthError(err, '重置密码失败'), true);
+      var fallback = '重置密码失败';
+      var raw = String((err && err.message) || err || '').trim();
+      if (raw && localizeAuthError(err, fallback) === fallback) {
+        fallback = '重置密码失败：' + raw;
+      }
+      setStatus(localizeAuthError(err, fallback), true);
     } finally {
       passwordResetting = false;
       setBusy(false);
