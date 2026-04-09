@@ -237,8 +237,9 @@
     if (!sb) return;
     var sessionRes = await sb.auth.getSession();
     var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
-    accessToken = session && session.access_token ? session.access_token : '';
-    user = session && session.user ? session.user : null;
+    var sessionToken = normalizeToken(session && session.access_token ? session.access_token : '');
+    accessToken = (sessionToken && !isJwtExpired(sessionToken)) ? sessionToken : '';
+    user = accessToken && session && session.user ? session.user : null;
     updatePosterCta();
     emit();
   }
@@ -338,7 +339,7 @@
         var refreshedToken = normalizeToken(refreshSession && refreshSession.access_token ? refreshSession.access_token : '');
         if (refreshedToken && !isJwtExpired(refreshedToken)) {
           accessToken = refreshedToken;
-          user = refreshSession.user || null;
+          user = refreshSession && refreshSession.user ? refreshSession.user : null;
           updatePosterCta();
           emit();
           return accessToken;
@@ -353,7 +354,7 @@
       var session = sessionRes && sessionRes.data ? sessionRes.data.session : null;
       var sessionToken = normalizeToken(session && session.access_token ? session.access_token : '');
       accessToken = (sessionToken && !isJwtExpired(sessionToken)) ? sessionToken : '';
-      user = session && session.user ? session.user : null;
+      user = accessToken && session && session.user ? session.user : null;
       updatePosterCta();
       emit();
       return accessToken;
@@ -386,8 +387,9 @@
     await syncSession();
 
     sb.auth.onAuthStateChange(function (_event, session) {
-      accessToken = session && session.access_token ? session.access_token : '';
-      user = session && session.user ? session.user : null;
+      var sessionToken = normalizeToken(session && session.access_token ? session.access_token : '');
+      accessToken = (sessionToken && !isJwtExpired(sessionToken)) ? sessionToken : '';
+      user = accessToken && session && session.user ? session.user : null;
       updatePosterCta();
       emit();
 
@@ -490,11 +492,28 @@
 
   async function invokeFunction(name, body) {
     if (!sb) throw new Error('认证未初始化，请检查 Supabase 配置');
-    await ensureAccessToken(false);
+    var token = await ensureAccessToken(false);
+    if (!token || isJwtExpired(token)) {
+      token = await ensureAccessToken(true);
+    }
+    if (!token || isJwtExpired(token)) {
+      user = null;
+      accessToken = '';
+      closeUserMenu();
+      updatePosterCta();
+      emit();
+      throw new Error('登录状态已失效，请点击右上角头像退出后重新登录');
+    }
     if (!sb.functions || typeof sb.functions.invoke !== 'function') {
       throw new Error('当前 Supabase SDK 不支持 functions.invoke');
     }
-    return sb.functions.invoke(name, { body: body });
+    return sb.functions.invoke(name, {
+      body: body,
+      headers: {
+        Authorization: 'Bearer ' + token,
+        apikey: anonKey
+      }
+    });
   }
 
   window.authApi = {
