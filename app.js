@@ -2584,6 +2584,13 @@ const app = createApp({
       applyTheme(themeMode.value);
     }
     applyTheme(themeMode.value);
+    /* Listen for system color-scheme changes so 'system' mode updates in real time */
+    try {
+      var mql = window.matchMedia('(prefers-color-scheme: dark)');
+      mql.addEventListener('change', function() {
+        if (themeMode.value === 'system') applyTheme('system');
+      });
+    } catch(e) {}
     /* Sync theme if poster forced dark after Vue mounted */
     window.addEventListener('sp-theme-sync', function(e) {
       themeMode.value = e.detail;
