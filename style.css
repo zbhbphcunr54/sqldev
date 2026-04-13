@@ -1726,6 +1726,23 @@ body:not(.splash-active) #app{
 .sp-nav-logo{display:flex;align-items:center;gap:10px}
 .sp-nav-logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#4f7df9,#8b5cf6);display:grid;place-items:center;font-family:var(--font-code);font-size:9px;font-weight:700;color:#fff;letter-spacing:.5px}
 .sp-nav-logo-text{font-family:"DM Sans","Noto Sans SC",sans-serif;font-size:15px;font-weight:600;color:#d6dced;letter-spacing:-.2px}
+.sp-nav-actions{display:flex;align-items:center;gap:10px}
+.sp-nav-theme{
+  width:34px;
+  height:34px;
+  margin-left:0;
+  border-radius:10px;
+  border:1px solid rgba(99,135,241,.18);
+  background:rgba(12,18,34,.82);
+  color:#9fb1d1;
+  box-shadow:0 10px 24px rgba(2,6,23,.18), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.sp-nav-theme:hover{
+  color:#eff6ff;
+  border-color:rgba(125,163,255,.32);
+  background:rgba(79,125,249,.12);
+}
+.sp-nav-theme svg{width:16px;height:16px}
 .sp-nav-right{display:flex;align-items:center;gap:20px}
 .sp-nav-link{font-size:13px;color:#6b7a99;text-decoration:none;transition:color .2s}
 .sp-nav-link:hover{color:#d6dced}
@@ -2327,6 +2344,17 @@ body:not(.splash-active) #app{
 [data-theme="light"] .sp-nav-logo-text{
   color:#0f172a;
 }
+[data-theme="light"] .sp-nav-theme{
+  background:rgba(255,255,255,.88);
+  border-color:rgba(148,163,184,.24);
+  color:#475569;
+  box-shadow:0 10px 24px rgba(148,163,184,.16);
+}
+[data-theme="light"] .sp-nav-theme:hover{
+  color:#1d4ed8;
+  border-color:rgba(37,99,235,.22);
+  background:rgba(37,99,235,.06);
+}
 [data-theme="light"] .sp-nav-link{
   color:#64748b;
 }
@@ -2502,4 +2530,95 @@ body:not(.splash-active) #app{
 }
 [data-theme="light"] .settings-menu{
   box-shadow:0 18px 42px rgba(148,163,184,.16);
+}
+[data-theme="light"] .auth-modal-mask{
+  background:rgba(226,232,240,.42);
+  backdrop-filter:blur(10px);
+}
+[data-theme="light"] .auth-modal{
+  background:linear-gradient(180deg,rgba(255,255,255,.97) 0%,rgba(248,250,252,.98) 100%);
+  border-color:rgba(148,163,184,.24);
+  box-shadow:0 24px 56px rgba(15,23,42,.14);
+}
+[data-theme="light"] .auth-modal-head h3{
+  color:#0f172a;
+}
+[data-theme="light"] .auth-close{
+  color:#64748b;
+}
+[data-theme="light"] .auth-close:hover{
+  color:#0f172a;
+}
+[data-theme="light"] .auth-modal-desc{
+  color:#64748b;
+}
+[data-theme="light"] .auth-mode-btn{
+  border-color:rgba(148,163,184,.28);
+  background:rgba(248,250,252,.9);
+  color:#475569;
+}
+[data-theme="light"] .auth-mode-btn:hover{
+  border-color:rgba(37,99,235,.28);
+  color:#0f172a;
+  background:rgba(239,246,255,.92);
+}
+[data-theme="light"] .auth-mode-btn.active{
+  border-color:#2563eb;
+  background:#2563eb;
+  color:#fff;
+}
+[data-theme="light"] .auth-label{
+  color:#334155;
+}
+[data-theme="light"] .auth-input{
+  border-color:rgba(148,163,184,.32);
+  background:rgba(255,255,255,.94);
+  color:#0f172a;
+}
+[data-theme="light"] .auth-input::placeholder{
+  color:#94a3b8;
+}
+[data-theme="light"] .auth-input:focus{
+  border-color:#60a5fa;
+  box-shadow:0 0 0 3px rgba(59,130,246,.16);
+}
+[data-theme="light"] .auth-password-toggle{
+  color:#64748b;
+}
+[data-theme="light"] .auth-password-toggle:hover{
+  color:#0f172a;
+}
+[data-theme="light"] .auth-password-toggle:focus-visible{
+  outline-color:#60a5fa;
+}
+[data-theme="light"] .auth-input-hint{
+  color:#64748b;
+}
+[data-theme="light"] .auth-text-btn{
+  color:#1d4ed8;
+}
+[data-theme="light"] .auth-text-btn:hover{
+  color:#1e40af;
+}
+[data-theme="light"] .auth-status{
+  color:#0369a1;
+}
+[data-theme="light"] .auth-status.error{
+  color:#b91c1c;
+}
+[data-theme="light"] .auth-btn{
+  border-color:rgba(148,163,184,.28);
+  background:rgba(248,250,252,.92);
+  color:#334155;
+}
+[data-theme="light"] .auth-btn:hover{
+  background:rgba(241,245,249,.98);
+}
+[data-theme="light"] .auth-btn.primary{
+  border-color:#2563eb;
+  background:#2563eb;
+  color:#fff;
+}
+[data-theme="light"] .auth-btn.primary:hover{
+  background:#1d4ed8;
 }

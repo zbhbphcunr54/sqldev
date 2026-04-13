@@ -2608,7 +2608,8 @@ const app = createApp({
     } catch(e) {}
     /* Sync theme if poster forced dark after Vue mounted */
     window.addEventListener('sp-theme-sync', function(e) {
-      themeMode.value = e.detail;
+      themeMode.value = e.detail || 'system';
+      applyTheme(themeMode.value);
     });
     const refCollapsed = ref(true);
     const ruleSearchQuery = ref('');

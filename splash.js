@@ -8,20 +8,51 @@
 
   var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
   var enterBtn = document.getElementById('sp-enter-btn');
+  var themeBtn = document.getElementById('sp-theme-btn');
   var finalEnterBtn = null;
+  var themeOrder = ['system', 'dark', 'light'];
+
+  function resolveTheme(mode) {
+    if (mode === 'dark' || mode === 'light') return mode;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function themeLabel(mode) {
+    if (mode === 'dark') return '切换到亮色模式';
+    if (mode === 'light') return '切换到跟随系统';
+    return '切换到深色模式';
+  }
+
+  function updateThemeButton(mode) {
+    if (!themeBtn) return;
+    var nextLabel = themeLabel(mode);
+    themeBtn.setAttribute('aria-label', nextLabel);
+    themeBtn.setAttribute('title', nextLabel);
+    themeBtn.setAttribute('data-mode', mode);
+    themeBtn.setAttribute('data-resolved-theme', resolveTheme(mode));
+  }
+
+  function applyTheme(mode) {
+    document.documentElement.setAttribute('data-theme', resolveTheme(mode));
+    updateThemeButton(mode);
+  }
+
+  function syncTheme(mode) {
+    localStorage.setItem('theme', mode);
+    applyTheme(mode);
+    window.dispatchEvent(new CustomEvent('sp-theme-sync', { detail: mode }));
+  }
+
+  function toggleTheme() {
+    var current = localStorage.getItem('theme') || 'system';
+    var idx = themeOrder.indexOf(current);
+    var next = themeOrder[(idx + 1) % themeOrder.length];
+    syncTheme(next);
+  }
 
   function enterWorkbench() {
-    /* Restore user's saved theme preference instead of forcing dark */
-    var savedTheme = localStorage.getItem('theme') || 'dark';
-    if (savedTheme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else if (savedTheme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-    } else {
-      /* system mode: detect OS preference */
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    }
+    var savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
     window.dispatchEvent(new CustomEvent('sp-theme-sync', { detail: savedTheme }));
     poster.classList.add('leaving');
     if (prefersReducedMotion) {
@@ -36,6 +67,7 @@
   }
 
   function showSplashHome() {
+    applyTheme(localStorage.getItem('theme') || 'system');
     poster.style.display = '';
     poster.classList.remove('leaving');
     document.body.classList.add('splash-active');
@@ -51,6 +83,17 @@
     showHome: showSplashHome,
     enterWorkbench: enterWorkbench
   });
+
+  applyTheme(localStorage.getItem('theme') || 'system');
+  try {
+    var themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    themeMedia.addEventListener('change', function () {
+      if ((localStorage.getItem('theme') || 'system') === 'system') {
+        applyTheme('system');
+        window.dispatchEvent(new CustomEvent('sp-theme-sync', { detail: 'system' }));
+      }
+    });
+  } catch (_themeErr) {}
 
   /* Floating SQL tokens */
   var keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'JOIN', 'INDEX', 'TABLE', 'VIEW', 'TRIGGER', 'CURSOR', 'BEGIN', 'END', 'RETURN', 'DECLARE', 'NUMBER', 'VARCHAR2', 'CLOB', 'BOOLEAN'];
@@ -109,6 +152,7 @@
     cvs.style.display = 'none';
   }
 
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
   if (enterBtn) enterBtn.addEventListener('click', enterWorkbench);
   window.addEventListener('auth:login-success', enterWorkbench);
 })();
