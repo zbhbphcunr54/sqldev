@@ -2551,7 +2551,7 @@ const app = createApp({
     /* navKeydown removed: sidebar is now role="navigation" with aria-current, not tablist */
     const showRulesMenu = ref(false);
     const sidebarSettingsOpen = ref(false);
-    const actionBarCollapsed = ref(true);
+    const actionBarCollapsed = ref(false);
     const isWorkbenchPage = computed(() => NAV_PAGES.indexOf(activePage.value) >= 0);
     /* ARIA menu keyboard: arrow cycle, Home/End, Escape, auto-focus first item */
     function handleMenuKey(e) {
