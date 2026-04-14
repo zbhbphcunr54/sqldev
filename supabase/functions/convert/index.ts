@@ -2,7 +2,7 @@ const PRIMARY_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
 const ALLOWED_ORIGINS = new Set([PRIMARY_WEB_ORIGIN])
 const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i
 const corsBaseHeaders = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-sqldev-access-token',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 
@@ -225,6 +225,12 @@ function bearerToken(req: Request): string {
   return match ? match[1].trim() : ''
 }
 
+function requestToken(req: Request): string {
+  const custom = (req.headers.get('x-sqldev-access-token') || '').trim()
+  if (custom) return custom
+  return bearerToken(req)
+}
+
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split('.')
   if (parts.length !== 3) return null
@@ -266,9 +272,9 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders)
 
   try {
-    const token = bearerToken(req)
+    const token = requestToken(req)
     if (!validateBearerUserToken(token)) {
-      return json({ error: 'Missing or invalid Authorization bearer token' }, 401, corsHeaders)
+      return json({ error: 'Missing or invalid access token header' }, 401, corsHeaders)
     }
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')

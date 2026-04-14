@@ -779,7 +779,10 @@
       fnClient.setAuth(token);
     }
     var invokeRes = await fnClient.invoke(name, {
-      body: requestBody
+      body: requestBody,
+      headers: {
+        'x-sqldev-access-token': token
+      }
     });
     return {
       data: invokeRes && Object.prototype.hasOwnProperty.call(invokeRes, 'data') ? invokeRes.data : null,
