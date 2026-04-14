@@ -1,13 +1,21 @@
 (function () {
+  function assetUrl(path) {
+    var p = String(path || '').replace(/^\.\//, '');
+    if (typeof window.__sqdevAssetUrl === 'function') return window.__sqdevAssetUrl(p);
+    var v = window.__SQDEV_ASSET_VERSION || '';
+    if (!v) return p;
+    return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(v);
+  }
+
   var queue = [
     'vendor/codemirror.min.js',
     'vendor/sql.min.js',
     'vendor/placeholder.min.js',
     'vendor/active-line.min.js',
     'vendor/vue.global.prod.js',
-    'samples.js',
-    'rules.js',
-    'app.js?v=20260414a'
+    assetUrl('samples.js'),
+    assetUrl('rules.js'),
+    assetUrl('app.js')
   ];
 
   var started = false;
