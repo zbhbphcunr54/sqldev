@@ -770,7 +770,7 @@
       emit();
       throw new Error('登录状态已失效，请点击右上角退出后重新登录');
     }
-    var requestBody = Object.assign({}, body || {}, { accessToken: token });
+    var requestBody = Object.assign({}, body || {});
     var endpoint = String(projectUrl || '').replace(/\/+$/, '') + '/functions/v1/' + encodeURIComponent(name);
     var fetchRes = await fetch(endpoint, {
       method: 'POST',

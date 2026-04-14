@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => null)
-    const token = bearerToken(req) || String(body?.accessToken || '').trim()
+    const token = bearerToken(req)
     if (!validateUserToken(token)) return json({ error: 'Missing or invalid access token' }, 401, corsHeaders)
     const isValidUser = await validateUserSession(token)
     if (!isValidUser) return json({ error: 'Invalid login session' }, 401, corsHeaders)
