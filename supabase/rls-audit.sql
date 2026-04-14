@@ -1,7 +1,18 @@
 -- RLS audit checklist for Supabase projects
 -- Run in Supabase SQL Editor.
+--
+-- Why you may see "empty result":
+-- 1) You currently have no app tables in user schemas.
+-- 2) Your app tables are not in "public" (for example in "app" schema).
+-- 3) You are checking only one schema while data lives elsewhere.
 
--- 1) Tables in public schema with RLS disabled (should be empty for app tables)
+-- 0) Session context
+select
+  current_user as db_user,
+  current_role as db_role,
+  current_setting('role', true) as active_role;
+
+-- 1) Baseline: all user tables (non-system schemas)
 select
   n.nspname as schema_name,
   c.relname as table_name,
@@ -9,31 +20,44 @@ select
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where c.relkind = 'r'
-  and n.nspname = 'public'
-  and c.relname not like 'pg_%'
+  and n.nspname not in ('pg_catalog', 'information_schema')
+  and n.nspname not like 'pg_toast%'
+  and n.nspname not like 'pg_temp_%'
+order by 1, 2;
+
+-- 2) RLS disabled tables in user schemas (should be empty for client-facing tables)
+select
+  n.nspname as schema_name,
+  c.relname as table_name
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where c.relkind = 'r'
+  and n.nspname not in ('pg_catalog', 'information_schema')
+  and n.nspname not like 'pg_toast%'
+  and n.nspname not like 'pg_temp_%'
   and c.relrowsecurity = false
 order by 1, 2;
 
--- 2) Tables with RLS enabled but no policy (usually means all access is blocked)
--- Keep this list intentional and small.
-with public_tables as (
+-- 3) Tables with RLS enabled but no policy
+with user_tables as (
   select c.oid, n.nspname as schema_name, c.relname as table_name
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace
   where c.relkind = 'r'
-    and n.nspname = 'public'
-    and c.relname not like 'pg_%'
+    and n.nspname not in ('pg_catalog', 'information_schema')
+    and n.nspname not like 'pg_toast%'
+    and n.nspname not like 'pg_temp_%'
     and c.relrowsecurity = true
 )
-select pt.schema_name, pt.table_name
-from public_tables pt
+select ut.schema_name, ut.table_name
+from user_tables ut
 left join pg_policies p
-  on p.schemaname = pt.schema_name
- and p.tablename = pt.table_name
+  on p.schemaname = ut.schema_name
+ and p.tablename = ut.table_name
 where p.policyname is null
 order by 1, 2;
 
--- 3) Full policy inventory for manual review
+-- 4) Full policy inventory for manual review
 select
   schemaname,
   tablename,
@@ -44,10 +68,31 @@ select
   coalesce(qual, 'NULL') as using_expr,
   coalesce(with_check, 'NULL') as check_expr
 from pg_policies
-where schemaname = 'public'
-order by tablename, policyname;
+where schemaname not in ('pg_catalog', 'information_schema')
+order by schemaname, tablename, policyname;
 
--- 4) Optional smoke checks (replace table name)
--- select count(*) from public.your_table; -- as current role
--- In Dashboard SQL editor you usually run as service role.
--- For true anon/authenticated behavior, test through the API with real JWTs.
+-- 5) Storage-specific check (if you use Supabase Storage)
+-- storage.objects should have policies for intended read/write behavior.
+select
+  schemaname,
+  tablename,
+  policyname,
+  cmd,
+  roles
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+order by policyname;
+
+-- 6) Optional: quick count by schema to explain empty outputs
+select
+  n.nspname as schema_name,
+  count(*) as table_count
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where c.relkind = 'r'
+  and n.nspname not in ('pg_catalog', 'information_schema')
+  and n.nspname not like 'pg_toast%'
+  and n.nspname not like 'pg_temp_%'
+group by n.nspname
+order by n.nspname;
