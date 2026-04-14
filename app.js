@@ -3430,33 +3430,20 @@ const app = createApp({
       statusText.value = '\u5DF2\u6E05\u7A7A';
     }
 
-    // ========== Free trial gate: 1 free local conversion per type ==========
-    var _trialUsed = JSON.parse(sessionStorage.getItem('_trialUsed') || '{}');
+    // ========== Conversion gate: require signed-in user ==========
     function _hasSignedUser() {
       return !!(window.authApi &&
         typeof window.authApi.getUserSync === 'function' &&
         window.authApi.getUserSync());
     }
-    function _checkTrialOrLogin(kind) {
-      // Logged-in users have unlimited access
+    function _ensureLoginForConversion() {
       if (_hasSignedUser()) return true;
-      // Anonymous users get 1 free conversion per type
-      if (_trialUsed[kind]) {
-        // Already used free trial — show login modal
-        if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
-          window.authApi.openAuthModal('免费体验次数已用完，请注册/登录后继续使用');
-        } else {
-          _showAlert('需要登录', '每种翻译类型仅提供 1 次免费体验，请注册或登录后继续使用完整功能。');
-        }
-        return false;
+      if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
+        window.authApi.openAuthModal('请先注册/登录后再进行 SQL 转换');
+      } else {
+        _showAlert('需要登录', '请先注册或登录后继续使用翻译功能。');
       }
-      return true;
-    }
-    function _markTrialUsed(kind) {
-      if (!_hasSignedUser()) {
-        _trialUsed[kind] = true;
-        try { sessionStorage.setItem('_trialUsed', JSON.stringify(_trialUsed)); } catch(e) {}
-      }
+      return false;
     }
 
     async function convert() {
@@ -3465,28 +3452,18 @@ const app = createApp({
           statusText.value = '请输入待转换的 DDL SQL';
           return;
         }
-        if (!_checkTrialOrLogin('ddl')) {
+        if (!_ensureLoginForConversion()) {
           statusText.value = '请登录后继续使用翻译功能';
           return;
         }
         statusText.value = 'DDL 转换中，请稍候...';
-        var result;
-        var isLocal = false;
-        try {
-          result = await _convertViaBackend('ddl', inputDdl.value, sourceDb.value, targetDb.value);
-        } catch (_backendErr) {
-          // Fallback to local conversion engine
-          result = convertDDL(inputDdl.value, sourceDb.value, targetDb.value);
-          isLocal = true;
-        }
+        var result = await _convertViaBackend('ddl', inputDdl.value, sourceDb.value, targetDb.value);
         outputDdl.value = result;
-        _markTrialUsed('ddl');
         var cls = _classifyResult(result);
-        var suffix = isLocal ? '（本地引擎）' : '';
         statusText.value = cls.level === 'error'   ? cls.summary
                          : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value + ' (' + cls.summary + ')' + suffix
-                         : 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value + suffix;
+                         : cls.level === 'warning' ? 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value + ' (' + cls.summary + ')'
+                         : 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value;
       } catch (e) {
         outputDdl.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
         statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
@@ -3526,27 +3503,18 @@ const app = createApp({
           statusText.value = '请输入待转换的函数 SQL';
           return;
         }
-        if (!_checkTrialOrLogin('func')) {
+        if (!_ensureLoginForConversion()) {
           statusText.value = '请登录后继续使用翻译功能';
           return;
         }
         statusText.value = '函数转换中，请稍候...';
-        var result;
-        var isLocal = false;
-        try {
-          result = await _convertViaBackend('func', funcInput.value, funcSourceDb.value, funcTargetDb.value);
-        } catch (_backendErr) {
-          result = convertFunction(funcInput.value, funcSourceDb.value, funcTargetDb.value);
-          isLocal = true;
-        }
+        var result = await _convertViaBackend('func', funcInput.value, funcSourceDb.value, funcTargetDb.value);
         funcOutput.value = result;
-        _markTrialUsed('func');
         var cls = _classifyResult(result);
-        var suffix = isLocal ? '（本地引擎）' : '';
         statusText.value = cls.level === 'error'   ? cls.summary
                          : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value + ' (' + cls.summary + ')' + suffix
-                         : '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value + suffix;
+                         : cls.level === 'warning' ? '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value + ' (' + cls.summary + ')'
+                         : '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value;
       } catch (e) {
         funcOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
         statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
@@ -3586,27 +3554,18 @@ const app = createApp({
           statusText.value = '请输入待转换的存储过程 SQL';
           return;
         }
-        if (!_checkTrialOrLogin('proc')) {
+        if (!_ensureLoginForConversion()) {
           statusText.value = '请登录后继续使用翻译功能';
           return;
         }
         statusText.value = '存储过程转换中，请稍候...';
-        var result;
-        var isLocal = false;
-        try {
-          result = await _convertViaBackend('proc', procInput.value, procSourceDb.value, procTargetDb.value);
-        } catch (_backendErr) {
-          result = convertProcedure(procInput.value, procSourceDb.value, procTargetDb.value);
-          isLocal = true;
-        }
+        var result = await _convertViaBackend('proc', procInput.value, procSourceDb.value, procTargetDb.value);
         procOutput.value = result;
-        _markTrialUsed('proc');
         var cls = _classifyResult(result);
-        var suffix = isLocal ? '（本地引擎）' : '';
         statusText.value = cls.level === 'error'   ? cls.summary
                          : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value + ' (' + cls.summary + ')' + suffix
-                         : '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value + suffix;
+                         : cls.level === 'warning' ? '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value + ' (' + cls.summary + ')'
+                         : '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value;
       } catch (e) {
         procOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
         statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
