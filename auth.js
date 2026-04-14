@@ -771,36 +771,20 @@
       throw new Error('登录状态已失效，请点击右上角退出后重新登录');
     }
     var requestBody = Object.assign({}, body || {});
-    var endpoint = String(projectUrl || '').replace(/\/+$/, '') + '/functions/v1/' + encodeURIComponent(name);
-    var fetchRes = await fetch(endpoint, {
-      method: 'POST',
-      mode: 'cors',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-        apikey: anonKey
-      },
-      body: JSON.stringify(requestBody)
+    var fnClient = sb.functions;
+    if (!fnClient || typeof fnClient.invoke !== 'function') {
+      throw new Error('Supabase Functions 客户端不可用');
+    }
+    if (typeof fnClient.setAuth === 'function') {
+      fnClient.setAuth(token);
+    }
+    var invokeRes = await fnClient.invoke(name, {
+      body: requestBody
     });
-    var text = await fetchRes.text().catch(function () { return ''; });
-    var parsed = null;
-    if (text) {
-      try { parsed = JSON.parse(text); } catch (_e) { parsed = null; }
-    }
-    if (!fetchRes.ok) {
-      return {
-        data: null,
-        error: {
-          message: (parsed && (parsed.error || parsed.message)) ? String(parsed.error || parsed.message) : ('HTTP ' + fetchRes.status),
-          context: {
-            status: fetchRes.status,
-            statusText: fetchRes.statusText
-          }
-        }
-      };
-    }
-    return { data: parsed, error: null };
+    return {
+      data: invokeRes && Object.prototype.hasOwnProperty.call(invokeRes, 'data') ? invokeRes.data : null,
+      error: invokeRes && Object.prototype.hasOwnProperty.call(invokeRes, 'error') ? invokeRes.error : null
+    };
   }
 
   window.authApi = {
