@@ -1,10 +1,9 @@
 (function () {
+  var ASSET_VERSION = window.__SQDEV_ASSET_VERSION || '20260414d';
+
   function assetUrl(path) {
     var p = String(path || '').replace(/^\.\//, '');
-    if (typeof window.__sqdevAssetUrl === 'function') return window.__sqdevAssetUrl(p);
-    var v = window.__SQDEV_ASSET_VERSION || '';
-    if (!v) return p;
-    return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(v);
+    return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(ASSET_VERSION);
   }
 
   var queue = [

@@ -29,24 +29,7 @@
 <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet"/></noscript>
 <link rel="stylesheet" href="vendor/codemirror.min.css"/>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
-<script>
-window.__SQDEV_ASSET_VERSION='20260414d';
-window.__sqdevAssetUrl=function(path){
-  var p=String(path||'').replace(/^\.\//,'');
-  var v=window.__SQDEV_ASSET_VERSION||'';
-  if(!v) return p;
-  return p+(p.indexOf('?')>=0?'&':'?')+'v='+encodeURIComponent(v);
-};
-</script>
-<script>
-(function(){
-  var link=document.createElement('link');
-  link.rel='stylesheet';
-  link.href=window.__sqdevAssetUrl('style.css');
-  document.head.appendChild(link);
-})();
-</script>
-<noscript><link rel="stylesheet" href="style.css?v=20260414d"/></noscript>
+<link rel="stylesheet" href="style.css?v=20260414d"/>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/sqldev/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
 </script>
@@ -1253,12 +1236,5 @@ $$;</pre>
 <script defer src="supabase-config.js?v=20260414c"></script>
 <script defer src="auth.js?v=20260409a"></script>
 <!-- Non-critical heavy modules are loaded in idle time by bootstrap.js -->
-<script>
-(function(){
-  var script=document.createElement('script');
-  script.defer=true;
-  script.src=(window.__sqdevAssetUrl?window.__sqdevAssetUrl('bootstrap.js'):'bootstrap.js');
-  document.body.appendChild(script);
-})();
-</script>
+<script defer src="bootstrap.js?v=20260414d"></script>
 </body></html>
