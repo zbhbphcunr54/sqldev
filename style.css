@@ -2977,7 +2977,7 @@ body:not(.splash-active) #app{
   right:0;
   top:50%;
   bottom:auto;
-  z-index:110;
+  z-index:140;
   display:inline-flex;
   align-items:center;
   gap:10px;
@@ -2996,6 +2996,17 @@ body:not(.splash-active) #app{
   white-space:nowrap;
   transform:translateY(-50%);
   transition:background .24s,border-color .24s,color .24s,transform .24s,box-shadow .24s,padding .24s;
+}
+/* Keep feedback entry clearly visible on splash and workbench */
+body.splash-active .feedback-fab,
+body:not(.splash-active) .feedback-fab{
+  display:inline-flex;
+  opacity:1;
+  pointer-events:auto;
+}
+body.splash-active .feedback-fab{
+  right:0;
+  top:50%;
 }
 .feedback-fab::after{
   content:"";

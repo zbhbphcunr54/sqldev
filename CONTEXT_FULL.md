@@ -38,6 +38,7 @@ Last updated: 2026-04-15
   - compact default state
   - expands on hover/focus
   - subtle status pulse dot and refined light/dark styling
+  - explicitly pinned visible in both splash(home) and workbench scenes
 - Added a shared feedback modal with:
   - suggestion category
   - content textarea with live character counter
