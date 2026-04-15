@@ -1,6 +1,8 @@
 (function () {
   var FONT_ID = 'async-noto-sans-sc';
   var FONT_HREF = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap';
+  var startupView = window.__SQDEV_STARTUP_VIEW || 'splash';
+  var idleTimeout = startupView === 'workbench' ? 2500 : 1500;
 
   function loadNotoSansSc() {
     if (document.getElementById(FONT_ID)) return;
@@ -12,8 +14,8 @@
   }
 
   if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(loadNotoSansSc, { timeout: 1200 });
+    window.requestIdleCallback(loadNotoSansSc, { timeout: idleTimeout });
   } else {
-    window.setTimeout(loadNotoSansSc, 0);
+    window.setTimeout(loadNotoSansSc, startupView === 'workbench' ? 1200 : 300);
   }
 })();

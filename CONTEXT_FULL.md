@@ -26,6 +26,8 @@ Last updated: 2026-04-15
 - If user was last in workbench, browser refresh should directly restore workbench view.
 - Do not replay splash poster animations on workbench refresh.
 - Startup should fast-path app bootstrap when restoring workbench.
+- Bootstrap now uses dependency-aware parallel loading (instead of full serial chain).
+- Splash startup delays heavy app warmup to reduce first-screen contention.
 
 ## Auth And Convert Architecture (Current Stable Path)
 - Current production-stable strategy:

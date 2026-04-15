@@ -1,21 +1,20 @@
 (function () {
-  var ASSET_VERSION = window.__SQDEV_ASSET_VERSION || '20260414d';
+  var ASSET_VERSION = window.__SQDEV_ASSET_VERSION || '20260415e';
 
   function assetUrl(path) {
     var p = String(path || '').replace(/^\.\//, '');
     return p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(ASSET_VERSION);
   }
 
-  var queue = [
-    'vendor/codemirror.min.js',
+  var coreCodemirror = 'vendor/codemirror.min.js';
+  var codemirrorPlugins = [
     'vendor/sql.min.js',
     'vendor/placeholder.min.js',
-    'vendor/active-line.min.js',
-    'vendor/vue.global.prod.js',
-    assetUrl('samples.js'),
-    assetUrl('rules.js'),
-    assetUrl('app.js')
+    'vendor/active-line.min.js'
   ];
+  var coreVue = 'vendor/vue.global.prod.js';
+  var appDataScripts = [assetUrl('samples.js'), assetUrl('rules.js')];
+  var appEntry = assetUrl('app.js');
 
   var started = false;
   var done = false;
@@ -31,10 +30,18 @@
     });
   }
 
+  function loadScriptsParallel(srcList) {
+    return Promise.all(srcList.map(function (src) { return loadScript(src); }));
+  }
+
   function loadQueue() {
-    return queue.reduce(function (p, src) {
-      return p.then(function () { return loadScript(src); });
-    }, Promise.resolve());
+    var codemirrorReady = loadScript(coreCodemirror);
+    var vueReady = loadScript(coreVue);
+    var appDataReady = loadScriptsParallel(appDataScripts);
+    var pluginReady = codemirrorReady.then(function () { return loadScriptsParallel(codemirrorPlugins); });
+    return Promise.all([vueReady, appDataReady, pluginReady]).then(function () {
+      return loadScript(appEntry);
+    });
   }
 
   function boot(reason) {
@@ -53,9 +60,9 @@
 
   function scheduleIdleBoot() {
     if (typeof window.requestIdleCallback === 'function') {
-      window.requestIdleCallback(function () { boot('idle'); }, { timeout: 1200 });
+      window.requestIdleCallback(function () { boot('idle'); }, { timeout: 5000 });
     } else {
-      setTimeout(function () { boot('timeout'); }, 300);
+      setTimeout(function () { boot('timeout'); }, 2500);
     }
   }
 
@@ -66,7 +73,13 @@
     return;
   }
 
-  document.addEventListener('pointerdown', function () { boot('interaction'); }, { once: true, passive: true });
+  var enterBtn = document.getElementById('sp-enter-btn');
+  if (enterBtn) {
+    enterBtn.addEventListener('pointerdown', function () { boot('enter-btn'); }, { once: true, passive: true });
+  } else {
+    document.addEventListener('pointerdown', function () { boot('interaction'); }, { once: true, passive: true });
+  }
+  window.addEventListener('auth:login-success', function () { boot('auth-success'); }, { once: true });
   document.addEventListener('keydown', function () { boot('interaction'); }, { once: true });
   scheduleIdleBoot();
 })();
