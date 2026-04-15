@@ -1824,6 +1824,18 @@ body{
 }
 
 /* ===== 2026-04 Separate Interface Refinement ===== */
+html.startup-workbench #splash-poster{
+  display:none !important;
+}
+html.startup-workbench body.splash-active{
+  overflow:auto;
+}
+html.startup-workbench body.splash-active #app{
+  pointer-events:auto;
+  opacity:1;
+  filter:none;
+  transform:none;
+}
 body.splash-active{
   overflow:hidden;
 }

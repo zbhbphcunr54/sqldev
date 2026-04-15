@@ -11,6 +11,8 @@
   var themeBtn = document.getElementById('sp-theme-btn');
   var finalEnterBtn = null;
   var themeOrder = ['system', 'dark', 'light'];
+  var VIEW_KEY = 'sqldev_last_view';
+  var START_IN_WORKBENCH = window.__SQDEV_STARTUP_VIEW === 'workbench';
 
   function resolveTheme(mode) {
     if (mode === 'dark' || mode === 'light') return mode;
@@ -50,12 +52,18 @@
     syncTheme(next);
   }
 
-  function enterWorkbench() {
+  function setLastView(view) {
+    try { localStorage.setItem(VIEW_KEY, view); } catch (_err) {}
+  }
+
+  function enterWorkbench(skipMotion) {
+    setLastView('workbench');
+    document.documentElement.classList.add('startup-workbench');
     var savedTheme = localStorage.getItem('theme') || 'system';
     applyTheme(savedTheme);
     window.dispatchEvent(new CustomEvent('sp-theme-sync', { detail: savedTheme }));
     poster.classList.add('leaving');
-    if (prefersReducedMotion) {
+    if (skipMotion || prefersReducedMotion) {
       poster.style.display = 'none';
       document.body.classList.remove('splash-active');
       return;
@@ -67,6 +75,8 @@
   }
 
   function showSplashHome() {
+    setLastView('splash');
+    document.documentElement.classList.remove('startup-workbench');
     applyTheme(localStorage.getItem('theme') || 'system');
     poster.style.display = '';
     poster.classList.remove('leaving');
@@ -84,6 +94,10 @@
     enterWorkbench: enterWorkbench
   });
 
+  if (START_IN_WORKBENCH) {
+    enterWorkbench(true);
+  }
+
   applyTheme(localStorage.getItem('theme') || 'system');
   try {
     var themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
@@ -98,7 +112,7 @@
   /* Floating SQL tokens */
   var keywords = ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'JOIN', 'INDEX', 'TABLE', 'VIEW', 'TRIGGER', 'CURSOR', 'BEGIN', 'END', 'RETURN', 'DECLARE', 'NUMBER', 'VARCHAR2', 'CLOB', 'BOOLEAN'];
   var tokBox = poster.querySelector('.sp-tokens');
-  if (tokBox && !prefersReducedMotion) {
+  if (tokBox && !prefersReducedMotion && !START_IN_WORKBENCH) {
     function spawnTok() {
       var el = document.createElement('span');
       el.className = 'sp-tok';
@@ -119,7 +133,7 @@
   /* Canvas ambient glow */
   var cvs = poster.querySelector('.sp-canvas');
   var ctx = cvs && cvs.getContext ? cvs.getContext('2d') : null;
-  if (ctx && !prefersReducedMotion) {
+  if (ctx && !prefersReducedMotion && !START_IN_WORKBENCH) {
     var orbs = [
       { x: .24, y: .18, r: 280, color: 'rgba(79,125,249,0.11)', vx: .00016, vy: .00013 },
       { x: .78, y: .24, r: 220, color: 'rgba(139,92,246,0.09)', vx: -.00014, vy: .00017 },

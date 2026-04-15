@@ -22,6 +22,11 @@ Last updated: 2026-04-15
   - leaving sidebar area auto-collapses
   - no extra hamburger button
 
+## Refresh Performance Rule (New)
+- If user was last in workbench, browser refresh should directly restore workbench view.
+- Do not replay splash poster animations on workbench refresh.
+- Startup should fast-path app bootstrap when restoring workbench.
+
 ## Auth And Convert Architecture (Current Stable Path)
 - Current production-stable strategy:
   - gateway `verify_jwt = false`
@@ -46,13 +51,17 @@ Last updated: 2026-04-15
   - on throttle: `429` + `Retry-After`
 
 ## Key Files
+- `startup-view.js`
 - `supabase/functions/convert/index.ts`
 - `supabase/config.toml`
 - `supabase/functions/convert/config.toml`
 - `supabase/SECURITY-CHECKLIST.md`
 - `auth.js`
 - `app.js`
+- `splash.js`
+- `bootstrap.js`
 - `index.html`
+- `style.css`
 
 ## Recent Key Commits
 - `fd758f5` chore(cors): make allowed origins fully env-configurable

@@ -61,6 +61,11 @@
 
   window.__loadSqldevAppNow = function () { boot('manual'); };
 
+  if (window.__SQDEV_STARTUP_VIEW === 'workbench' || document.documentElement.classList.contains('startup-workbench')) {
+    boot('startup-workbench');
+    return;
+  }
+
   document.addEventListener('pointerdown', function () { boot('interaction'); }, { once: true, passive: true });
   document.addEventListener('keydown', function () { boot('interaction'); }, { once: true });
   scheduleIdleBoot();
