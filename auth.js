@@ -781,8 +781,7 @@
     var invokeRes = await fnClient.invoke(name, {
       body: requestBody,
       headers: {
-        'Authorization': 'Bearer ' + token,
-        'x-sqldev-access-token': token
+        'Authorization': 'Bearer ' + token
       }
     });
     return {
