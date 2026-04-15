@@ -187,3 +187,28 @@ Last updated: 2026-04-15
 - Refined ID tool birth-date layout alignment:
   - replaced nested year/month/day sub-labels with clean single-line selectors (`年/月/日` in option text),
   - updated date-grid CSS so the birth-date row aligns with neighboring fields.
+
+## 2026-04-15: Region Data First-Load Warmup (Near-Perceived Instant)
+- Added idle-time warmup for administrative-region data in `app.js`:
+  - schedule background `ensureRegionDataLoaded(false)` via `requestIdleCallback` (fallback `setTimeout`),
+  - skip warmup on `saveData` / 2G-like connections to avoid harming constrained networks.
+- Added in-flight promise de-duplication for region loading:
+  - repeated calls now reuse `regionLoadPromise`, avoiding duplicate fetch/parse work during first interaction burst.
+- Added cleanup on unmount:
+  - cancels pending idle warmup callback/timer.
+- Added resource hint in `index.html`:
+  - `<link rel="prefetch" href="region_codes_2024.json" as="fetch"/>`
+  - helps browser fetch region JSON earlier so first entry into ID tool is closer to no-wait.
+
+## 2026-04-15: ID Tool Feedback + Workbench Return Home
+- ID tool button feedback improved:
+  - copy buttons now switch label from `复制` to `已复制` for a short duration after successful clipboard write.
+  - verify buttons now switch label from `校验` to `已校验` for a short duration after each verify action.
+- Repeated verify UX improved:
+  - when the same input is verified repeatedly with the same outcome, result now shows a friendly reminder:
+    - `已重新校验，结果与上次一致：...`
+- Clipboard helper unified:
+  - `clipboardWrite()` now returns `Promise<boolean>` so feature buttons can react to success/failure reliably.
+- Added workbench header entry to return to splash homepage:
+  - new `返回首页` button in header right action area.
+  - wired to `goSplashHome()` in `app.js`, which delegates to `window.splashApi.showHome()` and falls back safely if unavailable.

@@ -30,6 +30,7 @@
 <link rel="stylesheet" href="vendor/codemirror.min.css"/>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <link rel="stylesheet" href="style.css?v=20260415l"/>
+<link rel="prefetch" href="region_codes_2024.json" as="fetch"/>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/sqldev/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
 </script>
@@ -557,6 +558,7 @@
           </div>
         </div>
         <div class="version-box">
+          <button class="btn-back-home" type="button" @click="goSplashHome">返回首页</button>
           <button v-if="isWorkbenchPage" class="btn-translate" @click="runPrimaryAction">开始翻译 <span class="kbd">{{ primaryShortcutLabel }}</span></button>
           <div class="settings-dropdown">
             <button class="theme-toggle" id="settings-trigger" aria-haspopup="true" :aria-expanded="String(showRulesMenu)" @click="showRulesMenu=!showRulesMenu">
@@ -1218,7 +1220,7 @@ $$;</pre>
                   </div>
                   <div class="idtool-output">
                     <input type="text" :value="idGeneratedNumber" readonly placeholder="生成结果将显示在这里"/>
-                    <button class="idtool-btn ghost" type="button" @click="copyGeneratedIdNumber">复制</button>
+                    <button class="idtool-btn ghost" type="button" @click="copyGeneratedIdNumber">{{ idCopyButtonLabel }}</button>
                   </div>
                   <p class="idtool-result" :class="idGenerateResult.type" v-if="idGenerateResult.text">{{ idGenerateResult.text }}</p>
                 </div>
@@ -1232,7 +1234,7 @@ $$;</pre>
                     <input type="text" v-model="idVerifyInput" maxlength="18" placeholder="例如：11010119900101567X"/>
                   </label>
                   <div class="idtool-actions">
-                    <button class="idtool-btn primary" type="button" @click="validateIdNumber">校验</button>
+                    <button class="idtool-btn primary" type="button" @click="validateIdNumber">{{ idVerifyButtonLabel }}</button>
                   </div>
                   <p class="idtool-result" :class="idVerifyResult.type" v-if="idVerifyResult.text">{{ idVerifyResult.text }}</p>
                 </div>
@@ -1287,7 +1289,7 @@ $$;</pre>
                   </div>
                   <div class="idtool-output">
                     <input type="text" :value="usccGeneratedCode" readonly :placeholder="usccOutputPlaceholder"/>
-                    <button class="idtool-btn ghost" type="button" @click="copyGeneratedUsccCode">复制</button>
+                    <button class="idtool-btn ghost" type="button" @click="copyGeneratedUsccCode">{{ usccCopyButtonLabel }}</button>
                   </div>
                   <div class="idtool-legacy-block" v-if="usccLegacyGenerated">
                     <p><strong>工商注册号：</strong>{{ usccLegacyGenerated.businessRegNo }}</p>
@@ -1306,7 +1308,7 @@ $$;</pre>
                     <input type="text" v-model="usccVerifyInput" maxlength="120" :placeholder="usccVerifyPlaceholder"/>
                   </label>
                   <div class="idtool-actions">
-                    <button class="idtool-btn primary" type="button" @click="validateUsccCode">校验</button>
+                    <button class="idtool-btn primary" type="button" @click="validateUsccCode">{{ usccVerifyButtonLabel }}</button>
                   </div>
                   <p class="idtool-result" :class="usccVerifyResult.type" v-if="usccVerifyResult.text">{{ usccVerifyResult.text }}</p>
                 </div>

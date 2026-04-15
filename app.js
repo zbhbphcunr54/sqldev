@@ -2664,6 +2664,8 @@ const app = createApp({
     // Test tools state
     // Use local administrative region data to avoid online latency.
     const REGION_DATA_LOCAL_FILE = './region_codes_2024.json';
+    const REGION_WARMUP_DELAY_MS = 350;
+    const REGION_IDLE_TIMEOUT_MS = 1600;
     const regionLoading = ref(false);
     const regionReady = ref(false);
     const regionLoadError = ref('');
@@ -2672,6 +2674,8 @@ const app = createApp({
     const countiesByCity = ref({});
     const regionCodeSet = ref(new Set());
     const provinceCodeSet = ref(new Set());
+    let regionLoadPromise = null;
+    let regionWarmupHandle = null;
 
     const idProvinceCode = ref('');
     const idCityCode = ref('');
@@ -2685,6 +2689,10 @@ const app = createApp({
     const idGenerateResult = ref({ type: 'info', text: '' });
     const idVerifyInput = ref('');
     const idVerifyResult = ref({ type: 'info', text: '' });
+    const idCopyDone = ref(false);
+    const idVerifyDone = ref(false);
+    const idLastVerifyInput = ref('');
+    const idLastVerifySignature = ref('');
 
     const usccProvinceCode = ref('');
     const usccCityCode = ref('');
@@ -2698,6 +2706,14 @@ const app = createApp({
     const usccGenerateResult = ref({ type: 'info', text: '' });
     const usccVerifyInput = ref('');
     const usccVerifyResult = ref({ type: 'info', text: '' });
+    const usccCopyDone = ref(false);
+    const usccVerifyDone = ref(false);
+    const usccLastVerifyInput = ref('');
+    const usccLastVerifySignature = ref('');
+    let idCopyTimer = 0;
+    let idVerifyTimer = 0;
+    let usccCopyTimer = 0;
+    let usccVerifyTimer = 0;
 
     const idBirthMin = '1900-01-01';
     const idBirthMax = computed(() => {
@@ -2785,6 +2801,18 @@ const app = createApp({
       return usccCodeMode.value === 'legacy3'
         ? '例如：110105123456789 或 A1B2C3D4-5'
         : '例如：91310106MA1FY4BN0X';
+    });
+    const idCopyButtonLabel = computed(function() {
+      return idCopyDone.value ? '\u5df2\u590d\u5236' : '\u590d\u5236';
+    });
+    const usccCopyButtonLabel = computed(function() {
+      return usccCopyDone.value ? '\u5df2\u590d\u5236' : '\u590d\u5236';
+    });
+    const idVerifyButtonLabel = computed(function() {
+      return idVerifyDone.value ? '\u5df2\u6821\u9a8c' : '\u6821\u9a8c';
+    });
+    const usccVerifyButtonLabel = computed(function() {
+      return usccVerifyDone.value ? '\u5df2\u6821\u9a8c' : '\u6821\u9a8c';
     });
 
     function _sortRegionByCode(list) {
@@ -2922,34 +2950,66 @@ const app = createApp({
       _syncIdBirthPartsFromDate();
     }
 
+    function cancelRegionWarmup() {
+      if (!regionWarmupHandle) return;
+      if (typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(regionWarmupHandle);
+      } else {
+        clearTimeout(regionWarmupHandle);
+      }
+      regionWarmupHandle = null;
+    }
+
+    function scheduleRegionWarmup() {
+      if (regionReady.value || regionLoadPromise || regionWarmupHandle) return;
+      if (typeof navigator !== 'undefined') {
+        var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn && (conn.saveData || /2g/i.test(String(conn.effectiveType || '')))) return;
+      }
+      var runWarmup = function() {
+        regionWarmupHandle = null;
+        ensureRegionDataLoaded(false);
+      };
+      if (typeof window.requestIdleCallback === 'function') {
+        regionWarmupHandle = window.requestIdleCallback(runWarmup, { timeout: REGION_IDLE_TIMEOUT_MS });
+      } else {
+        regionWarmupHandle = window.setTimeout(runWarmup, REGION_WARMUP_DELAY_MS);
+      }
+    }
+
     async function ensureRegionDataLoaded(forceReload) {
-      if (regionLoading.value) return;
       if (regionReady.value && !forceReload) return;
+      if (regionLoadPromise) return regionLoadPromise;
+      cancelRegionWarmup();
       regionLoading.value = true;
       regionLoadError.value = '';
-      try {
-        var res = await fetch(REGION_DATA_LOCAL_FILE, {
-          method: 'GET',
-          cache: 'force-cache',
-          credentials: 'same-origin'
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status + ' @ ' + REGION_DATA_LOCAL_FILE);
-        var rows = await res.json();
-        var normalized = _normalizeRegionTreeData(rows);
-        if (!normalized.provinces.length) throw new Error('行政区划数据为空');
-        provinces.value = normalized.provinces;
-        citiesByProvince.value = normalized.citiesByProvince;
-        countiesByCity.value = normalized.countiesByCity;
-        regionCodeSet.value = normalized.regionCodeSet;
-        provinceCodeSet.value = normalized.provinceCodeSet;
-        regionReady.value = true;
-        _initIdToolDefaults();
-      } catch (err) {
-        regionReady.value = false;
-        regionLoadError.value = '行政区划数据加载失败，请检查本地文件后重试：' + String((err && err.message) || err || '');
-      } finally {
-        regionLoading.value = false;
-      }
+      regionLoadPromise = (async function() {
+        try {
+          var res = await fetch(REGION_DATA_LOCAL_FILE, {
+            method: 'GET',
+            cache: 'force-cache',
+            credentials: 'same-origin'
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status + ' @ ' + REGION_DATA_LOCAL_FILE);
+          var rows = await res.json();
+          var normalized = _normalizeRegionTreeData(rows);
+          if (!normalized.provinces.length) throw new Error('行政区划数据为空');
+          provinces.value = normalized.provinces;
+          citiesByProvince.value = normalized.citiesByProvince;
+          countiesByCity.value = normalized.countiesByCity;
+          regionCodeSet.value = normalized.regionCodeSet;
+          provinceCodeSet.value = normalized.provinceCodeSet;
+          regionReady.value = true;
+          _initIdToolDefaults();
+        } catch (err) {
+          regionReady.value = false;
+          regionLoadError.value = '行政区划数据加载失败，请检查本地文件后重试：' + String((err && err.message) || err || '');
+        } finally {
+          regionLoading.value = false;
+          regionLoadPromise = null;
+        }
+      })();
+      return regionLoadPromise;
     }
 
     function reloadRegionData() {
@@ -2981,6 +3041,10 @@ const app = createApp({
       usccLegacyGenerated.value = null;
       usccGenerateResult.value = { type: 'info', text: '' };
       usccVerifyResult.value = { type: 'info', text: '' };
+      usccCopyDone.value = false;
+      usccVerifyDone.value = false;
+      usccLastVerifyInput.value = '';
+      usccLastVerifySignature.value = '';
     });
 
     function _pickBestRegionCode(provinceCode, cityCode, countyCode) {
@@ -3051,6 +3115,58 @@ const app = createApp({
       return String(seqNum).padStart(3, '0');
     }
 
+    function _flashButtonState(flagRef, timerName, durationMs) {
+      if (timerName === 'idCopy') {
+        if (idCopyTimer) clearTimeout(idCopyTimer);
+        flagRef.value = true;
+        idCopyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+        return;
+      }
+      if (timerName === 'idVerify') {
+        if (idVerifyTimer) clearTimeout(idVerifyTimer);
+        flagRef.value = true;
+        idVerifyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+        return;
+      }
+      if (timerName === 'usccCopy') {
+        if (usccCopyTimer) clearTimeout(usccCopyTimer);
+        flagRef.value = true;
+        usccCopyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+        return;
+      }
+      if (timerName === 'usccVerify') {
+        if (usccVerifyTimer) clearTimeout(usccVerifyTimer);
+        flagRef.value = true;
+        usccVerifyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+      }
+    }
+
+    function _setIdVerifyResult(type, text) {
+      var normalizedInput = String(idVerifyInput.value || '').trim().toUpperCase();
+      var signature = String(type || '') + '|' + String(text || '');
+      if (normalizedInput && normalizedInput === idLastVerifyInput.value && signature === idLastVerifySignature.value) {
+        idVerifyResult.value = { type: 'info', text: '\u5df2\u91cd\u65b0\u6821\u9a8c\uff0c\u7ed3\u679c\u4e0e\u4e0a\u6b21\u4e00\u81f4\uff1a' + text };
+      } else {
+        idVerifyResult.value = { type: type, text: text };
+      }
+      idLastVerifyInput.value = normalizedInput;
+      idLastVerifySignature.value = signature;
+      _flashButtonState(idVerifyDone, 'idVerify');
+    }
+
+    function _setUsccVerifyResult(type, text) {
+      var normalizedInput = String(usccVerifyInput.value || '').trim().toUpperCase();
+      var signature = String(type || '') + '|' + String(text || '');
+      if (normalizedInput && normalizedInput === usccLastVerifyInput.value && signature === usccLastVerifySignature.value) {
+        usccVerifyResult.value = { type: 'info', text: '\u5df2\u91cd\u65b0\u6821\u9a8c\uff0c\u7ed3\u679c\u4e0e\u4e0a\u6b21\u4e00\u81f4\uff1a' + text };
+      } else {
+        usccVerifyResult.value = { type: type, text: text };
+      }
+      usccLastVerifyInput.value = normalizedInput;
+      usccLastVerifySignature.value = signature;
+      _flashButtonState(usccVerifyDone, 'usccVerify');
+    }
+
     function generateIdNumber() {
       if (!regionReady.value) {
         idGenerateResult.value = { type: 'error', text: regionLoadError.value || '行政区划数据尚未就绪，请稍后再试' };
@@ -3082,30 +3198,32 @@ const app = createApp({
     }
 
     function validateIdNumber() {
-      var raw = String(idVerifyInput.value || '').trim().toUpperCase();
-      if (!raw) {
-        idVerifyResult.value = { type: 'error', text: '请输入待校验的身份证号码' };
+      var rawInput = String(idVerifyInput.value || '').trim().toUpperCase();
+      if (!rawInput) {
+        _setIdVerifyResult('error', '\u8bf7\u8f93\u5165\u5f85\u6821\u9a8c\u7684\u8eab\u4efd\u8bc1\u53f7\u7801');
         return;
       }
-      if (!/^\d{17}[\dX]$/.test(raw)) {
-        idVerifyResult.value = { type: 'error', text: '格式错误：应为18位（前17位数字，最后一位数字或X）' };
+      if (!/^\d{17}[\dX]$/.test(rawInput)) {
+        _setIdVerifyResult('error', '\u683c\u5f0f\u9519\u8bef\uff1a\u5e94\u4e3a18\u4f4d\uff0817\u4f4d\u6570\u5b57 + \u6700\u540e1\u4f4d\u6570\u5b57\u6216X\uff09');
         return;
       }
-      if (!regionCodeSet.value.has(raw.slice(0, 6))) {
-        idVerifyResult.value = { type: 'error', text: '行政区划代码不存在：' + raw.slice(0, 6) };
+      if (!regionCodeSet.value.has(rawInput.slice(0, 6))) {
+        _setIdVerifyResult('error', '\u884c\u653f\u533a\u5212\u4ee3\u7801\u4e0d\u5b58\u5728\uff1a' + rawInput.slice(0, 6));
         return;
       }
-      var birth = raw.slice(6, 14);
-      if (!_validateBirthYmd8(birth)) {
-        idVerifyResult.value = { type: 'error', text: '出生日期不合法：' + birth };
+      var birthYmd = rawInput.slice(6, 14);
+      if (!_validateBirthYmd8(birthYmd)) {
+        _setIdVerifyResult('error', '\u51fa\u751f\u65e5\u671f\u4e0d\u5408\u6cd5\uff1a' + birthYmd);
         return;
       }
-      var expected = _calcIdCheckDigit(raw.slice(0, 17));
-      if (!expected || expected !== raw[17]) {
-        idVerifyResult.value = { type: 'error', text: '校验码错误：应为 ' + expected + '，实际为 ' + raw[17] };
+      var expectedCheck = _calcIdCheckDigit(rawInput.slice(0, 17));
+      if (!expectedCheck || expectedCheck !== rawInput[17]) {
+        _setIdVerifyResult('error', '\u6821\u9a8c\u7801\u9519\u8bef\uff1a\u5e94\u4e3a ' + expectedCheck + '\uff0c\u5b9e\u9645\u4e3a ' + rawInput[17]);
         return;
       }
-      idVerifyResult.value = { type: 'success', text: '校验通过：身份证号码合法' };
+      _setIdVerifyResult('success', '\u6821\u9a8c\u901a\u8fc7\uff1a\u8eab\u4efd\u8bc1\u53f7\u7801\u5408\u6cd5');
+      return;
+
     }
 
     function copyGeneratedIdNumber() {
@@ -3113,7 +3231,10 @@ const app = createApp({
         idGenerateResult.value = { type: 'info', text: '请先生成身份证号码' };
         return;
       }
-      clipboardWrite(idGeneratedNumber.value);
+      clipboardWrite(idGeneratedNumber.value).then(function(ok) {
+        if (ok) _flashButtonState(idCopyDone, 'idCopy');
+      });
+      return;
     }
 
     function _calcUsccCheckChar(base17) {
@@ -3271,26 +3392,28 @@ const app = createApp({
     }
 
     function validateUsccCode() {
-      var raw = String(usccVerifyInput.value || '').trim().toUpperCase();
-      if (!raw) {
-        usccVerifyResult.value = { type: 'error', text: '请输入待校验的代码' };
+      var rawInput = String(usccVerifyInput.value || '').trim().toUpperCase();
+      if (!rawInput) {
+        _setUsccVerifyResult('error', '\u8bf7\u8f93\u5165\u5f85\u6821\u9a8c\u7684\u4ee3\u7801');
         return;
       }
-      var tokenMatches = raw.match(/[0-9A-HJ-NPQRTUWXY]{18}|[0-9A-Z]{8}-?[0-9X]|\d{15}/g);
-      if (tokenMatches && tokenMatches.length > 1) {
+      var tokens = rawInput.match(/[0-9A-HJ-NPQRTUWXY]{18}|[0-9A-Z]{8}-?[0-9X]|\d{15}/g);
+      if (tokens && tokens.length > 1) {
         var lines = [];
         var allOk = true;
-        for (var i = 0; i < tokenMatches.length; i++) {
-          var token = tokenMatches[i];
+        for (var idx = 0; idx < tokens.length; idx++) {
+          var token = tokens[idx];
           var checkRes = _validateUsccOrLegacyToken(token);
-          lines.push((checkRes.ok ? '√ ' : '× ') + token + '：' + checkRes.msg.replace(/^校验通过：/, ''));
+          lines.push((checkRes.ok ? '\u221a ' : '\u00d7 ') + token + '\uff1a' + checkRes.msg.replace(/^\u6821\u9a8c\u901a\u8fc7\uff1a/, ''));
           if (!checkRes.ok) allOk = false;
         }
-        usccVerifyResult.value = { type: allOk ? 'success' : 'info', text: lines.join('；') };
+        _setUsccVerifyResult(allOk ? 'success' : 'info', lines.join('\uff1b'));
         return;
       }
-      var result = _validateUsccOrLegacyToken(raw);
-      usccVerifyResult.value = { type: result.ok ? 'success' : 'error', text: result.msg };
+      var verifyRes = _validateUsccOrLegacyToken(rawInput);
+      _setUsccVerifyResult(verifyRes.ok ? 'success' : 'error', verifyRes.msg);
+      return;
+
     }
 
     function copyGeneratedUsccCode() {
@@ -3299,7 +3422,10 @@ const app = createApp({
         usccGenerateResult.value = { type: 'info', text: '请先生成代码' };
         return;
       }
-      clipboardWrite(payload);
+      clipboardWrite(payload).then(function(ok) {
+        if (ok) _flashButtonState(usccCopyDone, 'usccCopy');
+      });
+      return;
     }
 
     function pickDb(refName, val) {
@@ -3845,18 +3971,35 @@ const app = createApp({
       const ta = document.createElement('textarea');
       ta.value = t; ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
       document.body.appendChild(ta); ta.focus(); ta.select();
-      try { document.execCommand('copy'); statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F'; }
-      catch(e) { statusText.value = '\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u590D\u5236'; }
-      finally { document.body.removeChild(ta); }
+      try {
+        document.execCommand('copy');
+        statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F';
+        return true;
+      } catch (e) {
+        statusText.value = '\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u590D\u5236';
+        return false;
+      } finally {
+        document.body.removeChild(ta);
+      }
     }
 
     function clipboardWrite(text) {
-      if (!text.trim()) { statusText.value = '\u6682\u65E0\u53EF\u590D\u5236\u5185\u5BB9'; return; }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F').catch(() => fallbackCopy(text));
-      } else {
-        fallbackCopy(text);
+      var content = String(text || '');
+      if (!content.trim()) {
+        statusText.value = '\u6682\u65E0\u53EF\u590D\u5236\u5185\u5BB9';
+        return Promise.resolve(false);
       }
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(content)
+          .then(function() {
+            statusText.value = '\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F';
+            return true;
+          })
+          .catch(function() {
+            return fallbackCopy(content);
+          });
+      }
+      return Promise.resolve(fallbackCopy(content));
     }
 
     function saveFile(text, prefix, dbKey) {
@@ -4282,6 +4425,26 @@ const app = createApp({
       return;
     }
 
+    function goSplashHome() {
+      if (window.innerWidth <= 1024) sidebarOpen.value = false;
+      if (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function') {
+        window.splashApi.showHome();
+      } else {
+        try { localStorage.setItem('sqldev_last_view', 'splash'); } catch (_err) {}
+        document.documentElement.classList.remove('startup-workbench');
+        var poster = document.getElementById('splash-poster');
+        if (poster) {
+          poster.style.display = '';
+          poster.classList.remove('leaving');
+          poster.scrollTop = 0;
+        }
+        document.body.classList.add('splash-active');
+        try { window.scrollTo(0, 0); } catch (_scrollErr) {}
+      }
+      statusText.value = '\u5df2\u8fd4\u56de\u9996\u9875';
+      showRulesMenu.value = false;
+    }
+
     function runWorkbenchAction(action) {
       // Theme toggle works on all pages
       if (action === 'theme') {
@@ -4427,6 +4590,7 @@ const app = createApp({
       // Drag event listeners for modals
       window.addEventListener('mousemove', _onDragMove);
       window.addEventListener('mouseup', _onDragEnd);
+      scheduleRegionWarmup();
     });
     onUnmounted(() => {
       if (scrollHandler) window.removeEventListener('scroll', scrollHandler);
@@ -4434,6 +4598,11 @@ const app = createApp({
       if (outsideClickHandler) document.removeEventListener('click', outsideClickHandler);
       window.removeEventListener('mousemove', _onDragMove);
       window.removeEventListener('mouseup', _onDragEnd);
+      if (idCopyTimer) clearTimeout(idCopyTimer);
+      if (idVerifyTimer) clearTimeout(idVerifyTimer);
+      if (usccCopyTimer) clearTimeout(usccCopyTimer);
+      if (usccVerifyTimer) clearTimeout(usccVerifyTimer);
+      cancelRegionWarmup();
     });
 
     return {
@@ -4444,7 +4613,7 @@ const app = createApp({
       dbDropdown, dbAbbr, dbOptions, pickDb,
       // Theme
       themeMode, themeLabel, themeMenuLabel, primaryShortcutLabel, toggleTheme,
-      currentPageTitle, currentPageSubtitle, currentEngineLabel, currentRuleCount, runPrimaryAction,
+      currentPageTitle, currentPageSubtitle, currentEngineLabel, currentRuleCount, runPrimaryAction, goSplashHome,
       // DDL
       sourceDb, targetDb, inputDdl, outputDdl,
       sourceLabel, targetLabel, inputLineCount, outputMeta, ddlInputEmpty, ddlOutputEmpty,
@@ -4464,13 +4633,13 @@ const app = createApp({
       idBirthDate, idBirthMin, idBirthMax, idBirthYear, idBirthMonth, idBirthDay,
       idBirthYearOptions, idBirthMonthOptions, idBirthDayOptions, idGender,
       idGeneratedNumber, idGenerateResult, idVerifyInput, idVerifyResult,
-      generateIdNumber, validateIdNumber, copyGeneratedIdNumber,
+      idCopyButtonLabel, idVerifyButtonLabel, generateIdNumber, validateIdNumber, copyGeneratedIdNumber,
       usccProvinceCode, usccCityCode, usccCountyCode, usccCityOptions, usccCountyOptions,
       usccCodeMode, usccModeOptions,
       usccDeptCode, usccOrgTypeCode, usccDeptOptions, usccOrgTypeOptions,
       usccGeneratedCode, usccLegacyGenerated, usccOutputPlaceholder, usccVerifyPlaceholder,
       usccGenerateResult, usccVerifyInput, usccVerifyResult,
-      generateUsccCode, validateUsccCode, copyGeneratedUsccCode,
+      usccCopyButtonLabel, usccVerifyButtonLabel, generateUsccCode, validateUsccCode, copyGeneratedUsccCode,
       // Shared
       statusText, fileInput, fileEncoding, ENCODING_OPTIONS, uploadFile, handleFileUpload,
       isWorkbenchPage, runWorkbenchAction, canRunPrimaryAction,
