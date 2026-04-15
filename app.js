@@ -2663,7 +2663,7 @@ const app = createApp({
 
     // Test tools state
     // Use local administrative region data to avoid online latency.
-    const REGION_DATA_LOCAL_FILE = './行政区划代码_2024.json';
+    const REGION_DATA_LOCAL_FILE = './region_codes_2024.json';
     const regionLoading = ref(false);
     const regionReady = ref(false);
     const regionLoadError = ref('');
@@ -3554,7 +3554,7 @@ const app = createApp({
     const procSourceLabel = computed(() => DB_LABELS[procSourceDb.value] || procSourceDb.value);
     const procTargetLabel = computed(() => DB_LABELS[procTargetDb.value] || procTargetDb.value);
     const currentPageTitle = computed(() => {
-      if (activePage.value === 'idTool') return '测试小工具';
+      if (activePage.value === 'idTool') return '测试工具';
       if (activePage.value === 'func') return '函数翻译';
       if (activePage.value === 'proc') return '存储过程翻译';
       if (activePage.value === 'rules') return 'DDL 映射规则管理';

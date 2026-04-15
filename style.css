@@ -3612,3 +3612,136 @@ body.feedback-open{overflow:hidden}
   background:#eff6ff;
   color:#1d4ed8;
 }
+
+/* ===== Bug Fix: Hide native browser password reveal button (double eye icon) ===== */
+input::-ms-reveal,
+input::-ms-clear{
+  display:none !important;
+}
+input[type="password"]::-webkit-credentials-auto-fill-button{
+  display:none !important;
+}
+
+/* ===== Bug Fix: Date input styling for dark mode ===== */
+.idtool-field input[type="date"]{
+  -webkit-appearance:none;
+  appearance:none;
+  position:relative;
+  cursor:pointer;
+}
+.idtool-field input[type="date"]::-webkit-calendar-picker-indicator{
+  cursor:pointer;
+  border-radius:4px;
+  padding:2px;
+  opacity:0.7;
+  filter:invert(1);
+  transition:opacity .14s ease;
+}
+.idtool-field input[type="date"]::-webkit-calendar-picker-indicator:hover{
+  opacity:1;
+}
+.idtool-field input[type="date"]::-webkit-datetime-edit{
+  color:#edf3ff;
+  font:500 12px var(--font-body);
+}
+.idtool-field input[type="date"]::-webkit-datetime-edit-fields-wrapper{
+  padding:0;
+}
+.idtool-field input[type="date"]::-webkit-datetime-edit-month-field,
+.idtool-field input[type="date"]::-webkit-datetime-edit-day-field,
+.idtool-field input[type="date"]::-webkit-datetime-edit-year-field{
+  color:#edf3ff;
+}
+.idtool-field input[type="date"]::-webkit-datetime-edit-month-field:focus,
+.idtool-field input[type="date"]::-webkit-datetime-edit-day-field:focus,
+.idtool-field input[type="date"]::-webkit-datetime-edit-year-field:focus{
+  background:rgba(79,125,249,.25);
+  border-radius:2px;
+  color:#fff;
+}
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-calendar-picker-indicator{
+  filter:none;
+  opacity:0.6;
+}
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-calendar-picker-indicator:hover{
+  opacity:1;
+}
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit{
+  color:#0f172a;
+}
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-month-field,
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-day-field,
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-year-field{
+  color:#0f172a;
+}
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-month-field:focus,
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-day-field:focus,
+[data-theme="light"] .idtool-field input[type="date"]::-webkit-datetime-edit-year-field:focus{
+  background:rgba(37,99,235,.12);
+  color:#1d4ed8;
+}
+
+/* ===== Bug Fix: Hide nav-caret when sidebar is collapsed (not hovered) ===== */
+.sidebar:not(.open):not(:hover) .nav-item-parent .nav-caret{
+  display:none;
+}
+
+/* ===== Feedback success overlay ===== */
+.feedback-success-overlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(8,13,24,.92);
+  border-radius:16px;
+  z-index:10;
+  opacity:0;
+  transition:opacity .22s ease;
+}
+.feedback-success-overlay.show{
+  opacity:1;
+}
+.feedback-success-box{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  padding:32px 24px;
+  text-align:center;
+}
+.feedback-success-icon svg{
+  display:block;
+}
+.feedback-success-title{
+  font:700 18px var(--font-body);
+  color:#edf3ff;
+}
+.feedback-success-desc{
+  font:400 13px var(--font-body);
+  color:#9db1d4;
+}
+.feedback-success-btn{
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  padding:9px 36px;
+  font:600 13px var(--font-body);
+  cursor:pointer;
+  background:linear-gradient(135deg,#4f7df9,#8b5cf6);
+  color:#fff;
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+.feedback-success-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(79,125,249,.3);
+}
+[data-theme="light"] .feedback-success-overlay{
+  background:rgba(255,255,255,.95);
+}
+[data-theme="light"] .feedback-success-title{
+  color:#0f172a;
+}
+[data-theme="light"] .feedback-success-desc{
+  color:#64748b;
+}

@@ -93,6 +93,42 @@
     }, 1800);
   }
 
+  function showSuccessOverlay() {
+    var overlay = document.createElement('div');
+    overlay.className = 'feedback-success-overlay';
+    var box = document.createElement('div');
+    box.className = 'feedback-success-box';
+    var icon = document.createElement('div');
+    icon.className = 'feedback-success-icon';
+    icon.innerHTML = '<svg viewBox="0 0 48 48" fill="none" width="48" height="48"><circle cx="24" cy="24" r="22" stroke="#22c55e" stroke-width="3"/><path d="M14 24l7 7 13-13" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var title = document.createElement('div');
+    title.className = 'feedback-success-title';
+    title.textContent = '提交成功';
+    var desc = document.createElement('div');
+    desc.className = 'feedback-success-desc';
+    desc.textContent = '感谢你的反馈，我们会持续优化产品。';
+    var btn = document.createElement('button');
+    btn.className = 'feedback-success-btn';
+    btn.type = 'button';
+    btn.textContent = '确定';
+    btn.addEventListener('click', function () {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      closeModal();
+    });
+    box.appendChild(icon);
+    box.appendChild(title);
+    box.appendChild(desc);
+    box.appendChild(btn);
+    overlay.appendChild(box);
+    var modal = modalMask.querySelector('.feedback-modal');
+    if (modal) {
+      modal.appendChild(overlay);
+    } else {
+      modalMask.appendChild(overlay);
+    }
+    window.requestAnimationFrame(function () { overlay.classList.add('show'); });
+  }
+
   function persistLocalFeedback(payload, reason) {
     var list = [];
     try {
@@ -232,9 +268,8 @@
       await postFeedback(payload);
       feedbackForm.reset();
       updateCount();
-      setStatus('建议已提交，感谢你的反馈。', false);
-      showToast('反馈已提交');
-      setTimeout(function () { closeModal(); }, 520);
+      setStatus('', false);
+      showSuccessOverlay();
     } catch (err) {
       var reason = toErrorText(err);
       persistLocalFeedback(payload, reason);
