@@ -34,6 +34,10 @@ Last updated: 2026-04-15
 ## Feedback Feature (New)
 - Added a unified "提建议" entry on both interfaces:
   - global side floating feedback FAB (desktop) + compact floating button (mobile)
+- FAB visual style updated to mainstream side capsule pattern:
+  - compact default state
+  - expands on hover/focus
+  - subtle status pulse dot and refined light/dark styling
 - Added a shared feedback modal with:
   - suggestion category
   - content textarea with live character counter
