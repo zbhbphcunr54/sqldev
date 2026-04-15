@@ -1,9 +1,10 @@
-const PRIMARY_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
-const EXTRA_ALLOWED_ORIGINS = (Deno.env.get('CORS_ALLOWED_ORIGINS') || '')
+const DEFAULT_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
+const CORS_PRIMARY_ORIGIN = (Deno.env.get('CORS_PRIMARY_ORIGIN') || DEFAULT_WEB_ORIGIN).trim() || DEFAULT_WEB_ORIGIN
+const CORS_ALLOWED_ORIGINS = (Deno.env.get('CORS_ALLOWED_ORIGINS') || CORS_PRIMARY_ORIGIN)
   .split(',')
   .map((item) => item.trim())
   .filter(Boolean)
-const ALLOWED_ORIGINS = new Set([PRIMARY_WEB_ORIGIN, ...EXTRA_ALLOWED_ORIGINS])
+const ALLOWED_ORIGINS = new Set(CORS_ALLOWED_ORIGINS.length > 0 ? CORS_ALLOWED_ORIGINS : [CORS_PRIMARY_ORIGIN])
 const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i
 const ALLOW_LOCALHOST_ORIGIN = /^(1|true|yes)$/i.test((Deno.env.get('ALLOW_LOCALHOST_ORIGIN') || '').trim())
 const corsBaseHeaders = {
@@ -63,7 +64,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function defaultCorsHeaders() {
   return {
     ...corsBaseHeaders,
-    'Access-Control-Allow-Origin': PRIMARY_WEB_ORIGIN,
+    'Access-Control-Allow-Origin': CORS_PRIMARY_ORIGIN,
     Vary: 'Origin'
   }
 }

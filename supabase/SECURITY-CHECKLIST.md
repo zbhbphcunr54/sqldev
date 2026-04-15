@@ -27,5 +27,5 @@ Security must rely on proper Row Level Security (RLS) policies and restricted Ed
 
 - `supabase/functions/convert/index.ts` already validates user token before service use.
 - `convert` now has per-user/IP rate limiting in the function runtime (default: 20 req / 60s).
-- Production CORS should only allow your real domain; localhost is gated behind `ALLOW_LOCALHOST_ORIGIN=1`.
+- Production CORS should be configured by env vars: `CORS_PRIMARY_ORIGIN` + `CORS_ALLOWED_ORIGINS`; localhost is gated behind `ALLOW_LOCALHOST_ORIGIN=1`.
 - Frontend `supabase-config.js` now refuses privileged keys if accidentally injected.
