@@ -3597,6 +3597,15 @@ const app = createApp({
         closeSettingsMenu();
         return;
       }
+      if (action === 'feedback') {
+        if (typeof window.openFeedbackModal === 'function') {
+          window.openFeedbackModal('workbench-header');
+        } else {
+          statusText.value = '反馈组件未加载，请刷新页面后重试';
+        }
+        closeSettingsMenu();
+        return;
+      }
       var page = activePage.value;
       if (page !== 'ddl' && page !== 'func' && page !== 'proc') {
         statusText.value = '当前页面暂无此操作';

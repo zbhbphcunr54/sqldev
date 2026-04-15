@@ -31,6 +31,23 @@ Last updated: 2026-04-15
 - Theme is now resolved in earliest startup script to avoid dark/light flash on refresh.
 - Chinese font (`Noto Sans SC`) moved to primary font link to avoid async font swap jitter.
 
+## Feedback Feature (New)
+- Added a unified "提建议" entry on both interfaces:
+  - splash top nav button
+  - workbench header button
+  - global floating feedback FAB
+- Added a shared feedback modal with:
+  - suggestion category
+  - content textarea with live character counter
+  - optional contact field
+  - submit status feedback + toast
+- Submission strategy:
+  - tries authenticated `authApi.invokeFunction('feedback', payload)` when user is logged in
+  - falls back to direct endpoint call (`SQDEV_FEEDBACK_ENDPOINT` or `${SUPABASE_URL}/functions/v1/feedback`)
+  - if endpoint is unavailable, auto-saves draft to `localStorage` (`sqldev_feedback_queue`)
+- New global API for internal integration:
+  - `window.openFeedbackModal(source)`
+
 ## Auth And Convert Architecture (Current Stable Path)
 - Current production-stable strategy:
   - gateway `verify_jwt = false`
@@ -64,6 +81,7 @@ Last updated: 2026-04-15
 - `app.js`
 - `splash.js`
 - `bootstrap.js`
+- `feedback.js`
 - `index.html`
 - `style.css`
 

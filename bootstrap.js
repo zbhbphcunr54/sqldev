@@ -1,5 +1,5 @@
 (function () {
-  var ASSET_VERSION = window.__SQDEV_ASSET_VERSION || '20260415e';
+  var ASSET_VERSION = window.__SQDEV_ASSET_VERSION || '20260415f';
 
   function assetUrl(path) {
     var p = String(path || '').replace(/^\.\//, '');
