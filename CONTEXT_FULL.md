@@ -33,17 +33,17 @@ Last updated: 2026-04-15
 
 ## Feedback Feature (New)
 - Added a unified "提建议" entry on both interfaces:
-  - splash top nav button
-  - workbench header button
-  - global floating feedback FAB
+  - global side floating feedback FAB (desktop) + compact floating button (mobile)
 - Added a shared feedback modal with:
   - suggestion category
   - content textarea with live character counter
   - optional contact field
   - submit status feedback + toast
 - Submission strategy:
-  - tries authenticated `authApi.invokeFunction('feedback', payload)` when user is logged in
-  - falls back to direct endpoint call (`SQDEV_FEEDBACK_ENDPOINT` or `${SUPABASE_URL}/functions/v1/feedback`)
+  - online submit now targets Edge Function `feedback` (authenticated path + direct endpoint path)
+  - function writes to `public.feedback_entries` via service-role key
+  - CORS / localhost policy follows the same env controls used by `convert`
+  - has per-user-or-anon + IP rate limiting in function runtime
   - if endpoint is unavailable, auto-saves draft to `localStorage` (`sqldev_feedback_queue`)
 - New global API for internal integration:
   - `window.openFeedbackModal(source)`
@@ -74,6 +74,8 @@ Last updated: 2026-04-15
 ## Key Files
 - `startup-view.js`
 - `supabase/functions/convert/index.ts`
+- `supabase/functions/feedback/index.ts`
+- `supabase/feedback-schema.sql`
 - `supabase/config.toml`
 - `supabase/functions/convert/config.toml`
 - `supabase/SECURITY-CHECKLIST.md`

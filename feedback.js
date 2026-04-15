@@ -1,8 +1,6 @@
 (function () {
   var modalMask = document.getElementById('feedback-modal-mask');
   var feedbackFab = document.getElementById('feedback-fab');
-  var splashFeedbackBtn = document.getElementById('sp-feedback-btn');
-  var feedbackModal = document.querySelector('.feedback-modal');
   var feedbackForm = document.getElementById('feedback-form');
   var feedbackCategory = document.getElementById('feedback-category');
   var feedbackContent = document.getElementById('feedback-content');
@@ -120,7 +118,7 @@
       var user = authApi.getUserSync();
       if (user) {
         var authRes = await authApi.invokeFunction('feedback', payload);
-        if (authRes && !authRes.error) return { channel: 'auth-function' };
+        if (authRes && !authRes.error && authRes.data && authRes.data.ok) return { channel: 'auth-function' };
       }
     }
     var endpoint = getFeedbackEndpoint();
@@ -144,6 +142,11 @@
       var bodyText = '';
       try { bodyText = await res.text(); } catch (_err2) {}
       throw new Error(bodyText || ('HTTP_' + res.status));
+    }
+    var data = null;
+    try { data = await res.json(); } catch (_err3) {}
+    if (!data || data.ok !== true) {
+      throw new Error('ONLINE_SUBMIT_REJECTED');
     }
     return { channel: 'direct-endpoint' };
   }
@@ -194,7 +197,7 @@
       setTimeout(function () { closeModal(); }, 520);
     } catch (err) {
       persistLocalFeedback(payload, err && err.message ? err.message : err);
-      setStatus('在线通道暂不可用，已自动保存到本地草稿。', true);
+      setStatus('在线提交失败，已自动保存到本地草稿。请稍后重试。', true);
       showToast('已保存到本地草稿');
     } finally {
       setBusy(false);
@@ -206,11 +209,6 @@
   if (feedbackFab) {
     feedbackFab.addEventListener('click', function () {
       openModal('floating-fab');
-    });
-  }
-  if (splashFeedbackBtn) {
-    splashFeedbackBtn.addEventListener('click', function () {
-      openModal('splash-nav');
     });
   }
   if (feedbackCloseBtn) feedbackCloseBtn.addEventListener('click', closeModal);

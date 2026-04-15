@@ -27,5 +27,7 @@ Security must rely on proper Row Level Security (RLS) policies and restricted Ed
 
 - `supabase/functions/convert/index.ts` already validates user token before service use.
 - `convert` now has per-user/IP rate limiting in the function runtime (default: 20 req / 60s).
+- `supabase/functions/feedback/index.ts` stores feedback server-side with service-role credentials; do not expose write access from client directly.
+- `public.feedback_entries` should be created from `supabase/feedback-schema.sql` with RLS enabled and direct client policies denied.
 - Production CORS should be configured by env vars: `CORS_PRIMARY_ORIGIN` + `CORS_ALLOWED_ORIGINS`; localhost is gated behind `ALLOW_LOCALHOST_ORIGIN=1`.
 - Frontend `supabase-config.js` now refuses privileged keys if accidentally injected.

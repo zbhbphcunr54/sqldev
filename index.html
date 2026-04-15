@@ -29,7 +29,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="vendor/codemirror.min.css"/>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
-<link rel="stylesheet" href="style.css?v=20260415d"/>
+<link rel="stylesheet" href="style.css?v=20260415e"/>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/sqldev/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
 </script>
@@ -57,7 +57,6 @@
           <span class="sp-nav-logo-text">SQL 翻译工作台</span>
         </div>
         <div class="sp-nav-actions">
-          <button class="sp-nav-feedback" id="sp-feedback-btn" type="button">提建议</button>
           <button class="sp-nav-theme theme-toggle" id="sp-theme-btn" type="button" aria-label="切换主题" title="切换主题">
             <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path d="M10 2.5V4.2M10 15.8V17.5M17.5 10H15.8M4.2 10H2.5M15.3 4.7L14.1 5.9M5.9 14.1L4.7 15.3M15.3 15.3L14.1 14.1M5.9 5.9L4.7 4.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -534,7 +533,6 @@
           </div>
         </div>
         <div class="version-box">
-          <button v-if="isWorkbenchPage" class="btn-feedback" @click="runWorkbenchAction('feedback')">提建议</button>
           <button v-if="isWorkbenchPage" class="btn-translate" @click="runPrimaryAction">开始翻译 <span class="kbd">{{ primaryShortcutLabel }}</span></button>
           <div class="settings-dropdown">
             <button class="theme-toggle" id="settings-trigger" aria-haspopup="true" :aria-expanded="String(showRulesMenu)" @click="showRulesMenu=!showRulesMenu">
@@ -1275,7 +1273,7 @@ $$;</pre>
 <script defer src="vendor/supabase.js"></script>
 <script defer src="supabase-config.js?v=20260414c"></script>
 <script defer src="auth.js?v=20260415a"></script>
-<script defer src="feedback.js?v=20260415a"></script>
+<script defer src="feedback.js?v=20260415b"></script>
 <!-- Non-critical heavy modules are loaded in idle time by bootstrap.js -->
 <script defer src="bootstrap.js?v=20260415f"></script>
 </body></html>
