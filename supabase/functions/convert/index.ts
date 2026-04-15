@@ -27,6 +27,9 @@ let convertFunctionFn: ((input: string, from: string, to: string) => string) | n
 let convertProcedureFn: ((input: string, from: string, to: string) => string) | null = null
 let rulesModule: RulesModuleShape | null = null
 let ddlRulesDefaultSnapshot: Record<string, DdlRuleItem[]> | null = null
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
+const AUTH_USER_ENDPOINT = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/user` : ''
 
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
@@ -219,6 +222,30 @@ function json(data: unknown, status = 200, corsHeaders: Record<string, string> =
   })
 }
 
+function bearerToken(req: Request): string {
+  const auth = req.headers.get('authorization') || ''
+  const match = auth.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() : ''
+}
+
+async function validateUserSession(token: string): Promise<'valid' | 'invalid' | 'error'> {
+  if (!AUTH_USER_ENDPOINT || !SUPABASE_ANON_KEY) return 'error'
+  try {
+    const res = await fetch(AUTH_USER_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: SUPABASE_ANON_KEY
+      }
+    })
+    if (res.ok) return 'valid'
+    if (res.status === 401 || res.status === 403) return 'invalid'
+    return 'error'
+  } catch {
+    return 'error'
+  }
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req)
 
@@ -231,6 +258,15 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders)
 
   try {
+    if (!AUTH_USER_ENDPOINT || !SUPABASE_ANON_KEY) {
+      return json({ error: 'Server env missing SUPABASE_URL or SUPABASE_ANON_KEY' }, 500, corsHeaders)
+    }
+    const token = bearerToken(req)
+    if (!token) return json({ error: 'Missing Authorization bearer token' }, 401, corsHeaders)
+    const sessionState = await validateUserSession(token)
+    if (sessionState === 'invalid') return json({ error: 'Unauthorized' }, 401, corsHeaders)
+    if (sessionState === 'error') return json({ error: 'Auth service unavailable' }, 503, corsHeaders)
+
     const body = await req.json().catch(() => null)
     const kind = String(body?.kind || '')
     const fromDb = String(body?.fromDb || '')
