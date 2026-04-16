@@ -1334,7 +1334,22 @@ $$;</pre>
             <div class="ziwei-form-grid">
               <label class="idtool-field full">
                 <span>命例名称（可选）</span>
-                <input type="text" v-model="ziweiProfileName" maxlength="32" placeholder="例如：张三-1993-08-21 上午"/>
+                <input
+                  type="text"
+                  v-model="ziweiProfileName"
+                  maxlength="64"
+                  list="ziwei-history-name-list"
+                  placeholder="例如：张三-1993-08-21 上午"
+                  @change="applyZiweiHistoryFromInput"
+                />
+                <datalist id="ziwei-history-name-list" v-if="ziweiHistoryNameOptions.length">
+                  <option
+                    v-for="item in ziweiHistoryNameOptions"
+                    :key="'zw-history-opt-'+item.id"
+                    :value="item.value"
+                  >{{ item.meta }}</option>
+                </datalist>
+                <small class="ziwei-mode-hint" v-if="ziweiHistoryNameOptions.length">点击输入框可下拉选择历史命例，不选择时会保留手输名称。</small>
               </label>
               <label class="idtool-field full">
                 <span>历法输入</span>
@@ -1644,48 +1659,23 @@ $$;</pre>
                   <p v-if="!ziweiAnalysis.length">暂无分析内容，请先排盘。</p>
                 </div>
               </section>
+
+              <section class="ziwei-pro-card">
+                <header class="ziwei-pro-head">
+                  <h4>飞化落宫追踪</h4>
+                  <span>{{ ziweiFocusTrackCount }}</span>
+                </header>
+                <div class="ziwei-pro-body">
+                  <article class="ziwei-track-item" v-for="(track, idx) in ziweiFocusTracks" :key="'zw-track-'+idx+'-'+track.tag+'-'+track.star+'-'+track.sourceBranch+'-'+track.targetBranch">
+                    <strong class="ziwei-hua-tag" :data-hua="track.tag">化{{ track.tag }}</strong>
+                    <span class="ziwei-track-star">{{ track.star }}</span>
+                    <span class="ziwei-track-arrow">{{ track.sourceText }} → {{ track.targetText }}</span>
+                  </article>
+                  <p v-if="!ziweiFocusTracks.length">暂无可追踪飞化数据。</p>
+                </div>
+              </section>
             </div>
 
-            <section class="ziwei-pro-card ziwei-pro-card-full" v-if="ziweiProMode">
-              <header class="ziwei-pro-head">
-                <h4>飞化落宫追踪</h4>
-                <span>{{ ziweiFocusTrackCount }}</span>
-              </header>
-              <div class="ziwei-pro-body">
-                <article class="ziwei-track-item" v-for="(track, idx) in ziweiFocusTracks" :key="'zw-track-'+idx+'-'+track.tag+'-'+track.star+'-'+track.sourceBranch+'-'+track.targetBranch">
-                  <strong class="ziwei-hua-tag" :data-hua="track.tag">化{{ track.tag }}</strong>
-                  <span class="ziwei-track-star">{{ track.star }}</span>
-                  <span class="ziwei-track-arrow">{{ track.sourceText }} → {{ track.targetText }}</span>
-                </article>
-                <p v-if="!ziweiFocusTracks.length">暂无可追踪飞化数据。</p>
-              </div>
-            </section>
-
-            <section class="ziwei-pro-card ziwei-history-card" v-if="ziweiProMode">
-              <header class="ziwei-pro-head">
-                <h4>命例历史</h4>
-                <div class="ziwei-history-tools">
-                  <span>{{ ziweiHistoryCountText }}</span>
-                  <button class="idtool-btn ghost" type="button" @click="clearZiweiHistory" :disabled="!ziweiHistory.length">清空</button>
-                </div>
-              </header>
-              <div class="ziwei-history-list" v-if="ziweiHistory.length">
-                <article class="ziwei-history-item" v-for="item in ziweiHistory" :key="item.id">
-                  <div class="ziwei-history-main">
-                    <strong>{{ item.label || '未命名命例' }}</strong>
-                    <span>{{ formatZiweiHistoryTime(item.createdAt) }}</span>
-                    <small>{{ item.summary && item.summary.yearGanZhi }} · {{ item.summary && item.summary.bureau }} · 命宫{{ item.summary && item.summary.mingBranch }}</small>
-                  </div>
-                  <div class="ziwei-history-actions">
-                    <button class="idtool-btn ghost" type="button" @click="loadZiweiHistory(item.id)">载入</button>
-                    <button class="idtool-btn ghost" type="button" @click="removeZiweiHistory(item.id)">删除</button>
-                  </div>
-                </article>
-              </div>
-              <div class="ziwei-pro-body" v-else>
-                <p>暂无历史命例。每次排盘会自动保存最近 30 条。</p>
-              </div>
-            </section>
           </article>
         </section>
       </template>

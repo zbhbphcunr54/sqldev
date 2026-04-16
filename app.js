@@ -3103,6 +3103,22 @@ const app = createApp({
       var count = Array.isArray(ziweiHistory.value) ? ziweiHistory.value.length : 0;
       return String(count) + ' 条';
     });
+    const ziweiHistoryNameOptions = computed(function() {
+      var list = Array.isArray(ziweiHistory.value) ? ziweiHistory.value : [];
+      if (!list.length) return [];
+      return list.map(function(item) {
+        var id = String((item && item.id) || '');
+        var label = String((item && (item.label || item.profileName)) || '').trim() || '未命名命例';
+        var timeText = formatZiweiHistoryTime(item && item.createdAt);
+        var value = label + '（' + timeText + '）';
+        return {
+          id: id,
+          label: label,
+          value: value,
+          meta: '保存时间：' + timeText
+        };
+      });
+    });
     const ziweiActiveAnalysis = computed(function() {
       var list = Array.isArray(ziweiAnalysis.value) ? ziweiAnalysis.value : [];
       var key = String(ziweiAnalysisActiveKey.value || '');
@@ -4291,10 +4307,10 @@ const app = createApp({
       if (!chart || !chart.center) return [];
 
       function scoreLevel(score) {
-        if (score >= 5) return { grade: '强势', tone: '主轴驱动力高，适合主动扩张与承担关键责任。' };
-        if (score >= 2) return { grade: '稳健', tone: '整体结构均衡，适合持续积累与稳步升级。' };
-        if (score >= 0) return { grade: '中平', tone: '节奏宜稳，不宜连续高强度透支。' };
-        return { grade: '保守', tone: '优先补底盘与风控，再谈放量突破。' };
+        if (score >= 6) return { grade: '强势', tone: '主轴驱动力高，适合主动承担关键职责与放大影响力。' };
+        if (score >= 2) return { grade: '稳健', tone: '整体结构较均衡，适合稳步积累、持续升级。' };
+        if (score >= 0) return { grade: '中平', tone: '宜稳扎稳打，避免连续高压和多线并行透支。' };
+        return { grade: '保守', tone: '先做风控与底盘修复，再考虑扩张与加杠杆。' };
       }
 
       function starsWithBrightness(cell, limit) {
@@ -4313,6 +4329,79 @@ const app = createApp({
         return String(branch || '--') + '宫' + (cell.palaceName ? ('·' + cell.palaceName) : '');
       }
 
+      function allStarNames(cell) {
+        if (!cell) return [];
+        var list = [];
+        function pushFrom(arr) {
+          (arr || []).forEach(function(star) {
+            if (star && star.name) list.push(star.name);
+          });
+        }
+        pushFrom(cell.mainStars);
+        pushFrom(cell.assistStars);
+        pushFrom(cell.miscStars);
+        return list;
+      }
+
+      function hasStar(cell, name) {
+        if (!cell || !name) return false;
+        return allStarNames(cell).indexOf(name) >= 0;
+      }
+
+      function hasAnyStar(cell, names) {
+        if (!Array.isArray(names) || !names.length) return false;
+        for (var i = 0; i < names.length; i++) {
+          if (hasStar(cell, names[i])) return true;
+        }
+        return false;
+      }
+
+      function hasHuaTag(cell, tag) {
+        if (!cell || !tag) return false;
+        var groups = [cell.mainStars, cell.assistStars, cell.miscStars];
+        for (var i = 0; i < groups.length; i++) {
+          var arr = groups[i] || [];
+          for (var j = 0; j < arr.length; j++) {
+            var star = arr[j];
+            if (!star || !Array.isArray(star.huaTags)) continue;
+            if (star.huaTags.indexOf(tag) >= 0) return true;
+          }
+        }
+        return false;
+      }
+
+      function parseRange(rangeText) {
+        var text = String(rangeText || '');
+        var m = text.match(/(\d+)\s*-\s*(\d+)/);
+        if (!m) return null;
+        var from = Number(m[1]);
+        var to = Number(m[2]);
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+        return { from: from, to: to };
+      }
+
+      function pickActiveDaXian(timeline, age) {
+        var list = Array.isArray(timeline) ? timeline : [];
+        for (var i = 0; i < list.length; i++) {
+          var item = list[i];
+          if (!item) continue;
+          var range = parseRange(item.range);
+          if (!range) continue;
+          if (age >= range.from && age <= range.to) return item;
+        }
+        return list.length ? list[0] : null;
+      }
+
+      function pickCurrentLiuNianCell(cells, age) {
+        var list = Array.isArray(cells) ? cells : [];
+        for (var i = 0; i < list.length; i++) {
+          var cell = list[i];
+          if (!cell || !Array.isArray(cell.liuNianSeries)) continue;
+          if (cell.liuNianSeries.indexOf(age) >= 0) return cell;
+        }
+        return null;
+      }
+
       var ming = _zwGetCellByPalaceName(chart, '命宫');
       var guan = _zwGetCellByPalaceName(chart, '官禄宫');
       var cai = _zwGetCellByPalaceName(chart, '财帛宫');
@@ -4326,9 +4415,10 @@ const app = createApp({
       var caiScore = _zwEstimatePalaceScore(cai);
       var relationScore = _zwEstimatePalaceScore(fuqi) + _zwEstimatePalaceScore(qianyi);
       var healthScore = _zwEstimatePalaceScore(jiebing) + _zwEstimatePalaceScore(fude);
+      var careerScore = guanScore + caiScore;
 
       var coreLevel = scoreLevel(mingScore);
-      var careerLevel = scoreLevel(guanScore + caiScore);
+      var careerLevel = scoreLevel(careerScore);
       var relationLevel = scoreLevel(relationScore);
       var healthLevel = scoreLevel(healthScore);
 
@@ -4347,12 +4437,123 @@ const app = createApp({
         return item && item.label ? item.label : '';
       }).filter(Boolean).join('、');
       var flyTrackCount = Array.isArray(chart.huaTracks) ? chart.huaTracks.length : 0;
+      var currentYear = new Date().getFullYear();
+      var birthYearMatch = String(chart.center.solarText || '').match(/^(\d{4})/);
+      var birthYear = birthYearMatch ? Number(birthYearMatch[1]) : NaN;
+      var age = Number.isFinite(birthYear) ? (currentYear - birthYear) : NaN;
+      if (!Number.isInteger(age) || age < 1) age = 1;
+      var activeDaXian = pickActiveDaXian(chart.daXianTimeline, age);
+      var activeDaXianCell = activeDaXian ? _zwGetCellByBranch(chart, activeDaXian.branch) : null;
+      var currentLiuNianCell = pickCurrentLiuNianCell(chart.boardCells, age);
+      var currentYearGanZhi = _zwGetYearGanZhi(currentYear);
+      var yearGanZhi = String(chart.center.yearGanZhi || '');
+      var yearStem = yearGanZhi.slice(0, 1);
+      var yangStems = ['甲', '丙', '戊', '庚', '壬'];
+      var yinYangGender = (yangStems.indexOf(yearStem) >= 0 ? '阳' : '阴') + (chart.center.genderLabel === '女' ? '女' : '男');
+      var activeDaXianLabel = activeDaXian
+        ? ((activeDaXian.range || '--') + '岁 ' + (activeDaXian.branch || '--') + (activeDaXian.palaceName ? ('宫·' + activeDaXian.palaceName) : '宫'))
+        : '大限待确认';
+      var liuNianLabel = currentLiuNianCell
+        ? (currentYear + '年(' + currentYearGanZhi + ')流年落 ' + currentLiuNianCell.branch + '宫·' + currentLiuNianCell.palaceName)
+        : (currentYear + '年(' + currentYearGanZhi + ')流年落宫待确认');
+      var introText = '这是' +
+        (Number.isFinite(birthYear) ? (String(birthYear) + '年生 ') : '') +
+        yinYangGender + '，' +
+        String(chart.center.lunarText || '--') + '，' +
+        String(chart.center.bureauLabel || '--') + '。命主' + (chart.center.mingZhu || '--') +
+        '，身主' + (chart.center.shenZhu || '--') + '，身宫落' + (chart.center.shenPalaceName || '--') +
+        '。当前' + String(currentYear) + '年你约' + String(age) + '岁，正走' + activeDaXianLabel + '。';
+      var mingPatternTags = [];
+      if (hasStar(ming, '天梁')) mingPatternTags.push('专业清贵');
+      if (hasStar(ming, '紫微') || hasStar(ming, '天府')) mingPatternTags.push('统筹掌盘');
+      if (hasStar(ming, '武曲')) mingPatternTags.push('执行理财');
+      if (hasStar(ming, '巨门')) mingPatternTags.push('思辨表达');
+      if (hasAnyStar(ming, ['七杀', '破军'])) mingPatternTags.push('变革开创');
+      if (!mingPatternTags.length) mingPatternTags.push(coreLevel.grade === '强势' ? '主星发力' : '稳步积累');
+
+      var coreExplain = [
+        '命宫主星为「' + starsWithBrightness(ming, 4) + '」，格局标签偏「' + mingPatternTags.join(' / ') + '」。',
+        coreLevel.tone,
+        '身宫落在「' + (chart.center.shenPalaceName || '--') + '」，说明你的人生重心会不断回到这个宫位主题。'
+      ];
+      if (hasStar(ming, '天梁')) coreExplain.push('天梁入命通常代表责任感与原则感强，适合做需要专业公信力的长期路线。');
+      if (hasAnyStar(ming, ['擎羊', '陀罗'])) coreExplain.push('命宫夹煞时，执行力会很硬，但表达容易过直，需避免“正确但难合作”的沟通方式。');
+      if (chart.center.shenPalaceName === '夫妻宫') coreExplain.push('身宫落夫妻宫，重大决策会自然优先考虑关系与家庭稳定。');
+
+      var careerExplain = [
+        '官禄宫看岗位职责，财帛宫看变现结构；你当前呈现「' + careerLevel.grade + '」节奏。',
+        careerLevel.tone,
+        '当前大限落点：' + activeDaXianLabel + '，对应主星「' + starsWithBrightness(activeDaXianCell, 3) + '」。'
+      ];
+      if (hasStar(cai, '紫微') && hasStar(cai, '天府')) careerExplain.push('财帛宫见紫微+天府，偏“稳守财库”模型，宜长期攒资产、做复利。');
+      if (hasAnyStar(guan, ['巨门', '文昌', '文曲'])) careerExplain.push('官禄宫带巨门/昌曲时，靠表达、知识输出、咨询培训、专业沟通的赛道更容易出成绩。');
+      if (hasAnyStar(guan, ['七杀', '破军', '贪狼'])) careerExplain.push('官禄宫开创星重，意味着你在“新方向/新项目/高变化岗位”中更能放大优势。');
+      if (hasHuaTag(activeDaXianCell, '权')) careerExplain.push('当前大限带化权，通常对应管理职责或资源调度权上升，是争取话语权的窗口期。');
+
+      var relationExplain = [
+        '夫妻宫主星「' + starsWithBrightness(fuqi, 3) + '」，迁移宫主星「' + starsWithBrightness(qianyi, 3) + '」。',
+        relationLevel.tone,
+        '关系议题关键在“先对齐预期，再投入承诺”，比事后补救更有效。'
+      ];
+      if (hasAnyStar(fuqi, ['巨门', '擎羊', '陀罗'])) relationExplain.push('夫妻宫带巨门/羊陀时，沟通里容易出现“话没错但情绪受伤”，需要更柔和的表达节奏。');
+      if (hasAnyStar(fuqi, ['天同', '太阴', '天府'])) relationExplain.push('夫妻宫见温和型主星，长期关系的稳定性较好，适合通过日常经营积累安全感。');
+      if (chart.center.shenPalaceName === '夫妻宫') relationExplain.push('身宫在夫妻宫会放大你对亲密关系的投入度，关系稳定就是你的能量补给。');
+
+      var healthExplain = [
+        '疾厄宫主星「' + starsWithBrightness(jiebing, 3) + '」，福德宫主星「' + starsWithBrightness(fude, 3) + '」。',
+        healthLevel.tone,
+        '健康管理重点不是“硬扛”，而是维持可持续节奏与恢复能力。'
+      ];
+      if (hasAnyStar(jiebing, ['擎羊', '陀罗', '火星', '铃星'])) healthExplain.push('疾厄宫煞曜较重时，易有炎症、劳损或急性不适，务必压住熬夜与连续超负荷。');
+      if (hasAnyStar(jiebing, ['天机', '巨门'])) healthExplain.push('神经压力与思虑负担偏高，建议固定运动和睡眠窗口，减少“脑子停不下来”的消耗。');
+      if (hasAnyStar(jiebing, ['太阴', '天同'])) healthExplain.push('偏内耗体质时，情绪管理与规律作息会直接影响身体状态。');
+
+      var annualExplain = [
+        liuNianLabel + '，主星「' + starsWithBrightness(currentLiuNianCell, 3) + '」。',
+        '本命四化：' + (huaSummaryText || '暂无四化摘要') + '。',
+        '飞化追踪条数：' + String(flyTrackCount) + '（' + (chart.center.schoolLabel || '传统四化') + '）。'
+      ];
+      if (currentLiuNianCell && hasAnyStar(currentLiuNianCell, ['禄存', '天相', '左辅', '右弼'])) {
+        annualExplain.push('流年宫位见辅佐与禄星，利于借团队/同业资源放大成果。');
+      }
+      if (currentLiuNianCell && hasAnyStar(currentLiuNianCell, ['巨门'])) {
+        annualExplain.push('流年需格外重视沟通与合同细节，避免因表达或条款疏漏引发反复。');
+      }
+      if (hasHuaTag(currentLiuNianCell, '忌')) {
+        annualExplain.push('流年宫位见化忌，建议少做高杠杆承诺，先保现金流与节奏稳定。');
+      }
 
       var sections = [];
       sections.push({
+        key: 'overview',
+        title: '命盘总论',
+        text: introText,
+        level: '当前主线：' + activeDaXianLabel,
+        metrics: [
+          { label: '出生信息', value: (chart.center.solarText || '--') },
+          { label: '命主/身主', value: (chart.center.mingZhu || '--') + ' / ' + (chart.center.shenZhu || '--') },
+          { label: '当前年龄', value: String(age) + ' 岁（' + String(currentYear) + '）' }
+        ],
+        evidence: [
+          '农历信息：' + (chart.center.lunarText || '--'),
+          '命宫/身宫：' + (chart.center.mingBranch || '--') + ' / ' + (chart.center.shenBranch || '--') + '（身宫落' + (chart.center.shenPalaceName || '--') + '）',
+          '当前大限：' + activeDaXianLabel
+        ],
+        explain: [
+          '总论用于先定“人生主轴”和“当前十年重点”，再展开性格、事业、关系和健康的分层判断。',
+          '你的盘面当前更适合“做深做稳、逐步放大”，而不是短线高风险冲刺。'
+        ],
+        suggestions: [
+          '把当前十年目标拆成三层：底盘稳定（现金流/健康）→ 能力升级（专业壁垒）→ 结构放大（团队/资产）。',
+          '每年固定复盘一次：主赛道是否仍与命盘优势同频。'
+        ],
+        risks: []
+      });
+
+      sections.push({
         key: 'core',
-        title: '命格总览',
-        text: '命宫主星“' + starsWithBrightness(ming, 4) + '”，当前评级为「' + coreLevel.grade + '」。',
+        title: '核心性格与命格基调',
+        text: '命宫「' + starsWithBrightness(ming, 4) + '」，格局偏「' + mingPatternTags.join(' / ') + '」，当前评级「' + coreLevel.grade + '」。',
         level: '评级：' + coreLevel.grade,
         metrics: [
           { label: '命宫评分', value: String(mingScore) },
@@ -4364,22 +4565,18 @@ const app = createApp({
           '身宫位置：' + (chart.center.shenBranch || '--') + '宫；落宫主题：' + (chart.center.shenPalaceName || '--'),
           '三方四正：' + sifangText
         ],
-        explain: [
-          coreLevel.tone,
-          '命宫决定“你怎么发力”，身宫决定“你在哪些场景更容易显化结果”。',
-          '若命宫与身宫主题一致，执行链条更短；不一致时，需要靠流程和外部约束补齐。'
-        ],
+        explain: coreExplain,
         suggestions: [
-          '把年度目标拆成“主轴能力 + 可量化结果”双指标，每月复盘一次。',
-          '优先做能复用的方法论沉淀，而不是只追求短期高波动结果。'
+          '把年度目标拆成“主轴能力 + 可量化结果”双指标，每月复盘一次，减少无效忙碌。',
+          '保留“强执行”优势的同时，强化表达柔性，避免因沟通过硬影响合作质量。'
         ],
         risks: mingScore < 0 ? ['命宫评分偏弱阶段，避免并行过多高风险决策。'] : []
       });
 
       sections.push({
         key: 'career',
-        title: '事业发展',
-        text: '官禄宫「' + starsWithBrightness(guan, 3) + '」+ 财帛宫「' + starsWithBrightness(cai, 3) + '」，职业与变现建议联动设计。',
+        title: '事业财运解析',
+        text: '官禄宫「' + starsWithBrightness(guan, 3) + '」+ 财帛宫「' + starsWithBrightness(cai, 3) + '」，当前十年主线：' + activeDaXianLabel + '。',
         level: '评级：' + careerLevel.grade,
         metrics: [
           { label: '官禄评分', value: String(guanScore) },
@@ -4389,24 +4586,22 @@ const app = createApp({
         evidence: [
           '官禄宫主星：' + starsWithBrightness(guan, 3),
           '财帛宫主星：' + starsWithBrightness(cai, 3),
-          '当前大限前段：' + daXianText
+          '当前大限前段：' + daXianText,
+          '当前所处大限：' + activeDaXianLabel
         ],
-        explain: [
-          careerLevel.tone,
-          '官禄偏“岗位/职责/赛道”，财帛偏“收入结构/变现效率/议价能力”。',
-          '两宫同向时，适合加杠杆扩张；不同向时，先修盈利模型再扩规模。'
-        ],
+        explain: careerExplain,
         suggestions: [
           '建立“主业收入 + 可复制副引擎”的双曲线，避免单点依赖。',
+          '把关键机会放在“可持续复利”的资产上（专业能力、客户资产、房产/长期配置），而非短线博弈。',
           '每季度做一次岗位价值盘点：产出、不可替代性、市场价格三维对齐。'
         ],
-        risks: (guanScore + caiScore) < 0 ? ['事业与变现节奏不一致时，先降固定成本，再做方向升级。'] : []
+        risks: careerScore < 0 ? ['事业与变现节奏不一致时，先降固定成本，再做方向升级。'] : []
       });
 
       sections.push({
         key: 'relation',
-        title: '关系与合作',
-        text: '夫妻宫「' + starsWithBrightness(fuqi, 3) + '」与迁移宫「' + starsWithBrightness(qianyi, 3) + '」显示你的合作边界与外部协作模式。',
+        title: '感情婚姻与合作关系',
+        text: '夫妻宫「' + starsWithBrightness(fuqi, 3) + '」与迁移宫「' + starsWithBrightness(qianyi, 3) + '」共同定义你的亲密关系与合作边界。',
         level: '评级：' + relationLevel.grade,
         metrics: [
           { label: '关系评分', value: String(relationScore) },
@@ -4417,13 +4612,10 @@ const app = createApp({
           '夫妻宫对应亲密关系与长期合作契约。',
           '迁移宫对应外部环境适配、跨团队协同与出差/迁移适应力。'
         ],
-        explain: [
-          relationLevel.tone,
-          '关系议题的关键是“预期管理”：先明确边界，再谈资源交换。',
-          '迁移宫强时可主动拓展外部资源；偏弱时更适合深耕既有圈层。'
-        ],
+        explain: relationExplain,
         suggestions: [
           '合作前固定使用一页纸约定：目标、分工、节奏、退出机制。',
+          '关系紧张时优先修“说话方式”，再修“事情对错”，冲突成本会明显下降。',
           '高压阶段把沟通频次提高，减少信息不对称造成的误读。'
         ],
         risks: relationScore < 0 ? ['避免情绪化承诺；先验证稳定性再增加合作深度。'] : []
@@ -4431,8 +4623,8 @@ const app = createApp({
 
       sections.push({
         key: 'health',
-        title: '节奏与健康',
-        text: '疾厄宫「' + starsWithBrightness(jiebing, 3) + '」+ 福德宫「' + starsWithBrightness(fude, 3) + '」，建议长期管理“精力预算”。',
+        title: '健康与节奏管理',
+        text: '疾厄宫「' + starsWithBrightness(jiebing, 3) + '」+ 福德宫「' + starsWithBrightness(fude, 3) + '」，重点是守住“恢复力”。',
         level: '评级：' + healthLevel.grade,
         metrics: [
           { label: '健康评分', value: String(healthScore) },
@@ -4443,39 +4635,39 @@ const app = createApp({
           '疾厄宫看身体负荷与恢复阈值，福德宫看精神容量与内在稳定度。',
           '当两宫不同步时，常见表现是“身体可撑住，但精神先透支”。'
         ],
-        explain: [
-          healthLevel.tone,
-          '健康管理重点是“可持续节奏”，不是短期冲刺。',
-          '将作息、运动、饮食和体检纳入固定排程，比临时补救更有效。'
-        ],
+        explain: healthExplain,
         suggestions: [
           '建立周节律：高强度日不超过3天，至少保留1天低负荷恢复日。',
-          '每半年做一次体检与压力评估，把风险前置。'
+          '每半年做一次体检与压力评估，把风险前置。',
+          '如果当前应酬/熬夜增多，先把睡眠和饮食质量拉回基线，再谈提速。'
         ],
         risks: healthScore < 0 ? ['近期不建议长期熬夜+高压并行，优先保恢复能力。'] : []
       });
 
       sections.push({
         key: 'flow',
-        title: '四化与运势节奏',
-        text: (chart.center.schoolLabel || '传统四化') + '模式下，飞化追踪共 ' + String(flyTrackCount) + ' 条，可结合大限与流年交叉验证。',
-        level: chart.center.schoolLabel || '传统四化',
+        title: String(currentYear) + '流年与四化焦点',
+        text: liuNianLabel + '；当前排盘模式为「' + (chart.center.schoolLabel || '传统四化') + '」。',
+        level: '当前十年：' + activeDaXianLabel,
         metrics: [
+          { label: '当前流年', value: String(currentYear) + ' ' + currentYearGanZhi },
           { label: '流派', value: chart.center.schoolLabel || '--' },
           { label: '飞化追踪', value: String(flyTrackCount) + ' 条' },
           { label: '本命四化', value: huaSummaryText || '--' }
         ],
         evidence: [
+          '当前大限：' + activeDaXianLabel,
           '大限前段：' + daXianText,
           '本命四化：' + (huaSummaryText || '--'),
           '建议重点观察“化忌落点”与目标宫位是否同频。'
         ],
-        explain: [
+        explain: annualExplain.concat([
           '传统四化适合看“底层倾向”，飞星四化适合看“动态路径与触发点”。',
-          '判断时先看主星结构，再看四化流向，最后叠加大限/流年。'
-        ],
+          '判断顺序建议：主星结构 → 四化流向 → 大限流年叠加。'
+        ]),
         suggestions: [
           '为每个重点宫位建立“触发条件—行为策略—复盘指标”的闭环。',
+          '今年做重要决策时，优先看“现金流安全 + 关系稳定 + 体能边界”三条底线。',
           '把飞化落宫追踪与三方四正同时看，避免单点解读。'
         ],
         risks: []
@@ -4545,7 +4737,26 @@ const app = createApp({
       _zwSaveHistory(list);
     }
 
-    function loadZiweiHistory(itemId) {
+    function applyZiweiHistoryFromInput() {
+      var raw = String(ziweiProfileName.value || '').trim();
+      if (!raw) return;
+      var options = Array.isArray(ziweiHistoryNameOptions.value) ? ziweiHistoryNameOptions.value : [];
+      if (!options.length) return;
+      var matched = null;
+      for (var i = 0; i < options.length; i++) {
+        if (options[i] && options[i].value === raw) {
+          matched = options[i];
+          break;
+        }
+      }
+      if (!matched || !matched.id) return;
+      loadZiweiHistory(matched.id, {
+        fromInputPicker: true
+      });
+    }
+
+    function loadZiweiHistory(itemId, options) {
+      var opt = options || {};
       var id = String(itemId || '');
       if (!id) return;
       var list = _zwLoadHistory();
@@ -4571,7 +4782,10 @@ const app = createApp({
       ziweiGender.value = found.gender === 'female' ? 'female' : 'male';
       ziweiSchool.value = found.school === 'flying' ? 'flying' : 'traditional';
       generateZiweiChart({ saveHistory: false });
-      ziweiStatus.value = { type: 'success', text: '已载入历史命例并重新排盘。' };
+      ziweiStatus.value = {
+        type: 'success',
+        text: opt.fromInputPicker ? '已从命例名称下拉载入历史命例并重新排盘。' : '已载入历史命例并重新排盘。'
+      };
     }
 
     function removeZiweiHistory(itemId) {
@@ -6345,12 +6559,12 @@ const app = createApp({
       ziweiProfileName, ziweiProMode, ziweiSchool, ziweiSchoolLabel, ziweiFocusBranch, ziweiFocusCell,
       ziweiSifangBranches, ziweiSifangCells,
       ziweiYearOptions, ziweiMonthOptions, ziweiHourOptions, ziweiMinuteOptions,
-      ziweiChart, ziweiAnalysis, ziweiHistory, ziweiHistoryCountText, ziweiFocusTracks, ziweiFocusTrackCount, ziweiStatus,
+      ziweiChart, ziweiAnalysis, ziweiHistory, ziweiHistoryCountText, ziweiHistoryNameOptions, ziweiFocusTracks, ziweiFocusTrackCount, ziweiStatus,
       ziweiActiveAnalysis, ziweiAnalysisActiveKey,
       ziweiExporting, ziweiGenerating,
       ziweiGenerateButtonLabel, ziweiCopyButtonLabel, ziweiExportButtonLabel,
       generateZiweiChart, copyZiweiChartText, exportZiweiChartImage,
-      focusZiweiBranch, toggleZiweiAnalysis, loadZiweiHistory, removeZiweiHistory, clearZiweiHistory, formatZiweiHistoryTime,
+      focusZiweiBranch, toggleZiweiAnalysis, applyZiweiHistoryFromInput, loadZiweiHistory, removeZiweiHistory, clearZiweiHistory, formatZiweiHistoryTime,
       // Shared
       statusText, fileInput, fileEncoding, ENCODING_OPTIONS, uploadFile, handleFileUpload,
       isWorkbenchPage, runWorkbenchAction, canRunPrimaryAction,

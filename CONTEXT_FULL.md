@@ -315,3 +315,20 @@ Last updated: 2026-04-15
 - Added missing Vue exports for all new pro states:
   - `ziweiSchool`, `ziweiSchoolLabel`, `ziweiSifangBranches`, `ziweiSifangCells`,
   - `ziweiFocusTracks`, `ziweiFocusTrackCount`.
+
+## 2026-04-16: ZiWei Summary Upgrade (Professional Narrative Level)
+- Upgraded `app.js::_zwBuildAnalysisPro(chart)` from short bullet-style hints to long-form professional narrative output.
+- Added a new first section `命盘总论`:
+  - auto-summarizes `出生年份 + 阴阳男女 + 农历信息 + 五行局 + 命主/身主 + 身宫落点`
+  - includes current-year age and active `大限` position.
+- Expanded all analysis sections into deeper, deterministic interpretation blocks:
+  - `核心性格与命格基调`
+  - `事业财运解析`
+  - `感情婚姻与合作关系`
+  - `健康与节奏管理`
+  - `{当年}流年与四化焦点`
+- Added dynamic evidence-chain extraction from盘面:
+  - current active `大限` by age-range matching
+  - current `流年落宫` by age → `liuNianSeries` mapping
+  - star and四化 feature checks (`hasStar / hasAnyStar / hasHuaTag`) to generate targeted interpretation text.
+- Retained existing UI contract (`title/text/metrics/evidence/explain/suggestions/risks`) so the detailed panel works without template changes.
