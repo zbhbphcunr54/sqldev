@@ -1519,6 +1519,7 @@ $$;</pre>
 
             <div class="ziwei-actions">
               <button class="idtool-btn primary ziwei-action-btn" type="button" :disabled="ziweiGenerating" @click="generateZiweiChart">{{ ziweiGenerateButtonLabel }}</button>
+              <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="!ziweiChart || ziweiAiLoading" @click="requestZiweiAiAnalysis({force:true})">{{ ziweiAiButtonLabel }}</button>
               <button class="idtool-btn ghost ziwei-action-btn" type="button" @click="copyZiweiChartText">{{ ziweiCopyButtonLabel }}</button>
               <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="ziweiExporting" @click="exportZiweiChartImage">{{ ziweiExportButtonLabel }}</button>
             </div>
@@ -1727,6 +1728,38 @@ $$;</pre>
                 </div>
                 <div class="ziwei-pro-body" v-else>
                   <p v-if="!ziweiAnalysis.length">暂无分析内容，请先排盘。</p>
+                </div>
+              </section>
+
+              <section class="ziwei-pro-card ziwei-pro-card-full ziwei-ai-card">
+                <header class="ziwei-pro-head">
+                  <h4>AI个性化解盘</h4>
+                  <span>{{ ziweiAiLoading ? '生成中...' : (ziweiAiUpdatedAtText ? ('更新于 ' + ziweiAiUpdatedAtText) : '未生成') }}</span>
+                </header>
+                <div class="ziwei-pro-body ziwei-ai-body" v-if="ziweiAiResult">
+                  <p class="ziwei-ai-overview">{{ ziweiAiResult.overview }}</p>
+                  <article class="ziwei-ai-section" v-for="(sec, idx) in ziweiAiResult.sections" :key="'zw-ai-sec-'+idx+'-'+sec.title">
+                    <h5>{{ sec.title }}</h5>
+                    <p>{{ sec.summary }}</p>
+                    <p v-if="sec.evidence && sec.evidence.length"><strong>依据：</strong>{{ sec.evidence.join('；') }}</p>
+                    <p v-if="sec.advice && sec.advice.length"><strong>建议：</strong>{{ sec.advice.join('；') }}</p>
+                  </article>
+                  <div class="ziwei-ai-block" v-if="ziweiAiResult.yearFocus">
+                    <h6>年度焦点</h6>
+                    <p>{{ ziweiAiResult.yearFocus.summary }}</p>
+                    <p v-if="ziweiAiResult.yearFocus.opportunities && ziweiAiResult.yearFocus.opportunities.length"><strong>机会：</strong>{{ ziweiAiResult.yearFocus.opportunities.join('；') }}</p>
+                    <p v-if="ziweiAiResult.yearFocus.risks && ziweiAiResult.yearFocus.risks.length"><strong>风险：</strong>{{ ziweiAiResult.yearFocus.risks.join('；') }}</p>
+                  </div>
+                  <div class="ziwei-ai-block" v-if="ziweiAiResult.nextActions && ziweiAiResult.nextActions.length">
+                    <h6>下一步行动</h6>
+                    <p v-for="(line, idx) in ziweiAiResult.nextActions" :key="'zw-ai-next-'+idx">{{ line }}</p>
+                  </div>
+                  <p class="ziwei-ai-disclaimer" v-if="ziweiAiResult.disclaimer">{{ ziweiAiResult.disclaimer }}</p>
+                </div>
+                <div class="ziwei-pro-body ziwei-ai-body" v-else>
+                  <p v-if="ziweiAiLoading">AI 正在结合当前命盘生成个性化分析...</p>
+                  <p v-else-if="ziweiAiError">{{ ziweiAiError }}</p>
+                  <p v-else>点击“AI深度解盘”可生成更具个体差异的分析文本。</p>
                 </div>
               </section>
 

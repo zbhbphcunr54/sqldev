@@ -419,3 +419,30 @@ Last updated: 2026-04-15
   - `.ziwei-flow*`
   - `.ziwei-advanced-toggle*`
   - light-theme variants for both.
+
+## 2026-04-16: ZiWei AI Personalization (Rule + AI Dual Layer)
+- Added a new Supabase Edge Function: `supabase/functions/ziwei-analysis/index.ts`
+  - Auth via Supabase `/auth/v1/user` bearer validation
+  - CORS controlled by existing env set:
+    - `CORS_PRIMARY_ORIGIN`
+    - `CORS_ALLOWED_ORIGINS`
+    - `ALLOW_LOCALHOST_ORIGIN`
+  - Built-in rate limit (userId + IP) with envs:
+    - `ZIWEI_AI_RATE_LIMIT_MAX_REQUESTS` (default 6)
+    - `ZIWEI_AI_RATE_LIMIT_WINDOW_MS` (default 60000)
+    - `ZIWEI_AI_RATE_LIMIT_TRACK_MAX` (default 2000)
+  - AI provider envs:
+    - `ZIWEI_AI_API_KEY` (or fallback `OPENAI_API_KEY`)
+    - `ZIWEI_AI_MODEL` (default `gpt-4.1-mini`)
+    - `ZIWEI_AI_BASE_URL` (default `https://api.openai.com/v1`)
+    - `ZIWEI_AI_TIMEOUT_MS` (default 20000)
+    - `ZIWEI_AI_MAX_CHART_CHARS` (default 24000)
+- Registered function in `supabase/config.toml`:
+  - `[functions.ziwei-analysis]`
+  - `verify_jwt = false` (token is verified in-function via auth endpoint, same pattern as convert/feedback)
+- Frontend integration (`app.js`, `index.html`, `style.css`):
+  - Added `AI 深度解盘` action button on ZiWei panel
+  - Added auto-trigger after successful chart generation (silent background fetch)
+  - Added AI result card in professional area: overview, section breakdown, yearly focus, next actions
+  - Added local in-memory cache keyed by chart signature to reduce repeated latency/cost
+  - Kept deterministic rule-based summary as baseline; AI now provides personalization layer on top

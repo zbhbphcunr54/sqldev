@@ -4453,7 +4453,53 @@ body.feedback-open{overflow:hidden}
   font:600 11px var(--font-body);
 }
 .ziwei-pro-card-full{
-  margin-top:10px;
+  grid-column:1 / -1;
+  margin-top:0;
+}
+.ziwei-ai-card{
+  border-color:rgba(79,125,249,.32);
+  background:linear-gradient(180deg,rgba(16,26,48,.82),rgba(11,18,35,.78));
+}
+.ziwei-ai-body{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.ziwei-ai-overview{
+  margin:0;
+  color:#dbeafe;
+  font:600 13px var(--font-body);
+  line-height:1.65;
+}
+.ziwei-ai-section{
+  border-top:1px dashed rgba(148,163,184,.26);
+  padding-top:8px;
+}
+.ziwei-ai-section h5{
+  margin:0 0 4px;
+  color:#c7d2fe;
+  font:700 12px "Noto Serif SC","Source Han Serif SC",serif;
+}
+.ziwei-ai-section p{
+  margin:0 0 4px;
+}
+.ziwei-ai-section p:last-child{
+  margin-bottom:0;
+}
+.ziwei-ai-block{
+  border-top:1px dashed rgba(148,163,184,.26);
+  padding-top:8px;
+}
+.ziwei-ai-block h6{
+  margin:0 0 4px;
+  color:#93c5fd;
+  font:700 12px var(--font-body);
+}
+.ziwei-ai-disclaimer{
+  margin:2px 0 0;
+  color:#94a3b8;
+  font:500 11px var(--font-body);
+  line-height:1.55;
 }
 .ziwei-track-item{
   display:grid;
@@ -4818,6 +4864,28 @@ body.feedback-open{overflow:hidden}
   border-color:#93c5fd;
   background:#eff6ff;
   color:#1d4ed8;
+}
+[data-theme="light"] .ziwei-ai-card{
+  border-color:#bfdbfe;
+  background:linear-gradient(180deg,#f8fbff,#f1f5f9);
+}
+[data-theme="light"] .ziwei-ai-overview{
+  color:#1e293b;
+}
+[data-theme="light"] .ziwei-ai-section{
+  border-top-color:#e2e8f0;
+}
+[data-theme="light"] .ziwei-ai-section h5{
+  color:#1d4ed8;
+}
+[data-theme="light"] .ziwei-ai-block{
+  border-top-color:#e2e8f0;
+}
+[data-theme="light"] .ziwei-ai-block h6{
+  color:#1d4ed8;
+}
+[data-theme="light"] .ziwei-ai-disclaimer{
+  color:#64748b;
 }
 [data-theme="light"] .ziwei-track-item{
   border-top-color:#e2e8f0;
