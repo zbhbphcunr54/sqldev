@@ -2717,6 +2717,8 @@ const app = createApp({
     let idVerifyTimer = 0;
     let usccCopyTimer = 0;
     let usccVerifyTimer = 0;
+    let ziweiCopyTimer = 0;
+    let ziweiGenerateTimer = 0;
 
     // Zi Wei Dou Shu state
     const ZW_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -2859,6 +2861,10 @@ const app = createApp({
     const ziweiHistory = ref([]);
     const ziweiStatus = ref({ type: 'info', text: '' });
     const ziweiExporting = ref(false);
+    const ziweiGenerating = ref(false);
+    const ziweiGenerateDone = ref(false);
+    const ziweiCopyDone = ref(false);
+    const ziweiLastGenerateSignature = ref('');
     const ZW_HISTORY_KEY = 'sqldev_ziwei_history_v1';
     const ziweiIntlSupported = typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function';
     const _zwLunarFmt = ziweiIntlSupported ? new Intl.DateTimeFormat('en-u-ca-chinese', { year: 'numeric', month: 'numeric', day: 'numeric' }) : null;
@@ -3108,6 +3114,16 @@ const app = createApp({
     const usccVerifyButtonLabel = computed(function() {
       return usccVerifyDone.value ? '\u5df2\u6821\u9a8c' : '\u6821\u9a8c';
     });
+    const ziweiGenerateButtonLabel = computed(function() {
+      if (ziweiGenerating.value) return '\u6392\u76d8\u4e2d...';
+      return ziweiGenerateDone.value ? '\u5df2\u6392\u76d8' : '\u6392\u76d8';
+    });
+    const ziweiCopyButtonLabel = computed(function() {
+      return ziweiCopyDone.value ? '\u5df2\u590d\u5236' : '\u590d\u5236\u6587\u5b57\u547d\u76d8';
+    });
+    const ziweiExportButtonLabel = computed(function() {
+      return ziweiExporting.value ? '\u5bfc\u51fa\u4e2d...' : '\u5bfc\u51fa\u547d\u76d8\u56fe\u7247';
+    });
 
     function _sortRegionByCode(list) {
       return (list || []).slice().sort(function(a, b) {
@@ -3356,6 +3372,10 @@ const app = createApp({
     watch(ziweiCalendarType, function() {
       ziweiStatus.value = { type: 'info', text: '' };
     });
+    watch([ziweiSolarYear, ziweiSolarMonth, ziweiSolarDay, ziweiLunarYear, ziweiLunarMonth, ziweiLunarDay, ziweiLunarLeap, ziweiBirthHour, ziweiBirthMinute, ziweiGender, ziweiCalendarType], function() {
+      ziweiGenerateDone.value = false;
+      ziweiCopyDone.value = false;
+    });
     watch(ziweiSchool, function() {
       if (ziweiChart.value) {
         generateZiweiChart({ saveHistory: false, silent: true });
@@ -3465,6 +3485,18 @@ const app = createApp({
         if (usccVerifyTimer) clearTimeout(usccVerifyTimer);
         flagRef.value = true;
         usccVerifyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+        return;
+      }
+      if (timerName === 'ziweiCopy') {
+        if (ziweiCopyTimer) clearTimeout(ziweiCopyTimer);
+        flagRef.value = true;
+        ziweiCopyTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
+        return;
+      }
+      if (timerName === 'ziweiGenerate') {
+        if (ziweiGenerateTimer) clearTimeout(ziweiGenerateTimer);
+        flagRef.value = true;
+        ziweiGenerateTimer = window.setTimeout(function() { flagRef.value = false; }, durationMs || 1400);
       }
     }
 
@@ -4428,17 +4460,46 @@ const app = createApp({
       return 'normal';
     }
 
-    function generateZiweiChart(options) {
+    function _zwBuildGenerateSignature() {
+      return [
+        String(ziweiCalendarType.value || ''),
+        String(ziweiSolarYear.value || ''),
+        String(ziweiSolarMonth.value || ''),
+        String(ziweiSolarDay.value || ''),
+        String(ziweiLunarYear.value || ''),
+        String(ziweiLunarMonth.value || ''),
+        String(ziweiLunarDay.value || ''),
+        ziweiLunarLeap.value ? '1' : '0',
+        String(ziweiBirthHour.value || ''),
+        String(ziweiBirthMinute.value || ''),
+        String(ziweiGender.value || ''),
+        String(ziweiSchool.value || ''),
+        ziweiProMode.value ? 'pro' : 'simple'
+      ].join('|');
+    }
+
+    async function generateZiweiChart(options) {
       var opt = options || {};
       var saveHistory = opt.saveHistory !== false;
       var silent = opt.silent === true;
-      if (!ziweiIntlSupported) {
-        ziweiStatus.value = { type: 'error', text: '当前浏览器不支持农历转换（Intl Chinese Calendar），请升级浏览器后重试。' };
-        return;
+      var generateSignature = _zwBuildGenerateSignature();
+      var repeatGenerate = !!(ziweiChart.value && generateSignature && generateSignature === ziweiLastGenerateSignature.value);
+      if (!silent) {
+        ziweiGenerating.value = true;
+        ziweiStatus.value = {
+          type: 'info',
+          text: repeatGenerate ? '检测到参数未变化，正在重新排盘校验...' : '正在排盘，请稍候...'
+        };
+        await nextTick();
       }
+      try {
+        if (!ziweiIntlSupported) {
+          ziweiStatus.value = { type: 'error', text: '当前浏览器不支持农历转换（Intl Chinese Calendar），请升级浏览器后重试。' };
+          return;
+        }
 
-      _zwNormalizeSolarDay();
-      _zwNormalizeLunarInput();
+        _zwNormalizeSolarDay();
+        _zwNormalizeLunarInput();
 
       var hour = Number(ziweiBirthHour.value || '0');
       var minute = Number(ziweiBirthMinute.value || '0');
@@ -4731,15 +4792,23 @@ const app = createApp({
         liuNianTimeline: liuNianTimeline,
         huaTracks: huaTracks
       };
-      chart.text = _zwBuildChartText(chart);
-      ziweiChart.value = chart;
-      ziweiFocusBranch.value = mingBranch;
-      if (saveHistory) _zwPushHistory(chart);
-      if (!silent) {
-        ziweiStatus.value = {
-          type: 'success',
-          text: shiftedByZiHour ? '排盘完成（23:00后子时已按次日换日）。' : '排盘完成。'
-        };
+        chart.text = _zwBuildChartText(chart);
+        ziweiChart.value = chart;
+        ziweiFocusBranch.value = mingBranch;
+        ziweiLastGenerateSignature.value = generateSignature;
+        ziweiCopyDone.value = false;
+        if (saveHistory) _zwPushHistory(chart);
+        if (!silent) {
+          _flashButtonState(ziweiGenerateDone, 'ziweiGenerate');
+          ziweiStatus.value = {
+            type: 'success',
+            text: shiftedByZiHour
+              ? '排盘完成（23:00后子时已按次日换日）。'
+              : (repeatGenerate ? '参数未变化，已重新排盘完成。' : '排盘完成。')
+          };
+        }
+      } finally {
+        if (!silent) ziweiGenerating.value = false;
       }
     }
 
@@ -4754,6 +4823,7 @@ const app = createApp({
         return;
       }
       clipboardWrite(payload).then(function(ok) {
+        if (ok) _flashButtonState(ziweiCopyDone, 'ziweiCopy');
         ziweiStatus.value = ok
           ? { type: 'success', text: '命盘文本已复制。' }
           : { type: 'error', text: '复制失败，请手动复制。' };
@@ -4789,7 +4859,7 @@ const app = createApp({
         ziweiStatus.value = { type: 'info', text: '请先完成排盘。' };
         return;
       }
-      var target = document.getElementById('ziwei-board-export');
+      var target = document.getElementById('ziwei-image-export') || document.getElementById('ziwei-board-export');
       if (!target) {
         ziweiStatus.value = { type: 'error', text: '未找到命盘画布区域，无法导出。' };
         return;
@@ -6001,6 +6071,8 @@ const app = createApp({
       if (idVerifyTimer) clearTimeout(idVerifyTimer);
       if (usccCopyTimer) clearTimeout(usccCopyTimer);
       if (usccVerifyTimer) clearTimeout(usccVerifyTimer);
+      if (ziweiCopyTimer) clearTimeout(ziweiCopyTimer);
+      if (ziweiGenerateTimer) clearTimeout(ziweiGenerateTimer);
       cancelRegionWarmup();
     });
 
@@ -6048,7 +6120,9 @@ const app = createApp({
       ziweiProfileName, ziweiProMode, ziweiSchool, ziweiSchoolLabel, ziweiFocusBranch, ziweiFocusCell,
       ziweiSifangBranches, ziweiSifangCells,
       ziweiYearOptions, ziweiMonthOptions, ziweiHourOptions, ziweiMinuteOptions,
-      ziweiChart, ziweiAnalysis, ziweiHistory, ziweiHistoryCountText, ziweiFocusTracks, ziweiFocusTrackCount, ziweiStatus, ziweiExporting,
+      ziweiChart, ziweiAnalysis, ziweiHistory, ziweiHistoryCountText, ziweiFocusTracks, ziweiFocusTrackCount, ziweiStatus,
+      ziweiExporting, ziweiGenerating,
+      ziweiGenerateButtonLabel, ziweiCopyButtonLabel, ziweiExportButtonLabel,
       generateZiweiChart, copyZiweiChartText, exportZiweiChartImage,
       focusZiweiBranch, loadZiweiHistory, removeZiweiHistory, clearZiweiHistory, formatZiweiHistoryTime,
       // Shared

@@ -6,7 +6,7 @@
 <meta name="description" content="Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转"/>
 <!-- CSP: 'unsafe-eval' is required by Vue 3 in-DOM template compilation (new Function) and CodeMirror 5 mode parser;
      to remove it, migrate to a build-step with pre-compiled Vue SFCs and CodeMirror 6 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://github.githubassets.com; connect-src 'self' https://github.com https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://github.githubassets.com; connect-src 'self' https://github.com https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'"/>
 <meta property="og:title" content="SQL 翻译工作台"/>
 <meta property="og:description" content="Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转"/>
 <meta property="og:type" content="website"/>
@@ -1345,10 +1345,21 @@ $$;</pre>
               </label>
               <label class="idtool-field full">
                 <span>展示模式</span>
-                <label class="idtool-radio">
-                  <input type="checkbox" v-model="ziweiProMode"/>
-                  专业模式（显示宫位详情、摘要解盘、历史命例）
-                </label>
+                <div class="ziwei-mode-switch" role="radiogroup" aria-label="展示模式">
+                  <button
+                    class="ziwei-mode-btn"
+                    :class="{active: !ziweiProMode}"
+                    type="button"
+                    @click="ziweiProMode=false"
+                  >简洁模式</button>
+                  <button
+                    class="ziwei-mode-btn"
+                    :class="{active: ziweiProMode}"
+                    type="button"
+                    @click="ziweiProMode=true"
+                  >专业模式</button>
+                </div>
+                <small class="ziwei-mode-hint">专业模式会显示宫位详情、摘要解盘与历史命例。</small>
               </label>
               <label class="idtool-field full" v-if="ziweiProMode">
                 <span>流派模式</span>
@@ -1431,9 +1442,9 @@ $$;</pre>
             </div>
 
             <div class="ziwei-actions">
-              <button class="idtool-btn primary" type="button" @click="generateZiweiChart">排盘</button>
-              <button class="idtool-btn ghost" type="button" @click="copyZiweiChartText">复制命盘文本</button>
-              <button class="idtool-btn ghost" type="button" :disabled="ziweiExporting" @click="exportZiweiChartImage">{{ ziweiExporting ? '导出中...' : '导出命盘图片' }}</button>
+              <button class="idtool-btn primary ziwei-action-btn" type="button" :disabled="ziweiGenerating" @click="generateZiweiChart">{{ ziweiGenerateButtonLabel }}</button>
+              <button class="idtool-btn ghost ziwei-action-btn" type="button" @click="copyZiweiChartText">{{ ziweiCopyButtonLabel }}</button>
+              <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="ziweiExporting" @click="exportZiweiChartImage">{{ ziweiExportButtonLabel }}</button>
             </div>
             <p class="idtool-result" :class="ziweiStatus.type" v-if="ziweiStatus.text">{{ ziweiStatus.text }}</p>
           </article>
@@ -1443,100 +1454,117 @@ $$;</pre>
             <p>选择出生信息后点击“排盘”，将生成完整紫微斗数方盘（含主星、辅星、杂曜、四化、大限与小限）。</p>
           </article>
 
-          <article class="ziwei-chart-wrap" v-if="ziweiChart" id="ziwei-board-export">
-            <div class="ziwei-board-shell">
-              <div class="ziwei-board-compass ziwei-board-compass-top">正南方</div>
-              <div class="ziwei-board-compass ziwei-board-compass-right">正西方</div>
-              <div class="ziwei-board-compass ziwei-board-compass-bottom">正北方</div>
-              <div class="ziwei-board-compass ziwei-board-compass-left">正东方</div>
+          <article class="ziwei-chart-wrap" v-if="ziweiChart">
+            <div class="ziwei-chart-main">
+              <section class="ziwei-text-panel">
+                <header class="ziwei-panel-head">
+                  <h4>文字命盘</h4>
+                  <span>可直接复制</span>
+                </header>
+                <pre class="ziwei-text-pre">{{ ziweiChart.text }}</pre>
+              </section>
 
-              <div class="ziwei-board">
-              <section
-                v-for="cell in ziweiChart.boardCells"
-                :key="'zw-cell-'+cell.branch"
-                class="ziwei-palace"
-                :class="[cell.area, {ming: cell.isMing, shen: cell.isShen, active: ziweiFocusBranch===cell.branch, linked: ziweiSifangBranches.includes(cell.branch)}]"
-                @click="focusZiweiBranch(cell.branch)"
-              >
-                <header class="ziwei-palace-head">
-                  <span class="ziwei-palace-name">{{ cell.palaceName || '—' }}</span>
-                  <span class="ziwei-palace-gz">{{ cell.stemBranch }}</span>
+              <section class="ziwei-image-panel" id="ziwei-image-export">
+                <header class="ziwei-panel-head">
+                  <h4>图片命盘</h4>
+                  <span>支持导出 PNG</span>
                 </header>
 
-                <div class="ziwei-age-series">
-                  <span class="ziwei-age-line">流年: {{ cell.liuNianSeriesText || '--' }}</span>
-                  <span class="ziwei-age-line">小限: {{ cell.xiaoXianSeriesText || '--' }}</span>
+                <div class="ziwei-board-shell">
+                  <div class="ziwei-board-compass ziwei-board-compass-top">正南方</div>
+                  <div class="ziwei-board-compass ziwei-board-compass-right">正西方</div>
+                  <div class="ziwei-board-compass ziwei-board-compass-bottom">正北方</div>
+                  <div class="ziwei-board-compass ziwei-board-compass-left">正东方</div>
+
+                  <div class="ziwei-board">
+                  <section
+                    v-for="cell in ziweiChart.boardCells"
+                    :key="'zw-cell-'+cell.branch"
+                    class="ziwei-palace"
+                    :class="[cell.area, {ming: cell.isMing, shen: cell.isShen, active: ziweiFocusBranch===cell.branch, linked: ziweiSifangBranches.includes(cell.branch)}]"
+                    @click="focusZiweiBranch(cell.branch)"
+                  >
+                    <header class="ziwei-palace-head">
+                      <span class="ziwei-palace-name">{{ cell.palaceName || '—' }}</span>
+                      <span class="ziwei-palace-gz">{{ cell.stemBranch }}</span>
+                    </header>
+
+                    <div class="ziwei-age-series">
+                      <span class="ziwei-age-line">流年: {{ cell.liuNianSeriesText || '--' }}</span>
+                      <span class="ziwei-age-line">小限: {{ cell.xiaoXianSeriesText || '--' }}</span>
+                    </div>
+
+                    <div class="ziwei-star-row main">
+                      <span class="ziwei-star main" v-for="star in cell.mainStars" :key="'zw-main-'+cell.branch+'-'+star.name">
+                        <strong>★{{ star.name }}</strong>
+                        <em class="ziwei-brightness" :class="star.brightnessClass" v-if="star.brightness">{{ star.brightness }}</em>
+                        <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-main-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
+                      </span>
+                    </div>
+
+                    <div class="ziwei-star-row assist">
+                      <span class="ziwei-star" v-for="star in cell.assistStars" :key="'zw-assist-'+cell.branch+'-'+star.name">
+                        {{ star.name }}
+                        <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-assist-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
+                      </span>
+                    </div>
+
+                    <div class="ziwei-star-row misc">
+                      <span class="ziwei-star" v-for="star in cell.miscStars" :key="'zw-misc-'+cell.branch+'-'+star.name">
+                        {{ star.name }}
+                        <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-misc-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
+                      </span>
+                    </div>
+
+                    <footer class="ziwei-palace-foot">
+                      <span>{{ cell.changSheng || '--' }}</span>
+                      <span>{{ cell.daXian }}</span>
+                      <span>{{ cell.branch }}</span>
+                    </footer>
+                    <div class="ziwei-track-chip" v-if="ziweiProMode && ziweiSchool==='flying'">
+                      <span>飞出 {{ cell.outgoingHuaCount }}</span>
+                      <span>飞入 {{ cell.incomingHuaCount }}</span>
+                    </div>
+                  </section>
+
+                  <section class="ziwei-center">
+                    <h4>命盘信息</h4>
+                    <p><strong>性别：</strong>{{ ziweiChart.center.genderLabel }}</p>
+                    <p><strong>输入历法：</strong>{{ ziweiChart.center.calendarInputType }}</p>
+                    <p><strong>流派：</strong>{{ ziweiChart.center.schoolLabel }}</p>
+                    <p><strong>公历：</strong>{{ ziweiChart.center.solarText }}</p>
+                    <p><strong>农历：</strong>{{ ziweiChart.center.lunarText }}</p>
+                    <p><strong>生年干支：</strong>{{ ziweiChart.center.yearGanZhi }}</p>
+                    <p><strong>五行局：</strong>{{ ziweiChart.center.bureauLabel }}</p>
+                    <p><strong>大限方向：</strong>{{ ziweiChart.center.daXianDirectionLabel }}</p>
+                    <p><strong>命主 / 身主：</strong>{{ ziweiChart.center.mingZhu }} / {{ ziweiChart.center.shenZhu }}</p>
+                    <p><strong>命宫 / 身宫：</strong>{{ ziweiChart.center.mingBranch }} / {{ ziweiChart.center.shenBranch }}</p>
+                    <p><strong>身宫所落：</strong>{{ ziweiChart.center.shenPalaceName }}</p>
+                    <div class="ziwei-center-hua" v-if="ziweiChart.center.huaSummary && ziweiChart.center.huaSummary.length">
+                      <span class="ziwei-hua-tag ziwei-hua-summary" v-for="item in ziweiChart.center.huaSummary" :key="'zw-center-hua-'+item.tag" :data-hua="item.tag">{{ item.label }}</span>
+                    </div>
+                    <p class="ziwei-center-note" v-if="ziweiChart.center.shiftedByZiHour">已按子时（23:00后）换日规则排盘</p>
+                  </section>
+                  </div>
                 </div>
 
-                <div class="ziwei-star-row main">
-                  <span class="ziwei-star main" v-for="star in cell.mainStars" :key="'zw-main-'+cell.branch+'-'+star.name">
-                    <strong>★{{ star.name }}</strong>
-                    <em class="ziwei-brightness" :class="star.brightnessClass" v-if="star.brightness">{{ star.brightness }}</em>
-                    <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-main-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
-                  </span>
-                </div>
-
-                <div class="ziwei-star-row assist">
-                  <span class="ziwei-star" v-for="star in cell.assistStars" :key="'zw-assist-'+cell.branch+'-'+star.name">
-                    {{ star.name }}
-                    <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-assist-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
-                  </span>
-                </div>
-
-                <div class="ziwei-star-row misc">
-                  <span class="ziwei-star" v-for="star in cell.miscStars" :key="'zw-misc-'+cell.branch+'-'+star.name">
-                    {{ star.name }}
-                    <span class="ziwei-hua-tag" v-for="tag in star.huaTags" :key="'zw-hua-misc-'+cell.branch+'-'+star.name+'-'+tag" :data-hua="tag">{{ tag }}</span>
-                  </span>
-                </div>
-
-                <footer class="ziwei-palace-foot">
-                  <span>{{ cell.changSheng || '--' }}</span>
-                  <span>{{ cell.daXian }}</span>
-                  <span>{{ cell.branch }}</span>
-                </footer>
-                <div class="ziwei-track-chip" v-if="ziweiProMode && ziweiSchool==='flying'">
-                  <span>飞出 {{ cell.outgoingHuaCount }}</span>
-                  <span>飞入 {{ cell.incomingHuaCount }}</span>
+                <div class="ziwei-timeline">
+                  <div class="ziwei-timeline-row">
+                    <div class="ziwei-timeline-label">大限</div>
+                    <div class="ziwei-timeline-cell" v-for="item in ziweiChart.daXianTimeline" :key="'zw-dx-'+item.range">
+                      <strong>{{ item.range }}</strong>
+                      <span>{{ item.branch }} {{ item.palaceName }}</span>
+                    </div>
+                  </div>
+                  <div class="ziwei-timeline-row">
+                    <div class="ziwei-timeline-label">流年</div>
+                    <div class="ziwei-timeline-cell" v-for="item in ziweiChart.liuNianTimeline" :key="'zw-ln-'+item.year+'-'+item.age">
+                      <strong>{{ item.year }}年</strong>
+                      <span>{{ item.ganzhi }} {{ item.age }}岁</span>
+                    </div>
+                  </div>
                 </div>
               </section>
-
-              <section class="ziwei-center">
-                <h4>命盘信息</h4>
-                <p><strong>性别：</strong>{{ ziweiChart.center.genderLabel }}</p>
-                <p><strong>输入历法：</strong>{{ ziweiChart.center.calendarInputType }}</p>
-                <p><strong>流派：</strong>{{ ziweiChart.center.schoolLabel }}</p>
-                <p><strong>公历：</strong>{{ ziweiChart.center.solarText }}</p>
-                <p><strong>农历：</strong>{{ ziweiChart.center.lunarText }}</p>
-                <p><strong>生年干支：</strong>{{ ziweiChart.center.yearGanZhi }}</p>
-                <p><strong>五行局：</strong>{{ ziweiChart.center.bureauLabel }}</p>
-                <p><strong>大限方向：</strong>{{ ziweiChart.center.daXianDirectionLabel }}</p>
-                <p><strong>命主 / 身主：</strong>{{ ziweiChart.center.mingZhu }} / {{ ziweiChart.center.shenZhu }}</p>
-                <p><strong>命宫 / 身宫：</strong>{{ ziweiChart.center.mingBranch }} / {{ ziweiChart.center.shenBranch }}</p>
-                <p><strong>身宫所落：</strong>{{ ziweiChart.center.shenPalaceName }}</p>
-                <div class="ziwei-center-hua" v-if="ziweiChart.center.huaSummary && ziweiChart.center.huaSummary.length">
-                  <span class="ziwei-hua-tag ziwei-hua-summary" v-for="item in ziweiChart.center.huaSummary" :key="'zw-center-hua-'+item.tag" :data-hua="item.tag">{{ item.label }}</span>
-                </div>
-                <p class="ziwei-center-note" v-if="ziweiChart.center.shiftedByZiHour">已按子时（23:00后）换日规则排盘</p>
-              </section>
-              </div>
-            </div>
-
-            <div class="ziwei-timeline">
-              <div class="ziwei-timeline-row">
-                <div class="ziwei-timeline-label">大限</div>
-                <div class="ziwei-timeline-cell" v-for="item in ziweiChart.daXianTimeline" :key="'zw-dx-'+item.range">
-                  <strong>{{ item.range }}</strong>
-                  <span>{{ item.branch }} {{ item.palaceName }}</span>
-                </div>
-              </div>
-              <div class="ziwei-timeline-row">
-                <div class="ziwei-timeline-label">流年</div>
-                <div class="ziwei-timeline-cell" v-for="item in ziweiChart.liuNianTimeline" :key="'zw-ln-'+item.year+'-'+item.age">
-                  <strong>{{ item.year }}年</strong>
-                  <span>{{ item.ganzhi }} {{ item.age }}岁</span>
-                </div>
-              </div>
             </div>
 
             <div class="ziwei-pro-grid" v-if="ziweiProMode">
