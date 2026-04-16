@@ -2840,6 +2840,18 @@ const app = createApp({
       '丑': { start: '未', dir: -1 }, '巳': { start: '未', dir: -1 }, '酉': { start: '未', dir: -1 },
       '亥': { start: '戌', dir: 1 }, '卯': { start: '戌', dir: 1 }, '未': { start: '戌', dir: 1 }
     };
+    const ZW_CLOCK_MODE_OPTIONS = [
+      { value: 'standard', label: '标准时间' },
+      { value: 'trueSolar', label: '真太阳时（粗校）' }
+    ];
+    const ZW_XIAOXIAN_RULE_OPTIONS = [
+      { value: 'yearBranch', label: '年支起小限（传统）' },
+      { value: 'mingStart', label: '命宫起小限（简化）' }
+    ];
+    const ZW_LIUNIAN_RULE_OPTIONS = [
+      { value: 'yearForward', label: '年支顺排（默认）' },
+      { value: 'followDaXian', label: '随大限顺逆' }
+    ];
 
     const ziweiCalendarType = ref('solar');
     const ziweiSolarYear = ref('1990');
@@ -2852,6 +2864,11 @@ const app = createApp({
     const ziweiBirthHour = ref('12');
     const ziweiBirthMinute = ref('00');
     const ziweiGender = ref('male');
+    const ziweiClockMode = ref('standard');
+    const ziweiTimezoneOffset = ref('8');
+    const ziweiLongitude = ref('120.000');
+    const ziweiXiaoXianRule = ref('yearBranch');
+    const ziweiLiuNianRule = ref('yearForward');
     const ziweiProfileName = ref('');
     const ziweiProMode = ref(true);
     const ziweiSchool = ref('traditional');
@@ -2990,6 +3007,24 @@ const app = createApp({
       }
       return minutes;
     });
+    const ziweiClockModeOptions = computed(function() {
+      return ZW_CLOCK_MODE_OPTIONS.slice();
+    });
+    const ziweiTimezoneOptions = computed(function() {
+      var out = [];
+      for (var step = -24; step <= 28; step++) {
+        var t = step / 2;
+        var txt = (t >= 0 ? '+' : '') + String(t);
+        out.push({ value: String(t), label: 'UTC' + txt });
+      }
+      return out;
+    });
+    const ziweiXiaoXianRuleOptions = computed(function() {
+      return ZW_XIAOXIAN_RULE_OPTIONS.slice();
+    });
+    const ziweiLiuNianRuleOptions = computed(function() {
+      return ZW_LIUNIAN_RULE_OPTIONS.slice();
+    });
     const ziweiSolarDayOptions = computed(function() {
       var year = Number(ziweiSolarYear.value || '1990');
       var month = Number(ziweiSolarMonth.value || '1');
@@ -3042,6 +3077,15 @@ const app = createApp({
     });
     const ziweiSchoolLabel = computed(function() {
       return ziweiSchool.value === 'flying' ? '飞星四化' : '传统四化';
+    });
+    const ziweiClockModeLabel = computed(function() {
+      return ziweiClockMode.value === 'trueSolar' ? '真太阳时（粗校）' : '标准时间';
+    });
+    const ziweiClockHint = computed(function() {
+      if (ziweiClockMode.value !== 'trueSolar') return '默认使用标准时间排盘。';
+      var tz = Number(ziweiTimezoneOffset.value || '8');
+      if (!Number.isFinite(tz)) tz = 8;
+      return '真太阳时粗校：按经度与时区中央经线差值修正时刻（每经度约4分钟）。当前时区 UTC' + (tz >= 0 ? '+' : '') + String(tz) + '。';
     });
     const ziweiSifangBranches = computed(function() {
       var branch = String(ziweiFocusBranch.value || '');
@@ -3398,7 +3442,14 @@ const app = createApp({
     watch(ziweiCalendarType, function() {
       ziweiStatus.value = { type: 'info', text: '' };
     });
-    watch([ziweiSolarYear, ziweiSolarMonth, ziweiSolarDay, ziweiLunarYear, ziweiLunarMonth, ziweiLunarDay, ziweiLunarLeap, ziweiBirthHour, ziweiBirthMinute, ziweiGender, ziweiCalendarType], function() {
+    watch([
+      ziweiSolarYear, ziweiSolarMonth, ziweiSolarDay,
+      ziweiLunarYear, ziweiLunarMonth, ziweiLunarDay, ziweiLunarLeap,
+      ziweiBirthHour, ziweiBirthMinute, ziweiGender,
+      ziweiClockMode, ziweiTimezoneOffset, ziweiLongitude,
+      ziweiXiaoXianRule, ziweiLiuNianRule,
+      ziweiCalendarType
+    ], function() {
       ziweiGenerateDone.value = false;
       ziweiCopyDone.value = false;
     });
@@ -4007,6 +4058,75 @@ const app = createApp({
       };
     }
 
+    function _zwComputeExactAge(birthYear, birthMonth, birthDay, nowDate) {
+      var y = Number(birthYear);
+      var m = Number(birthMonth);
+      var d = Number(birthDay);
+      var now = nowDate instanceof Date ? nowDate : new Date();
+      if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return NaN;
+      if (Number.isNaN(now.getTime())) return NaN;
+      var age = now.getFullYear() - y;
+      var nm = now.getMonth() + 1;
+      var nd = now.getDate();
+      if (nm < m || (nm === m && nd < d)) age -= 1;
+      return age;
+    }
+
+    function _zwClockModeToLabel(mode) {
+      return mode === 'trueSolar' ? '真太阳时（粗校）' : '标准时间';
+    }
+
+    function _zwXiaoXianRuleToLabel(rule) {
+      return rule === 'mingStart' ? '命宫起小限（简化）' : '年支起小限（传统）';
+    }
+
+    function _zwLiuNianRuleToLabel(rule) {
+      return rule === 'followDaXian' ? '随大限顺逆' : '年支顺排（默认）';
+    }
+
+    function _zwApplyClockCorrection(baseSolar, hour, minute, mode, longitudeRaw, timezoneRaw) {
+      if (!baseSolar) return { ok: false, error: '出生日期缺失，无法校时。' };
+      var h = Number(hour);
+      var min = Number(minute);
+      if (!Number.isInteger(h) || h < 0 || h > 23 || !Number.isInteger(min) || min < 0 || min > 59) {
+        return { ok: false, error: '出生时分不合法，无法校时。' };
+      }
+      var dateObj = new Date(Number(baseSolar.year), Number(baseSolar.month) - 1, Number(baseSolar.day), h, min, 0, 0);
+      if (Number.isNaN(dateObj.getTime())) {
+        return { ok: false, error: '出生日期无效，无法校时。' };
+      }
+      var correctionMinutes = 0;
+      var longitude = null;
+      var timezoneOffset = null;
+      if (mode === 'trueSolar') {
+        longitude = Number(longitudeRaw);
+        timezoneOffset = Number(timezoneRaw);
+        if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+          return { ok: false, error: '真太阳时校正失败：经度需在 -180 到 180 之间。' };
+        }
+        if (!Number.isFinite(timezoneOffset) || timezoneOffset < -12 || timezoneOffset > 14) {
+          return { ok: false, error: '真太阳时校正失败：时区需在 UTC-12 到 UTC+14 之间。' };
+        }
+        var centralMeridian = timezoneOffset * 15;
+        correctionMinutes = Math.round((longitude - centralMeridian) * 4);
+        dateObj.setMinutes(dateObj.getMinutes() + correctionMinutes);
+      }
+      return {
+        ok: true,
+        mode: mode === 'trueSolar' ? 'trueSolar' : 'standard',
+        correctionMinutes: correctionMinutes,
+        longitude: longitude,
+        timezoneOffset: timezoneOffset,
+        solar: {
+          year: dateObj.getFullYear(),
+          month: dateObj.getMonth() + 1,
+          day: dateObj.getDate()
+        },
+        hour: dateObj.getHours(),
+        minute: dateObj.getMinutes()
+      };
+    }
+
     function _zwGetYearGanZhi(lunarYear) {
       var y = Number(lunarYear);
       if (!Number.isInteger(y)) return '';
@@ -4081,12 +4201,21 @@ const app = createApp({
       return out;
     }
 
-    function _zwBuildXiaoXianMap(yearBranch, gender) {
-      var rule = ZW_SMALL_LIMIT_RULE_MALE[yearBranch] || { start: '辰', dir: 1 };
-      var dir = (gender === 'female' ? -rule.dir : rule.dir);
+    function _zwBuildXiaoXianMap(yearBranch, gender, mingBranch, ruleType) {
+      var type = ruleType === 'mingStart' ? 'mingStart' : 'yearBranch';
+      var start = '辰';
+      var dir = 1;
+      if (type === 'mingStart') {
+        start = mingBranch || '寅';
+        dir = (gender === 'female' ? -1 : 1);
+      } else {
+        var rule = ZW_SMALL_LIMIT_RULE_MALE[yearBranch] || { start: '辰', dir: 1 };
+        start = rule.start;
+        dir = (gender === 'female' ? -rule.dir : rule.dir);
+      }
       var out = {};
       for (var age = 1; age <= 12; age++) {
-        var branch = _zwOffset(rule.start, dir * (age - 1));
+        var branch = _zwOffset(start, dir * (age - 1));
         out[branch] = String(age) + '岁';
       }
       return out;
@@ -4110,9 +4239,12 @@ const app = createApp({
       return out;
     }
 
-    function _zwBuildLiuNianFirstAgeMap(yearBranch, direction) {
+    function _zwBuildLiuNianFirstAgeMap(yearBranch, direction, ruleType) {
       var out = {};
-      var dir = direction >= 0 ? 1 : -1;
+      var type = ruleType === 'followDaXian' ? 'followDaXian' : 'yearForward';
+      var dir = type === 'followDaXian'
+        ? (direction >= 0 ? 1 : -1)
+        : 1;
       for (var i = 0; i < 12; i++) {
         var branch = _zwOffset(yearBranch, dir * i);
         out[branch] = i + 1;
@@ -4438,9 +4570,18 @@ const app = createApp({
       }).filter(Boolean).join('、');
       var flyTrackCount = Array.isArray(chart.huaTracks) ? chart.huaTracks.length : 0;
       var currentYear = new Date().getFullYear();
-      var birthYearMatch = String(chart.center.solarText || '').match(/^(\d{4})/);
-      var birthYear = birthYearMatch ? Number(birthYearMatch[1]) : NaN;
-      var age = Number.isFinite(birthYear) ? (currentYear - birthYear) : NaN;
+      var birthYear = Number(chart.center.birthYearForAge);
+      var birthMonth = Number(chart.center.birthMonthForAge);
+      var birthDay = Number(chart.center.birthDayForAge);
+      if (!Number.isInteger(birthYear) || !Number.isInteger(birthMonth) || !Number.isInteger(birthDay)) {
+        var birthYearMatch = String(chart.center.solarText || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (birthYearMatch) {
+          birthYear = Number(birthYearMatch[1]);
+          birthMonth = Number(birthYearMatch[2]);
+          birthDay = Number(birthYearMatch[3]);
+        }
+      }
+      var age = _zwComputeExactAge(birthYear, birthMonth, birthDay, new Date());
       if (!Number.isInteger(age) || age < 1) age = 1;
       var activeDaXian = pickActiveDaXian(chart.daXianTimeline, age);
       var activeDaXianCell = activeDaXian ? _zwGetCellByBranch(chart, activeDaXian.branch) : null;
@@ -4762,6 +4903,11 @@ const app = createApp({
         birthHour: String(ziweiBirthHour.value || ''),
         birthMinute: String(ziweiBirthMinute.value || ''),
         gender: ziweiGender.value,
+        clockMode: ziweiClockMode.value === 'trueSolar' ? 'trueSolar' : 'standard',
+        timezoneOffset: String(ziweiTimezoneOffset.value || '8'),
+        longitude: String(ziweiLongitude.value || '120.000'),
+        xiaoXianRule: ziweiXiaoXianRule.value === 'mingStart' ? 'mingStart' : 'yearBranch',
+        liuNianRule: ziweiLiuNianRule.value === 'followDaXian' ? 'followDaXian' : 'yearForward',
         school: ziweiSchool.value === 'flying' ? 'flying' : 'traditional',
         summary: {
           yearGanZhi: chart.center.yearGanZhi || '',
@@ -4820,6 +4966,11 @@ const app = createApp({
       ziweiBirthHour.value = String(found.birthHour || '12');
       ziweiBirthMinute.value = String(found.birthMinute || '00');
       ziweiGender.value = found.gender === 'female' ? 'female' : 'male';
+      ziweiClockMode.value = found.clockMode === 'trueSolar' ? 'trueSolar' : 'standard';
+      ziweiTimezoneOffset.value = String(found.timezoneOffset || '8');
+      ziweiLongitude.value = String(found.longitude || '120.000');
+      ziweiXiaoXianRule.value = found.xiaoXianRule === 'mingStart' ? 'mingStart' : 'yearBranch';
+      ziweiLiuNianRule.value = found.liuNianRule === 'followDaXian' ? 'followDaXian' : 'yearForward';
       ziweiSchool.value = found.school === 'flying' ? 'flying' : 'traditional';
       generateZiweiChart({ saveHistory: false });
       ziweiStatus.value = {
@@ -4878,6 +5029,10 @@ const app = createApp({
       lines.push('生年干支：' + chart.center.yearGanZhi);
       lines.push('流派：' + chart.center.schoolLabel);
       lines.push('五行局：' + chart.center.bureauLabel);
+      lines.push('校时模式：' + (chart.center.clockModeLabel || '标准时间'));
+      if (chart.center.timeCorrectionText) lines.push('校时修正：' + chart.center.timeCorrectionText);
+      lines.push('小限起法：' + (chart.center.xiaoXianRuleLabel || '--'));
+      lines.push('流年起法：' + (chart.center.liuNianRuleLabel || '--'));
       lines.push('大限方向：' + chart.center.daXianDirectionLabel);
       lines.push('命宫/身宫：' + chart.center.mingBranch + ' / ' + chart.center.shenBranch + '（身宫落' + chart.center.shenPalaceName + '）');
       lines.push('命主/身主：' + chart.center.mingZhu + ' / ' + chart.center.shenZhu);
@@ -4952,6 +5107,11 @@ const app = createApp({
         String(ziweiBirthHour.value || ''),
         String(ziweiBirthMinute.value || ''),
         String(ziweiGender.value || ''),
+        String(ziweiClockMode.value || ''),
+        String(ziweiTimezoneOffset.value || ''),
+        String(ziweiLongitude.value || ''),
+        String(ziweiXiaoXianRule.value || ''),
+        String(ziweiLiuNianRule.value || ''),
         String(ziweiSchool.value || ''),
         ziweiProMode.value ? 'pro' : 'simple'
       ].join('|');
@@ -4980,15 +5140,14 @@ const app = createApp({
         _zwNormalizeSolarDay();
         _zwNormalizeLunarInput();
 
-      var hour = Number(ziweiBirthHour.value || '0');
-      var minute = Number(ziweiBirthMinute.value || '0');
-      if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+      var inputHour = Number(ziweiBirthHour.value || '0');
+      var inputMinute = Number(ziweiBirthMinute.value || '0');
+      if (!Number.isInteger(inputHour) || inputHour < 0 || inputHour > 23 || !Number.isInteger(inputMinute) || inputMinute < 0 || inputMinute > 59) {
         ziweiStatus.value = { type: 'error', text: '出生时间格式无效，请重新选择时分。' };
         return;
       }
 
       var baseSolar = null;
-      var baseLunar = null;
       if (ziweiCalendarType.value === 'lunar') {
         var ly = Number(ziweiLunarYear.value || '0');
         var lm = Number(ziweiLunarMonth.value || '0');
@@ -5008,7 +5167,6 @@ const app = createApp({
           return;
         }
         baseSolar = solarFromLunar;
-        baseLunar = { lunarYear: ly, lunarMonth: lm, lunarDay: ld, isLeapMonth: leap };
       } else {
         var sy = Number(ziweiSolarYear.value || '0');
         var sm = Number(ziweiSolarMonth.value || '0');
@@ -5018,19 +5176,37 @@ const app = createApp({
           return;
         }
         baseSolar = { year: sy, month: sm, day: sd };
-        baseLunar = _zwSolarToLunar(sy, sm, sd);
-        if (!baseLunar) {
-          ziweiStatus.value = { type: 'error', text: '公历转农历失败，请稍后重试。' };
-          return;
-        }
       }
 
-      var effectiveSolar = baseSolar;
-      var effectiveLunar = baseLunar;
+      var clockMode = ziweiClockMode.value === 'trueSolar' ? 'trueSolar' : 'standard';
+      var clockRes = _zwApplyClockCorrection(
+        baseSolar,
+        inputHour,
+        inputMinute,
+        clockMode,
+        ziweiLongitude.value,
+        ziweiTimezoneOffset.value
+      );
+      if (!clockRes || !clockRes.ok) {
+        ziweiStatus.value = { type: 'error', text: (clockRes && clockRes.error) || '校时失败，请检查输入。' };
+        return;
+      }
+
+      var workingSolar = clockRes.solar;
+      var workingLunar = _zwSolarToLunar(workingSolar.year, workingSolar.month, workingSolar.day);
+      if (!workingLunar) {
+        ziweiStatus.value = { type: 'error', text: '校时后的日期无法转换农历，请检查输入。' };
+        return;
+      }
+
+      var calcHour = Number(clockRes.hour);
+      var calcMinute = Number(clockRes.minute);
+      var effectiveSolar = workingSolar;
+      var effectiveLunar = workingLunar;
       var shiftedByZiHour = false;
-      if (hour === 23) {
+      if (calcHour === 23) {
         shiftedByZiHour = true;
-        effectiveSolar = _zwSolarAddDays(baseSolar, 1);
+        effectiveSolar = _zwSolarAddDays(workingSolar, 1);
         effectiveLunar = _zwSolarToLunar(effectiveSolar.year, effectiveSolar.month, effectiveSolar.day);
         if (!effectiveLunar) {
           ziweiStatus.value = { type: 'error', text: '子时换日处理失败，请重试。' };
@@ -5038,7 +5214,7 @@ const app = createApp({
         }
       }
 
-      var shichenIndex0 = _zwGetShiChenIndex0(hour);
+      var shichenIndex0 = _zwGetShiChenIndex0(calcHour);
       var shichenIndex1 = shichenIndex0 + 1;
       if (shichenIndex0 < 0 || shichenIndex1 < 1 || shichenIndex1 > 12) {
         ziweiStatus.value = { type: 'error', text: '出生时辰计算失败。' };
@@ -5157,8 +5333,10 @@ const app = createApp({
       var isMale = ziweiGender.value === 'male';
       var daXianDirection = (isYangYear && isMale) || (!isYangYear && !isMale) ? 1 : -1;
       var daXianMap = _zwBuildDaXianMap(mingBranch, bureauNum, daXianDirection);
-      var xiaoXianMap = _zwBuildXiaoXianMap(yearBranch, isMale ? 'male' : 'female');
-      var liuNianFirstAgeMap = _zwBuildLiuNianFirstAgeMap(yearBranch, 1);
+      var xiaoXianRule = ziweiXiaoXianRule.value === 'mingStart' ? 'mingStart' : 'yearBranch';
+      var liuNianRule = ziweiLiuNianRule.value === 'followDaXian' ? 'followDaXian' : 'yearForward';
+      var xiaoXianMap = _zwBuildXiaoXianMap(yearBranch, isMale ? 'male' : 'female', mingBranch, xiaoXianRule);
+      var liuNianFirstAgeMap = _zwBuildLiuNianFirstAgeMap(yearBranch, daXianDirection, liuNianRule);
       var changShengMap = _zwBuildChangShengMap(bureauInfo.element);
       var daXianTimeline = _zwBuildDaXianTimeline(mingBranch, bureauNum, daXianDirection, palaceNameByBranch, 10);
       var liuNianTimeline = _zwBuildLiuNianTimeline(effectiveSolar.year, bureauNum, 10);
@@ -5227,23 +5405,37 @@ const app = createApp({
         };
       });
 
+      var inputSolarDateText = [
+        String(baseSolar.year).padStart(4, '0'),
+        String(baseSolar.month).padStart(2, '0'),
+        String(baseSolar.day).padStart(2, '0')
+      ].join('-');
+      var inputClockText = inputSolarDateText + ' ' + String(inputHour).padStart(2, '0') + ':' + String(inputMinute).padStart(2, '0');
       var solarText = [
         String(effectiveSolar.year).padStart(4, '0'),
         String(effectiveSolar.month).padStart(2, '0'),
         String(effectiveSolar.day).padStart(2, '0')
-      ].join('-') + ' ' + String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+      ].join('-') + ' ' + String(calcHour).padStart(2, '0') + ':' + String(calcMinute).padStart(2, '0');
       var lunarMonthLabel = ZW_LUNAR_MONTH_LABEL[effectiveLunar.lunarMonth - 1] || String(effectiveLunar.lunarMonth);
       var lunarDayLabel = ZW_LUNAR_DAY_LABEL[effectiveLunar.lunarDay] || String(effectiveLunar.lunarDay);
       var lunarText = String(effectiveLunar.lunarYear) + '年' +
         (effectiveLunar.isLeapMonth ? '闰' : '') +
         lunarMonthLabel + '月' +
         lunarDayLabel +
-        ' ' + _zwGetShiChenLabel(hour) +
-        ' (' + String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0') + ')';
+        ' ' + _zwGetShiChenLabel(calcHour) +
+        ' (' + String(calcHour).padStart(2, '0') + ':' + String(calcMinute).padStart(2, '0') + ')';
+      var correctionText = '';
+      if (clockMode === 'trueSolar') {
+        var cm = Number(clockRes.correctionMinutes || 0);
+        var tz = Number(clockRes.timezoneOffset);
+        var lon = Number(clockRes.longitude);
+        correctionText = (cm >= 0 ? '+' : '') + String(cm) + ' 分钟（经度 ' + lon.toFixed(3) + '°，时区 UTC' + (tz >= 0 ? '+' : '') + String(tz) + '）';
+      }
       var center = {
         genderLabel: isMale ? '男' : '女',
         solarText: solarText,
         lunarText: lunarText,
+        inputClockText: inputClockText,
         calendarInputType: ziweiCalendarType.value === 'lunar' ? '农历' : '公历',
         yearGanZhi: yearGanZhi,
         mingZhu: ZW_MINGZHU_BY_BRANCH[mingBranch] || '',
@@ -5255,8 +5447,21 @@ const app = createApp({
         ziweiBranch: ziweiBranch,
         tianfuBranch: tianfuBranch,
         monthLabel: lunarMonthLabel + '月',
-        shichenLabel: _zwGetShiChenLabel(hour),
+        shichenLabel: _zwGetShiChenLabel(calcHour),
         daXianDirectionLabel: daXianDirection > 0 ? '顺行' : '逆行',
+        clockMode: clockMode,
+        clockModeLabel: _zwClockModeToLabel(clockMode),
+        timeCorrectionMinutes: Number(clockRes.correctionMinutes || 0),
+        timeCorrectionText: correctionText,
+        timezoneOffset: clockRes.timezoneOffset,
+        longitude: clockRes.longitude,
+        xiaoXianRule: xiaoXianRule,
+        xiaoXianRuleLabel: _zwXiaoXianRuleToLabel(xiaoXianRule),
+        liuNianRule: liuNianRule,
+        liuNianRuleLabel: _zwLiuNianRuleToLabel(liuNianRule),
+        birthYearForAge: Number(baseSolar.year),
+        birthMonthForAge: Number(baseSolar.month),
+        birthDayForAge: Number(baseSolar.day),
         school: currentSchool,
         schoolLabel: currentSchool === 'flying' ? '飞星四化' : '传统四化',
         huaSummary: huaSummary,
@@ -5279,11 +5484,14 @@ const app = createApp({
         if (saveHistory) _zwPushHistory(chart);
         if (!silent) {
           _flashButtonState(ziweiGenerateDone, 'ziweiGenerate');
+          var suffix = clockMode === 'trueSolar'
+            ? ('已按真太阳时粗校（' + (clockRes.correctionMinutes >= 0 ? '+' : '') + String(clockRes.correctionMinutes) + '分钟）。')
+            : '';
           ziweiStatus.value = {
             type: 'success',
             text: shiftedByZiHour
-              ? '排盘完成（23:00后子时已按次日换日）。'
-              : (repeatGenerate ? '参数未变化，已重新排盘完成。' : '排盘完成。')
+              ? ('排盘完成（23:00后子时已按次日换日）。' + suffix)
+              : ((repeatGenerate ? '参数未变化，已重新排盘完成。' : '排盘完成。') + suffix)
           };
         }
       } finally {
@@ -6596,6 +6804,10 @@ const app = createApp({
       ziweiLunarDayOptions, ziweiLunarMonthLabel,
       ziweiLeapMonthForYear, ziweiCanUseLeapMonth,
       ziweiBirthHour, ziweiBirthMinute, ziweiGender,
+      ziweiClockMode, ziweiClockModeLabel, ziweiClockModeOptions, ziweiClockHint,
+      ziweiTimezoneOffset, ziweiTimezoneOptions, ziweiLongitude,
+      ziweiXiaoXianRule, ziweiXiaoXianRuleOptions,
+      ziweiLiuNianRule, ziweiLiuNianRuleOptions,
       ziweiProfileName, ziweiProMode, ziweiSchool, ziweiSchoolLabel, ziweiFocusBranch, ziweiFocusCell,
       ziweiSifangBranches, ziweiSifangCells,
       ziweiYearOptions, ziweiMonthOptions, ziweiHourOptions, ziweiMinuteOptions,

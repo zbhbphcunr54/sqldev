@@ -1454,6 +1454,46 @@ $$;</pre>
                   <label class="idtool-radio"><input type="radio" value="female" v-model="ziweiGender"/> 女</label>
                 </div>
               </label>
+              <label class="idtool-field">
+                <span>校时模式</span>
+                <select v-model="ziweiClockMode">
+                  <option v-for="item in ziweiClockModeOptions" :key="'zw-clock-'+item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="idtool-field">
+                <span>时区</span>
+                <select v-model="ziweiTimezoneOffset" :disabled="ziweiClockMode!=='trueSolar'">
+                  <option v-for="item in ziweiTimezoneOptions" :key="'zw-tz-'+item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="idtool-field">
+                <span>出生地经度</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="-180"
+                  max="180"
+                  v-model="ziweiLongitude"
+                  :disabled="ziweiClockMode!=='trueSolar'"
+                  placeholder="例如 121.473"
+                />
+              </label>
+              <label class="idtool-field">
+                <span>小限起法</span>
+                <select v-model="ziweiXiaoXianRule">
+                  <option v-for="item in ziweiXiaoXianRuleOptions" :key="'zw-xs-'+item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="idtool-field">
+                <span>流年起法</span>
+                <select v-model="ziweiLiuNianRule">
+                  <option v-for="item in ziweiLiuNianRuleOptions" :key="'zw-lnrule-'+item.value" :value="item.value">{{ item.label }}</option>
+                </select>
+              </label>
+              <label class="idtool-field full">
+                <span>校时说明</span>
+                <small class="ziwei-mode-hint">{{ ziweiClockHint }}</small>
+              </label>
             </div>
 
             <div class="ziwei-actions">
@@ -1547,7 +1587,12 @@ $$;</pre>
                     <p><strong>性别：</strong>{{ ziweiChart.center.genderLabel }}</p>
                     <p><strong>输入历法：</strong>{{ ziweiChart.center.calendarInputType }}</p>
                     <p><strong>流派：</strong>{{ ziweiChart.center.schoolLabel }}</p>
+                    <p><strong>校时模式：</strong>{{ ziweiChart.center.clockModeLabel || '标准时间' }}</p>
+                    <p v-if="ziweiChart.center.timeCorrectionText"><strong>校时修正：</strong>{{ ziweiChart.center.timeCorrectionText }}</p>
+                    <p><strong>小限起法：</strong>{{ ziweiChart.center.xiaoXianRuleLabel || '--' }}</p>
+                    <p><strong>流年起法：</strong>{{ ziweiChart.center.liuNianRuleLabel || '--' }}</p>
                     <p><strong>公历：</strong>{{ ziweiChart.center.solarText }}</p>
+                    <p v-if="ziweiChart.center.inputClockText && ziweiChart.center.inputClockText!==ziweiChart.center.solarText"><strong>原始时刻：</strong>{{ ziweiChart.center.inputClockText }}</p>
                     <p><strong>农历：</strong>{{ ziweiChart.center.lunarText }}</p>
                     <p><strong>生年干支：</strong>{{ ziweiChart.center.yearGanZhi }}</p>
                     <p><strong>五行局：</strong>{{ ziweiChart.center.bureauLabel }}</p>

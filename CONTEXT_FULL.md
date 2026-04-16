@@ -344,3 +344,27 @@ Last updated: 2026-04-15
 - Updated `style.css`:
   - added dedicated visual style for `.ziwei-analysis-detail-block-plain`
   - added light-theme variant for readability consistency.
+
+## 2026-04-16: ZiWei High-Priority Accuracy Upgrade
+- Fixed age boundary logic in analysis:
+  - replaced `currentYear - birthYear` rough age with exact birthday-aware age calculation
+  - now subtracts one year when current date is before birthday.
+- Added configurable clock correction pipeline in ZiWei input:
+  - new options:
+    - `校时模式`: `标准时间` / `真太阳时（粗校）`
+    - `时区` (UTC, supports half-hour offsets)
+    - `出生地经度`
+  - true-solar mode applies minute correction:
+    - `修正分钟 = (经度 - 时区中央经线) * 4`
+  - corrected time is used for 时辰判定 and 子时换日流程.
+- Added configurable rule switches for previously hard-coded methods:
+  - `小限起法`:
+    - `年支起小限（传统）`
+    - `命宫起小限（简化）`
+  - `流年起法`:
+    - `年支顺排（默认）`
+    - `随大限顺逆`
+- Persisted all above new parameters into命例历史:
+  - history save/load now includes `clockMode/timezoneOffset/longitude/xiaoXianRule/liuNianRule`.
+- Added chart-center and text-export transparency fields:
+  - shows clock mode, correction detail, small-limit rule, annual rule, and original input time for auditability.
