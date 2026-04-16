@@ -16,8 +16,15 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 const AUTH_USER_ENDPOINT = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/user` : ''
 
-const AI_BASE_URL = (Deno.env.get('ZIWEI_AI_BASE_URL') || 'https://api.openai.com/v1').replace(/\/+$/, '')
-const AI_ENDPOINT = AI_BASE_URL ? `${AI_BASE_URL}/chat/completions` : ''
+const AI_BASE_URL_RAW = (Deno.env.get('ZIWEI_AI_BASE_URL') || 'https://api.openai.com/v1').trim()
+function buildAiEndpoint(raw: string): string {
+  const base = String(raw || '').trim().replace(/\/+$/, '')
+  if (!base) return ''
+  if (/\/chat\/completions$/i.test(base)) return base
+  if (/\/v1$/i.test(base)) return `${base}/chat/completions`
+  return `${base}/v1/chat/completions`
+}
+const AI_ENDPOINT = buildAiEndpoint(AI_BASE_URL_RAW)
 const AI_MODEL = (Deno.env.get('ZIWEI_AI_MODEL') || 'gpt-4.1-mini').trim() || 'gpt-4.1-mini'
 const AI_API_KEY = (Deno.env.get('ZIWEI_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY') || '').trim()
 const AI_TIMEOUT_MS = parsePositiveInt(Deno.env.get('ZIWEI_AI_TIMEOUT_MS'), 20_000)

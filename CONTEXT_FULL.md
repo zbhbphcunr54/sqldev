@@ -446,3 +446,16 @@ Last updated: 2026-04-15
   - Added AI result card in professional area: overview, section breakdown, yearly focus, next actions
   - Added local in-memory cache keyed by chart signature to reduce repeated latency/cost
   - Kept deterministic rule-based summary as baseline; AI now provides personalization layer on top
+
+## 2026-04-16: ZiWei AI Endpoint Robustness Fix
+- Fixed duplicated path issue for Kimi-compatible endpoints:
+  - previous behavior always appended `/chat/completions`, which could generate
+    `/v1/chat/completions/chat/completions` when base URL already included the full path.
+- Updated `supabase/functions/ziwei-analysis/index.ts`:
+  - introduced `buildAiEndpoint(raw)` to normalize endpoint:
+    - if base ends with `/chat/completions` => use as-is
+    - if base ends with `/v1` => append `/chat/completions`
+    - otherwise append `/v1/chat/completions`
+- Result: supports both styles safely:
+  - `https://api.moonshot.cn/v1`
+  - `https://api.moonshot.cn/v1/chat/completions`
