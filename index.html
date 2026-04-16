@@ -1637,6 +1637,10 @@ $$;</pre>
                         <em>{{ metric.value }}</em>
                       </span>
                     </div>
+                    <div class="ziwei-analysis-detail-block ziwei-analysis-detail-block-plain" v-if="ziweiActiveAnalysis.plain && ziweiActiveAnalysis.plain.length">
+                      <h6>先看这个（白话版）</h6>
+                      <p v-for="(line, idx) in ziweiActiveAnalysis.plain" :key="'zw-analysis-p-'+ziweiActiveAnalysis.key+'-'+idx">{{ line }}</p>
+                    </div>
                     <div class="ziwei-analysis-detail-block" v-if="ziweiActiveAnalysis.evidence && ziweiActiveAnalysis.evidence.length">
                       <h6>依据</h6>
                       <p v-for="(line, idx) in ziweiActiveAnalysis.evidence" :key="'zw-analysis-e-'+ziweiActiveAnalysis.key+'-'+idx">{{ line }}</p>

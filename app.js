@@ -4522,12 +4522,47 @@ const app = createApp({
       if (hasHuaTag(currentLiuNianCell, '忌')) {
         annualExplain.push('流年宫位见化忌，建议少做高杠杆承诺，先保现金流与节奏稳定。');
       }
+      var overviewPlain = [
+        '一句话结论：你现在走「' + activeDaXianLabel + '」，建议先稳住底盘，再逐步放大成果。',
+        '你的人生重点会不断回到「' + (chart.center.shenPalaceName || '--') + '」相关议题，这是你的长期主线。',
+        '今年最值得优先守住三件事：现金流、身体恢复力、核心关系稳定。'
+      ];
+      var corePlain = [
+        '你的底色偏「' + mingPatternTags.join(' / ') + '」，做事认真、有担当，适合长期深耕。',
+        hasAnyStar(ming, ['擎羊', '陀罗'])
+          ? '优势是执行力强，短板是说话容易过硬，建议把“结论”改成“结论+台阶”。'
+          : '优势是稳定推进和持续积累，避免为了求快而打乱长期节奏。',
+        '这张盘更适合“长期主义路线”，不适合频繁高风险短线冲刺。'
+      ];
+      var careerPlain = [
+        '事业与财运整体是「' + careerLevel.grade + '」节奏，关键是把职业能力和变现能力一起升级。',
+        '当前十年主线是「' + activeDaXianLabel + '」，更适合做可复利的资产，而不是只追热点。',
+        '多个机会同时出现时，优先选“能提高你长期话语权”的机会。'
+      ];
+      var relationPlain = [
+        '关系上最有效的策略是：先定边界，再谈投入，这样冲突会少很多。',
+        chart.center.shenPalaceName === '夫妻宫'
+          ? '你对亲密关系投入度高，家庭稳定会直接提升你的工作状态。'
+          : '你需要在关系里保持“有温度但有边界”的平衡，避免过度消耗。',
+        '发生争执时先降语气再谈对错，通常比硬碰硬更快解决问题。'
+      ];
+      var healthPlain = [
+        '健康是你这张盘的底盘变量，先保恢复力，运势才稳。',
+        '近期重点放在睡眠、饮食、规律运动三个基础项，别用透支换效率。',
+        '只要节奏守住，你的整体状态会比短期猛冲更可持续。'
+      ];
+      var flowPlain = [
+        '今年主题是「' + liuNianLabel + '」，重点在节奏和风险控制。',
+        '重大决策先看风险是否可控，再看收益是否诱人，先活下来再赢更大。',
+        '如果出现反复卡顿，优先检查沟通细节、执行节奏和资源分配。'
+      ];
 
       var sections = [];
       sections.push({
         key: 'overview',
         title: '命盘总论',
         text: introText,
+        plain: overviewPlain,
         level: '当前主线：' + activeDaXianLabel,
         metrics: [
           { label: '出生信息', value: (chart.center.solarText || '--') },
@@ -4554,6 +4589,7 @@ const app = createApp({
         key: 'core',
         title: '核心性格与命格基调',
         text: '命宫「' + starsWithBrightness(ming, 4) + '」，格局偏「' + mingPatternTags.join(' / ') + '」，当前评级「' + coreLevel.grade + '」。',
+        plain: corePlain,
         level: '评级：' + coreLevel.grade,
         metrics: [
           { label: '命宫评分', value: String(mingScore) },
@@ -4577,6 +4613,7 @@ const app = createApp({
         key: 'career',
         title: '事业财运解析',
         text: '官禄宫「' + starsWithBrightness(guan, 3) + '」+ 财帛宫「' + starsWithBrightness(cai, 3) + '」，当前十年主线：' + activeDaXianLabel + '。',
+        plain: careerPlain,
         level: '评级：' + careerLevel.grade,
         metrics: [
           { label: '官禄评分', value: String(guanScore) },
@@ -4602,6 +4639,7 @@ const app = createApp({
         key: 'relation',
         title: '感情婚姻与合作关系',
         text: '夫妻宫「' + starsWithBrightness(fuqi, 3) + '」与迁移宫「' + starsWithBrightness(qianyi, 3) + '」共同定义你的亲密关系与合作边界。',
+        plain: relationPlain,
         level: '评级：' + relationLevel.grade,
         metrics: [
           { label: '关系评分', value: String(relationScore) },
@@ -4625,6 +4663,7 @@ const app = createApp({
         key: 'health',
         title: '健康与节奏管理',
         text: '疾厄宫「' + starsWithBrightness(jiebing, 3) + '」+ 福德宫「' + starsWithBrightness(fude, 3) + '」，重点是守住“恢复力”。',
+        plain: healthPlain,
         level: '评级：' + healthLevel.grade,
         metrics: [
           { label: '健康评分', value: String(healthScore) },
@@ -4648,6 +4687,7 @@ const app = createApp({
         key: 'flow',
         title: String(currentYear) + '流年与四化焦点',
         text: liuNianLabel + '；当前排盘模式为「' + (chart.center.schoolLabel || '传统四化') + '」。',
+        plain: flowPlain,
         level: '当前十年：' + activeDaXianLabel,
         metrics: [
           { label: '当前流年', value: String(currentYear) + ' ' + currentYearGanZhi },

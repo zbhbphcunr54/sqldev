@@ -332,3 +332,15 @@ Last updated: 2026-04-15
   - current `流年落宫` by age → `liuNianSeries` mapping
   - star and四化 feature checks (`hasStar / hasAnyStar / hasHuaTag`) to generate targeted interpretation text.
 - Retained existing UI contract (`title/text/metrics/evidence/explain/suggestions/risks`) so the detailed panel works without template changes.
+
+## 2026-04-16: ZiWei Readability Upgrade (白话 + 专业双层)
+- Added a user-friendly plain-language layer for each analysis section in `app.js::_zwBuildAnalysisPro(chart)`:
+  - new field: `plain` (array of short, easy-to-read conclusions)
+  - covers all sections: `命盘总论 / 核心性格 / 事业财运 / 感情关系 / 健康节奏 / 流年四化`
+- Kept professional layer unchanged:
+  - existing `evidence / explain / suggestions / risks` blocks remain for advanced users.
+- Updated `index.html` summary detail panel:
+  - inserted new block `先看这个（白话版）` before `依据` and `专业解读`.
+- Updated `style.css`:
+  - added dedicated visual style for `.ziwei-analysis-detail-block-plain`
+  - added light-theme variant for readability consistency.

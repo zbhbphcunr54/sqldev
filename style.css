@@ -4341,6 +4341,19 @@ body.feedback-open{overflow:hidden}
   border-top:1px dashed rgba(148,163,184,.24);
   padding-top:8px;
 }
+.ziwei-analysis-detail-block-plain{
+  border-top:none;
+  padding:8px 10px;
+  border:1px solid rgba(94,234,212,.34);
+  border-radius:8px;
+  background:linear-gradient(180deg,rgba(17,44,55,.42),rgba(13,29,40,.32));
+}
+.ziwei-analysis-detail-block-plain h6{
+  color:#67e8f9;
+}
+.ziwei-analysis-detail-block-plain p{
+  color:#e2f6fb;
+}
 .ziwei-analysis-detail-block h6{
   margin:0 0 4px;
   color:#7dd3fc;
@@ -4693,6 +4706,16 @@ body.feedback-open{overflow:hidden}
 }
 [data-theme="light"] .ziwei-analysis-detail-block{
   border-top-color:#e2e8f0;
+}
+[data-theme="light"] .ziwei-analysis-detail-block-plain{
+  border-color:#93c5fd;
+  background:linear-gradient(180deg,#eff6ff,#f8fafc);
+}
+[data-theme="light"] .ziwei-analysis-detail-block-plain h6{
+  color:#1d4ed8;
+}
+[data-theme="light"] .ziwei-analysis-detail-block-plain p{
+  color:#1e293b;
 }
 [data-theme="light"] .ziwei-analysis-detail-block h6{
   color:#1d4ed8;
