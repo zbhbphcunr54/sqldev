@@ -2164,7 +2164,7 @@ $$;</pre>
                   <div class="ziwei-ai-qa">
                     <label class="ziwei-ai-qa-label">问 AI 命盘问题</label>
                     <div class="ziwei-ai-qa-row">
-                      <div class="ziwei-ai-qa-input-wrap">
+                      <div class="ziwei-ai-qa-input-wrap" ref="ziweiAiQaInputWrapRef">
                         <input
                           class="ziwei-ai-qa-input"
                           type="text"
@@ -2173,7 +2173,12 @@ $$;</pre>
                           placeholder="可直接输入问题，或点击查看推荐问题"
                           @focus="openZiweiAiSuggestions"
                         />
-                        <div class="ziwei-ai-qa-suggest" v-if="ziweiAiSuggestionOpen && ziweiAiSuggestionsFiltered.length">
+                        <div
+                          class="ziwei-ai-qa-suggest"
+                          :class="['is-' + ziweiAiSuggestionPlacement]"
+                          :style="{ maxHeight: ziweiAiSuggestionMaxHeight + 'px' }"
+                          v-if="ziweiAiSuggestionOpen && ziweiAiSuggestionsFiltered.length"
+                        >
                           <button
                             class="ziwei-ai-qa-suggest-item"
                             type="button"

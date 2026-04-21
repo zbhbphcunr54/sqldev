@@ -3087,6 +3087,9 @@ const app = createApp({
     const ziweiAiQuestionAnswer = ref('');
     const ziweiAiQuestionLoading = ref(false);
     const ziweiAiSuggestionOpen = ref(false);
+    const ziweiAiQaInputWrapRef = ref(null);
+    const ziweiAiSuggestionPlacement = ref('down');
+    const ziweiAiSuggestionMaxHeight = ref(260);
     const ziweiExporting = ref(false);
     const ziweiGenerating = ref(false);
     const ziweiGenerateDone = ref(false);
@@ -3756,6 +3759,15 @@ const app = createApp({
       ziweiLastAiSignature.value = '';
       ziweiAiQuestionAnswer.value = '';
       ziweiAiSuggestionOpen.value = false;
+    });
+    watch(ziweiAiSuggestionOpen, function(open) {
+      if (open) scheduleZiweiAiSuggestionLayout();
+    });
+    watch(ziweiAiQuestionInput, function() {
+      if (ziweiAiSuggestionOpen.value) scheduleZiweiAiSuggestionLayout();
+    });
+    watch(ziweiAiSuggestionsFiltered, function() {
+      if (ziweiAiSuggestionOpen.value) scheduleZiweiAiSuggestionLayout();
     });
     watch(ziweiSchool, function() {
       if (ziweiChart.value) {
@@ -5477,8 +5489,44 @@ const app = createApp({
       ziweiFocusBranch.value = b;
     }
 
+    function updateZiweiAiSuggestionLayout() {
+      var wrapEl = ziweiAiQaInputWrapRef.value;
+      if (!wrapEl || typeof wrapEl.getBoundingClientRect !== 'function') return;
+      var wrapRect = wrapEl.getBoundingClientRect();
+      var viewportH = Number(window.innerHeight || document.documentElement.clientHeight || 0);
+      if (!Number.isFinite(viewportH) || viewportH <= 0) viewportH = 800;
+
+      var viewportBelow = Math.max(0, viewportH - wrapRect.bottom - 10);
+      var viewportAbove = Math.max(0, wrapRect.top - 10);
+      var spaceBelow = viewportBelow;
+      var spaceAbove = viewportAbove;
+
+      var scrollContainer = wrapEl.closest ? wrapEl.closest('.ziwei-ai-body') : null;
+      if (scrollContainer && typeof scrollContainer.getBoundingClientRect === 'function') {
+        var containerRect = scrollContainer.getBoundingClientRect();
+        var containerBelow = Math.max(0, containerRect.bottom - wrapRect.bottom - 8);
+        var containerAbove = Math.max(0, wrapRect.top - containerRect.top - 8);
+        spaceBelow = Math.min(spaceBelow, containerBelow);
+        spaceAbove = Math.min(spaceAbove, containerAbove);
+      }
+
+      var shouldOpenUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+      ziweiAiSuggestionPlacement.value = shouldOpenUp ? 'up' : 'down';
+      var available = shouldOpenUp ? spaceAbove : spaceBelow;
+      var nextHeight = Math.floor(available);
+      if (!Number.isFinite(nextHeight) || nextHeight <= 0) nextHeight = 220;
+      ziweiAiSuggestionMaxHeight.value = Math.max(72, Math.min(320, nextHeight));
+    }
+
+    function scheduleZiweiAiSuggestionLayout() {
+      nextTick(function() {
+        window.requestAnimationFrame(updateZiweiAiSuggestionLayout);
+      });
+    }
+
     function openZiweiAiSuggestions() {
       ziweiAiSuggestionOpen.value = true;
+      scheduleZiweiAiSuggestionLayout();
     }
 
     function pickZiweiAiSuggestion(value) {
@@ -5538,7 +5586,7 @@ const app = createApp({
       var question = String(ziweiAiQuestionInput.value || '').trim();
       if (!question) {
         ziweiStatus.value = { type: 'info', text: '请输入问题后再发送。' };
-        ziweiAiSuggestionOpen.value = true;
+        openZiweiAiSuggestions();
         return;
       }
 
@@ -5549,7 +5597,7 @@ const app = createApp({
         var signature = _zwBuildAiSignature(ziweiChart.value) + '|qa|' + question.slice(0, 64);
         var result = await window.authApi.invokeFunction('ziwei-analysis', {
           signature: signature,
-          style: ziweiProMode.value ? 'pro' : 'simple',
+          style: 'pro',
           mode: 'qa',
           question: question,
           chart: _zwBuildAiPayload(ziweiChart.value)
@@ -5603,22 +5651,67 @@ const app = createApp({
 
     function _zwBuildAiPayload(chart) {
       var center = chart && chart.center ? chart.center : {};
-      var palaces = Array.isArray(chart && chart.boardCells) ? chart.boardCells.map(function(cell) {
+      var boardCells = Array.isArray(chart && chart.boardCells) ? chart.boardCells : [];
+      var palaces = boardCells.map(function(cell) {
+        var mainStars = Array.isArray(cell && cell.mainStars) ? cell.mainStars : [];
+        var assistStars = Array.isArray(cell && cell.assistStars) ? cell.assistStars : [];
+        var miscStars = Array.isArray(cell && cell.miscStars) ? cell.miscStars : [];
+        var liuNianSeries = Array.isArray(cell && cell.liuNianSeries) ? cell.liuNianSeries : [];
+        var xiaoXianSeries = Array.isArray(cell && cell.xiaoXianSeries) ? cell.xiaoXianSeries : [];
         return {
           branch: String(cell && cell.branch || ''),
           palaceName: String(cell && cell.palaceName || ''),
+          area: String(cell && cell.area || ''),
           stemBranch: String(cell && cell.stemBranch || ''),
-          mainStars: _zwTrimText(cell && cell.mainStarsText, 140),
-          assistStars: _zwTrimText(cell && cell.assistStarsText, 140),
-          miscStars: _zwTrimText(cell && cell.miscStarsText, 140),
+          isMing: Boolean(cell && cell.isMing),
+          isShen: Boolean(cell && cell.isShen),
+          mainStars: mainStars.map(function(star) {
+            return {
+              name: String(star && star.name || ''),
+              brightness: String(star && star.brightness || ''),
+              huaTags: Array.isArray(star && star.huaTags) ? star.huaTags.slice(0, 4) : []
+            };
+          }),
+          assistStars: assistStars.map(function(star) {
+            return {
+              name: String(star && star.name || ''),
+              huaTags: Array.isArray(star && star.huaTags) ? star.huaTags.slice(0, 4) : []
+            };
+          }),
+          miscStars: miscStars.map(function(star) {
+            return {
+              name: String(star && star.name || ''),
+              huaTags: Array.isArray(star && star.huaTags) ? star.huaTags.slice(0, 4) : []
+            };
+          }),
+          mainStarsText: _zwTrimText(cell && cell.mainStarsText, 220),
+          assistStarsText: _zwTrimText(cell && cell.assistStarsText, 220),
+          miscStarsText: _zwTrimText(cell && cell.miscStarsText, 220),
           daXian: String(cell && cell.daXian || ''),
           xiaoXian: String(cell && cell.xiaoXian || ''),
+          changSheng: String(cell && cell.changSheng || ''),
           currentLiuNian: Number(cell && cell.currentLiuNian || 0),
           currentXiaoXian: Number(cell && cell.currentXiaoXian || 0),
-          liuNianSeries: _zwTrimText(cell && cell.liuNianSeriesText, 220),
-          xiaoXianSeries: _zwTrimText(cell && cell.xiaoXianSeriesText, 220)
+          liuNianSeries: liuNianSeries.slice(0, 12),
+          xiaoXianSeries: xiaoXianSeries.slice(0, 12),
+          liuNianSeriesText: _zwTrimText(cell && cell.liuNianSeriesText, 240),
+          xiaoXianSeriesText: _zwTrimText(cell && cell.xiaoXianSeriesText, 240),
+          outgoingHuaCount: Number(cell && cell.outgoingHuaCount || 0),
+          incomingHuaCount: Number(cell && cell.incomingHuaCount || 0)
         };
-      }) : [];
+      });
+      var huaTracks = Array.isArray(chart && chart.huaTracks)
+        ? chart.huaTracks.slice(0, 96).map(function(track) {
+          return {
+            tag: String(track && track.tag || ''),
+            star: String(track && track.star || ''),
+            sourceBranch: String(track && track.sourceBranch || ''),
+            sourceText: String(track && track.sourceText || ''),
+            targetBranch: String(track && track.targetBranch || ''),
+            targetText: String(track && track.targetText || '')
+          };
+        })
+        : [];
       var baseAnalysis = Array.isArray(ziweiAnalysis.value) ? ziweiAnalysis.value : [];
       var ruleSummary = baseAnalysis.slice(0, 8).map(function(item) {
         return {
@@ -5631,6 +5724,8 @@ const app = createApp({
         };
       });
       return {
+        payloadVersion: 'ziwei-ai-v2',
+        generatedAt: Number(chart && chart.generatedAt || Date.now()),
         profileName: _zwTrimText(ziweiProfileName.value, 80),
         center: {
           genderLabel: String(center.genderLabel || ''),
@@ -5667,15 +5762,43 @@ const app = createApp({
           currentAgeLabel: String(center.currentAgeLabel || ''),
           currentDaXianLabel: String(center.currentDaXianLabel || ''),
           currentLiuNianPalaceLabel: String(center.currentLiuNianPalaceLabel || ''),
+          qiYunText: String(center.qiYunText || ''),
+          school: String(center.school || ''),
           shiftedByZiHour: Boolean(center.shiftedByZiHour),
+          birthYearForAge: Number(center.birthYearForAge || 0),
+          birthMonthForAge: Number(center.birthMonthForAge || 0),
+          birthDayForAge: Number(center.birthDayForAge || 0),
+          nonJieqiPillars: Array.isArray(center.nonJieqiPillars) ? center.nonJieqiPillars.slice(0, 4) : [],
+          jieqiPillars: Array.isArray(center.jieqiPillars) ? center.jieqiPillars.slice(0, 4) : [],
+          decadeMarks: Array.isArray(center.decadeMarks) ? center.decadeMarks.slice(0, 8) : [],
           huaSummary: Array.isArray(center.huaSummary) ? center.huaSummary.map(function(item) {
             return String(item && item.label || '');
           }) : []
         },
-        daXianTimeline: Array.isArray(chart && chart.daXianTimeline) ? chart.daXianTimeline.slice(0, 12) : [],
-        liuNianTimeline: Array.isArray(chart && chart.liuNianTimeline) ? chart.liuNianTimeline.slice(0, 24) : [],
+        daXianTimeline: Array.isArray(chart && chart.daXianTimeline)
+          ? chart.daXianTimeline.slice(0, 12).map(function(item) {
+            return {
+              range: String(item && item.range || ''),
+              branch: String(item && item.branch || ''),
+              palaceName: String(item && item.palaceName || '')
+            };
+          })
+          : [],
+        liuNianTimeline: Array.isArray(chart && chart.liuNianTimeline)
+          ? chart.liuNianTimeline.slice(0, 36).map(function(item) {
+            return {
+              year: Number(item && item.year || 0),
+              age: Number(item && item.age || 0),
+              ganzhi: String(item && item.ganzhi || ''),
+              branch: String(item && item.branch || ''),
+              palaceName: String(item && item.palaceName || '')
+            };
+          })
+          : [],
         palaces: palaces,
-        ruleSummary: ruleSummary
+        huaTracks: huaTracks,
+        ruleSummary: ruleSummary,
+        chartText: _zwTrimText(chart && chart.text, 12000)
       };
     }
 
@@ -5748,7 +5871,7 @@ const app = createApp({
       try {
         var result = await window.authApi.invokeFunction('ziwei-analysis', {
           signature: aiSignature,
-          style: ziweiProMode.value ? 'pro' : 'simple',
+          style: 'pro',
           chart: _zwBuildAiPayload(ziweiChart.value)
         });
 
@@ -5887,7 +6010,7 @@ const app = createApp({
         String(ziweiXiaoXianRule.value || ''),
         String(ziweiLiuNianRule.value || ''),
         String(ziweiSchool.value || ''),
-        ziweiProMode.value ? 'pro' : 'simple'
+        'pro'
       ].join('|');
     }
 
@@ -6392,7 +6515,6 @@ const app = createApp({
               : ((repeatGenerate ? '参数未变化，已重新排盘完成。' : '排盘完成。') + suffix)
           };
         }
-        requestZiweiAiAnalysis({ silent: true }).catch(function() {});
       } finally {
         if (!silent) ziweiGenerating.value = false;
       }
@@ -7656,6 +7778,7 @@ const app = createApp({
     let outsideClickHandler;
     let routeChangeHandler;
     let authStateChangeHandler;
+    let ziweiAiSuggestViewportHandler;
     let _scrollTicking = false;
     onMounted(() => {
       scrollHandler = () => {
@@ -7700,6 +7823,12 @@ const app = createApp({
         }
       };
       window.addEventListener('keydown', keyHandler);
+      ziweiAiSuggestViewportHandler = function() {
+        if (!ziweiAiSuggestionOpen.value) return;
+        scheduleZiweiAiSuggestionLayout();
+      };
+      window.addEventListener('resize', ziweiAiSuggestViewportHandler, { passive: true });
+      window.addEventListener('scroll', ziweiAiSuggestViewportHandler, true);
       // Close floating panels on outside click
       outsideClickHandler = function(e) {
         if (showRulesMenu.value && !e.target.closest('.settings-dropdown')) {
@@ -7749,6 +7878,10 @@ const app = createApp({
       }
       if (authStateChangeHandler) {
         window.removeEventListener('auth:state-changed', authStateChangeHandler);
+      }
+      if (ziweiAiSuggestViewportHandler) {
+        window.removeEventListener('resize', ziweiAiSuggestViewportHandler);
+        window.removeEventListener('scroll', ziweiAiSuggestViewportHandler, true);
       }
       window.removeEventListener('mousemove', _onDragMove);
       window.removeEventListener('mouseup', _onDragEnd);
@@ -7816,6 +7949,7 @@ const app = createApp({
       ziweiActiveAnalysis, ziweiAnalysisActiveKey,
       ziweiExporting, ziweiGenerating, ziweiAiLoading, ziweiAiDone, ziweiAiError, ziweiAiResult, ziweiAiUpdatedAtText,
       ziweiAiQuestionInput, ziweiAiQuestionAnswer, ziweiAiQuestionLoading, ziweiAiSuggestionOpen,
+      ziweiAiQaInputWrapRef, ziweiAiSuggestionPlacement, ziweiAiSuggestionMaxHeight,
       ziweiAiSuggestionsFiltered,
       ziweiGenerateButtonLabel, ziweiCopyButtonLabel, ziweiAiCopyButtonLabel, ziweiExportButtonLabel, ziweiAiButtonLabel,
       generateZiweiChart, copyZiweiChartText, copyZiweiAnalysisText, exportZiweiChartImage, requestZiweiAiAnalysis,
