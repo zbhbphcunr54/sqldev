@@ -1842,7 +1842,7 @@ $$;</pre>
                           <option value="">选择历史命例...</option>
                           <option v-for="item in ziweiHistoryNameOptions" :key="'zw-history-select-'+item.id" :value="item.id">{{ item.label }}（{{ item.meta.replace('保存时间：','') }}）</option>
                         </select>
-                        <button class="idtool-btn ghost" type="button" @click="clearZiweiHistory" :disabled="!ziweiHistoryNameOptions.length">清空历史</button>
+                        <button class="ziwei-history-clear-btn" type="button" @click="clearZiweiHistory" :disabled="!ziweiHistoryNameOptions.length" title="清空历史命例">清空</button>
                       </div>
                     </label>
                     <label class="idtool-field full">

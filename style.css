@@ -5982,16 +5982,46 @@ body.feedback-open{overflow:hidden}
 .ziwei-history-actions{
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:6px;
 }
 .ziwei-history-actions select{
   flex:1;
   min-width:0;
 }
-.ziwei-history-actions .idtool-btn{
+.ziwei-history-clear-btn{
+  appearance:none;
   flex:0 0 auto;
-  min-width:90px;
-  padding:0 12px;
+  height:36px;
+  min-width:68px;
+  border-radius:10px;
+  border:1px solid rgba(129,140,248,.32);
+  background:rgba(26,36,70,.52);
+  color:#b8c5e6;
+  font:500 12px/1 var(--font-body);
+  letter-spacing:.1px;
+  padding:0 10px;
+  cursor:pointer;
+  transition:all .16s ease;
+}
+.ziwei-history-clear-btn:hover:not(:disabled){
+  background:rgba(99,102,241,.2);
+  border-color:rgba(129,140,248,.5);
+  color:#dfe6ff;
+}
+.ziwei-history-clear-btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+[data-theme="light"] .ziwei-history-clear-btn{
+  flex:0 0 auto;
+  border-color:rgba(99,102,241,.25);
+  background:rgba(99,102,241,.08);
+  color:#4c5697;
+}
+[data-theme="light"] .ziwei-history-clear-btn:hover:not(:disabled){
+  background:rgba(99,102,241,.14);
+  border-color:rgba(99,102,241,.36);
+  color:#373f78;
 }
 [data-theme="light"] .ziwei-palace-badge{
   color:#1f2937;
