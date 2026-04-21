@@ -4986,7 +4986,7 @@ body.feedback-open{overflow:hidden}
 .ziwei-layout{
   height:100%;
   display:grid;
-  grid-template-columns:300px minmax(0,1fr) 332px;
+  grid-template-columns:316px minmax(0,1fr) 352px;
   gap:0;
 }
 .ziwei-input-card,
@@ -5144,7 +5144,7 @@ body.feedback-open{overflow:hidden}
   border-radius:0;
   background:rgba(3,9,22,.62);
   box-shadow:none;
-  padding:14px 14px 16px;
+  padding:12px 10px 14px;
   overflow-y:scroll;
   overflow-x:hidden;
   overscroll-behavior:contain;
@@ -5153,6 +5153,9 @@ body.feedback-open{overflow:hidden}
   border:1px solid var(--zw-border);
   background:rgba(8,14,28,.82);
   border-radius:12px;
+  width:100%;
+  max-width:980px;
+  margin:0 auto;
 }
 .ziwei-panel-head{
   border-bottom:1px solid rgba(99,102,241,.2);
@@ -5166,7 +5169,7 @@ body.feedback-open{overflow:hidden}
   color:#98acd6;
 }
 .ziwei-board-shell{
-  padding:24px 30px 14px;
+  padding:20px 18px 10px;
 }
 .ziwei-page .ziwei-board-compass{
   font:500 11px var(--font-body);
@@ -5193,7 +5196,7 @@ body.feedback-open{overflow:hidden}
   background:rgba(11,18,36,.56);
 }
 .ziwei-palace{
-  min-height:132px;
+  min-height:122px;
   border:1px solid rgba(99,102,241,.14);
   border-radius:0;
   background:rgba(10,16,34,.9);
@@ -5257,15 +5260,15 @@ body.feedback-open{overflow:hidden}
 .ziwei-center{
   border:1px solid rgba(99,102,241,.2);
   background:rgba(7,15,32,.95);
-  padding:10px;
+  padding:10px 9px;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:5px;
 }
 .ziwei-center h4{
   color:#e9eeff;
   text-align:center;
-  font:600 16px/1.2 var(--font-body);
+  font:600 14px/1.2 var(--font-body);
 }
 .ziwei-center-meta{
   margin:0;
@@ -5276,18 +5279,18 @@ body.feedback-open{overflow:hidden}
 .ziwei-center-info{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:3px 10px;
+  gap:3px 8px;
 }
 .ziwei-center-info p{
   margin:0;
   display:flex;
   gap:4px;
   align-items:flex-start;
-  font-size:10px;
+  font-size:9.5px;
   line-height:1.38;
 }
 .ziwei-center-info p strong{
-  min-width:48px;
+  min-width:44px;
   font-weight:500;
 }
 .ziwei-center-divider{
@@ -5296,13 +5299,13 @@ body.feedback-open{overflow:hidden}
   margin:2px 0 1px;
 }
 .ziwei-center-pillars{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:6px;
-}
-.ziwei-center-pillar-col{
   display:flex;
   flex-direction:column;
+  gap:3px;
+}
+.ziwei-center-pillar-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
   gap:4px;
 }
 .ziwei-center-pillar-title{
@@ -5311,25 +5314,16 @@ body.feedback-open{overflow:hidden}
   color:#a8b7de;
   font:600 9px/1.2 var(--font-body);
 }
-.ziwei-center-pillar-cells{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:4px;
-}
 .ziwei-center-pillar-cell{
   text-align:center;
   border:1px solid rgba(99,102,241,.22);
   background:rgba(99,102,241,.08);
   border-radius:4px;
   color:#dbe6ff;
-  font:500 10px/1.3 "JetBrains Mono","Noto Sans SC",monospace;
+  font:500 9px/1.35 "JetBrains Mono","Noto Sans SC",monospace;
   padding:2px 4px;
-}
-.ziwei-center-pillar-cell em{
-  color:#fff;
-  font-style:normal;
-  font-weight:700;
-  margin-right:1px;
+  white-space:normal;
+  word-break:keep-all;
 }
 .ziwei-center-qiyun{
   margin:0;
@@ -5438,6 +5432,9 @@ body.feedback-open{overflow:hidden}
   gap:12px;
   overflow:auto;
 }
+.ziwei-pro-grid.qa-open{
+  overflow:visible;
+}
 .ziwei-pro-card{
   margin:0 12px;
   border-color:rgba(99,102,241,.2);
@@ -5448,6 +5445,7 @@ body.feedback-open{overflow:hidden}
   display:flex;
   flex-direction:column;
   min-height:0;
+  overflow:visible;
 }
 .ziwei-pro-card:first-child{
   margin-top:12px;
@@ -5518,6 +5516,9 @@ body.feedback-open{overflow:hidden}
   scrollbar-width:thin;
   scrollbar-color:rgba(129,140,248,.55) rgba(9,14,28,.45);
 }
+.ziwei-ai-body.qa-open{
+  overflow:visible;
+}
 .ziwei-ai-body::-webkit-scrollbar{
   width:8px;
 }
@@ -5563,6 +5564,7 @@ body.feedback-open{overflow:hidden}
 }
 .ziwei-ai-qa-input-wrap{
   position:relative;
+  z-index:20;
 }
 .ziwei-ai-qa-input{
   width:100%;
@@ -5581,10 +5583,11 @@ body.feedback-open{overflow:hidden}
 }
 .ziwei-ai-qa-suggest{
   position:absolute;
-  z-index:12;
+  z-index:30;
   left:0;
   right:0;
   top:calc(100% + 6px);
+  max-height:420px;
   border:1px solid rgba(99,102,241,.28);
   border-radius:10px;
   background:rgba(9,15,33,.98);
@@ -5637,6 +5640,11 @@ body.feedback-open{overflow:hidden}
   align-items:center;
   justify-content:center;
   gap:6px;
+}
+.ziwei-ai-qa-send span:not(.ziwei-loading-dot){
+  display:inline-flex;
+  align-items:center;
+  white-space:nowrap;
 }
 .ziwei-ai-qa-answer{
   border:1px solid rgba(99,102,241,.26);
@@ -5741,7 +5749,7 @@ body.feedback-open{overflow:hidden}
   background:linear-gradient(180deg,rgba(99,102,241,.65),rgba(129,140,248,.52));
 }
 @media (max-width: 1380px){
-  .ziwei-layout{grid-template-columns:280px minmax(0,1fr) 306px}
+  .ziwei-layout{grid-template-columns:292px minmax(0,1fr) 312px}
 }
 @media (max-width: 1140px){
   .ziwei-layout{

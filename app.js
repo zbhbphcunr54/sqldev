@@ -3089,7 +3089,7 @@ const app = createApp({
     const ziweiAiSuggestionOpen = ref(false);
     const ziweiAiQaInputWrapRef = ref(null);
     const ziweiAiSuggestionPlacement = ref('down');
-    const ziweiAiSuggestionMaxHeight = ref(260);
+    const ziweiAiSuggestionMaxHeight = ref(320);
     const ziweiExporting = ref(false);
     const ziweiGenerating = ref(false);
     const ziweiGenerateDone = ref(false);
@@ -3361,6 +3361,38 @@ const app = createApp({
       var stars = mingCell && Array.isArray(mingCell.mainStars) ? mingCell.mainStars : [];
       var names = stars.slice(0, 2).map(function(st) { return st && st.name ? String(st.name) : ''; }).filter(Boolean);
       return names.length ? names.join('') : '命盘信息';
+    });
+    const ziweiJieqiPillarsText = computed(function() {
+      var center = ziweiChart.value && ziweiChart.value.center ? ziweiChart.value.center : null;
+      var list = center && Array.isArray(center.jieqiPillars) ? center.jieqiPillars : [];
+      if (!list.length) return '--';
+      return list
+        .map(function(item) {
+          if (item && typeof item === 'object') {
+            var text = String(item.text || '');
+            if (text) return text;
+            return String(item.stem || '') + String(item.branch || '');
+          }
+          return String(item || '');
+        })
+        .filter(Boolean)
+        .join(' ');
+    });
+    const ziweiNonJieqiPillarsText = computed(function() {
+      var center = ziweiChart.value && ziweiChart.value.center ? ziweiChart.value.center : null;
+      var list = center && Array.isArray(center.nonJieqiPillars) ? center.nonJieqiPillars : [];
+      if (!list.length) return '--';
+      return list
+        .map(function(item) {
+          if (item && typeof item === 'object') {
+            var text = String(item.text || '');
+            if (text) return text;
+            return String(item.stem || '') + String(item.branch || '');
+          }
+          return String(item || '');
+        })
+        .filter(Boolean)
+        .join(' ');
     });
     const ziweiCenterDaXianPreview = computed(function() {
       var chart = ziweiChart.value;
@@ -5496,26 +5528,18 @@ const app = createApp({
       var viewportH = Number(window.innerHeight || document.documentElement.clientHeight || 0);
       if (!Number.isFinite(viewportH) || viewportH <= 0) viewportH = 800;
 
-      var viewportBelow = Math.max(0, viewportH - wrapRect.bottom - 10);
-      var viewportAbove = Math.max(0, wrapRect.top - 10);
-      var spaceBelow = viewportBelow;
-      var spaceAbove = viewportAbove;
-
-      var scrollContainer = wrapEl.closest ? wrapEl.closest('.ziwei-ai-body') : null;
-      if (scrollContainer && typeof scrollContainer.getBoundingClientRect === 'function') {
-        var containerRect = scrollContainer.getBoundingClientRect();
-        var containerBelow = Math.max(0, containerRect.bottom - wrapRect.bottom - 8);
-        var containerAbove = Math.max(0, wrapRect.top - containerRect.top - 8);
-        spaceBelow = Math.min(spaceBelow, containerBelow);
-        spaceAbove = Math.min(spaceAbove, containerAbove);
-      }
-
-      var shouldOpenUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+      var spaceBelow = Math.max(0, viewportH - wrapRect.bottom - 12);
+      var spaceAbove = Math.max(0, wrapRect.top - 12);
+      var shouldOpenUp = spaceBelow < 260 && spaceAbove > spaceBelow;
       ziweiAiSuggestionPlacement.value = shouldOpenUp ? 'up' : 'down';
       var available = shouldOpenUp ? spaceAbove : spaceBelow;
-      var nextHeight = Math.floor(available);
-      if (!Number.isFinite(nextHeight) || nextHeight <= 0) nextHeight = 220;
-      ziweiAiSuggestionMaxHeight.value = Math.max(72, Math.min(320, nextHeight));
+      var itemCount = Array.isArray(ziweiAiSuggestionsFiltered.value)
+        ? ziweiAiSuggestionsFiltered.value.length
+        : 0;
+      var desired = Math.max(1, Math.min(itemCount, 10)) * 40 + 10;
+      var nextHeight = Math.floor(Math.min(available, desired));
+      if (!Number.isFinite(nextHeight) || nextHeight <= 0) nextHeight = desired;
+      ziweiAiSuggestionMaxHeight.value = Math.max(140, Math.min(560, nextHeight));
     }
 
     function scheduleZiweiAiSuggestionLayout() {
@@ -5541,6 +5565,13 @@ const app = createApp({
       ziweiAiSuggestionOpen.value = false;
     }
 
+    function isLikelyMojibakeZh(text) {
+      var t = String(text || '');
+      if (!t) return false;
+      var hit = (t.match(/[锛銆鍙闂璇鎴浠鐨鎬]/g) || []).length;
+      return hit >= 2;
+    }
+
     async function loadZiweiAiServerConfig() {
       if (!window.authApi || typeof window.authApi.invokeFunction !== 'function') return;
       if (typeof window.authApi.getUserSync === 'function' && !window.authApi.getUserSync()) return;
@@ -5556,6 +5587,7 @@ const app = createApp({
         if (Array.isArray(cfg.suggestions)) {
           var suggestions = cfg.suggestions
             .map(function(item) { return String(item || '').trim(); })
+            .filter(function(item) { return !isLikelyMojibakeZh(item); })
             .filter(Boolean)
             .slice(0, 12);
           ziweiAiQaSuggestions.value = suggestions;
@@ -5592,6 +5624,10 @@ const app = createApp({
 
       ziweiAiQuestionLoading.value = true;
       ziweiAiSuggestionOpen.value = false;
+      ziweiAiResult.value = null;
+      ziweiAiDone.value = false;
+      ziweiAiError.value = '';
+      ziweiAiQuestionAnswer.value = '';
       ziweiStatus.value = { type: 'info', text: 'AI 正在思考中，请稍后...' };
       try {
         var signature = _zwBuildAiSignature(ziweiChart.value) + '|qa|' + question.slice(0, 64);
@@ -5735,6 +5771,7 @@ const app = createApp({
           solarText: String(center.solarText || ''),
           inputClockText: String(center.inputClockText || ''),
           lunarText: String(center.lunarText || ''),
+          naYinLabel: String(center.naYinLabel || ''),
           yearGanZhi: String(center.yearGanZhi || ''),
           bureauLabel: String(center.bureauLabel || ''),
           mingBranch: String(center.mingBranch || ''),
@@ -6441,8 +6478,9 @@ const app = createApp({
         solarText: solarText,
         lunarText: lunarText,
         inputClockText: inputClockText,
-        calendarInputType: ziweiCalendarType.value === 'lunar' ? '农历' : '公历',
+        calendarInputType: ziweiCalendarType.value === 'lunar' ? '农历输入' : '公历输入',
         yearGanZhi: yearGanZhi,
+        naYinLabel: String(bureauInfo.nayin || ''),
         mingZhu: ZW_MINGZHU_BY_BRANCH[mingBranch] || '',
         shenZhu: ZW_SHENZHU_BY_YEAR_BRANCH[yearBranch] || '',
         bureauLabel: bureauLabel,
@@ -7943,7 +7981,7 @@ const app = createApp({
       ziweiXiaoXianRule, ziweiXiaoXianRuleOptions,
       ziweiLiuNianRule, ziweiLiuNianRuleOptions,
       ziweiProfileName, ziweiHistoryPickedId, ziweiProMode, ziweiSchool, ziweiSchoolLabel, ziweiFocusBranch, ziweiFocusCell,
-      ziweiSifangBranches, ziweiSifangCells, ziweiCenterTitle, ziweiCenterDaXianPreview,
+      ziweiSifangBranches, ziweiSifangCells, ziweiCenterTitle, ziweiJieqiPillarsText, ziweiNonJieqiPillarsText, ziweiCenterDaXianPreview,
       ziweiYearOptions, ziweiMonthOptions, ziweiHourOptions, ziweiMinuteOptions,
       ziweiChart, ziweiAnalysis, ziweiHistory, ziweiHistoryCountText, ziweiHistoryNameOptions, ziweiFocusTracks, ziweiFocusTrackCount, ziweiStatus,
       ziweiActiveAnalysis, ziweiAnalysisActiveKey,
