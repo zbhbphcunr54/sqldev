@@ -2,3 +2,12 @@ vendor/.playwright-cli/
 test-results/
 supabase/.temp/
 dist/
+supabase/functions/ziwei-analysis/index.legacy.ts
+supabase/functions/ziwei-analysis/index.rewrite.ts
+node_modules/
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+coverage/

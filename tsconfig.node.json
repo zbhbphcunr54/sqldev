@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "vite.config.mjs",
+    "tailwind.config.ts",
+    "postcss.config.cjs"
+  ]
+}

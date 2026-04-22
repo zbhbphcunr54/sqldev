@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './tokens.css';
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-control bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply rounded-control border border-border bg-panel2 text-text transition-colors hover:bg-panel;
+  }
+
+  .input-control {
+    @apply rounded-control border border-border bg-panel px-3 py-2 text-sm text-text placeholder:text-subtle placeholder:opacity-70 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-opacity-20;
+  }
+
+  .theme-btn {
+    @apply rounded-control px-2 py-1 text-xs text-subtle transition-colors hover:bg-panel;
+  }
+
+  .theme-btn-active {
+    @apply bg-panel text-text;
+  }
+
+  .hero-panel {
+    @apply bg-panel;
+    background-image: radial-gradient(circle at 12% 18%, rgba(47, 107, 255, 0.2), transparent 42%),
+      radial-gradient(circle at 82% 30%, rgba(76, 164, 255, 0.16), transparent 44%),
+      linear-gradient(180deg, rgba(47, 107, 255, 0.06), rgba(47, 107, 255, 0));
+  }
+
+  [data-theme='dark'] .hero-panel {
+    background-image: radial-gradient(circle at 12% 18%, rgba(122, 162, 255, 0.2), transparent 42%),
+      radial-gradient(circle at 82% 30%, rgba(93, 189, 255, 0.14), transparent 44%),
+      linear-gradient(180deg, rgba(122, 162, 255, 0.06), rgba(122, 162, 255, 0));
+  }
+}

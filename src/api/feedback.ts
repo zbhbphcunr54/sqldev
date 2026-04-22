@@ -1,0 +1,18 @@
+import { invokeEdgeFunction } from '@/api/http'
+
+export interface FeedbackRequest {
+  category: 'bug' | 'idea' | 'ui' | 'performance' | 'other'
+  content: string
+  source: 'splash' | 'workbench' | 'ziwei'
+  scene?: string
+}
+
+export interface FeedbackResponse {
+  ok: boolean
+  id?: string
+  error?: string
+}
+
+export async function submitFeedback(payload: FeedbackRequest): Promise<FeedbackResponse> {
+  return await invokeEdgeFunction<FeedbackRequest, FeedbackResponse>('feedback', payload)
+}

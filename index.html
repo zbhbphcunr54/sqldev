@@ -23,13 +23,17 @@
 <meta name="twitter:image" content="https://gitzhengpeng.github.io/sqldev/og-image.png"/>
 <link rel="canonical" href="https://gitzhengpeng.github.io/sqldev/"/>
 <title>SQL 翻译工作台</title>
-<script src="startup-view.js"></script>
+<script>
+  (function redirectToViteEntry() {
+    if (window.location.pathname.endsWith('/index.vite.html')) return;
+    const target = new URL('./index.vite.html', window.location.href);
+    window.location.replace(target.href);
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=optional" rel="stylesheet"/>
-<link rel="stylesheet" href="vendor/codemirror.min.css"/>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
-<link rel="stylesheet" href="style.css"/>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/sqldev/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
 </script>
@@ -2040,20 +2044,25 @@ $$;</pre>
                     </section>
                     <section class="ziwei-center">
                       <h4>{{ ziweiCenterTitle }}</h4>
-                      <p class="ziwei-center-meta">{{ ziweiChart.center.currentYearLabel || '--' }} · {{ ziweiChart.center.currentAgeLabel || '--' }}</p>
                       <div class="ziwei-center-info">
-                        <p><strong>姓名：</strong><span>{{ ziweiProfileName || '--' }}</span></p>
-                        <p><strong>阴阳：</strong><span>{{ ziweiChart.center.yinYangGenderLabel || '--' }}</span></p>
-                        <p><strong>五行局：</strong><span>{{ ziweiChart.center.bureauLabel || '--' }}</span></p>
-                        <p><strong>历法：</strong><span>{{ ziweiChart.center.calendarInputType || '--' }}</span></p>
-                        <p><strong>真太阳时：</strong><span>{{ ziweiChart.center.solarText || '--' }}</span></p>
-                        <p><strong>钟表时间：</strong><span>{{ ziweiChart.center.inputClockText || '--' }}</span></p>
-                        <p><strong>农历：</strong><span>{{ ziweiChart.center.lunarText || '--' }}</span></p>
-                        <p><strong>命主：</strong><span>{{ ziweiChart.center.mingZhu || '--' }}</span></p>
-                        <p><strong>身主：</strong><span>{{ ziweiChart.center.shenZhu || '--' }}</span></p>
-                        <p><strong>命宫：</strong><span>{{ (ziweiChart.center.mingBranch || '--') + '宫' }}</span></p>
-                        <p><strong>身宫：</strong><span>{{ (ziweiChart.center.shenBranch || '--') + '宫' + (ziweiChart.center.shenPalaceName ? ('·' + ziweiChart.center.shenPalaceName) : '') }}</span></p>
-                        <p><strong>五行：</strong><span>{{ ziweiChart.center.naYinLabel || '--' }}</span></p>
+                        <div class="ziwei-center-info-grid">
+                          <p><strong>姓名：</strong><span>{{ ziweiProfileName || '--' }}</span></p>
+                          <p><strong>五行局：</strong><span>{{ ziweiChart.center.bureauLabel || '--' }}</span></p>
+                          <p><strong>真太阳：</strong><span>{{ ziweiTrueSolarDateText || '--' }}</span></p>
+                          <p><strong>时：</strong><span>{{ ziweiTrueSolarTimeText || '--' }}</span></p>
+                          <p><strong>农历：</strong><span>{{ ziweiChart.center.lunarText || '--' }}</span></p>
+                          <p><strong>身主：</strong><span>{{ ziweiChart.center.shenZhu || '--' }}</span></p>
+                          <p><strong>身宫：</strong><span>{{ (ziweiChart.center.shenBranch || '--') + '宫' + (ziweiChart.center.shenPalaceName ? (' · ' + ziweiChart.center.shenPalaceName) : '') }}</span></p>
+                        </div>
+                        <div class="ziwei-center-info-grid">
+                          <p><strong>阴阳：</strong><span>{{ ziweiChart.center.yinYangGenderLabel || '--' }}</span></p>
+                          <p><strong>历法：</strong><span>{{ ziweiChart.center.calendarInputType || '--' }}</span></p>
+                          <p><strong>钟表时：</strong><span>{{ ziweiClockDateText || '--' }}</span></p>
+                          <p><strong>间：</strong><span>{{ ziweiClockTimeText || '--' }}</span></p>
+                          <p><strong>命主：</strong><span>{{ ziweiChart.center.mingZhu || '--' }}</span></p>
+                          <p><strong>命宫：</strong><span>{{ (ziweiChart.center.mingBranch || '--') + '宫' }}</span></p>
+                          <p><strong>五行：</strong><span>{{ ziweiChart.center.naYinLabel || '--' }}</span></p>
+                        </div>
                       </div>
                       <div class="ziwei-center-divider"></div>
                       <div class="ziwei-center-pillars">
@@ -2062,8 +2071,12 @@ $$;</pre>
                           <span class="ziwei-center-pillar-title">非节气四柱</span>
                         </div>
                         <div class="ziwei-center-pillar-row ziwei-center-pillar-data">
-                          <span class="ziwei-center-pillar-cell"><b>{{ ziweiJieqiPillarStemText }}</b><em>{{ ziweiJieqiPillarBranchText }}</em></span>
-                          <span class="ziwei-center-pillar-cell"><b>{{ ziweiNonJieqiPillarStemText }}</b><em>{{ ziweiNonJieqiPillarBranchText }}</em></span>
+                          <span class="ziwei-center-pillar-cell">{{ ziweiJieqiPillarStemText }}</span>
+                          <span class="ziwei-center-pillar-cell">{{ ziweiNonJieqiPillarStemText }}</span>
+                        </div>
+                        <div class="ziwei-center-pillar-row ziwei-center-pillar-data">
+                          <span class="ziwei-center-pillar-cell">{{ ziweiJieqiPillarBranchText }}</span>
+                          <span class="ziwei-center-pillar-cell">{{ ziweiNonJieqiPillarBranchText }}</span>
                         </div>
                       </div>
                       <p class="ziwei-center-qiyun">{{ ziweiChart.center.qiYunText || '--' }}</p>
@@ -2076,12 +2089,19 @@ $$;</pre>
                       <div class="ziwei-center-hua" v-if="ziweiChart.center.huaSummary && ziweiChart.center.huaSummary.length">
                         <span class="ziwei-hua-tag ziwei-hua-summary" v-for="item in ziweiChart.center.huaSummary" :key="'zw-center-hua-'+item.tag" :data-hua="item.tag">{{ item.label }}</span>
                       </div>
-                      <div class="ziwei-center-da-preview" v-if="false && ziweiCenterDaXianPreview && ziweiCenterDaXianPreview.length">
-                        <span class="ziwei-center-da-chip" :class="{active:item.active}" v-for="item in ziweiCenterDaXianPreview" :key="'zw-center-dx-'+item.range">
-                          <strong>{{ item.range }}</strong>
-                          <em>{{ item.branch }}{{ item.palaceName ? ('·' + item.palaceName) : '' }}</em>
-                        </span>
+                      <div class="ziwei-center-actions">
+                        <button class="ziwei-center-action-btn" type="button">学紫微</button>
+                        <button class="ziwei-center-action-btn" type="button">时↑</button>
+                        <button class="ziwei-center-action-btn" type="button">时↓</button>
+                        <button class="ziwei-center-action-btn" type="button">解命盘</button>
                       </div>
+                      <p class="ziwei-center-self-hua">
+                        <strong>自化图示：</strong>
+                        <span class="ziwei-hua-tag ziwei-center-self-hua-tag" data-hua="禄">禄</span>
+                        <span class="ziwei-hua-tag ziwei-center-self-hua-tag" data-hua="权">权</span>
+                        <span class="ziwei-hua-tag ziwei-center-self-hua-tag" data-hua="科">科</span>
+                        <span class="ziwei-hua-tag ziwei-center-self-hua-tag" data-hua="忌">忌</span>
+                      </p>
                       <p class="ziwei-center-note" v-if="ziweiChart.center.shiftedByZiHour">已按子时（23:00后）换日规则排盘</p>
                     </section>
                   </div>
@@ -2342,7 +2362,5 @@ $$;</pre>
 </div>
 
 <!-- Critical path: splash -->
-<script defer src="splash.js"></script>
-<!-- Non-critical heavy modules are loaded in idle time by bootstrap.js -->
-<script defer src="bootstrap.js"></script>
+<!-- legacy scripts removed after Vue3+Vite migration -->
 </body></html>

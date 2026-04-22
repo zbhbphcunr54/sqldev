@@ -679,3 +679,84 @@ Last updated: 2026-04-15
 - 仓库清理：
   - 删除根目录旧版 `*.20260422a.*` 文件（10 个）。
   - `.gitignore` 新增 `dist/`，避免构建产物误提交。
+
+## 2026-04-22: ZiWei 502 稳定性热修
+- 重建 `supabase/functions/ziwei-analysis/index.ts`：移除旧的乱码/残留逻辑，统一请求处理链路。
+- 增强 AI 返回解析兼容性：
+  - 同时兼容字符串、数组、对象三种 `message.content` 形态。
+  - 对可重试上游异常（5xx/408/504）自动重试 1 次。
+  - 维持 JSON 优先解析，失败时再做文本结构化兜底，减少 `ai_response_invalid`。
+- 细化错误状态码映射：
+  - `ai_upstream_rate_limited -> 429`
+  - `ai_request_timeout` / `ai_upstream_timeout -> 504`
+  - 其他 `ai_* -> 502`
+- 保留并确认安全链路：
+  - Bearer token 通过 Supabase `/auth/v1/user` 校验
+  - `ZIWEI_ALLOWED_EMAILS` 邮箱白名单
+  - CORS 白名单 + localhost 开关
+  - `userId + IP` 速率限制（`config` 模式不计入限流）
+- 前端补充了 `ai_backend_not_configured` 的友好提示映射（`app.js`）。
+
+## 2026-04-22: 按 AI_DEV.md 执行的架构重构（Vue3 + TS + Vite）
+- 新增现代前端工程基线：
+  - `package.json`（Vue3 / TS / Vite / Pinia / Router / Tailwind / ESLint / Prettier）
+  - `vite.config.ts`、`tsconfig*.json`、`tailwind.config.ts`、`postcss.config.cjs`、`eslint.config.ts`、`prettier.config.cjs`
+  - `.editorconfig` 统一 UTF-8 / 2 空格 / LF
+- 新增规范目录结构：
+  - `src/api`：统一封装 edge function 请求
+  - `src/lib/supabase.ts`：`createClient<Database>()`
+  - `src/stores`：`auth` + `app(theme)` Pinia
+  - `src/composables`：`useAuth`、`useAsyncState`、`useZiweiTool`
+  - `src/router/index.ts`：路由与登录守卫
+  - `src/pages`：Splash / Login / Workbench / Ziwei / NotFound
+  - `src/components`：Header / Sidebar / Feedback / StatePanel / Ziwei 子组件
+  - `src/styles/tokens.css` + `src/styles/main.css`（Design Tokens + Tailwind 组件层）
+  - `src/types/supabase.ts`：Database 类型定义入口
+- 入口迁移策略：
+  - 新增 `index.vite.html` 作为 Vite 主入口（`/src/main.ts`）。
+  - 旧 `index.html` 增加重定向脚本到 `index.vite.html`，平滑切换。
+- 文档与环境：
+  - 新增 `.env.example`（仅 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`）
+  - 新增 `README.md`、`docs/AI-DEV-RULES.md`
+
+## 2026-04-22: 构建校验进展（重构后）
+- `pnpm typecheck`：通过。
+- `pnpm lint`：已收敛到 `src` 范围并可执行通过（当前仅剩格式/属性顺序 warning，无 error）。
+- `pnpm build`：在当前系统环境失败，错误为 `spawn EPERM`（Node 子进程执行被系统层拦截，不是 TS 类型错误）。
+- 处理动作：
+  - 增加 `eslint.config.mjs`，脚本改为显式使用该配置。
+  - 新增 `vite.config.mjs`，构建脚本改为显式使用该配置。
+
+## 2026-04-22: Build 报错修复（Tailwind placeholder）
+- 修复 `src/styles/main.css` 中 Tailwind 不兼容写法：
+  - `placeholder:text-subtle/70`
+  - 改为 `placeholder:text-subtle placeholder:opacity-70`
+- 说明：`text-subtle` 是基于 CSS 变量的自定义色，`/70` 透明度语法在该场景下会导致 PostCSS/Tailwind `@apply` 解析失败。
+
+## 2026-04-22: Build 报错修复（Tailwind focus ring）
+- 修复 `src/styles/main.css` 中 `@apply` 不兼容类：
+  - `focus:ring-brand-500/20`
+  - 改为 `focus:ring-brand-500 focus:ring-opacity-20`
+- 说明：对基于 CSS 变量扩展的颜色，`/20` 透明度后缀在 `@apply` 下可能无法展开；拆分为颜色类 + opacity 类可兼容。
+
+## 2026-04-22: 无用代码文件清理（sqldev）
+- 已删除旧架构遗留前端文件（根目录）：
+  - `app.js`
+  - `auth.js`
+  - `bootstrap.js`
+  - `feedback.js`
+  - `font-loader.js`
+  - `rules.js`
+  - `samples.js`
+  - `splash.js`
+  - `startup-view.js`
+  - `style.css`
+  - `supabase-config.js`
+- 已删除旧构建/依赖目录：
+  - `scripts/build-dist.mjs`
+  - `vendor/*`
+- 清理配置残留：
+  - `eslint.config.mjs` 去掉 `vendor/**` ignore 项。
+- 验证结果：
+  - `pnpm.cmd -C d:\codextest\sqldev build` 构建通过（Vite build 成功）。
+  - 保留并恢复 `og-image.png` / `og-image.svg`，避免社交分享预览失效。
