@@ -6086,7 +6086,9 @@ const app = createApp({
       if (code === 'invalid_question') return '请输入有效问题后再发送。';
       if (code === 'ai_request_timeout' || code === 'ai_upstream_timeout') return 'AI 思考超时，请稍后重试。';
       if (code === 'ai_upstream_not_found') return 'AI 服务配置异常，请联系管理员。';
-      if (code === 'ai_upstream_auth_failed' || code === 'ai_upstream_unavailable' || code === 'ai_upstream_bad_response') return 'AI 服务暂时不可用，请稍后重试。';
+      if (code === 'ai_upstream_auth_failed') return 'AI 服务鉴权失败，请检查 API Key、余额或模型权限。';
+      if (code === 'ai_upstream_unavailable') return 'AI 上游服务暂时不可用，请稍后重试。';
+      if (code === 'ai_upstream_bad_response') return 'AI 返回异常，请检查 AI_BASE_URL 与模型配置。';
       if (code === 'ai_response_invalid' || code === 'ai_response_empty' || code === 'ai_analysis_failed') return 'AI 返回结果异常，请稍后重试。';
       return 'AI 服务暂时不可用，请稍后重试。';
     }
