@@ -5693,6 +5693,14 @@ const app = createApp({
       return hit >= 2;
     }
 
+    function normalizeZiweiQaSuggestionText(text) {
+      var t = String(text || '').trim();
+      if (!t) return '';
+      // 修复“身体X健康”中间出现的 1-2 个乱码字符。
+      t = t.replace(/身体([^与和及、，,\s\/-]{1,2})健康/g, '身体与健康');
+      return t;
+    }
+
     async function loadZiweiAiServerConfig() {
       if (!window.authApi || typeof window.authApi.invokeFunction !== 'function') return;
       if (typeof window.authApi.getUserSync === 'function' && !window.authApi.getUserSync()) return;
@@ -5707,7 +5715,7 @@ const app = createApp({
 
         if (Array.isArray(cfg.suggestions)) {
           var suggestions = cfg.suggestions
-            .map(function(item) { return String(item || '').trim(); })
+            .map(function(item) { return normalizeZiweiQaSuggestionText(item); })
             .filter(function(item) { return !isLikelyMojibakeZh(item); })
             .filter(Boolean)
             .slice(0, 12);

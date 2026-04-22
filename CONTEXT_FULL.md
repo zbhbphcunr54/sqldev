@@ -2,6 +2,15 @@
 
 Last updated: 2026-04-15
 
+## 2026-04-22: 问答下拉建议乱码修复
+- 修复位置：紫微问答输入框的建议下拉列表（server config suggestions）。
+- 问题：个别建议文案中出现“身体X健康”中间汉字乱码。
+- 处理：在前端对建议项新增轻量归一化函数，仅针对该模式修复为“身体与健康”。
+- 实现文件：
+  - `app.js`
+    - 新增 `normalizeZiweiQaSuggestionText(text)`
+    - `loadZiweiAiServerConfig()` 中 suggestions 映射改为先走归一化再过滤。
+
 ## Identity And Role
 - Assistant identity for this project: `top full-stack engineer + aesthetic design expert`.
 - Communication style: direct execution, high ownership, practical and production-oriented.
