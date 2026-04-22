@@ -659,12 +659,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  const clientIp = getClientIp(req)
-  const rate = await consumeRateLimit(`${authUser.userId}|${clientIp}`)
-  if (!rate.ok) {
-    return json(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
-  }
-
   let payload: Record<string, unknown> | null = null
   try {
     payload = await req.json()
@@ -688,6 +682,12 @@ Deno.serve(async (req) => {
       signature,
       config: cfg
     }, corsHeaders)
+  }
+
+  const clientIp = getClientIp(req)
+  const rate = await consumeRateLimit(`${authUser.userId}|${clientIp}`)
+  if (!rate.ok) {
+    return json(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
   }
 
   const chartPayload = normalizeChartPayload(payload.chart)

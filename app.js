@@ -6077,7 +6077,9 @@ const app = createApp({
     function _zwMapAiErrorMessage(raw) {
       var code = String(raw || '').trim().toLowerCase();
       if (!code) return 'AI 服务暂时不可用，请稍后重试。';
-      if (code.indexOf('429') >= 0 || code.indexOf('rate limit') >= 0 || code.indexOf('rate_limited') >= 0 || code.indexOf('ai_upstream_rate_limited') >= 0) {
+      if (code === 'rate_limited') return '当前请求较多，触发了服务端限流，请稍后再试。';
+      if (code === 'ai_upstream_rate_limited') return 'AI 上游服务限流或配额不足，请稍后重试。';
+      if (code.indexOf('429') >= 0 || code.indexOf('rate limit') >= 0) {
         return 'AI 请求过于频繁，请稍后重试。';
       }
       if (code === 'forbidden_user') return '当前账号未开通紫微工具权限。';
