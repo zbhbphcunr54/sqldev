@@ -45,12 +45,49 @@ const AUTH_USER_ENDPOINT = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/user` : ''
 const RATE_LIMIT_WINDOW_MS = parsePositiveInt(Deno.env.get('CONVERT_RATE_LIMIT_WINDOW_MS'), 60_000)
 const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(Deno.env.get('CONVERT_RATE_LIMIT_MAX_REQUESTS'), 20)
 const RATE_LIMIT_TRACK_MAX = parsePositiveInt(Deno.env.get('CONVERT_RATE_LIMIT_TRACK_MAX'), 2_000)
+const RATE_LIMIT_STORE_MODE = String(Deno.env.get('CONVERT_RATE_LIMIT_STORE') || 'kv').trim().toLowerCase()
+const MAX_REQUEST_BYTES = parsePositiveInt(Deno.env.get('CONVERT_MAX_REQUEST_BYTES'), 6 * 1024 * 1024)
+const MAX_RULES_BYTES = parsePositiveInt(Deno.env.get('CONVERT_MAX_RULES_BYTES'), 256 * 1024)
+const MAX_JSON_DEPTH = parsePositiveInt(Deno.env.get('CONVERT_MAX_JSON_DEPTH'), 14)
 const rateBuckets = new Map<string, RateBucket>()
+let kvPromise: Promise<Deno.Kv | null> | null = null
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const n = Number(raw)
   if (!Number.isFinite(n) || n <= 0) return fallback
   return Math.floor(n)
+}
+
+function getRequestContentLength(req: Request): number {
+  const raw = String(req.headers.get('content-length') || '').trim()
+  if (!raw) return -1
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) return -1
+  return Math.floor(n)
+}
+
+function estimateJsonBytes(value: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length
+  } catch (_err) {
+    return Number.MAX_SAFE_INTEGER
+  }
+}
+
+function exceedsJsonDepth(value: unknown, maxDepth: number, depth = 0): boolean {
+  if (depth > maxDepth) return true
+  if (value == null) return false
+  if (typeof value !== 'object') return false
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (exceedsJsonDepth(item, maxDepth, depth + 1)) return true
+    }
+    return false
+  }
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    if (exceedsJsonDepth((value as Record<string, unknown>)[key], maxDepth, depth + 1)) return true
+  }
+  return false
 }
 
 function cloneJson<T>(value: T): T {
@@ -106,7 +143,7 @@ function pruneRateBuckets(now: number) {
   }
 }
 
-function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
+function consumeRateLimitMemory(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
   let bucket = rateBuckets.get(key)
   if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
     bucket = { count: 0, windowStart: now }
@@ -119,6 +156,36 @@ function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining:
   bucket.count += 1
   pruneRateBuckets(now)
   return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count) }
+}
+
+async function getRateKv(): Promise<Deno.Kv | null> {
+  if (RATE_LIMIT_STORE_MODE !== 'kv') return null
+  if (!kvPromise) {
+    kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
+  }
+  return await kvPromise
+}
+
+async function consumeRateLimit(key: string, now = Date.now()): Promise<{ ok: true; remaining: number } | { ok: false; retryAfter: number }> {
+  const kv = await getRateKv()
+  if (!kv) return consumeRateLimitMemory(key, now)
+
+  const windowStart = now - (now % RATE_LIMIT_WINDOW_MS)
+  const windowIndex = Math.floor(now / RATE_LIMIT_WINDOW_MS)
+  const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - windowStart)) / 1000))
+  const expireIn = Math.max(1_000, RATE_LIMIT_WINDOW_MS - (now - windowStart) + 1_500)
+  const kvKey: Deno.KvKey = ['rate_limit', 'convert', key, windowIndex]
+
+  for (let i = 0; i < 6; i += 1) {
+    const entry = await kv.get<RateBucket>(kvKey)
+    const count = Number(entry.value?.count || 0)
+    if (count >= RATE_LIMIT_MAX_REQUESTS) return { ok: false, retryAfter }
+    const next: RateBucket = { count: count + 1, windowStart }
+    const commit = await kv.atomic().check(entry).set(kvKey, next, { expireIn }).commit()
+    if (commit.ok) return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - next.count) }
+  }
+
+  return consumeRateLimitMemory(key, now)
 }
 
 function replaceRecord<T>(target: Record<string, T>, source: Record<string, T>) {
@@ -327,36 +394,44 @@ Deno.serve(async (req) => {
 
   try {
     if (!AUTH_USER_ENDPOINT || !SUPABASE_ANON_KEY) {
-      return json({ error: 'Server env missing SUPABASE_URL or SUPABASE_ANON_KEY' }, 500, corsHeaders)
+      return json({ error: 'server_not_ready' }, 500, corsHeaders)
+    }
+    const contentLength = getRequestContentLength(req)
+    if (contentLength > MAX_REQUEST_BYTES) {
+      return json({ error: 'payload_too_large' }, 413, corsHeaders)
     }
     const token = bearerToken(req)
-    if (!token) return json({ error: 'Missing Authorization bearer token' }, 401, corsHeaders)
+    if (!token) return json({ error: 'unauthorized' }, 401, corsHeaders)
     const sessionState = await validateUserSession(token)
-    if (sessionState.state === 'invalid') return json({ error: 'Unauthorized' }, 401, corsHeaders)
-    if (sessionState.state === 'error') return json({ error: 'Auth service unavailable' }, 503, corsHeaders)
+    if (sessionState.state === 'invalid') return json({ error: 'unauthorized' }, 401, corsHeaders)
+    if (sessionState.state === 'error') return json({ error: 'auth_unavailable' }, 503, corsHeaders)
     const clientIp = getClientIp(req)
-    const limit = consumeRateLimit(`${sessionState.userId}:${clientIp}`)
+    const limit = await consumeRateLimit(`${sessionState.userId}:${clientIp}`)
     if (!limit.ok) {
-      return json({ error: 'Rate limit exceeded. Please retry later.' }, 429, {
+      return json({ error: 'rate_limited' }, 429, {
         ...corsHeaders,
         'Retry-After': String(limit.retryAfter)
       })
     }
 
     const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') return json({ error: 'invalid_json' }, 400, corsHeaders)
+    if (exceedsJsonDepth(body, MAX_JSON_DEPTH)) return json({ error: 'payload_too_deep' }, 400, corsHeaders)
+    if (estimateJsonBytes(body) > MAX_REQUEST_BYTES) return json({ error: 'payload_too_large' }, 413, corsHeaders)
     const kind = String(body?.kind || '')
     const fromDb = String(body?.fromDb || '')
     const toDb = String(body?.toDb || '')
     const input = String(body?.input || '')
     const runtimeRules = normalizeRuntimeRules(body?.rules)
-    if (body?.rules && !runtimeRules) return json({ error: 'Invalid rules payload' }, 400, corsHeaders)
+    if (body?.rules && !runtimeRules) return json({ error: 'invalid_rules' }, 400, corsHeaders)
+    if (body?.rules && estimateJsonBytes(body.rules) > MAX_RULES_BYTES) return json({ error: 'rules_too_large' }, 400, corsHeaders)
 
-    if (!['ddl', 'func', 'proc'].includes(kind)) return json({ error: 'Invalid kind' }, 400, corsHeaders)
+    if (!['ddl', 'func', 'proc'].includes(kind)) return json({ error: 'invalid_kind' }, 400, corsHeaders)
     if (!['oracle', 'mysql', 'postgresql'].includes(fromDb) || !['oracle', 'mysql', 'postgresql'].includes(toDb)) {
-      return json({ error: 'Invalid database type' }, 400, corsHeaders)
+      return json({ error: 'invalid_database_type' }, 400, corsHeaders)
     }
-    if (!input.trim()) return json({ error: 'Input is empty' }, 400, corsHeaders)
-    if (input.length > 5 * 1024 * 1024) return json({ error: 'Input too large (max 5MB)' }, 400, corsHeaders)
+    if (!input.trim()) return json({ error: 'input_empty' }, 400, corsHeaders)
+    if (input.length > 5 * 1024 * 1024) return json({ error: 'input_too_large' }, 400, corsHeaders)
 
     await ensureEngineReady()
     const runtimeApplied = runtimeRules ? applyRuntimeRules(runtimeRules) : false
@@ -365,15 +440,15 @@ Deno.serve(async (req) => {
     try {
       if (kind === 'ddl') {
         const fn = convertDDLFn
-        if (typeof fn !== 'function') return json({ error: 'DDL engine not ready' }, 500, corsHeaders)
+        if (typeof fn !== 'function') return json({ error: 'engine_not_ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       } else if (kind === 'func') {
         const fn = convertFunctionFn
-        if (typeof fn !== 'function') return json({ error: 'Function engine not ready' }, 500, corsHeaders)
+        if (typeof fn !== 'function') return json({ error: 'engine_not_ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       } else {
         const fn = convertProcedureFn
-        if (typeof fn !== 'function') return json({ error: 'Procedure engine not ready' }, 500, corsHeaders)
+        if (typeof fn !== 'function') return json({ error: 'engine_not_ready' }, 500, corsHeaders)
         output = fn(input, fromDb, toDb)
       }
     } finally {
@@ -389,7 +464,7 @@ Deno.serve(async (req) => {
       rulesVersion: runtimeRules?.version || 'server-default'
     }, 200, corsHeaders)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return json({ error: msg }, 500, corsHeaders)
+    void err
+    return json({ error: 'internal_error' }, 500, corsHeaders)
   }
 })

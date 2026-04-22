@@ -23,14 +23,13 @@
 <meta name="twitter:image" content="https://gitzhengpeng.github.io/sqldev/og-image.png"/>
 <link rel="canonical" href="https://gitzhengpeng.github.io/sqldev/"/>
 <title>SQL 翻译工作台</title>
-<script src="startup-view.js?v=20260417b"></script>
+<script src="startup-view.20260422a.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=optional" rel="stylesheet"/>
 <link rel="stylesheet" href="vendor/codemirror.min.css"/>
 <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
-<link rel="stylesheet" href="style.css?v=20260420a"/>
-<link rel="prefetch" href="region_codes_2024.json" as="fetch"/>
+<link rel="stylesheet" href="style.20260422a.css"/>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"SQL 翻译工作台","url":"https://gitzhengpeng.github.io/sqldev/","description":"Oracle / MySQL / PostgreSQL SQL 翻译工作台 — DDL建表语句、函数、存储过程在线互转","applicationCategory":"DeveloperApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"}}
 </script>
@@ -1544,7 +1543,7 @@ $$;</pre>
 
             <div class="ziwei-actions">
               <button class="idtool-btn primary ziwei-action-btn" type="button" :disabled="ziweiGenerating" @click="generateZiweiChart">{{ ziweiGenerateButtonLabel }}</button>
-              <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="!ziweiChart || ziweiAiLoading" @click="requestZiweiAiAnalysis()">{{ ziweiAiButtonLabel }}</button>
+              <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="!ziweiChart || ziweiAiRequestBlocked" @click="requestZiweiAiAnalysis()">{{ ziweiAiButtonLabel }}</button>
               <button class="idtool-btn ghost ziwei-action-btn" type="button" @click="copyZiweiChartText">{{ ziweiCopyButtonLabel }}</button>
               <button class="idtool-btn ghost ziwei-action-btn" type="button" :disabled="ziweiExporting" @click="exportZiweiChartImage">{{ ziweiExportButtonLabel }}</button>
             </div>
@@ -2117,7 +2116,7 @@ $$;</pre>
                   </div>
                 </header>
                 <div class="ziwei-ai-top-actions">
-                  <button class="idtool-btn ghost ziwei-ai-btn" type="button" :disabled="!ziweiChart || ziweiAiLoading" @click="requestZiweiAiAnalysis()">
+                  <button class="idtool-btn ghost ziwei-ai-btn" type="button" :disabled="!ziweiChart || ziweiAiRequestBlocked" @click="requestZiweiAiAnalysis()">
                     <span class="ziwei-loading-dot" v-if="ziweiAiLoading"></span>
                     <span>{{ ziweiAiButtonLabel }}</span>
                   </button>
@@ -2154,7 +2153,7 @@ $$;</pre>
                           </button>
                         </div>
                       </div>
-                      <button class="idtool-btn ghost ziwei-ai-qa-send" :class="{ loading: ziweiAiQuestionLoading }" type="button" :disabled="ziweiAiQuestionLoading || !ziweiChart" @click="submitZiweiAiQuestion">
+                      <button class="idtool-btn ghost ziwei-ai-qa-send" :class="{ loading: ziweiAiQuestionLoading }" type="button" :disabled="!ziweiChart || ziweiAiRequestBlocked" @click="submitZiweiAiQuestion">
                         <span class="ziwei-loading-dot" v-if="ziweiAiQuestionLoading"></span>
                         <span>{{ ziweiAiQuestionLoading ? '\u0041\u0049\u601d\u8003\u4e2d...' : '\u53d1\u9001' }}</span>
                       </button>
@@ -2342,12 +2341,8 @@ $$;</pre>
   </div>
 </div>
 
-<!-- Critical path: splash + auth -->
-<script defer src="splash.js?v=20260417a"></script>
-<script defer src="vendor/supabase.js"></script>
-<script defer src="supabase-config.js?v=20260414c"></script>
-<script defer src="auth.js?v=20260417c"></script>
-<script defer src="feedback.js?v=20260415f"></script>
+<!-- Critical path: splash -->
+<script defer src="splash.20260422a.js"></script>
 <!-- Non-critical heavy modules are loaded in idle time by bootstrap.js -->
-<script defer src="bootstrap.js?v=20260420a"></script>
+<script defer src="bootstrap.20260422a.js"></script>
 </body></html>

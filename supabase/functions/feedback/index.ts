@@ -21,9 +21,11 @@ const FEEDBACK_INSERT_ENDPOINT = SUPABASE_URL ? `${SUPABASE_URL}/rest/v1/feedbac
 const RATE_LIMIT_WINDOW_MS = parsePositiveInt(Deno.env.get('FEEDBACK_RATE_LIMIT_WINDOW_MS'), 60_000)
 const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(Deno.env.get('FEEDBACK_RATE_LIMIT_MAX_REQUESTS'), 10)
 const RATE_LIMIT_TRACK_MAX = parsePositiveInt(Deno.env.get('FEEDBACK_RATE_LIMIT_TRACK_MAX'), 2_000)
+const RATE_LIMIT_STORE_MODE = String(Deno.env.get('FEEDBACK_RATE_LIMIT_STORE') || 'kv').trim().toLowerCase()
 const MAX_CONTENT_LENGTH = parsePositiveInt(Deno.env.get('FEEDBACK_MAX_CONTENT_LENGTH'), 1_200)
 const MAX_CONTACT_LENGTH = parsePositiveInt(Deno.env.get('FEEDBACK_MAX_CONTACT_LENGTH'), 120)
 const rateBuckets = new Map<string, { count: number; windowStart: number }>()
+let kvPromise: Promise<Deno.Kv | null> | null = null
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const n = Number(raw)
@@ -75,7 +77,7 @@ function pruneRateBuckets(now: number) {
   }
 }
 
-function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
+function consumeRateLimitMemory(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
   let bucket = rateBuckets.get(key)
   if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
     bucket = { count: 0, windowStart: now }
@@ -88,6 +90,36 @@ function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining:
   bucket.count += 1
   pruneRateBuckets(now)
   return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count) }
+}
+
+async function getRateKv(): Promise<Deno.Kv | null> {
+  if (RATE_LIMIT_STORE_MODE !== 'kv') return null
+  if (!kvPromise) {
+    kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
+  }
+  return await kvPromise
+}
+
+async function consumeRateLimit(key: string, now = Date.now()): Promise<{ ok: true; remaining: number } | { ok: false; retryAfter: number }> {
+  const kv = await getRateKv()
+  if (!kv) return consumeRateLimitMemory(key, now)
+
+  const windowStart = now - (now % RATE_LIMIT_WINDOW_MS)
+  const windowIndex = Math.floor(now / RATE_LIMIT_WINDOW_MS)
+  const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - windowStart)) / 1000))
+  const expireIn = Math.max(1_000, RATE_LIMIT_WINDOW_MS - (now - windowStart) + 1_500)
+  const kvKey: Deno.KvKey = ['rate_limit', 'feedback', key, windowIndex]
+
+  for (let i = 0; i < 6; i += 1) {
+    const entry = await kv.get<{ count: number; windowStart: number }>(kvKey)
+    const count = Number(entry.value?.count || 0)
+    if (count >= RATE_LIMIT_MAX_REQUESTS) return { ok: false, retryAfter }
+    const next = { count: count + 1, windowStart }
+    const commit = await kv.atomic().check(entry).set(kvKey, next, { expireIn }).commit()
+    if (commit.ok) return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - next.count) }
+  }
+
+  return consumeRateLimitMemory(key, now)
 }
 
 function toSafeString(raw: unknown, maxLen: number): string {
@@ -170,7 +202,7 @@ Deno.serve(async (req) => {
   const clientIp = getClientIp(req)
   const authUserId = await validateBearerToken(req.headers.get('authorization'))
   const rateKey = `${authUserId || 'anon'}|${clientIp}`
-  const rate = consumeRateLimit(rateKey)
+  const rate = await consumeRateLimit(rateKey)
   if (!rate.ok) {
     return json(
       429,
@@ -210,8 +242,7 @@ Deno.serve(async (req) => {
   }
 
   if (!insertRes.ok) {
-    const reason = await insertRes.text().catch(() => '')
-    return json(500, { ok: false, error: 'storage_insert_failed', detail: reason.slice(0, 200) }, corsHeaders)
+    return json(500, { ok: false, error: 'storage_insert_failed' }, corsHeaders)
   }
 
   const inserted = await insertRes.json().catch(() => [])

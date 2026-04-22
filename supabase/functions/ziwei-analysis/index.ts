@@ -33,11 +33,17 @@ const AI_QA_MAX_QUESTION_CHARS = parsePositiveInt(Deno.env.get('ZIWEI_AI_QA_MAX_
 const AI_ANALYSIS_TEMPLATE = (Deno.env.get('ZIWEI_AI_ANALYSIS_TEMPLATE') || '').trim()
 const AI_QA_TEMPLATE = (Deno.env.get('ZIWEI_AI_QA_TEMPLATE') || '').trim()
 const AI_QA_SUGGESTIONS_JSON = (Deno.env.get('ZIWEI_AI_QA_SUGGESTIONS') || '').trim()
+const ZIWEI_ALLOWED_EMAILS = (Deno.env.get('ZIWEI_ALLOWED_EMAILS') || '')
+  .split(',')
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean)
 
 const RATE_LIMIT_WINDOW_MS = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_WINDOW_MS'), 60_000)
 const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_MAX_REQUESTS'), 6)
 const RATE_LIMIT_TRACK_MAX = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_TRACK_MAX'), 2_000)
+const RATE_LIMIT_STORE_MODE = String(Deno.env.get('ZIWEI_AI_RATE_LIMIT_STORE') || 'kv').trim().toLowerCase()
 const rateBuckets = new Map<string, { count: number; windowStart: number }>()
+let kvPromise: Promise<Deno.Kv | null> | null = null
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const n = Number(raw)
@@ -100,7 +106,7 @@ function pruneRateBuckets(now: number) {
   }
 }
 
-function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
+function consumeRateLimitMemory(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
   let bucket = rateBuckets.get(key)
   if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
     bucket = { count: 0, windowStart: now }
@@ -115,6 +121,36 @@ function consumeRateLimit(key: string, now = Date.now()): { ok: true; remaining:
   return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count) }
 }
 
+async function getRateKv(): Promise<Deno.Kv | null> {
+  if (RATE_LIMIT_STORE_MODE !== 'kv') return null
+  if (!kvPromise) {
+    kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
+  }
+  return await kvPromise
+}
+
+async function consumeRateLimit(key: string, now = Date.now()): Promise<{ ok: true; remaining: number } | { ok: false; retryAfter: number }> {
+  const kv = await getRateKv()
+  if (!kv) return consumeRateLimitMemory(key, now)
+
+  const windowStart = now - (now % RATE_LIMIT_WINDOW_MS)
+  const windowIndex = Math.floor(now / RATE_LIMIT_WINDOW_MS)
+  const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - windowStart)) / 1000))
+  const expireIn = Math.max(1_000, RATE_LIMIT_WINDOW_MS - (now - windowStart) + 1_500)
+  const kvKey: Deno.KvKey = ['rate_limit', 'ziwei_analysis', key, windowIndex]
+
+  for (let i = 0; i < 6; i += 1) {
+    const entry = await kv.get<{ count: number; windowStart: number }>(kvKey)
+    const count = Number(entry.value?.count || 0)
+    if (count >= RATE_LIMIT_MAX_REQUESTS) return { ok: false, retryAfter }
+    const next = { count: count + 1, windowStart }
+    const commit = await kv.atomic().check(entry).set(kvKey, next, { expireIn }).commit()
+    if (commit.ok) return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - next.count) }
+  }
+
+  return consumeRateLimitMemory(key, now)
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -126,7 +162,7 @@ function toSafeString(raw: unknown, maxLen: number): string {
   return out.slice(0, maxLen)
 }
 
-async function validateBearerToken(authorization: string | null): Promise<string | null> {
+async function validateBearerToken(authorization: string | null): Promise<{ userId: string; email: string } | null> {
   if (!authorization || !AUTH_USER_ENDPOINT || !SUPABASE_ANON_KEY) return null
   const raw = authorization.replace(/^Bearer\s+/i, '').trim()
   if (!raw) return null
@@ -141,7 +177,9 @@ async function validateBearerToken(authorization: string | null): Promise<string
     if (!res.ok) return null
     const body = await res.json().catch(() => null)
     const userId = typeof body?.id === 'string' ? body.id : ''
-    return userId || null
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (!userId) return null
+    return { userId, email }
   } catch (_err) {
     return null
   }
@@ -273,6 +311,15 @@ function normalizeAnalysis(raw: unknown): Record<string, unknown> | null {
   }
 }
 
+function buildAiUpstreamError(status: number): Error {
+  if (status === 429) return new Error('ai_upstream_rate_limited')
+  if (status === 408 || status === 504) return new Error('ai_upstream_timeout')
+  if (status === 401 || status === 403) return new Error('ai_upstream_auth_failed')
+  if (status === 404) return new Error('ai_upstream_not_found')
+  if (status >= 500) return new Error('ai_upstream_unavailable')
+  return new Error('ai_upstream_bad_response')
+}
+
 */
 function normalizeAnalysis(raw: unknown): Record<string, unknown> | null {
   if (!isPlainObject(raw)) return null
@@ -383,10 +430,7 @@ async function requestAiAnalysis(chartPayload: string, style: 'simple' | 'pro'):
       }),
       signal: controller.signal
     })
-    if (!res.ok) {
-      const reason = await res.text().catch(() => '')
-      throw new Error(`AI upstream error ${res.status}: ${reason.slice(0, 280)}`)
-    }
+    if (!res.ok) throw buildAiUpstreamError(res.status)
     const body = await res.json().catch(() => null)
     const content = body?.choices?.[0]?.message?.content
     const text = typeof content === 'string'
@@ -398,11 +442,11 @@ async function requestAiAnalysis(chartPayload: string, style: 'simple' | 'pro'):
         }).join('') : '')
     const parsed = parseJsonLoose(text)
     const normalized = normalizeAnalysis(parsed)
-    if (!normalized) throw new Error('AI response JSON schema invalid')
+    if (!normalized) throw new Error('ai_response_invalid')
     return normalized
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('AI request timeout')
+      throw new Error('ai_request_timeout')
     }
     throw err
   } finally {
@@ -485,10 +529,7 @@ async function requestAiAnalysis(chartPayload: string, style: 'simple' | 'pro'):
       }),
       signal: controller.signal
     })
-    if (!res.ok) {
-      const reason = await res.text().catch(() => '')
-      throw new Error(`AI upstream error ${res.status}: ${reason.slice(0, 280)}`)
-    }
+    if (!res.ok) throw buildAiUpstreamError(res.status)
     const body = await res.json().catch(() => null)
     const content = body?.choices?.[0]?.message?.content
     const text = typeof content === 'string'
@@ -561,10 +602,7 @@ async function requestAiQa(chartPayload: string, question: string): Promise<stri
       }),
       signal: controller.signal
     })
-    if (!res.ok) {
-      const reason = await res.text().catch(() => '')
-      throw new Error(`AI upstream error ${res.status}: ${reason.slice(0, 280)}`)
-    }
+    if (!res.ok) throw buildAiUpstreamError(res.status)
     const body = await res.json().catch(() => null)
     const content = body?.choices?.[0]?.message?.content
     const text = typeof content === 'string'
@@ -575,11 +613,11 @@ async function requestAiQa(chartPayload: string, question: string): Promise<stri
           return ''
         }).join('') : '')
     const answer = toSafeString(text, 8_000)
-    if (!answer) throw new Error('AI response empty')
+    if (!answer) throw new Error('ai_response_empty')
     return answer
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('AI request timeout')
+      throw new Error('ai_request_timeout')
     }
     throw err
   } finally {
@@ -597,11 +635,17 @@ Deno.serve(async (req) => {
     return json(500, { ok: false, error: 'supabase_env_missing' }, corsHeaders)
   }
 
-  const userId = await validateBearerToken(req.headers.get('authorization'))
-  if (!userId) return json(401, { ok: false, error: 'unauthorized' }, corsHeaders)
+  const authUser = await validateBearerToken(req.headers.get('authorization'))
+  if (!authUser) return json(401, { ok: false, error: 'unauthorized' }, corsHeaders)
+  if (ZIWEI_ALLOWED_EMAILS.length > 0) {
+    const email = String(authUser.email || '').trim().toLowerCase()
+    if (!email || ZIWEI_ALLOWED_EMAILS.indexOf(email) < 0) {
+      return json(403, { ok: false, error: 'forbidden_user' }, corsHeaders)
+    }
+  }
 
   const clientIp = getClientIp(req)
-  const rate = consumeRateLimit(`${userId}|${clientIp}`)
+  const rate = await consumeRateLimit(`${authUser.userId}|${clientIp}`)
   if (!rate.ok) {
     return json(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
   }
@@ -657,7 +701,8 @@ Deno.serve(async (req) => {
       analysis
     }, corsHeaders)
   } catch (err) {
-    const msg = String((err && (err as Error).message) || err || 'ai_analysis_failed')
-    return json(502, { ok: false, error: msg.slice(0, 280) }, corsHeaders)
+    const raw = String((err && (err as Error).message) || err || '')
+    const safeCode = /^ai_[a-z0-9_]+$/i.test(raw) ? raw.toLowerCase() : 'ai_analysis_failed'
+    return json(502, { ok: false, error: safeCode }, corsHeaders)
   }
 })

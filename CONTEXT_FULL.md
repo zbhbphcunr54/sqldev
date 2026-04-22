@@ -593,6 +593,40 @@ Last updated: 2026-04-15
   - `style.css`
 
 ## 2026-04-21: ZiWei 1:1 Palace Rows + Center Layout + AI Resource Fallback + Premium Share Poster
+- [2026-04-22 update] Completed AI 429 cooldown guard wiring:
+  - `index.html`: AI deep-analysis buttons now disable with `ziweiAiRequestBlocked`.
+  - `index.html`: AI QA send button now disables with `ziweiAiRequestBlocked`.
+  - `app.js`: exported `ziweiAiRequestBlocked` for template binding.
+  - `app.js`: clears `_ziweiAiCooldownTimer` inside main `onUnmounted`.
+  - Validation: `node --check app.js` passed.
+
+## 2026-04-22: Security + Performance Hardening Batch
+- P0 ZiWei permission chain:
+  - removed frontend hardcoded whitelist assignment in `supabase-config.js`.
+  - added server-side email whitelist enforcement in `supabase/functions/ziwei-analysis/index.ts` via `ZIWEI_ALLOWED_EMAILS`.
+- P0 error desensitization:
+  - `convert` now returns normalized backend error codes (no raw internal message passthrough).
+  - `ziwei-analysis` upstream AI failures are mapped to safe error codes, removing raw upstream body leakage.
+  - `feedback` no longer returns storage backend detail text to client on insert failure.
+  - frontend `app.js` maps backend error codes to user-friendly messages for convert/AI flows.
+- P0 convert payload protection:
+  - added `Content-Length` guard, JSON-depth guard, request-size estimation guard, and `rules` payload size guard in `supabase/functions/convert/index.ts`.
+  - env knobs: `CONVERT_MAX_REQUEST_BYTES`, `CONVERT_MAX_RULES_BYTES`, `CONVERT_MAX_JSON_DEPTH`.
+- P1 rate-limit store upgrade:
+  - `convert`, `ziwei-analysis`, `feedback` now use Deno KV (persistent window counters) when available, with memory fallback.
+  - env knobs: `CONVERT_RATE_LIMIT_STORE`, `ZIWEI_AI_RATE_LIMIT_STORE`, `FEEDBACK_RATE_LIMIT_STORE`.
+- P1 first-screen speed:
+  - removed homepage prefetch of `region_codes_2024.json`.
+  - moved `supabase.js`/`supabase-config`/`auth.js`/`feedback.js` out of static critical path.
+  - bootstrap supports lazy auth-stack loading (`window.__loadSqldevAuthNow`) and intent-based preload.
+  - conversion/AI/feedback entry points can trigger lazy auth-stack load when needed.
+- P1 feedback local draft privacy:
+  - local draft persistence now stores minimal fields only (`category`, `content`, `source`, `scene`), excluding `userId`/`userEmail`.
+- P1 frontend cleanup:
+  - removed `_legacySubmitZiweiAiQuestionOne`, `_legacySubmitZiweiAiQuestionTwo`, `_zwLegacyRequestZiweiAiAnalysis`, `_zwLegacyRequestZiweiAiAnalysisV2`.
+- P2 cache-busting strategy:
+  - removed `?v=` query-string cache keys.
+  - switched entry/static references to hash-suffixed filenames (`*.20260422a.*`) in `index.html` and `bootstrap.js`.
 - 命盘宫位内容节奏对齐增强（向参考 HTML 靠拢）：
   - active ZiWei V3 模板中，宫位卡片改为“流年/小限一行 + 主星/辅星/杂曜三行”的固定阅读节奏。
   - 主星、辅星、杂曜三行都加入空状态占位（`--`），避免缺星时行高塌陷。
