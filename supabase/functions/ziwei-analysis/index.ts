@@ -123,8 +123,13 @@ function consumeRateLimitMemory(key: string, now = Date.now()): { ok: true; rema
 
 async function getRateKv(): Promise<Deno.Kv | null> {
   if (RATE_LIMIT_STORE_MODE !== 'kv') return null
+  if (typeof Deno.openKv !== 'function') return null
   if (!kvPromise) {
-    kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
+    try {
+      kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
+    } catch (_err) {
+      kvPromise = Promise.resolve(null)
+    }
   }
   return await kvPromise
 }
@@ -321,6 +326,15 @@ function buildAiUpstreamError(status: number): Error {
 }
 
 */
+function buildAiUpstreamError(status: number): Error {
+  if (status === 429) return new Error('ai_upstream_rate_limited')
+  if (status === 408 || status === 504) return new Error('ai_upstream_timeout')
+  if (status === 401 || status === 403) return new Error('ai_upstream_auth_failed')
+  if (status === 404) return new Error('ai_upstream_not_found')
+  if (status >= 500) return new Error('ai_upstream_unavailable')
+  return new Error('ai_upstream_bad_response')
+}
+
 function normalizeAnalysis(raw: unknown): Record<string, unknown> | null {
   if (!isPlainObject(raw)) return null
   const overview = toSafeString(raw.overview, 1200)
@@ -626,6 +640,7 @@ async function requestAiQa(chartPayload: string, question: string): Promise<stri
 }
 
 Deno.serve(async (req) => {
+  try {
   const corsHeaders = buildCorsHeaders(req)
   if (!corsHeaders) return new Response('Forbidden', { status: 403, headers: defaultCorsHeaders() })
   if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders })
@@ -704,5 +719,10 @@ Deno.serve(async (req) => {
     const raw = String((err && (err as Error).message) || err || '')
     const safeCode = /^ai_[a-z0-9_]+$/i.test(raw) ? raw.toLowerCase() : 'ai_analysis_failed'
     return json(502, { ok: false, error: safeCode }, corsHeaders)
+  }
+  } catch (err) {
+    const fallbackCors = buildCorsHeaders(req) || defaultCorsHeaders()
+    console.error('[ziwei-analysis] unhandled_error', err)
+    return json(500, { ok: false, error: 'internal_error' }, fallbackCors)
   }
 })
