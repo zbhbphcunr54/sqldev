@@ -652,3 +652,21 @@ Last updated: 2026-04-15
   - 宫内流年行、星曜文本、亮度文本、占位文本与四柱分行文本在 light 主题下提升对比度。
 - 代码结构修整：
   - 避免历史逻辑继续覆盖：旧版 submit/request/share 函数标记为 legacy 名称，新逻辑使用原函数名输出到模板绑定。
+## 2026-04-22: P2 构建形态切换（源码无 hash，dist 输出 hash）
+- 目标调整：
+  - 将“根目录直接维护 `*.20260422a.*` 副本”改为“源码保持无 hash，构建到 `dist/` 时再生成 hash 文件”。
+- 前端入口回归源码名：
+  - `index.html` 改回引用 `startup-view.js`、`style.css`、`splash.js`、`bootstrap.js`（不带版本后缀）。
+- 引导器适配 manifest：
+  - `bootstrap.js` 去除固定 `ASSET_HASH` 拼接逻辑。
+  - 新增 `window.__SQDEV_ASSET_MANIFEST` 支持：构建产物中由 manifest 决定 `app/auth/feedback/rules/samples/supabase-config` 等真实 hash 文件名。
+- 新增构建脚本：
+  - `scripts/build-dist.mjs`
+  - 功能：
+    - 复制项目静态资源到 `dist/`
+    - 为目标资源生成内容 hash 文件名（sha256 前 10 位）
+    - 重写 `dist/index.html` 入口引用为 hash 文件
+    - 注入 `window.__SQDEV_ASSET_MANIFEST` 供 `bootstrap.js` 动态加载使用
+- 仓库清理：
+  - 删除根目录旧版 `*.20260422a.*` 文件（10 个）。
+  - `.gitignore` 新增 `dist/`，避免构建产物误提交。

@@ -1,14 +1,22 @@
 (function () {
-  var ASSET_HASH = window.__SQDEV_ASSET_HASH || '20260422a';
+  var ASSET_MANIFEST = (window.__SQDEV_ASSET_MANIFEST && typeof window.__SQDEV_ASSET_MANIFEST === 'object')
+    ? window.__SQDEV_ASSET_MANIFEST
+    : null;
   var scriptPromiseMap = Object.create(null);
   var authLoadingPromise = null;
   var authReady = false;
   var started = false;
   var done = false;
 
+  function resolveAsset(path) {
+    if (!ASSET_MANIFEST) return path;
+    var mapped = ASSET_MANIFEST[path];
+    return (typeof mapped === 'string' && mapped.trim()) ? mapped : path;
+  }
+
   var assets = {
-    appEntry: 'app.' + ASSET_HASH + '.js',
-    appData: ['samples.' + ASSET_HASH + '.js', 'rules.' + ASSET_HASH + '.js'],
+    appEntry: resolveAsset('app.js'),
+    appData: [resolveAsset('samples.js'), resolveAsset('rules.js')],
     coreCodemirror: 'vendor/codemirror.min.js',
     codemirrorPlugins: [
       'vendor/sql.min.js',
@@ -18,9 +26,9 @@
     coreVue: 'vendor/vue.global.prod.js',
     authStack: [
       'vendor/supabase.js',
-      'supabase-config.' + ASSET_HASH + '.js',
-      'auth.' + ASSET_HASH + '.js',
-      'feedback.' + ASSET_HASH + '.js'
+      resolveAsset('supabase-config.js'),
+      resolveAsset('auth.js'),
+      resolveAsset('feedback.js')
     ]
   };
 

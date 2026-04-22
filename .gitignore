@@ -1,3 +1,4 @@
 vendor/.playwright-cli/
 test-results/
 supabase/.temp/
+dist/
