@@ -3092,6 +3092,10 @@ const app = createApp({
     const _ZIWEI_AI_CACHE_MAX = 12;
     const _ZIWEI_AI_MIN_INTERVAL_MS = 2200;
     const _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS = 30000;
+    const _ZIWEI_AI_PRIMARY_PAYLOAD = (function() {
+      var raw = String(window.SQDEV_ZIWEI_AI_PRIMARY_PAYLOAD || 'lite').trim().toLowerCase();
+      return raw === 'compact' ? 'compact' : 'lite';
+    })();
     var _ziweiAiInFlightPromise = null;
     var _ziweiAiInFlightSignature = '';
     var _ziweiAiCooldownTimer = 0;
@@ -6209,6 +6213,12 @@ const app = createApp({
           chart: payload
         });
       };
+      var primaryPayloadBuilder = _ZIWEI_AI_PRIMARY_PAYLOAD === 'compact'
+        ? _zwBuildAiPayloadCompact
+        : _zwBuildAiPayloadLite;
+      var secondaryPayloadBuilder = _ZIWEI_AI_PRIMARY_PAYLOAD === 'compact'
+        ? _zwBuildAiPayloadLite
+        : _zwBuildAiPayloadCompact;
       var getErrorDetail = async function(rawErr) {
         var parsed = await _zwParseInvokeError(rawErr);
         return String(parsed.detail || (rawErr && rawErr.message) || rawErr || '\u8bf7\u6c42\u5931\u8d25');
@@ -6223,14 +6233,14 @@ const app = createApp({
         _ziweiAiInFlightSignature = aiSignature;
         var result = null;
         try {
-          _ziweiAiInFlightPromise = invokeAnalysis(_zwBuildAiPayloadCompact(ziweiChart.value));
+          _ziweiAiInFlightPromise = invokeAnalysis(primaryPayloadBuilder(ziweiChart.value));
           result = await _ziweiAiInFlightPromise;
           if (result && result.error) throw result.error;
         } catch (firstErr) {
           var firstDetail = await getErrorDetail(firstErr);
           if (_zwIsAiRateLimitErrorMessage(firstDetail)) throw new Error(firstDetail || '\u8bf7\u6c42\u5931\u8d25');
           if (!_zwIsComputeResourceErrorMessage(firstDetail)) throw new Error(firstDetail || '\u8bf7\u6c42\u5931\u8d25');
-          _ziweiAiInFlightPromise = invokeAnalysis(_zwBuildAiPayloadLite(ziweiChart.value));
+          _ziweiAiInFlightPromise = invokeAnalysis(secondaryPayloadBuilder(ziweiChart.value));
           result = await _ziweiAiInFlightPromise;
           if (result && result.error) {
             var secondDetail = await getErrorDetail(result.error);

@@ -28,8 +28,10 @@ const AI_ENDPOINT = buildAiEndpoint(AI_BASE_URL_RAW)
 const AI_MODEL = (Deno.env.get('ZIWEI_AI_MODEL') || 'gpt-4.1-mini').trim() || 'gpt-4.1-mini'
 const AI_API_KEY = (Deno.env.get('ZIWEI_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY') || '').trim()
 const AI_TIMEOUT_MS = parsePositiveInt(Deno.env.get('ZIWEI_AI_TIMEOUT_MS'), 20_000)
-const AI_MAX_CHART_CHARS = parsePositiveInt(Deno.env.get('ZIWEI_AI_MAX_CHART_CHARS'), 24_000)
+const AI_MAX_CHART_CHARS = parsePositiveInt(Deno.env.get('ZIWEI_AI_MAX_CHART_CHARS'), 12_000)
 const AI_QA_MAX_QUESTION_CHARS = parsePositiveInt(Deno.env.get('ZIWEI_AI_QA_MAX_QUESTION_CHARS'), 220)
+const AI_ANALYSIS_MAX_TOKENS = parsePositiveInt(Deno.env.get('ZIWEI_AI_ANALYSIS_MAX_TOKENS'), 900)
+const AI_QA_MAX_TOKENS = parsePositiveInt(Deno.env.get('ZIWEI_AI_QA_MAX_TOKENS'), 520)
 const AI_ANALYSIS_TEMPLATE = (Deno.env.get('ZIWEI_AI_ANALYSIS_TEMPLATE') || '').trim()
 const AI_QA_TEMPLATE = (Deno.env.get('ZIWEI_AI_QA_TEMPLATE') || '').trim()
 const AI_QA_SUGGESTIONS_JSON = (Deno.env.get('ZIWEI_AI_QA_SUGGESTIONS') || '').trim()
@@ -435,7 +437,8 @@ async function requestAiAnalysis(chartPayload: string, style: 'simple' | 'pro'):
       },
       body: JSON.stringify({
         model: AI_MODEL,
-        temperature: 0.8,
+        temperature: 0.55,
+        max_tokens: AI_ANALYSIS_MAX_TOKENS,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt },
@@ -534,7 +537,8 @@ async function requestAiAnalysis(chartPayload: string, style: 'simple' | 'pro'):
       },
       body: JSON.stringify({
         model: AI_MODEL,
-        temperature: 0.8,
+        temperature: 0.55,
+        max_tokens: AI_ANALYSIS_MAX_TOKENS,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt },
@@ -608,7 +612,8 @@ async function requestAiQa(chartPayload: string, question: string): Promise<stri
       },
       body: JSON.stringify({
         model: AI_MODEL,
-        temperature: 0.5,
+        temperature: 0.35,
+        max_tokens: AI_QA_MAX_TOKENS,
         messages: [
           { role: 'system', content: templateWithQuestion },
           { role: 'user', content: userPrompt }
