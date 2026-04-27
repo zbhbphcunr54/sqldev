@@ -1302,12 +1302,168 @@ Last updated: 2026-04-15
   - `pnpm.cmd -C d:\codextest\sqldev build`
   - All passed.
 
+## 2026-04-27: Strangler Mode Batch 16 - Routine Conversion Orchestration
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting routine conversion entry orchestration (`convertFunction` / `convertProcedure`) into a typed feature module, while preserving existing parser/generator behavior.
+- Completed:
+  - Added `src/features/routines/conversion-orchestrator.ts`, exposing:
+    - `convertFunctionOrchestrated()`
+    - `convertProcedureOrchestrated()`
+  - Updated `src/features/routines/index.ts` and `src/features/routines/legacy-bridge.ts` to expose the new orchestration APIs via `window.SQLDEV_ROUTINE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `convertFunction()` now prefers `window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated(...)`.
+    - `convertProcedure()` now prefers `window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated(...)`.
+    - Legacy inline orchestration remains as fallback.
+  - Added test `tests/routine-conversion-orchestrator.mjs`.
+  - Added npm script `test:routines-convert`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertions for routine conversion orchestration.
+    - Added legacy bridge preference assertions for routine conversion orchestration.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Routine chain has now covered parser primitives, function/procedure parsers, generators, and conversion entry orchestration in typed modules.
+  - Remaining heavy legacy zones are increasingly concentrated in large page-level state / DOM orchestration and deep UI flow coupling in `src/legacy/app.js`.
+
+## 2026-04-27: Strangler Mode Batch 17 - Navigation Page-State Helpers
+- Goal:
+  - Continue strangler migration by extracting low-risk page-state decision logic from `src/legacy/app.js` (page key normalization, Ziwei access normalization, and page transition effects).
+- Completed:
+  - Added `src/features/navigation/page-state.ts`, exposing:
+    - `normalizeLegacyPageKey()`
+    - `normalizeAccessibleLegacyPage()`
+    - `resolveLegacyPageTransition()`
+  - Extended `src/features/navigation/legacy-bridge.ts` to expose the new page-state helpers via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `normalizePageKey()` now prefers `window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey(...)`.
+    - `normalizeAccessiblePage()` now prefers `window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage(...)`.
+    - `applyPageState()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition(...)` for transition effects (expand test tools / preload region data / close mobile sidebar), with legacy fallback preserved.
+  - Added `tests/navigation-page-state.mjs`.
+  - Added npm script `test:navigation-page-state`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for navigation page-state helpers.
+    - Added legacy delegate assertions for page accessibility and page transition helper usage.
+    - Added loader-sharing assertion for the new navigation page-state test.
+- Current convergence update:
+  - Navigation flow now has typed route parsing + typed page-state decision helpers, while legacy retains UI rendering and side-effect execution.
+  - Remaining heavier legacy areas are increasingly centered on deeper DOM/event orchestration and cross-feature runtime coupling.
+
+## 2026-04-27: Strangler Mode Batch 18 - Workbench UI-State + Event Decision Helpers
+- Goal:
+  - Complete the prior “next focus” items by extracting low-risk workbench UI-state helpers and reusable event/action decision logic from `src/legacy/app.js` into typed navigation modules, then delegating through bridge APIs with fallbacks.
+- Completed:
+  - Added `src/features/navigation/workbench-state.ts`, exposing:
+    - `resolveLegacySidebarHoverState()`
+    - `resolveLegacyTestToolsMenuToggleState()`
+    - `shouldLegacyCloseSidebarForSplash()`
+  - Added `src/features/navigation/workbench-actions.ts`, exposing:
+    - `resolveLegacyPrimaryWorkbenchPage()`
+    - `resolveLegacyWorkbenchActionDecision()`
+  - Added `src/features/navigation/event-decisions.ts`, exposing:
+    - `shouldLegacyCloseRulesMenuOnEscape()`
+    - `resolveLegacyPrimaryHotkeyTarget()`
+    - `resolveLegacyOutsideClickDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose all new helpers via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `handleSidebarHover()` now prefers `resolveLegacySidebarHoverState(...)`.
+    - `toggleTestToolsMenu()` now prefers `resolveLegacyTestToolsMenuToggleState(...)`.
+    - `runPrimaryAction()` now prefers `resolveLegacyPrimaryWorkbenchPage(...)`.
+    - `goSplashHome()` now prefers `shouldLegacyCloseSidebarForSplash(...)`.
+    - `runWorkbenchAction()` now prefers `resolveLegacyWorkbenchActionDecision(...)`.
+    - global keydown handler now prefers:
+      - `shouldLegacyCloseRulesMenuOnEscape(...)`
+      - `resolveLegacyPrimaryHotkeyTarget(...)`
+    - outside-click handler now prefers `resolveLegacyOutsideClickDecision(...)`.
+    - legacy inline branches remain as fallback paths.
+  - Added `tests/navigation-workbench-helpers.mjs`.
+  - Added npm script `test:navigation-workbench`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertions for workbench-state / workbench-actions / event-decisions.
+    - Added legacy delegation assertions for the newly bridged navigation helpers.
+    - Added loader-sharing assertion for the new navigation workbench helper test.
+- Current convergence update:
+  - Previous “next focus” items (UI-state helper extraction, event decision extraction, and conversion/tool-panel decision thinning) are now covered by typed navigation helper modules + bridge-first legacy delegation.
+  - Remaining migration work is now mainly in deeper DOM mutation execution paths and heavyweight runtime orchestration blocks, rather than branch decision logic.
+
 ## Current next focus
-- The largest remaining legacy-heavy areas are now more concentrated in:
-  - routine generators
-  - function/procedure conversion orchestration
-  - large page-level state / DOM orchestration in `src/legacy/app.js`
-- The next highest-value strangler steps are:
-  - extract routine generators into typed modules
-  - extract function/procedure conversion orchestration, similar to `convertDDL()`
-  - keep reducing direct DOM/state logic in legacy where the risk is low
+- Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
+- Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.
+
+## 2026-04-27: Strangler Mode Batch 20 - Route Sync Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting route synchronization branch decisions from `syncRouteForPage()` into a typed navigation helper while preserving current history/hash side-effect behavior.
+- Completed:
+  - Added `src/features/navigation/route-sync.ts`, exposing:
+    - `resolveLegacyRouteSyncDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `syncRouteForPage()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision(...)` for sync strategy resolution.
+    - Legacy inline branch logic remains as fallback when bridge is unavailable.
+  - Added test `tests/navigation-route-sync.mjs`.
+  - Added npm script `test:navigation-route-sync`, and included it in `test:navigation-suite`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for route-sync helper.
+    - Added legacy delegation assertion for route-sync helper usage.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Navigation path now also covers typed route-sync strategy decisions, further reducing inline routing branch logic in legacy.
+  - Remaining migration work is increasingly concentrated in heavy DOM mutation execution and broader runtime orchestration blocks.
+
+## 2026-04-27: Strangler Mode Batch 19 - Route Application Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting route-application branch decisions from `applyRouteFromLocation()` into a typed navigation helper while preserving side-effect execution in legacy.
+- Completed:
+  - Added `src/features/navigation/route-application.ts`, exposing:
+    - `resolveLegacyRouteApplicationDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `applyRouteFromLocation()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision(...)`.
+    - Legacy inline branch logic remains as fallback when bridge is unavailable.
+  - Added test `tests/navigation-route-application.mjs`.
+  - Added npm script `test:navigation-route-application`, and included it in `test:navigation-suite`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for route-application helper.
+    - Added legacy delegation assertion for route-application helper usage.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Route parsing, page-state normalization, workbench/event decision helpers, splash/workbench effect decisions, and route-application branching are now all covered in typed navigation modules with bridge-first legacy delegation.
+  - Remaining migration work is increasingly concentrated in heavier DOM mutation execution and cross-feature runtime coupling blocks.
+
+## 2026-04-27: Strangler Mode Batch 21 - Primary Action Handler Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting `runPrimaryAction()` page→handler mapping into a typed navigation helper, while preserving existing invocation behavior and fallback.
+- Completed:
+  - Updated `src/features/navigation/workbench-actions.ts`, adding:
+    - `resolveLegacyPrimaryActionHandlerName()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `runPrimaryAction()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName(...)`.
+    - Existing page-based fallback mapping remains intact when bridge helper is unavailable.
+  - Updated `tests/navigation-workbench-helpers.mjs` with helper behavior assertions.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for primary action handler helper.
+    - Added legacy delegation assertion for primary action handler helper usage.
+- Current convergence update:
+  - Primary workbench execution entry now consumes typed handler-decision output, reducing another inline branch cluster in legacy navigation/actions.
+  - Remaining migration work stays concentrated in heavier DOM mutation execution and deeper runtime side-effect orchestration blocks.
+
+## 2026-04-27: Strangler Mode Batch 22 - Settings Menu Key Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting settings dropdown keyboard navigation decision branches from `handleMenuKey()` into typed navigation helpers.
+- Completed:
+  - Updated `src/features/navigation/event-decisions.ts`, adding:
+    - `resolveLegacyMenuKeyDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `handleMenuKey()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision(...)` for focus/close decisions.
+    - Existing inline key-branch logic remains as fallback when bridge helper is unavailable.
+  - Updated `tests/navigation-workbench-helpers.mjs` with menu-key decision assertions.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for menu-key decision helper.
+    - Added legacy delegation assertion for menu-key decision helper usage.
+- Current convergence update:
+  - Dropdown keyboard decision branches now route through typed navigation helpers, continuing gradual removal of inline legacy branch logic.
+  - Remaining migration work still centers on heavy DOM mutation execution and larger side-effect orchestration blocks.
+
+## Current next focus
+- Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
+- Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.

@@ -66,8 +66,16 @@ const rulesLegacyBridge = read('src/features/rules/legacy-bridge.ts')
 const routineParserPrimitives = read('src/features/routines/parser-primitives.ts')
 const routineFunctionParsers = read('src/features/routines/function-parsers.ts')
 const routineProcedureParsers = read('src/features/routines/procedure-parsers.ts')
+const routineConversionOrchestrator = read('src/features/routines/conversion-orchestrator.ts')
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
+const navigationRouteSync = read('src/features/navigation/route-sync.ts')
+const navigationRouteApplication = read('src/features/navigation/route-application.ts')
+const navigationPageState = read('src/features/navigation/page-state.ts')
+const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
+const navigationWorkbenchActions = read('src/features/navigation/workbench-actions.ts')
+const navigationEventDecisions = read('src/features/navigation/event-decisions.ts')
+const navigationWorkbenchEffects = read('src/features/navigation/workbench-effects.ts')
 const navigationLegacyBridge = read('src/features/navigation/legacy-bridge.ts')
 const idCardTools = read('src/features/id-tools/id-card.ts')
 const usccTools = read('src/features/id-tools/uscc.ts')
@@ -99,14 +107,20 @@ const bodyTransformRulesTest = read('tests/body-transform.mjs')
 const routineParserPrimitivesTest = read('tests/routine-parser-primitives.mjs')
 const routineFunctionParsersTest = read('tests/routine-function-parsers.mjs')
 const routineProcedureParsersTest = read('tests/routine-procedure-parsers.mjs')
+const routineConversionOrchestratorTest = read('tests/routine-conversion-orchestrator.mjs')
 const preferencesStorageTest = read('tests/preferences-storage.mjs')
 const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
+const navigationRouteSyncTest = read('tests/navigation-route-sync.mjs')
+const navigationRouteApplicationTest = read('tests/navigation-route-application.mjs')
+const navigationPageStateTest = read('tests/navigation-page-state.mjs')
+const navigationWorkbenchHelpersTest = read('tests/navigation-workbench-helpers.mjs')
 const ziweiHistoryTest = read('tests/ziwei-history.mjs')
 const ziweiPresentationTest = read('tests/ziwei-presentation.mjs')
 const ziweiShareTest = read('tests/ziwei-share.mjs')
 const ziweiAiUtilsTest = read('tests/ziwei-ai-utils.mjs')
+const testHelper = read('tests/helpers/load-ts-module.mjs')
 
 assert(indexHtml.includes('/src/main.ts'), 'index.html must load the Vue app entry')
 assert(!exists('index.vite.html'), 'obsolete index.vite.html redirect shell must be removed')
@@ -419,12 +433,64 @@ assert(
   'routine procedure parsing must live in typed feature module'
 )
 assert(
+  routineConversionOrchestrator.includes('export function convertFunctionOrchestrated'),
+  'routine function conversion orchestration must live in typed feature module'
+)
+assert(
+  routineConversionOrchestrator.includes('export function convertProcedureOrchestrated'),
+  'routine procedure conversion orchestration must live in typed feature module'
+)
+assert(
   routinesLegacyBridge.includes('window.SQLDEV_ROUTINE_UTILS'),
   'routine parsing feature must expose a legacy bridge'
 )
 assert(
   navigationRoute.includes('export function parseLegacyRouteInfoFromPath'),
   'route parsing must live in typed feature module'
+)
+assert(
+  navigationRouteApplication.includes('export function resolveLegacyRouteApplicationDecision'),
+  'route application decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationRouteSync.includes('export function resolveLegacyRouteSyncDecision'),
+  'route sync decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationPageState.includes('export function resolveLegacyPageTransition'),
+  'page state transition logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchState.includes('export function resolveLegacySidebarHoverState'),
+  'sidebar hover state logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchState.includes('export function resolveLegacyTestToolsMenuToggleState'),
+  'test tools menu toggle logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchActions.includes('export function resolveLegacyPrimaryActionHandlerName'),
+  'primary action handler mapping must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchActions.includes('export function resolveLegacyWorkbenchActionDecision'),
+  'workbench action decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationEventDecisions.includes('export function resolveLegacyMenuKeyDecision'),
+  'menu key decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationEventDecisions.includes('export function resolveLegacyOutsideClickDecision'),
+  'outside click decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchEffects.includes('export function resolveLegacyWorkbenchVisibilityDecision'),
+  'workbench visibility orchestration decision must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchEffects.includes('export function resolveLegacySplashHomeTransition'),
+  'splash home transition decision must live in typed navigation feature module'
 )
 assert(
   navigationLegacyBridge.includes('window.SQLDEV_ROUTE_UTILS'),
@@ -491,6 +557,14 @@ assert(
   'legacy app must prefer the typed PostgreSQL routine procedure parser bridge'
 )
 assert(
+  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated'),
+  'legacy app must prefer the typed routine function orchestration bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated'),
+  'legacy app must prefer the typed routine procedure orchestration bridge'
+)
+assert(
   idCardTools.includes('export function calcIdCardCheckDigit'),
   'ID card check digit must live in typed feature module'
 )
@@ -513,6 +587,62 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation'),
   'legacy app must prefer the typed route parser bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision'),
+  'legacy app must prefer the typed route application decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision'),
+  'legacy app must prefer the typed route sync decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage'),
+  'legacy app must prefer the typed page accessibility bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition'),
+  'legacy app must prefer the typed page transition bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState'),
+  'legacy app must prefer the typed sidebar hover state bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState'),
+  'legacy app must prefer the typed test tools menu toggle bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName'),
+  'legacy app must prefer the typed primary action handler bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision'),
+  'legacy app must prefer the typed workbench action decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision'),
+  'legacy app must prefer the typed workbench visibility decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition'),
+  'legacy app must prefer the typed splash home transition bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision'),
+  'legacy app must prefer the typed splash hash sync bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision'),
+  'legacy app must prefer the typed menu key decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget'),
+  'legacy app must prefer the typed primary hotkey decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision'),
+  'legacy app must prefer the typed outside click decision bridge'
 )
 assert(
   ziweiAiUtils.includes('export function buildZiweiAiPayload'),
@@ -606,10 +736,42 @@ assert(
   'smoke test entry must live under tests/'
 )
 assert(testHelper.includes('export function loadTsModule'), 'TS module test loader must be shared')
-for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
+for (const testFile of [
+  sqlFormatTest,
+  ddlParserUtilsTest,
+  ddlColumnParsersTest,
+  ddlTableConstraintParsersTest,
+  ddlPostprocessTest,
+  ddlTypeMappingTest,
+  ddlOutputBuildersTest,
+  ddlExtraDdlTest,
+  ddlConversionOrchestratorTest,
+  ddlViewGeneratorsTest,
+  ddlViewParsingTest,
+  convertErrorMapTest,
+  browserFileActionsTest,
+  bodyTransformRulesTest,
+  routineParserPrimitivesTest,
+  routineFunctionParsersTest,
+  routineProcedureParsersTest,
+  routineConversionOrchestratorTest,
+  preferencesStorageTest,
+  rulesPersistenceTest,
+  idToolsTest
+]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
 }
-for (const testFile of [navigationRouteTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
+for (const testFile of [
+  navigationRouteTest,
+  navigationRouteSyncTest,
+  navigationRouteApplicationTest,
+  navigationPageStateTest,
+  navigationWorkbenchHelpersTest,
+  ziweiHistoryTest,
+  ziweiPresentationTest,
+  ziweiShareTest,
+  ziweiAiUtilsTest
+]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'new feature tests must reuse the shared TS module loader')
 }
 

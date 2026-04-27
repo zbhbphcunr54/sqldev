@@ -1,4 +1,6 @@
 import {
+  convertFunctionOrchestrated,
+  convertProcedureOrchestrated,
   extractMySqlRoutineDeclarations,
   extractPostgresRoutineDeclarations,
   generateMySqlFunctionStatement,
@@ -23,6 +25,8 @@ import {
 declare global {
   interface Window {
     SQLDEV_ROUTINE_UTILS?: {
+      convertFunctionOrchestrated: typeof convertFunctionOrchestrated
+      convertProcedureOrchestrated: typeof convertProcedureOrchestrated
       extractMySqlRoutineDeclarations: typeof extractMySqlRoutineDeclarations
       extractPostgresRoutineDeclarations: typeof extractPostgresRoutineDeclarations
       generateMySqlFunctionStatement: typeof generateMySqlFunctionStatement
@@ -47,6 +51,8 @@ declare global {
 }
 
 window.SQLDEV_ROUTINE_UTILS = Object.freeze({
+  convertFunctionOrchestrated,
+  convertProcedureOrchestrated,
   extractMySqlRoutineDeclarations,
   extractPostgresRoutineDeclarations,
   generateMySqlFunctionStatement,
