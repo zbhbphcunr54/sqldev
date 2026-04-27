@@ -1,1 +1,2 @@
+# Manual auth: bearer token required, with optional email allowlist.
 verify_jwt = false

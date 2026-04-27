@@ -1,4 +1,7 @@
--- Run once in Supabase SQL Editor to enable online feedback storage.
+-- Canonical migration:
+-- supabase/migrations/202604230001_create_feedback_entries.sql
+--
+-- This file is kept as a SQL Editor convenience copy for existing deployments.
 
 create extension if not exists pgcrypto;
 

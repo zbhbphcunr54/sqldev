@@ -1,0 +1,7 @@
+dist
+node_modules
+legacy.html
+test.html
+src/legacy/**
+*.png
+*.svg

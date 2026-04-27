@@ -1,10 +1,9 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import SplashPage from '@/pages/SplashPage.vue'
-import WorkbenchPage from '@/pages/WorkbenchPage.vue'
-import ZiweiPage from '@/pages/ZiweiPage.vue'
-import LoginPage from '@/pages/LoginPage.vue'
-import NotFoundPage from '@/pages/NotFoundPage.vue'
-import { useAuthStore } from '@/stores/auth'
+import LoginPage from '@/pages/auth/login.vue'
+import NotFoundPage from '@/pages/not-found.vue'
+import SplashPage from '@/pages/splash/index.vue'
+import WorkbenchPage from '@/pages/workbench/index.vue'
+import ZiweiPage from '@/pages/workbench/ziwei.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -12,24 +11,26 @@ const router = createRouter({
     {
       path: '/',
       name: 'splash',
-      component: SplashPage
+      component: SplashPage,
+      meta: { legacyFrame: true }
     },
     {
       path: '/login',
       name: 'login',
-      component: LoginPage
+      component: LoginPage,
+      meta: { layout: 'auth' }
     },
     {
       path: '/workbench',
       name: 'workbench',
       component: WorkbenchPage,
-      meta: { requiresAuth: true }
+      meta: { legacyFrame: true }
     },
     {
       path: '/workbench/ziwei',
       name: 'ziwei',
       component: ZiweiPage,
-      meta: { requiresAuth: true }
+      meta: { legacyFrame: true }
     },
     {
       path: '/:pathMatch(.*)*',
@@ -37,21 +38,6 @@ const router = createRouter({
       component: NotFoundPage
     }
   ]
-})
-
-router.beforeEach(async (to) => {
-  const authStore = useAuthStore()
-  await authStore.initAuth()
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return {
-      path: '/login',
-      query: { redirect: to.fullPath }
-    }
-  }
-  if (to.path === '/login' && authStore.isAuthenticated) {
-    return '/workbench'
-  }
-  return true
 })
 
 export default router

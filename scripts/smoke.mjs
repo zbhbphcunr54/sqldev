@@ -1,0 +1,1 @@
+﻿import '../tests/smoke.mjs'

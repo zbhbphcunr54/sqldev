@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase'
+﻿import { supabase } from '@/lib/supabase'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 export class ApiError extends Error {
   code: string
@@ -29,6 +30,10 @@ export async function invokeEdgeFunction<TReq extends Record<string, unknown>, T
   }
 
   const projectUrl = import.meta.env.VITE_SUPABASE_URL
+  if (!projectUrl) {
+    throw new ApiError('Missing env: VITE_SUPABASE_URL', 'missing_supabase_url', 500)
+  }
+
   const url = `${projectUrl}/functions/v1/${functionName}`
   const res = await fetch(url, {
     method: 'POST',
@@ -47,8 +52,8 @@ export async function invokeEdgeFunction<TReq extends Record<string, unknown>, T
   }
 
   if (!res.ok) {
-    const errorCode = String(parsed.error || 'request_failed')
-    throw new ApiError('请求失败，请稍后重试', errorCode, res.status)
+    const errorCode = String(parsed.error || parsed.code || 'request_failed')
+    throw new ApiError(mapErrorCodeToMessage(errorCode), errorCode, res.status)
   }
 
   return parsed as TRes

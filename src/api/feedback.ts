@@ -1,7 +1,7 @@
 import { invokeEdgeFunction } from '@/api/http'
 
 export interface FeedbackRequest {
-  category: 'bug' | 'idea' | 'ui' | 'performance' | 'other'
+  category: 'bug' | 'feature' | 'ux' | 'performance' | 'other'
   content: string
   source: 'splash' | 'workbench' | 'ziwei'
   scene?: string

@@ -1,8 +1,15 @@
 [functions.convert]
+# Supabase gateway JWT verification is disabled because this project accepts
+# modern publishable keys and validates the user session inside the function via
+# /auth/v1/user. See supabase/FUNCTION-AUTH-STRATEGY.md.
 verify_jwt = false
 
 [functions.feedback]
+# Anonymous feedback is allowed, but authenticated users are still resolved by
+# bearer token when present. Writes use service-role only inside the function.
 verify_jwt = false
 
 [functions.ziwei-analysis]
+# Access is enforced inside the function by bearer token plus optional
+# ZIWEI_ALLOWED_EMAILS.
 verify_jwt = false

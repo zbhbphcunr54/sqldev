@@ -1,1 +1,2 @@
+# Manual auth when token exists; anonymous feedback still rate-limited by IP.
 verify_jwt = false

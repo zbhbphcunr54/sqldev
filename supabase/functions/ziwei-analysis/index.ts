@@ -1,20 +1,16 @@
-const DEFAULT_WEB_ORIGIN = 'https://gitzhengpeng.github.io'
-const CORS_PRIMARY_ORIGIN = (Deno.env.get('CORS_PRIMARY_ORIGIN') || DEFAULT_WEB_ORIGIN).trim() || DEFAULT_WEB_ORIGIN
-const CORS_ALLOWED_ORIGINS = (Deno.env.get('CORS_ALLOWED_ORIGINS') || CORS_PRIMARY_ORIGIN)
-  .split(',')
-  .map((item) => item.trim())
-  .filter(Boolean)
-const ALLOWED_ORIGINS = new Set(CORS_ALLOWED_ORIGINS.length > 0 ? CORS_ALLOWED_ORIGINS : [CORS_PRIMARY_ORIGIN])
-const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i
-const ALLOW_LOCALHOST_ORIGIN = /^(1|true|yes)$/i.test((Deno.env.get('ALLOW_LOCALHOST_ORIGIN') || '').trim())
-const corsBaseHeaders = {
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
-}
+import { validateBearerToken } from '../_shared/auth.ts'
+import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createRateLimiter } from '../_shared/rate-limit.ts'
+import { getClientIp } from '../_shared/request.ts'
+import { jsonResponse } from '../_shared/response.ts'
+import { parsePositiveInt } from '../_shared/utils.ts'
+
+const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
+  defaultOrigin: DEFAULT_WEB_ORIGIN
+})
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
-const AUTH_USER_ENDPOINT = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1/user` : ''
 
 function buildAiEndpoint(raw: string): string {
   const base = String(raw || '').trim().replace(/\/+$/, '')
@@ -46,122 +42,16 @@ const RATE_LIMIT_WINDOW_MS = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_
 const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_MAX_REQUESTS'), 6)
 const RATE_LIMIT_TRACK_MAX = parsePositiveInt(Deno.env.get('ZIWEI_AI_RATE_LIMIT_TRACK_MAX'), 2_000)
 const RATE_LIMIT_STORE_MODE = String(Deno.env.get('ZIWEI_AI_RATE_LIMIT_STORE') || 'kv').trim().toLowerCase()
-const rateBuckets = new Map<string, { count: number; windowStart: number }>()
-let kvPromise: Promise<Deno.Kv | null> | null = null
-
-function parsePositiveInt(raw: string | undefined, fallback: number): number {
-  const n = Number(raw)
-  if (!Number.isFinite(n) || n <= 0) return fallback
-  return Math.floor(n)
-}
+const rateLimiter = createRateLimiter({
+  scope: 'ziwei_analysis',
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  maxRequests: RATE_LIMIT_MAX_REQUESTS,
+  trackMax: RATE_LIMIT_TRACK_MAX,
+  storeMode: RATE_LIMIT_STORE_MODE
+})
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function defaultCorsHeaders() {
-  return {
-    ...corsBaseHeaders,
-    'Access-Control-Allow-Origin': CORS_PRIMARY_ORIGIN,
-    Vary: 'Origin'
-  }
-}
-
-function buildCorsHeaders(req: Request): Record<string, string> | null {
-  const origin = (req.headers.get('origin') || '').trim()
-  if (!origin) return defaultCorsHeaders()
-  const localhostAllowed = ALLOW_LOCALHOST_ORIGIN && LOCAL_ORIGIN_RE.test(origin)
-  if (!ALLOWED_ORIGINS.has(origin) && !localhostAllowed) return null
-  return {
-    ...corsBaseHeaders,
-    'Access-Control-Allow-Origin': origin,
-    Vary: 'Origin'
-  }
-}
-
-function json(status: number, body: Record<string, unknown>, corsHeaders: Record<string, string>, extra?: Record<string, string>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      ...extra,
-      'Content-Type': 'application/json; charset=utf-8'
-    }
-  })
-}
-
-function getClientIp(req: Request): string {
-  const cf = (req.headers.get('cf-connecting-ip') || '').trim()
-  if (cf) return cf
-  const fwd = (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || ''
-  if (fwd) return fwd
-  const real = (req.headers.get('x-real-ip') || '').trim()
-  if (real) return real
-  return 'unknown'
-}
-
-function pruneRateBuckets(now: number) {
-  if (rateBuckets.size <= RATE_LIMIT_TRACK_MAX) return
-  for (const [key, bucket] of rateBuckets) {
-    if (now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) rateBuckets.delete(key)
-    if (rateBuckets.size <= RATE_LIMIT_TRACK_MAX) return
-  }
-  let toDrop = rateBuckets.size - RATE_LIMIT_TRACK_MAX
-  for (const key of rateBuckets.keys()) {
-    if (toDrop <= 0) break
-    rateBuckets.delete(key)
-    toDrop -= 1
-  }
-}
-
-function consumeRateLimitMemory(key: string, now = Date.now()): { ok: true; remaining: number } | { ok: false; retryAfter: number } {
-  let bucket = rateBuckets.get(key)
-  if (!bucket || now - bucket.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    bucket = { count: 0, windowStart: now }
-    rateBuckets.set(key, bucket)
-  }
-  if (bucket.count >= RATE_LIMIT_MAX_REQUESTS) {
-    const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - bucket.windowStart)) / 1000))
-    return { ok: false, retryAfter }
-  }
-  bucket.count += 1
-  pruneRateBuckets(now)
-  return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - bucket.count) }
-}
-
-async function getRateKv(): Promise<Deno.Kv | null> {
-  if (RATE_LIMIT_STORE_MODE !== 'kv') return null
-  if (typeof Deno.openKv !== 'function') return null
-  if (!kvPromise) {
-    try {
-      kvPromise = Deno.openKv().then((kv) => kv).catch(() => null)
-    } catch (_err) {
-      kvPromise = Promise.resolve(null)
-    }
-  }
-  return await kvPromise
-}
-
-async function consumeRateLimit(key: string, now = Date.now()): Promise<{ ok: true; remaining: number } | { ok: false; retryAfter: number }> {
-  const kv = await getRateKv()
-  if (!kv) return consumeRateLimitMemory(key, now)
-
-  const windowStart = now - (now % RATE_LIMIT_WINDOW_MS)
-  const windowIndex = Math.floor(now / RATE_LIMIT_WINDOW_MS)
-  const retryAfter = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - windowStart)) / 1000))
-  const expireIn = Math.max(1_000, RATE_LIMIT_WINDOW_MS - (now - windowStart) + 1_500)
-  const kvKey: Deno.KvKey = ['rate_limit', 'ziwei_analysis', key, windowIndex]
-
-  for (let i = 0; i < 6; i += 1) {
-    const entry = await kv.get<{ count: number; windowStart: number }>(kvKey)
-    const count = Number(entry.value?.count || 0)
-    if (count >= RATE_LIMIT_MAX_REQUESTS) return { ok: false, retryAfter }
-    const next = { count: count + 1, windowStart }
-    const commit = await kv.atomic().check(entry).set(kvKey, next, { expireIn }).commit()
-    if (commit.ok) return { ok: true, remaining: Math.max(0, RATE_LIMIT_MAX_REQUESTS - next.count) }
-  }
-
-  return consumeRateLimitMemory(key, now)
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -236,29 +126,6 @@ function normalizeChartPayload(raw: unknown): string {
   }
   if (!text) return ''
   return text.length > AI_MAX_CHART_CHARS ? text.slice(0, AI_MAX_CHART_CHARS) : text
-}
-
-async function validateBearerToken(authorization: string | null): Promise<{ userId: string; email: string } | null> {
-  if (!authorization || !AUTH_USER_ENDPOINT || !SUPABASE_ANON_KEY) return null
-  const token = authorization.replace(/^Bearer\s+/i, '').trim()
-  if (!token) return null
-  try {
-    const res = await fetch(AUTH_USER_ENDPOINT, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: SUPABASE_ANON_KEY
-      }
-    })
-    if (!res.ok) return null
-    const body = await res.json().catch(() => null)
-    const userId = typeof body?.id === 'string' ? body.id : ''
-    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
-    if (!userId) return null
-    return { userId, email }
-  } catch (_err) {
-    return null
-  }
 }
 
 function buildAiUpstreamError(status: number): Error {
@@ -564,18 +431,21 @@ Deno.serve(async (req) => {
     const corsHeaders = buildCorsHeaders(req)
     if (!corsHeaders) return new Response('Forbidden', { status: 403, headers: defaultCorsHeaders() })
     if (req.method === 'OPTIONS') return new Response('ok', { status: 200, headers: corsHeaders })
-    if (req.method !== 'POST') return json(405, { ok: false, error: 'method_not_allowed' }, corsHeaders)
+    if (req.method !== 'POST') return jsonResponse(405, { ok: false, error: 'method_not_allowed' }, corsHeaders)
 
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !AUTH_USER_ENDPOINT) {
-      return json(500, { ok: false, error: 'supabase_env_missing' }, corsHeaders)
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return jsonResponse(500, { ok: false, error: 'supabase_env_missing' }, corsHeaders)
     }
 
-    const authUser = await validateBearerToken(req.headers.get('authorization'))
-    if (!authUser) return json(401, { ok: false, error: 'unauthorized' }, corsHeaders)
+    const authUser = await validateBearerToken(req.headers.get('authorization'), {
+      supabaseUrl: SUPABASE_URL,
+      supabaseAnonKey: SUPABASE_ANON_KEY
+    })
+    if (!authUser) return jsonResponse(401, { ok: false, error: 'unauthorized' }, corsHeaders)
     if (ZIWEI_ALLOWED_EMAILS.length > 0) {
       const email = String(authUser.email || '').trim().toLowerCase()
       if (!email || ZIWEI_ALLOWED_EMAILS.indexOf(email) < 0) {
-        return json(403, { ok: false, error: 'forbidden_user' }, corsHeaders)
+        return jsonResponse(403, { ok: false, error: 'forbidden_user' }, corsHeaders)
       }
     }
 
@@ -583,9 +453,9 @@ Deno.serve(async (req) => {
     try {
       payload = await req.json()
     } catch (_err) {
-      return json(400, { ok: false, error: 'invalid_json' }, corsHeaders)
+      return jsonResponse(400, { ok: false, error: 'invalid_json' }, corsHeaders)
     }
-    if (!isPlainObject(payload)) return json(400, { ok: false, error: 'invalid_payload' }, corsHeaders)
+    if (!isPlainObject(payload)) return jsonResponse(400, { ok: false, error: 'invalid_payload' }, corsHeaders)
 
     const styleRaw = toSafeString(payload.style, 16)
     const style: 'simple' | 'pro' = styleRaw === 'simple' ? 'simple' : 'pro'
@@ -594,37 +464,37 @@ Deno.serve(async (req) => {
     const signature = toSafeString(payload.signature, 160) || null
 
     if (mode === 'config') {
-      return json(200, { ok: true, signature, config: buildQaConfig() }, corsHeaders)
+      return jsonResponse(200, { ok: true, signature, config: buildQaConfig() }, corsHeaders)
     }
 
     const clientIp = getClientIp(req)
-    const rate = await consumeRateLimit(`${authUser.userId}|${clientIp}`)
+    const rate = await rateLimiter.consume(`${authUser.userId}|${clientIp}`)
     if (!rate.ok) {
-      return json(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
+      return jsonResponse(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
     }
 
     const chartPayload = normalizeChartPayload(payload.chart)
     if (!chartPayload || chartPayload.length < 120) {
-      return json(400, { ok: false, error: 'chart_payload_too_small' }, corsHeaders)
+      return jsonResponse(400, { ok: false, error: 'chart_payload_too_small' }, corsHeaders)
     }
 
     try {
       if (mode === 'qa') {
         const question = toSafeString(payload.question, AI_QA_MAX_QUESTION_CHARS)
-        if (!question) return json(400, { ok: false, error: 'invalid_question' }, corsHeaders)
+        if (!question) return jsonResponse(400, { ok: false, error: 'invalid_question' }, corsHeaders)
         const answer = await requestAiQa(chartPayload, question)
-        return json(200, { ok: true, signature, model: AI_MODEL, answer }, corsHeaders)
+        return jsonResponse(200, { ok: true, signature, model: AI_MODEL, answer }, corsHeaders)
       }
 
       const analysis = await requestAiAnalysis(chartPayload, style)
-      return json(200, { ok: true, signature, model: AI_MODEL, analysis }, corsHeaders)
+      return jsonResponse(200, { ok: true, signature, model: AI_MODEL, analysis }, corsHeaders)
     } catch (err) {
       const errorCode = normalizeAiErrorCode(err)
-      return json(mapAiErrorStatus(errorCode), { ok: false, error: errorCode }, corsHeaders)
+      return jsonResponse(mapAiErrorStatus(errorCode), { ok: false, error: errorCode }, corsHeaders)
     }
   } catch (err) {
     const fallbackCors = buildCorsHeaders(req) || defaultCorsHeaders()
     console.error('[ziwei-analysis] unhandled_error', err)
-    return json(500, { ok: false, error: 'internal_error' }, fallbackCors)
+    return jsonResponse(500, { ok: false, error: 'internal_error' }, fallbackCors)
   }
 })

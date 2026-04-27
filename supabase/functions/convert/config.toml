@@ -1,1 +1,2 @@
+# Manual auth: validates Authorization bearer token with /auth/v1/user.
 verify_jwt = false

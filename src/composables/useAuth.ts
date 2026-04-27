@@ -14,6 +14,9 @@ export function useAuth() {
     loading,
     isAuthenticated,
     initAuth: authStore.initAuth,
-    signOut: authStore.signOut
+    signOut: authStore.signOut,
+    signInWithPassword: authStore.signInWithPassword,
+    signInWithOtp: authStore.signInWithOtp,
+    resetPasswordByEmail: authStore.resetPasswordByEmail
   }
 }
