@@ -9017,14 +9017,13 @@ const app = createApp({
           hasSplashApiShowHome: typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function'
         })
         : null;
-      var shouldCloseSidebar = splashTransition
-        ? splashTransition.shouldCloseSidebar
-        : (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
-            ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
-              typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
-              1024
-            )
-            : window.innerWidth <= 1024);
+      var fallbackShouldCloseSidebar = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
+          typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
+          1024
+        )
+        : window.innerWidth <= 1024;
+      var shouldCloseSidebar = splashTransition ? splashTransition.shouldCloseSidebar : fallbackShouldCloseSidebar;
       if (shouldCloseSidebar) sidebarOpen.value = false;
       if (splashTransition ? splashTransition.shouldUseSplashApiShowHome : (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function')) {
         window.splashApi.showHome();

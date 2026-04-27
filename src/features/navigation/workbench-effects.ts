@@ -54,12 +54,12 @@ export function resolveLegacySplashHomeTransition(
 export function resolveLegacySplashHashSyncDecision(
   currentHashValue: unknown,
   splashHashValue: unknown,
-  hasHistoryReplaceState: unknown
+  hasHistoryReplaceStateApi: unknown
 ): LegacySplashHashSyncDecision {
   const currentHash = String(currentHashValue || '')
   const splashHash = String(splashHashValue || '')
   return {
     shouldSyncRoute: currentHash !== splashHash,
-    shouldUseHistoryReplaceState: Boolean(hasHistoryReplaceState)
+    shouldUseHistoryReplaceState: Boolean(hasHistoryReplaceStateApi)
   }
 }
