@@ -1879,6 +1879,12 @@ function _parseOracleVarDecl(declBlock) {
 /* ===== FUNCTION TRANSLATION ENGINE ===== */
 
 function convertFunction(input, sourceDb, targetDb) {
+  if (window.SQLDEV_ROUTINE_UTILS && typeof window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated === 'function') {
+    return window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated(input, sourceDb, targetDb, {
+      labels: DB_LABELS,
+      convertSingleFunction: _convertSingleFunction
+    });
+  }
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源函数定义';
   if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
@@ -2370,6 +2376,12 @@ function _genPGFunction(name, params, returnType, vars, body) {
 /* ===== STORED PROCEDURE TRANSLATION ENGINE ===== */
 
 function convertProcedure(input, sourceDb, targetDb) {
+  if (window.SQLDEV_ROUTINE_UTILS && typeof window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated === 'function') {
+    return window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated(input, sourceDb, targetDb, {
+      labels: DB_LABELS,
+      convertSingleProcedure: _convertSingleProcedure
+    });
+  }
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源存储过程定义';
   if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();

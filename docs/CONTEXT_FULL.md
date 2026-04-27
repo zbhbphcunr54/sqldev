@@ -1302,12 +1302,34 @@ Last updated: 2026-04-15
   - `pnpm.cmd -C d:\codextest\sqldev build`
   - All passed.
 
+## 2026-04-27: Strangler Mode Batch 16 - Routine Conversion Orchestration
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting routine conversion entry orchestration (`convertFunction` / `convertProcedure`) into a typed feature module, while preserving existing parser/generator behavior.
+- Completed:
+  - Added `src/features/routines/conversion-orchestrator.ts`, exposing:
+    - `convertFunctionOrchestrated()`
+    - `convertProcedureOrchestrated()`
+  - Updated `src/features/routines/index.ts` and `src/features/routines/legacy-bridge.ts` to expose the new orchestration APIs via `window.SQLDEV_ROUTINE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `convertFunction()` now prefers `window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated(...)`.
+    - `convertProcedure()` now prefers `window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated(...)`.
+    - Legacy inline orchestration remains as fallback.
+  - Added test `tests/routine-conversion-orchestrator.mjs`.
+  - Added npm script `test:routines-convert`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertions for routine conversion orchestration.
+    - Added legacy bridge preference assertions for routine conversion orchestration.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Routine chain has now covered parser primitives, function/procedure parsers, generators, and conversion entry orchestration in typed modules.
+  - Remaining heavy legacy zones are increasingly concentrated in large page-level state / DOM orchestration and deep UI flow coupling in `src/legacy/app.js`.
+
 ## Current next focus
 - The largest remaining legacy-heavy areas are now more concentrated in:
-  - routine generators
-  - function/procedure conversion orchestration
-  - large page-level state / DOM orchestration in `src/legacy/app.js`
+  - page-level state orchestration in `src/legacy/app.js`
+  - DOM/event flow coupling across workbench modules
+  - high-risk cross-feature interaction branches around conversion + tool panels
 - The next highest-value strangler steps are:
-  - extract routine generators into typed modules
-  - extract function/procedure conversion orchestration, similar to `convertDDL()`
-  - keep reducing direct DOM/state logic in legacy where the risk is low
+  - continue isolating low-risk state transition helpers into typed feature modules
+  - peel off reusable UI-state utilities before touching direct DOM mutation paths
+  - keep reducing legacy orchestration thickness without changing visual behavior

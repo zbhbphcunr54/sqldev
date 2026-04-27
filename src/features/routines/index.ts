@@ -25,4 +25,8 @@ export {
   generatePostgresFunctionStatement,
   generatePostgresProcedureStatement
 } from './generators'
+export {
+  convertFunctionOrchestrated,
+  convertProcedureOrchestrated
+} from './conversion-orchestrator'
 export type { RoutineParam, RoutineVar } from './generators'

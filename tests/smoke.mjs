@@ -66,6 +66,7 @@ const rulesLegacyBridge = read('src/features/rules/legacy-bridge.ts')
 const routineParserPrimitives = read('src/features/routines/parser-primitives.ts')
 const routineFunctionParsers = read('src/features/routines/function-parsers.ts')
 const routineProcedureParsers = read('src/features/routines/procedure-parsers.ts')
+const routineConversionOrchestrator = read('src/features/routines/conversion-orchestrator.ts')
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
 const navigationLegacyBridge = read('src/features/navigation/legacy-bridge.ts')
@@ -99,6 +100,7 @@ const bodyTransformRulesTest = read('tests/body-transform.mjs')
 const routineParserPrimitivesTest = read('tests/routine-parser-primitives.mjs')
 const routineFunctionParsersTest = read('tests/routine-function-parsers.mjs')
 const routineProcedureParsersTest = read('tests/routine-procedure-parsers.mjs')
+const routineConversionOrchestratorTest = read('tests/routine-conversion-orchestrator.mjs')
 const preferencesStorageTest = read('tests/preferences-storage.mjs')
 const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
@@ -107,6 +109,7 @@ const ziweiHistoryTest = read('tests/ziwei-history.mjs')
 const ziweiPresentationTest = read('tests/ziwei-presentation.mjs')
 const ziweiShareTest = read('tests/ziwei-share.mjs')
 const ziweiAiUtilsTest = read('tests/ziwei-ai-utils.mjs')
+const testHelper = read('tests/helpers/load-ts-module.mjs')
 
 assert(indexHtml.includes('/src/main.ts'), 'index.html must load the Vue app entry')
 assert(!exists('index.vite.html'), 'obsolete index.vite.html redirect shell must be removed')
@@ -419,6 +422,14 @@ assert(
   'routine procedure parsing must live in typed feature module'
 )
 assert(
+  routineConversionOrchestrator.includes('export function convertFunctionOrchestrated'),
+  'routine function conversion orchestration must live in typed feature module'
+)
+assert(
+  routineConversionOrchestrator.includes('export function convertProcedureOrchestrated'),
+  'routine procedure conversion orchestration must live in typed feature module'
+)
+assert(
   routinesLegacyBridge.includes('window.SQLDEV_ROUTINE_UTILS'),
   'routine parsing feature must expose a legacy bridge'
 )
@@ -489,6 +500,14 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.parsePostgresProcedureDefinition'),
   'legacy app must prefer the typed PostgreSQL routine procedure parser bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated'),
+  'legacy app must prefer the typed routine function orchestration bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated'),
+  'legacy app must prefer the typed routine procedure orchestration bridge'
 )
 assert(
   idCardTools.includes('export function calcIdCardCheckDigit'),
@@ -606,7 +625,7 @@ assert(
   'smoke test entry must live under tests/'
 )
 assert(testHelper.includes('export function loadTsModule'), 'TS module test loader must be shared')
-for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
+for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, routineConversionOrchestratorTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
 }
 for (const testFile of [navigationRouteTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
