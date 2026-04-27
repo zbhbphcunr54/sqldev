@@ -1387,3 +1387,27 @@ Last updated: 2026-04-15
 ## Current next focus
 - Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
 - Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.
+
+## 2026-04-27: Strangler Mode Batch 19 - Route Application Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting route-application branch decisions from `applyRouteFromLocation()` into a typed navigation helper while preserving side-effect execution in legacy.
+- Completed:
+  - Added `src/features/navigation/route-application.ts`, exposing:
+    - `resolveLegacyRouteApplicationDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `applyRouteFromLocation()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision(...)`.
+    - Legacy inline branch logic remains as fallback when bridge is unavailable.
+  - Added test `tests/navigation-route-application.mjs`.
+  - Added npm script `test:navigation-route-application`, and included it in `test:navigation-suite`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for route-application helper.
+    - Added legacy delegation assertion for route-application helper usage.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Route parsing, page-state normalization, workbench/event decision helpers, splash/workbench effect decisions, and route-application branching are now all covered in typed navigation modules with bridge-first legacy delegation.
+  - Remaining migration work is increasingly concentrated in heavier DOM mutation execution and cross-feature runtime coupling blocks.
+
+## Current next focus
+- Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
+- Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.

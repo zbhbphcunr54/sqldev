@@ -28,3 +28,4 @@ export {
   resolveLegacySplashHomeTransition,
   resolveLegacyWorkbenchVisibilityDecision
 } from './workbench-effects'
+export { resolveLegacyRouteApplicationDecision } from './route-application'

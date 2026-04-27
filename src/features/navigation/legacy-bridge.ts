@@ -28,6 +28,7 @@ import {
   resolveLegacySplashHomeTransition,
   resolveLegacyWorkbenchVisibilityDecision
 } from './workbench-effects'
+import { resolveLegacyRouteApplicationDecision } from './route-application'
 
 declare global {
   interface Window {
@@ -50,6 +51,7 @@ declare global {
       resolveLegacyWorkbenchVisibilityDecision: typeof resolveLegacyWorkbenchVisibilityDecision
       resolveLegacySplashHomeTransition: typeof resolveLegacySplashHomeTransition
       resolveLegacySplashHashSyncDecision: typeof resolveLegacySplashHashSyncDecision
+      resolveLegacyRouteApplicationDecision: typeof resolveLegacyRouteApplicationDecision
     }
   }
 }
@@ -71,6 +73,7 @@ window.SQLDEV_ROUTE_UTILS = Object.freeze({
   resolveLegacyWorkbenchVisibilityDecision,
   resolveLegacySplashHomeTransition,
   resolveLegacySplashHashSyncDecision,
+  resolveLegacyRouteApplicationDecision,
   shouldLegacyCloseRulesMenuOnEscape,
   shouldLegacyCloseSidebarForSplash
 })

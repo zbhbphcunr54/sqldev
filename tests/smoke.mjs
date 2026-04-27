@@ -69,6 +69,7 @@ const routineProcedureParsers = read('src/features/routines/procedure-parsers.ts
 const routineConversionOrchestrator = read('src/features/routines/conversion-orchestrator.ts')
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
+const navigationRouteApplication = read('src/features/navigation/route-application.ts')
 const navigationPageState = read('src/features/navigation/page-state.ts')
 const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
 const navigationWorkbenchActions = read('src/features/navigation/workbench-actions.ts')
@@ -110,6 +111,7 @@ const preferencesStorageTest = read('tests/preferences-storage.mjs')
 const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
+const navigationRouteApplicationTest = read('tests/navigation-route-application.mjs')
 const navigationPageStateTest = read('tests/navigation-page-state.mjs')
 const navigationWorkbenchHelpersTest = read('tests/navigation-workbench-helpers.mjs')
 const ziweiHistoryTest = read('tests/ziwei-history.mjs')
@@ -445,6 +447,10 @@ assert(
   'route parsing must live in typed feature module'
 )
 assert(
+  navigationRouteApplication.includes('export function resolveLegacyRouteApplicationDecision'),
+  'route application decision logic must live in typed navigation feature module'
+)
+assert(
   navigationPageState.includes('export function resolveLegacyPageTransition'),
   'page state transition logic must live in typed navigation feature module'
 )
@@ -567,6 +573,10 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation'),
   'legacy app must prefer the typed route parser bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision'),
+  'legacy app must prefer the typed route application decision bridge'
 )
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage'),
@@ -727,6 +737,7 @@ for (const testFile of [
 }
 for (const testFile of [
   navigationRouteTest,
+  navigationRouteApplicationTest,
   navigationPageStateTest,
   navigationWorkbenchHelpersTest,
   ziweiHistoryTest,

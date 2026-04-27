@@ -3283,6 +3283,27 @@ const app = createApp({
       ziweiShareMode.value = _readZiweiShareModeFromLocation();
       var routeInfo = parseRouteInfoFromLocation();
       if (!routeInfo) return;
+      var routeDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision({
+          routeInfo: routeInfo,
+          isZiweiShareMode: ziweiShareMode.value,
+          canAccessZiweiTool: canAccessZiweiTool.value,
+          activePage: activePage.value,
+          isSplashActive: typeof document !== 'undefined' && document.body.classList.contains('splash-active')
+        })
+        : null;
+      if (routeDecision) {
+        if (routeDecision.shouldEnsureWorkbenchVisible) {
+          ensureWorkbenchVisibleForRoute();
+        }
+        if (routeDecision.shouldGoSplashHome) {
+          goSplashHome();
+        }
+        if (routeDecision.nextPage && routeDecision.nextPageOptions) {
+          applyPageState(routeDecision.nextPage, routeDecision.nextPageOptions);
+        }
+        return;
+      }
       if (routeInfo.view === 'splash') {
         if (ziweiShareMode.value) {
           ensureWorkbenchVisibleForRoute();
