@@ -1347,12 +1347,43 @@ Last updated: 2026-04-15
   - Navigation flow now has typed route parsing + typed page-state decision helpers, while legacy retains UI rendering and side-effect execution.
   - Remaining heavier legacy areas are increasingly centered on deeper DOM/event orchestration and cross-feature runtime coupling.
 
+## 2026-04-27: Strangler Mode Batch 18 - Workbench UI-State + Event Decision Helpers
+- Goal:
+  - Complete the prior “next focus” items by extracting low-risk workbench UI-state helpers and reusable event/action decision logic from `src/legacy/app.js` into typed navigation modules, then delegating through bridge APIs with fallbacks.
+- Completed:
+  - Added `src/features/navigation/workbench-state.ts`, exposing:
+    - `resolveLegacySidebarHoverState()`
+    - `resolveLegacyTestToolsMenuToggleState()`
+    - `shouldLegacyCloseSidebarForSplash()`
+  - Added `src/features/navigation/workbench-actions.ts`, exposing:
+    - `resolveLegacyPrimaryWorkbenchPage()`
+    - `resolveLegacyWorkbenchActionDecision()`
+  - Added `src/features/navigation/event-decisions.ts`, exposing:
+    - `shouldLegacyCloseRulesMenuOnEscape()`
+    - `resolveLegacyPrimaryHotkeyTarget()`
+    - `resolveLegacyOutsideClickDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose all new helpers via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `handleSidebarHover()` now prefers `resolveLegacySidebarHoverState(...)`.
+    - `toggleTestToolsMenu()` now prefers `resolveLegacyTestToolsMenuToggleState(...)`.
+    - `runPrimaryAction()` now prefers `resolveLegacyPrimaryWorkbenchPage(...)`.
+    - `goSplashHome()` now prefers `shouldLegacyCloseSidebarForSplash(...)`.
+    - `runWorkbenchAction()` now prefers `resolveLegacyWorkbenchActionDecision(...)`.
+    - global keydown handler now prefers:
+      - `shouldLegacyCloseRulesMenuOnEscape(...)`
+      - `resolveLegacyPrimaryHotkeyTarget(...)`
+    - outside-click handler now prefers `resolveLegacyOutsideClickDecision(...)`.
+    - legacy inline branches remain as fallback paths.
+  - Added `tests/navigation-workbench-helpers.mjs`.
+  - Added npm script `test:navigation-workbench`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertions for workbench-state / workbench-actions / event-decisions.
+    - Added legacy delegation assertions for the newly bridged navigation helpers.
+    - Added loader-sharing assertion for the new navigation workbench helper test.
+- Current convergence update:
+  - Previous “next focus” items (UI-state helper extraction, event decision extraction, and conversion/tool-panel decision thinning) are now covered by typed navigation helper modules + bridge-first legacy delegation.
+  - Remaining migration work is now mainly in deeper DOM mutation execution paths and heavyweight runtime orchestration blocks, rather than branch decision logic.
+
 ## Current next focus
-- The largest remaining legacy-heavy areas are now more concentrated in:
-  - DOM/event flow coupling across workbench modules
-  - high-risk cross-feature interaction branches around conversion + tool panels
-  - large UI-side orchestration blocks in `src/legacy/app.js`
-- The next highest-value strangler steps are:
-  - keep extracting low-risk UI-state helpers before direct DOM mutation logic
-  - isolate reusable event-handling decision logic into typed modules with bridge delegation
-  - continue reducing legacy orchestration thickness without changing visual behavior
+- Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
+- Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.

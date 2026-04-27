@@ -3193,9 +3193,15 @@ const app = createApp({
         : false
     );
     function handleSidebarHover(open) {
-      if (window.innerWidth <= 1024) return;
-      sidebarOpen.value = !!open;
-      if (!open) sidebarSettingsOpen.value = false;
+      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState(open, {
+          mobileBreakpoint: 1024,
+          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth
+        })
+        : null;
+      if (nextState ? nextState.shouldIgnore : window.innerWidth <= 1024) return;
+      sidebarOpen.value = nextState ? nextState.nextSidebarOpen : !!open;
+      if (nextState ? nextState.shouldCloseSettings : !open) sidebarSettingsOpen.value = false;
     }
     function toggleSidebar() {
       sidebarCollapsed.value = !sidebarCollapsed.value;
@@ -3209,10 +3215,16 @@ const app = createApp({
     const TEST_TOOL_PAGES = ['idTool', 'ziweiTool'];
     const testToolsExpanded = ref(TEST_TOOL_PAGES.indexOf(activePage.value) >= 0);
     function toggleTestToolsMenu() {
-      testToolsExpanded.value = !testToolsExpanded.value;
-      if (!testToolsExpanded.value && TEST_TOOL_PAGES.indexOf(activePage.value) >= 0) {
-        setPage('ddl');
-      }
+      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState(testToolsExpanded.value, {
+          activePage: activePage.value,
+          testToolPages: TEST_TOOL_PAGES,
+          fallbackPage: 'ddl'
+        })
+        : null;
+      testToolsExpanded.value = nextState ? nextState.nextExpanded : !testToolsExpanded.value;
+      var fallbackPage = nextState ? nextState.nextPage : (!testToolsExpanded.value && TEST_TOOL_PAGES.indexOf(activePage.value) >= 0 ? 'ddl' : null);
+      if (fallbackPage) setPage(fallbackPage);
     }
     function applyPageState(page, options) {
       var opts = options || {};
@@ -8961,14 +8973,23 @@ const app = createApp({
     }
 
     function runPrimaryAction() {
-      if (activePage.value === 'func') return convertFunc();
-      if (activePage.value === 'proc') return convertProc();
-      if (activePage.value === 'ddl') return convert();
+      var targetPage = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage(activePage.value)
+        : (activePage.value === 'func' || activePage.value === 'proc' || activePage.value === 'ddl' ? activePage.value : null);
+      if (targetPage === 'func') return convertFunc();
+      if (targetPage === 'proc') return convertProc();
+      if (targetPage === 'ddl') return convert();
       return;
     }
 
     function goSplashHome() {
-      if (window.innerWidth <= 1024) sidebarOpen.value = false;
+      var shouldCloseSidebar = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
+          typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
+          1024
+        )
+        : window.innerWidth <= 1024;
+      if (shouldCloseSidebar) sidebarOpen.value = false;
       if (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function') {
         window.splashApi.showHome();
       } else {
@@ -9005,12 +9026,15 @@ const app = createApp({
 
     function runWorkbenchAction(action) {
       // Theme toggle works on all pages
-      if (action === 'theme') {
+      var actionDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision(activePage.value, action)
+        : null;
+      if (actionDecision ? actionDecision.type === 'theme' : action === 'theme') {
         toggleTheme();
         closeSettingsMenu();
         return;
       }
-      if (action === 'feedback') {
+      if (actionDecision ? actionDecision.type === 'feedback' : action === 'feedback') {
         if (typeof window.openFeedbackModal === 'function') {
           window.openFeedbackModal('workbench-header');
         } else if (typeof window.__loadSqldevAuthNow === 'function') {
@@ -9029,38 +9053,47 @@ const app = createApp({
         closeSettingsMenu();
         return;
       }
-      var page = activePage.value;
-      if (page !== 'ddl' && page !== 'func' && page !== 'proc') {
+      if (actionDecision ? actionDecision.type === 'unsupported' : (activePage.value !== 'ddl' && activePage.value !== 'func' && activePage.value !== 'proc')) {
         statusText.value = '当前页面暂无此操作';
         closeSettingsMenu();
         return;
       }
-      if (action === 'upload') {
-        uploadFile();
-        closeSettingsMenu();
-        return;
+      var handlerName = actionDecision ? actionDecision.handlerName : null;
+      if (!handlerName) {
+        var page = activePage.value;
+        if (action === 'upload') handlerName = 'uploadFile';
+        else if (action === 'format') handlerName = 'formatActiveWorkbench';
+        else if (page === 'ddl') {
+          if (action === 'sample') handlerName = 'loadSample';
+          else if (action === 'clear') handlerName = 'clearAll';
+          else if (action === 'copy') handlerName = 'copyOutput';
+          else if (action === 'save') handlerName = 'saveOutput';
+        } else if (page === 'func') {
+          if (action === 'sample') handlerName = 'loadFuncSample';
+          else if (action === 'clear') handlerName = 'clearFunc';
+          else if (action === 'copy') handlerName = 'copyFuncOutput';
+          else if (action === 'save') handlerName = 'saveFuncOutput';
+        } else if (page === 'proc') {
+          if (action === 'sample') handlerName = 'loadProcSample';
+          else if (action === 'clear') handlerName = 'clearProc';
+          else if (action === 'copy') handlerName = 'copyProcOutput';
+          else if (action === 'save') handlerName = 'saveProcOutput';
+        }
       }
-      if (action === 'format') {
-        formatActiveWorkbench();
-        closeSettingsMenu();
-        return;
-      }
-      if (page === 'ddl') {
-        if (action === 'sample') loadSample();
-        else if (action === 'clear') clearAll();
-        else if (action === 'copy') copyOutput();
-        else if (action === 'save') saveOutput();
-      } else if (page === 'func') {
-        if (action === 'sample') loadFuncSample();
-        else if (action === 'clear') clearFunc();
-        else if (action === 'copy') copyFuncOutput();
-        else if (action === 'save') saveFuncOutput();
-      } else {
-        if (action === 'sample') loadProcSample();
-        else if (action === 'clear') clearProc();
-        else if (action === 'copy') copyProcOutput();
-        else if (action === 'save') saveProcOutput();
-      }
+      if (handlerName === 'uploadFile') uploadFile();
+      else if (handlerName === 'formatActiveWorkbench') formatActiveWorkbench();
+      else if (handlerName === 'loadSample') loadSample();
+      else if (handlerName === 'clearAll') clearAll();
+      else if (handlerName === 'copyOutput') copyOutput();
+      else if (handlerName === 'saveOutput') saveOutput();
+      else if (handlerName === 'loadFuncSample') loadFuncSample();
+      else if (handlerName === 'clearFunc') clearFunc();
+      else if (handlerName === 'copyFuncOutput') copyFuncOutput();
+      else if (handlerName === 'saveFuncOutput') saveFuncOutput();
+      else if (handlerName === 'loadProcSample') loadProcSample();
+      else if (handlerName === 'clearProc') clearProc();
+      else if (handlerName === 'copyProcOutput') copyProcOutput();
+      else if (handlerName === 'saveProcOutput') saveProcOutput();
       closeSettingsMenu();
     }
 
@@ -9134,19 +9167,33 @@ const app = createApp({
           if (e.key === 'Tab') { _trapFocus(e, alertModalRef); return; }
         }
         /* --- Existing handlers --- */
-        if (e.key === 'Escape' && showRulesMenu.value) {
+        var shouldCloseRulesMenu = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseRulesMenuOnEscape === 'function'
+          ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseRulesMenuOnEscape(e.key, showRulesMenu.value)
+          : (e.key === 'Escape' && showRulesMenu.value);
+        if (shouldCloseRulesMenu) {
           e.preventDefault();
           showRulesMenu.value = false;
           var trigger = document.getElementById('settings-trigger');
           if (trigger) trigger.focus();
           return;
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          if (ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible) return;
-          if (activePage.value !== 'ddl' && activePage.value !== 'func' && activePage.value !== 'proc') return;
+        var hotkeyTarget = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget === 'function'
+          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget({
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            hasBlockingModal: ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible,
+            activePage: activePage.value
+          })
+          : ((e.ctrlKey || e.metaKey) && e.key === 'Enter' &&
+            !(ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible) &&
+            (activePage.value === 'ddl' || activePage.value === 'func' || activePage.value === 'proc')
+              ? activePage.value
+              : null);
+        if (hotkeyTarget) {
           e.preventDefault();
-          if (activePage.value === 'func') convertFunc();
-          else if (activePage.value === 'proc') convertProc();
+          if (hotkeyTarget === 'func') convertFunc();
+          else if (hotkeyTarget === 'proc') convertProc();
           else convert();
         }
       };
@@ -9159,10 +9206,18 @@ const app = createApp({
       window.addEventListener('scroll', ziweiAiSuggestViewportHandler, true);
       // Close floating panels on outside click
       outsideClickHandler = function(e) {
-        if (showRulesMenu.value && !e.target.closest('.settings-dropdown')) {
+        var outsideDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision === 'function'
+          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision({
+            showRulesMenu: showRulesMenu.value,
+            ziweiAiSuggestionOpen: ziweiAiSuggestionOpen.value,
+            clickedInSettingsDropdown: !!(e.target && e.target.closest && e.target.closest('.settings-dropdown')),
+            clickedInZiweiInputWrap: !!(e.target && e.target.closest && e.target.closest('.ziwei-ai-qa-input-wrap'))
+          })
+          : null;
+        if (outsideDecision ? outsideDecision.shouldCloseRulesMenu : (showRulesMenu.value && !e.target.closest('.settings-dropdown'))) {
           showRulesMenu.value = false;
         }
-        if (ziweiAiSuggestionOpen.value && !e.target.closest('.ziwei-ai-qa-input-wrap')) {
+        if (outsideDecision ? outsideDecision.shouldCloseZiweiAiSuggestion : (ziweiAiSuggestionOpen.value && !e.target.closest('.ziwei-ai-qa-input-wrap'))) {
           ziweiAiSuggestionOpen.value = false;
         }
       };

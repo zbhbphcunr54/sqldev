@@ -70,6 +70,9 @@ const routineConversionOrchestrator = read('src/features/routines/conversion-orc
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
 const navigationPageState = read('src/features/navigation/page-state.ts')
+const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
+const navigationWorkbenchActions = read('src/features/navigation/workbench-actions.ts')
+const navigationEventDecisions = read('src/features/navigation/event-decisions.ts')
 const navigationLegacyBridge = read('src/features/navigation/legacy-bridge.ts')
 const idCardTools = read('src/features/id-tools/id-card.ts')
 const usccTools = read('src/features/id-tools/uscc.ts')
@@ -107,6 +110,7 @@ const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
 const navigationPageStateTest = read('tests/navigation-page-state.mjs')
+const navigationWorkbenchHelpersTest = read('tests/navigation-workbench-helpers.mjs')
 const ziweiHistoryTest = read('tests/ziwei-history.mjs')
 const ziweiPresentationTest = read('tests/ziwei-presentation.mjs')
 const ziweiShareTest = read('tests/ziwei-share.mjs')
@@ -444,6 +448,22 @@ assert(
   'page state transition logic must live in typed navigation feature module'
 )
 assert(
+  navigationWorkbenchState.includes('export function resolveLegacySidebarHoverState'),
+  'sidebar hover state logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchState.includes('export function resolveLegacyTestToolsMenuToggleState'),
+  'test tools menu toggle logic must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchActions.includes('export function resolveLegacyWorkbenchActionDecision'),
+  'workbench action decision logic must live in typed navigation feature module'
+)
+assert(
+  navigationEventDecisions.includes('export function resolveLegacyOutsideClickDecision'),
+  'outside click decision logic must live in typed navigation feature module'
+)
+assert(
   navigationLegacyBridge.includes('window.SQLDEV_ROUTE_UTILS'),
   'navigation feature module must expose a legacy bridge'
 )
@@ -548,6 +568,26 @@ assert(
   'legacy app must prefer the typed page transition bridge'
 )
 assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState'),
+  'legacy app must prefer the typed sidebar hover state bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState'),
+  'legacy app must prefer the typed test tools menu toggle bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision'),
+  'legacy app must prefer the typed workbench action decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget'),
+  'legacy app must prefer the typed primary hotkey decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision'),
+  'legacy app must prefer the typed outside click decision bridge'
+)
+assert(
   ziweiAiUtils.includes('export function buildZiweiAiPayload'),
   'Ziwei AI payload builder must live in typed feature module'
 )
@@ -642,7 +682,7 @@ assert(testHelper.includes('export function loadTsModule'), 'TS module test load
 for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, routineConversionOrchestratorTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
 }
-for (const testFile of [navigationRouteTest, navigationPageStateTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
+for (const testFile of [navigationRouteTest, navigationPageStateTest, navigationWorkbenchHelpersTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'new feature tests must reuse the shared TS module loader')
 }
 
