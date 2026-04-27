@@ -39,21 +39,64 @@ function getErrorMessage(error: unknown): string {
   return String(error ?? '未知错误')
 }
 
-export function convertFunctionOrchestrated(
+interface RoutineKindConfig {
+  emptyInputMessage: string
+  headerLabel: string
+  countLabel: string
+}
+
+function validateRoutineInput(
+  input: string,
+  sourceDb: SupportedDatabase,
+  targetDb: SupportedDatabase,
+  labels: Record<string, string>,
+  emptyInputMessage: string
+): string | null {
+  if (!input.trim()) return emptyInputMessage
+  if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n'
+  if (sourceDb === targetDb) {
+    return `-- 源库与目标库相同 (${labels[sourceDb]})，无需翻译\n\n${input.trim()}`
+  }
+  return null
+}
+
+function buildRoutineHeader(
+  labels: Record<string, string>,
+  sourceDb: SupportedDatabase,
+  targetDb: SupportedDatabase,
+  kind: RoutineKindConfig,
+  resultCount: number,
+  errorCount: number,
+  nowIsoString?: () => string
+): string {
+  return (
+    `-- ${kind.headerLabel}: ${labels[sourceDb]} \u2192 ${labels[targetDb]}` +
+    ` | 共 ${resultCount} 个${kind.countLabel}` +
+    (errorCount > 0 ? ` (${errorCount} 个失败)` : '') +
+    ` | ${formatNow(nowIsoString)}\n`
+  )
+}
+
+function convertRoutineOrchestrated(
   inputValue: unknown,
   sourceDbValue: unknown,
   targetDbValue: unknown,
-  deps: FunctionOrchestrationDeps
+  deps: RoutineOrchestrationDeps,
+  kind: RoutineKindConfig,
+  convertSingle: (input: string, sourceDb: SupportedDatabase, targetDb: SupportedDatabase) => string
 ): string {
   const input = String(inputValue || '')
   const sourceDb = String(sourceDbValue || '').toLowerCase() as SupportedDatabase
   const targetDb = String(targetDbValue || '').toLowerCase() as SupportedDatabase
 
-  if (!input.trim()) return '-- 请在左侧输入区粘贴源函数定义'
-  if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n'
-  if (sourceDb === targetDb) {
-    return `-- 源库与目标库相同 (${deps.labels[sourceDb]})，无需翻译\n\n${input.trim()}`
-  }
+  const validationMessage = validateRoutineInput(
+    input,
+    sourceDb,
+    targetDb,
+    deps.labels,
+    kind.emptyInputMessage
+  )
+  if (validationMessage) return validationMessage
 
   const blocks = splitCreateBlocks(input)
   const results: string[] = []
@@ -61,7 +104,7 @@ export function convertFunctionOrchestrated(
 
   for (const block of blocks) {
     try {
-      results.push(deps.convertSingleFunction(block.trim(), sourceDb, targetDb))
+      results.push(convertSingle(block.trim(), sourceDb, targetDb))
     } catch (error) {
       errorCount += 1
       const message = getErrorMessage(error)
@@ -69,13 +112,37 @@ export function convertFunctionOrchestrated(
     }
   }
 
-  const header =
-    `-- 函数翻译: ${deps.labels[sourceDb]} \u2192 ${deps.labels[targetDb]}` +
-    ` | 共 ${results.length} 个函数` +
-    (errorCount > 0 ? ` (${errorCount} 个失败)` : '') +
-    ` | ${formatNow(deps.nowIsoString)}\n`
+  const header = buildRoutineHeader(
+    deps.labels,
+    sourceDb,
+    targetDb,
+    kind,
+    results.length,
+    errorCount,
+    deps.nowIsoString
+  )
 
   return `${header}\n${results.join('\n\n')}`
+}
+
+export function convertFunctionOrchestrated(
+  inputValue: unknown,
+  sourceDbValue: unknown,
+  targetDbValue: unknown,
+  deps: FunctionOrchestrationDeps
+): string {
+  return convertRoutineOrchestrated(
+    inputValue,
+    sourceDbValue,
+    targetDbValue,
+    deps,
+    {
+      emptyInputMessage: '-- 请在左侧输入区粘贴源函数定义',
+      headerLabel: '函数翻译',
+      countLabel: '函数'
+    },
+    deps.convertSingleFunction
+  )
 }
 
 export function convertProcedureOrchestrated(
@@ -84,35 +151,16 @@ export function convertProcedureOrchestrated(
   targetDbValue: unknown,
   deps: ProcedureOrchestrationDeps
 ): string {
-  const input = String(inputValue || '')
-  const sourceDb = String(sourceDbValue || '').toLowerCase() as SupportedDatabase
-  const targetDb = String(targetDbValue || '').toLowerCase() as SupportedDatabase
-
-  if (!input.trim()) return '-- 请在左侧输入区粘贴源存储过程定义'
-  if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n'
-  if (sourceDb === targetDb) {
-    return `-- 源库与目标库相同 (${deps.labels[sourceDb]})，无需翻译\n\n${input.trim()}`
-  }
-
-  const blocks = splitCreateBlocks(input)
-  const results: string[] = []
-  let errorCount = 0
-
-  for (const block of blocks) {
-    try {
-      results.push(deps.convertSingleProcedure(block.trim(), sourceDb, targetDb))
-    } catch (error) {
-      errorCount += 1
-      const message = getErrorMessage(error)
-      results.push(`-- 翻译失败: ${message}\n-- 原始代码:\n${block.trim()}`)
-    }
-  }
-
-  const header =
-    `-- 存储过程翻译: ${deps.labels[sourceDb]} \u2192 ${deps.labels[targetDb]}` +
-    ` | 共 ${results.length} 个存储过程` +
-    (errorCount > 0 ? ` (${errorCount} 个失败)` : '') +
-    ` | ${formatNow(deps.nowIsoString)}\n`
-
-  return `${header}\n${results.join('\n\n')}`
+  return convertRoutineOrchestrated(
+    inputValue,
+    sourceDbValue,
+    targetDbValue,
+    deps,
+    {
+      emptyInputMessage: '-- 请在左侧输入区粘贴源存储过程定义',
+      headerLabel: '存储过程翻译',
+      countLabel: '存储过程'
+    },
+    deps.convertSingleProcedure
+  )
 }
