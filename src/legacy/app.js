@@ -3163,10 +3163,28 @@ const app = createApp({
       var targetHash = buildWorkbenchHash(page);
       var currentHashRaw = String(window.location.hash || '').replace(/^#/, '');
       var currentHash = currentHashRaw ? ('#' + normalizeRoutePath(currentHashRaw)) : '';
-      if (currentHash === targetHash) return;
+      var routeSyncDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision({
+          currentHash: currentHash,
+          targetHash: targetHash,
+          replaceUrl: !!replaceUrl,
+          hasHistoryApi: !!window.history,
+          hasReplaceStateApi: !!(window.history && typeof window.history.replaceState === 'function'),
+          hasPushStateApi: !!(window.history && typeof window.history.pushState === 'function')
+        })
+        : null;
+      if (routeSyncDecision ? !routeSyncDecision.shouldSync : currentHash === targetHash) return;
       var nextUrl = window.location.pathname + window.location.search + targetHash;
       try {
-        if (window.history) {
+        if (routeSyncDecision ? routeSyncDecision.strategy === 'replaceState' : (window.history && replaceUrl && typeof window.history.replaceState === 'function')) {
+          window.history.replaceState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
+          return;
+        }
+        if (routeSyncDecision ? routeSyncDecision.strategy === 'pushState' : (window.history && !replaceUrl && typeof window.history.pushState === 'function')) {
+          window.history.pushState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
+          return;
+        }
+        if (!routeSyncDecision && window.history) {
           if (replaceUrl && typeof window.history.replaceState === 'function') {
             window.history.replaceState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
             return;

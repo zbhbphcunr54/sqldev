@@ -29,3 +29,4 @@ export {
   resolveLegacyWorkbenchVisibilityDecision
 } from './workbench-effects'
 export { resolveLegacyRouteApplicationDecision } from './route-application'
+export { resolveLegacyRouteSyncDecision } from './route-sync'

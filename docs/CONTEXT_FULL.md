@@ -1388,6 +1388,26 @@ Last updated: 2026-04-15
 - Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
 - Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.
 
+## 2026-04-27: Strangler Mode Batch 20 - Route Sync Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting route synchronization branch decisions from `syncRouteForPage()` into a typed navigation helper while preserving current history/hash side-effect behavior.
+- Completed:
+  - Added `src/features/navigation/route-sync.ts`, exposing:
+    - `resolveLegacyRouteSyncDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `syncRouteForPage()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision(...)` for sync strategy resolution.
+    - Legacy inline branch logic remains as fallback when bridge is unavailable.
+  - Added test `tests/navigation-route-sync.mjs`.
+  - Added npm script `test:navigation-route-sync`, and included it in `test:navigation-suite`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for route-sync helper.
+    - Added legacy delegation assertion for route-sync helper usage.
+    - Added loader-sharing assertion coverage for the new test file.
+- Current convergence update:
+  - Navigation path now also covers typed route-sync strategy decisions, further reducing inline routing branch logic in legacy.
+  - Remaining migration work is increasingly concentrated in heavy DOM mutation execution and broader runtime orchestration blocks.
+
 ## 2026-04-27: Strangler Mode Batch 19 - Route Application Decision Helper
 - Goal:
   - Continue shrinking `src/legacy/app.js` by extracting route-application branch decisions from `applyRouteFromLocation()` into a typed navigation helper while preserving side-effect execution in legacy.

@@ -69,6 +69,7 @@ const routineProcedureParsers = read('src/features/routines/procedure-parsers.ts
 const routineConversionOrchestrator = read('src/features/routines/conversion-orchestrator.ts')
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
+const navigationRouteSync = read('src/features/navigation/route-sync.ts')
 const navigationRouteApplication = read('src/features/navigation/route-application.ts')
 const navigationPageState = read('src/features/navigation/page-state.ts')
 const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
@@ -111,6 +112,7 @@ const preferencesStorageTest = read('tests/preferences-storage.mjs')
 const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
+const navigationRouteSyncTest = read('tests/navigation-route-sync.mjs')
 const navigationRouteApplicationTest = read('tests/navigation-route-application.mjs')
 const navigationPageStateTest = read('tests/navigation-page-state.mjs')
 const navigationWorkbenchHelpersTest = read('tests/navigation-workbench-helpers.mjs')
@@ -451,6 +453,10 @@ assert(
   'route application decision logic must live in typed navigation feature module'
 )
 assert(
+  navigationRouteSync.includes('export function resolveLegacyRouteSyncDecision'),
+  'route sync decision logic must live in typed navigation feature module'
+)
+assert(
   navigationPageState.includes('export function resolveLegacyPageTransition'),
   'page state transition logic must live in typed navigation feature module'
 )
@@ -577,6 +583,10 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision'),
   'legacy app must prefer the typed route application decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision'),
+  'legacy app must prefer the typed route sync decision bridge'
 )
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage'),
@@ -737,6 +747,7 @@ for (const testFile of [
 }
 for (const testFile of [
   navigationRouteTest,
+  navigationRouteSyncTest,
   navigationRouteApplicationTest,
   navigationPageStateTest,
   navigationWorkbenchHelpersTest,
