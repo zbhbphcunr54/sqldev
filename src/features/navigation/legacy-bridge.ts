@@ -20,6 +20,7 @@ import {
   resolveLegacyWorkbenchActionDecision
 } from './workbench-actions'
 import {
+  resolveLegacyMenuKeyDecision,
   resolveLegacyOutsideClickDecision,
   resolveLegacyPrimaryHotkeyTarget,
   shouldLegacyCloseRulesMenuOnEscape
@@ -41,6 +42,7 @@ declare global {
       normalizeLegacyRoutePath: typeof normalizeLegacyRoutePath
       parseLegacyRouteInfoFromLocation: typeof parseLegacyRouteInfoFromLocation
       parseLegacyRouteInfoFromPath: typeof parseLegacyRouteInfoFromPath
+      resolveLegacyMenuKeyDecision: typeof resolveLegacyMenuKeyDecision
       resolveLegacyOutsideClickDecision: typeof resolveLegacyOutsideClickDecision
       resolveLegacyPageTransition: typeof resolveLegacyPageTransition
       resolveLegacyPrimaryHotkeyTarget: typeof resolveLegacyPrimaryHotkeyTarget
@@ -67,6 +69,7 @@ window.SQLDEV_ROUTE_UTILS = Object.freeze({
   normalizeLegacyRoutePath,
   parseLegacyRouteInfoFromLocation,
   parseLegacyRouteInfoFromPath,
+  resolveLegacyMenuKeyDecision,
   resolveLegacyOutsideClickDecision,
   resolveLegacyPageTransition,
   resolveLegacyPrimaryHotkeyTarget,

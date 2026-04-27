@@ -477,6 +477,10 @@ assert(
   'workbench action decision logic must live in typed navigation feature module'
 )
 assert(
+  navigationEventDecisions.includes('export function resolveLegacyMenuKeyDecision'),
+  'menu key decision logic must live in typed navigation feature module'
+)
+assert(
   navigationEventDecisions.includes('export function resolveLegacyOutsideClickDecision'),
   'outside click decision logic must live in typed navigation feature module'
 )
@@ -627,6 +631,10 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision'),
   'legacy app must prefer the typed splash hash sync bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision'),
+  'legacy app must prefer the typed menu key decision bridge'
 )
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget'),

@@ -82,6 +82,19 @@ assertEqual(
 )
 
 assertEqual(
+  eventDecisions.resolveLegacyMenuKeyDecision({
+    key: 'ArrowUp',
+    activeIndex: 0,
+    itemCount: 4
+  }),
+  {
+    action: 'focus',
+    nextIndex: 3
+  },
+  'menu key decision should cycle focus to last item when pressing ArrowUp on first item'
+)
+
+assertEqual(
   workbenchEffects.resolveLegacyWorkbenchVisibilityDecision({
     isSplashActive: true,
     hasEnterWorkbenchApi: false

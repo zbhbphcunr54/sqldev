@@ -20,6 +20,7 @@ export {
   resolveLegacyWorkbenchActionDecision
 } from './workbench-actions'
 export {
+  resolveLegacyMenuKeyDecision,
   resolveLegacyOutsideClickDecision,
   resolveLegacyPrimaryHotkeyTarget,
   shouldLegacyCloseRulesMenuOnEscape

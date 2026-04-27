@@ -1446,6 +1446,24 @@ Last updated: 2026-04-15
   - Primary workbench execution entry now consumes typed handler-decision output, reducing another inline branch cluster in legacy navigation/actions.
   - Remaining migration work stays concentrated in heavier DOM mutation execution and deeper runtime side-effect orchestration blocks.
 
+## 2026-04-27: Strangler Mode Batch 22 - Settings Menu Key Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting settings dropdown keyboard navigation decision branches from `handleMenuKey()` into typed navigation helpers.
+- Completed:
+  - Updated `src/features/navigation/event-decisions.ts`, adding:
+    - `resolveLegacyMenuKeyDecision()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `handleMenuKey()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision(...)` for focus/close decisions.
+    - Existing inline key-branch logic remains as fallback when bridge helper is unavailable.
+  - Updated `tests/navigation-workbench-helpers.mjs` with menu-key decision assertions.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for menu-key decision helper.
+    - Added legacy delegation assertion for menu-key decision helper usage.
+- Current convergence update:
+  - Dropdown keyboard decision branches now route through typed navigation helpers, continuing gradual removal of inline legacy branch logic.
+  - Remaining migration work still centers on heavy DOM mutation execution and larger side-effect orchestration blocks.
+
 ## Current next focus
 - Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
 - Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.

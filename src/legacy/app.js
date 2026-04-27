@@ -3358,11 +3358,25 @@ const app = createApp({
       var items = e.currentTarget.querySelectorAll('[role="menuitem"]');
       if (!items.length) return;
       var idx = Array.prototype.indexOf.call(items, document.activeElement);
-      if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length].focus(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
-      else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
-      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
-      else if (e.key === 'Escape') { e.preventDefault(); showRulesMenu.value = false; var t = document.getElementById('settings-trigger'); if (t) t.focus(); }
+      var menuKeyDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision({
+          key: e.key,
+          activeIndex: idx,
+          itemCount: items.length
+        })
+        : null;
+      if (menuKeyDecision ? menuKeyDecision.action === 'focus' : e.key === 'ArrowDown') {
+        e.preventDefault();
+        var focusIndex = menuKeyDecision ? menuKeyDecision.nextIndex : ((idx + 1) % items.length);
+        if (items[focusIndex]) items[focusIndex].focus();
+      } else if (menuKeyDecision ? menuKeyDecision.action === 'closeMenu' : e.key === 'Escape') {
+        e.preventDefault();
+        showRulesMenu.value = false;
+        var t = document.getElementById('settings-trigger');
+        if (t) t.focus();
+      } else if (!menuKeyDecision && e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
+      else if (!menuKeyDecision && e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+      else if (!menuKeyDecision && e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
     }
     watch(showRulesMenu, function(open) {
       if (open) { nextTick(function() { var el = document.querySelector('.settings-menu [role="menuitem"]'); if (el) el.focus(); }); }
