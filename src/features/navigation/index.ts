@@ -15,6 +15,7 @@ export {
   shouldLegacyCloseSidebarForSplash
 } from './workbench-state'
 export {
+  resolveLegacyPrimaryActionHandlerName,
   resolveLegacyPrimaryWorkbenchPage,
   resolveLegacyWorkbenchActionDecision
 } from './workbench-actions'

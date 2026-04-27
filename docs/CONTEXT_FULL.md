@@ -1428,6 +1428,24 @@ Last updated: 2026-04-15
   - Route parsing, page-state normalization, workbench/event decision helpers, splash/workbench effect decisions, and route-application branching are now all covered in typed navigation modules with bridge-first legacy delegation.
   - Remaining migration work is increasingly concentrated in heavier DOM mutation execution and cross-feature runtime coupling blocks.
 
+## 2026-04-27: Strangler Mode Batch 21 - Primary Action Handler Decision Helper
+- Goal:
+  - Continue shrinking `src/legacy/app.js` by extracting `runPrimaryAction()` page→handler mapping into a typed navigation helper, while preserving existing invocation behavior and fallback.
+- Completed:
+  - Updated `src/features/navigation/workbench-actions.ts`, adding:
+    - `resolveLegacyPrimaryActionHandlerName()`
+  - Updated `src/features/navigation/index.ts` and `src/features/navigation/legacy-bridge.ts` to export and expose the new helper via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `runPrimaryAction()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName(...)`.
+    - Existing page-based fallback mapping remains intact when bridge helper is unavailable.
+  - Updated `tests/navigation-workbench-helpers.mjs` with helper behavior assertions.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for primary action handler helper.
+    - Added legacy delegation assertion for primary action handler helper usage.
+- Current convergence update:
+  - Primary workbench execution entry now consumes typed handler-decision output, reducing another inline branch cluster in legacy navigation/actions.
+  - Remaining migration work stays concentrated in heavier DOM mutation execution and deeper runtime side-effect orchestration blocks.
+
 ## Current next focus
 - Continue shrinking large DOM mutation execution blocks in `src/legacy/app.js` where side effects are still directly coupled to UI rendering lifecycle.
 - Prioritize extracting stable side-effect orchestration wrappers only when behavior can be guaranteed unchanged.

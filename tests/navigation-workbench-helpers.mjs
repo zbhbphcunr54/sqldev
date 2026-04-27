@@ -41,6 +41,12 @@ assertEqual(
 )
 
 assertEqual(
+  workbenchActions.resolveLegacyPrimaryActionHandlerName('proc'),
+  'convertProc',
+  'primary action helper should map proc page to convertProc handler'
+)
+
+assertEqual(
   workbenchActions.resolveLegacyWorkbenchActionDecision('proc', 'copy'),
   {
     type: 'invoke',

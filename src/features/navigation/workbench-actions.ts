@@ -1,4 +1,5 @@
 export type LegacyPrimaryWorkbenchPage = 'ddl' | 'func' | 'proc'
+export type LegacyPrimaryActionHandlerName = 'convert' | 'convertFunc' | 'convertProc'
 
 export interface LegacyWorkbenchActionDecision {
   type: 'theme' | 'feedback' | 'unsupported' | 'invoke'
@@ -10,6 +11,16 @@ export function resolveLegacyPrimaryWorkbenchPage(
 ): LegacyPrimaryWorkbenchPage | null {
   const page = String(pageValue || '').trim()
   if (page === 'ddl' || page === 'func' || page === 'proc') return page
+  return null
+}
+
+export function resolveLegacyPrimaryActionHandlerName(
+  pageValue: unknown
+): LegacyPrimaryActionHandlerName | null {
+  const page = resolveLegacyPrimaryWorkbenchPage(pageValue)
+  if (page === 'ddl') return 'convert'
+  if (page === 'func') return 'convertFunc'
+  if (page === 'proc') return 'convertProc'
   return null
 }
 

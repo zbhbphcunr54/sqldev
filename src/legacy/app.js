@@ -9018,12 +9018,20 @@ const app = createApp({
     }
 
     function runPrimaryAction() {
-      var targetPage = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage(activePage.value)
-        : (activePage.value === 'func' || activePage.value === 'proc' || activePage.value === 'ddl' ? activePage.value : null);
-      if (targetPage === 'func') return convertFunc();
-      if (targetPage === 'proc') return convertProc();
-      if (targetPage === 'ddl') return convert();
+      var handlerName = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName(activePage.value)
+        : null;
+      if (!handlerName) {
+        var targetPage = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage === 'function'
+          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage(activePage.value)
+          : (activePage.value === 'func' || activePage.value === 'proc' || activePage.value === 'ddl' ? activePage.value : null);
+        if (targetPage === 'func') handlerName = 'convertFunc';
+        else if (targetPage === 'proc') handlerName = 'convertProc';
+        else if (targetPage === 'ddl') handlerName = 'convert';
+      }
+      if (handlerName === 'convertFunc') return convertFunc();
+      if (handlerName === 'convertProc') return convertProc();
+      if (handlerName === 'convert') return convert();
       return;
     }
 

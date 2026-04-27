@@ -15,6 +15,7 @@ import {
   shouldLegacyCloseSidebarForSplash
 } from './workbench-state'
 import {
+  resolveLegacyPrimaryActionHandlerName,
   resolveLegacyPrimaryWorkbenchPage,
   resolveLegacyWorkbenchActionDecision
 } from './workbench-actions'
@@ -43,6 +44,7 @@ declare global {
       resolveLegacyOutsideClickDecision: typeof resolveLegacyOutsideClickDecision
       resolveLegacyPageTransition: typeof resolveLegacyPageTransition
       resolveLegacyPrimaryHotkeyTarget: typeof resolveLegacyPrimaryHotkeyTarget
+      resolveLegacyPrimaryActionHandlerName: typeof resolveLegacyPrimaryActionHandlerName
       resolveLegacyPrimaryWorkbenchPage: typeof resolveLegacyPrimaryWorkbenchPage
       resolveLegacySidebarHoverState: typeof resolveLegacySidebarHoverState
       resolveLegacyTestToolsMenuToggleState: typeof resolveLegacyTestToolsMenuToggleState
@@ -68,6 +70,7 @@ window.SQLDEV_ROUTE_UTILS = Object.freeze({
   resolveLegacyOutsideClickDecision,
   resolveLegacyPageTransition,
   resolveLegacyPrimaryHotkeyTarget,
+  resolveLegacyPrimaryActionHandlerName,
   resolveLegacyPrimaryWorkbenchPage,
   resolveLegacySidebarHoverState,
   resolveLegacyTestToolsMenuToggleState,

@@ -469,6 +469,10 @@ assert(
   'test tools menu toggle logic must live in typed navigation feature module'
 )
 assert(
+  navigationWorkbenchActions.includes('export function resolveLegacyPrimaryActionHandlerName'),
+  'primary action handler mapping must live in typed navigation feature module'
+)
+assert(
   navigationWorkbenchActions.includes('export function resolveLegacyWorkbenchActionDecision'),
   'workbench action decision logic must live in typed navigation feature module'
 )
@@ -603,6 +607,10 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState'),
   'legacy app must prefer the typed test tools menu toggle bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName'),
+  'legacy app must prefer the typed primary action handler bridge'
 )
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision'),
