@@ -3078,10 +3078,23 @@ const app = createApp({
     });
 
     function normalizePageKey(page) {
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey(page, ROUTE_PAGE_KEYS, 'ddl');
+      }
       var key = String(page || '').trim();
       return ROUTE_PAGE_KEYS.indexOf(key) >= 0 ? key : 'ddl';
     }
     function normalizeAccessiblePage(page) {
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage(page, {
+          routePageKeys: ROUTE_PAGE_KEYS,
+          ziweiPageKey: 'ziweiTool',
+          fallbackPageKey: 'ddl',
+          deniedZiweiFallbackPageKey: 'idTool',
+          isZiweiShareMode: ziweiShareMode.value,
+          canAccessZiweiTool: canAccessZiweiTool.value
+        });
+      }
       var key = normalizePageKey(page);
       if (ziweiShareMode.value) return 'ziweiTool';
       if (key === 'ziweiTool' && !canAccessZiweiTool.value) return 'idTool';
@@ -3203,18 +3216,35 @@ const app = createApp({
     }
     function applyPageState(page, options) {
       var opts = options || {};
-      var normalizedPage = normalizeAccessiblePage(page);
+      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition(page, {
+          routePageKeys: ROUTE_PAGE_KEYS,
+          ziweiPageKey: 'ziweiTool',
+          fallbackPageKey: 'ddl',
+          deniedZiweiFallbackPageKey: 'idTool',
+          isZiweiShareMode: ziweiShareMode.value,
+          canAccessZiweiTool: canAccessZiweiTool.value,
+          testToolPages: TEST_TOOL_PAGES,
+          ensureRegionPageKey: 'idTool',
+          keepSidebarOnMobile: !!opts.keepSidebarOnMobile,
+          mobileBreakpoint: 1024,
+          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth
+        })
+        : null;
+      var normalizedPage = nextState ? nextState.normalizedPage : normalizeAccessiblePage(page);
       activePage.value = normalizedPage;
-      if (TEST_TOOL_PAGES.indexOf(normalizedPage) >= 0) {
+      if (nextState ? nextState.shouldExpandTestTools : TEST_TOOL_PAGES.indexOf(normalizedPage) >= 0) {
         testToolsExpanded.value = true;
       }
-      if (normalizedPage === 'idTool') {
+      if (nextState ? nextState.shouldEnsureRegionData : normalizedPage === 'idTool') {
         ensureRegionDataLoaded();
       }
       if (opts.syncRoute !== false) {
         syncRouteForPage(normalizedPage, !!opts.replaceRoute);
       }
-      if (!opts.keepSidebarOnMobile && window.innerWidth <= 1024) sidebarOpen.value = false;
+      if (nextState ? nextState.shouldCloseSidebarOnMobile : (!opts.keepSidebarOnMobile && window.innerWidth <= 1024)) {
+        sidebarOpen.value = false;
+      }
     }
     function setPage(page) {
       applyPageState(page, { syncRoute: true, replaceRoute: false });

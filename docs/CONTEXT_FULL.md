@@ -1324,12 +1324,35 @@ Last updated: 2026-04-15
   - Routine chain has now covered parser primitives, function/procedure parsers, generators, and conversion entry orchestration in typed modules.
   - Remaining heavy legacy zones are increasingly concentrated in large page-level state / DOM orchestration and deep UI flow coupling in `src/legacy/app.js`.
 
+## 2026-04-27: Strangler Mode Batch 17 - Navigation Page-State Helpers
+- Goal:
+  - Continue strangler migration by extracting low-risk page-state decision logic from `src/legacy/app.js` (page key normalization, Ziwei access normalization, and page transition effects).
+- Completed:
+  - Added `src/features/navigation/page-state.ts`, exposing:
+    - `normalizeLegacyPageKey()`
+    - `normalizeAccessibleLegacyPage()`
+    - `resolveLegacyPageTransition()`
+  - Extended `src/features/navigation/legacy-bridge.ts` to expose the new page-state helpers via `window.SQLDEV_ROUTE_UTILS`.
+  - Updated `src/legacy/app.js`:
+    - `normalizePageKey()` now prefers `window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey(...)`.
+    - `normalizeAccessiblePage()` now prefers `window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage(...)`.
+    - `applyPageState()` now prefers `window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition(...)` for transition effects (expand test tools / preload region data / close mobile sidebar), with legacy fallback preserved.
+  - Added `tests/navigation-page-state.mjs`.
+  - Added npm script `test:navigation-page-state`, and included it in `test` / `verify`.
+  - Updated `tests/smoke.mjs`:
+    - Added typed module existence assertion for navigation page-state helpers.
+    - Added legacy delegate assertions for page accessibility and page transition helper usage.
+    - Added loader-sharing assertion for the new navigation page-state test.
+- Current convergence update:
+  - Navigation flow now has typed route parsing + typed page-state decision helpers, while legacy retains UI rendering and side-effect execution.
+  - Remaining heavier legacy areas are increasingly centered on deeper DOM/event orchestration and cross-feature runtime coupling.
+
 ## Current next focus
 - The largest remaining legacy-heavy areas are now more concentrated in:
-  - page-level state orchestration in `src/legacy/app.js`
   - DOM/event flow coupling across workbench modules
   - high-risk cross-feature interaction branches around conversion + tool panels
+  - large UI-side orchestration blocks in `src/legacy/app.js`
 - The next highest-value strangler steps are:
-  - continue isolating low-risk state transition helpers into typed feature modules
-  - peel off reusable UI-state utilities before touching direct DOM mutation paths
-  - keep reducing legacy orchestration thickness without changing visual behavior
+  - keep extracting low-risk UI-state helpers before direct DOM mutation logic
+  - isolate reusable event-handling decision logic into typed modules with bridge delegation
+  - continue reducing legacy orchestration thickness without changing visual behavior
