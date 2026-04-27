@@ -23,6 +23,11 @@ import {
   resolveLegacyPrimaryHotkeyTarget,
   shouldLegacyCloseRulesMenuOnEscape
 } from './event-decisions'
+import {
+  resolveLegacySplashHashSyncDecision,
+  resolveLegacySplashHomeTransition,
+  resolveLegacyWorkbenchVisibilityDecision
+} from './workbench-effects'
 
 declare global {
   interface Window {
@@ -42,6 +47,9 @@ declare global {
       resolveLegacyWorkbenchActionDecision: typeof resolveLegacyWorkbenchActionDecision
       shouldLegacyCloseRulesMenuOnEscape: typeof shouldLegacyCloseRulesMenuOnEscape
       shouldLegacyCloseSidebarForSplash: typeof shouldLegacyCloseSidebarForSplash
+      resolveLegacyWorkbenchVisibilityDecision: typeof resolveLegacyWorkbenchVisibilityDecision
+      resolveLegacySplashHomeTransition: typeof resolveLegacySplashHomeTransition
+      resolveLegacySplashHashSyncDecision: typeof resolveLegacySplashHashSyncDecision
     }
   }
 }
@@ -60,6 +68,9 @@ window.SQLDEV_ROUTE_UTILS = Object.freeze({
   resolveLegacySidebarHoverState,
   resolveLegacyTestToolsMenuToggleState,
   resolveLegacyWorkbenchActionDecision,
+  resolveLegacyWorkbenchVisibilityDecision,
+  resolveLegacySplashHomeTransition,
+  resolveLegacySplashHashSyncDecision,
   shouldLegacyCloseRulesMenuOnEscape,
   shouldLegacyCloseSidebarForSplash
 })

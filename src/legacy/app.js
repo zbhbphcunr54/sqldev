@@ -3263,8 +3263,14 @@ const app = createApp({
     }
     function ensureWorkbenchVisibleForRoute() {
       if (typeof document === 'undefined') return;
-      if (!document.body.classList.contains('splash-active')) return;
-      if (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function') {
+      var visibilityDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision({
+          isSplashActive: document.body.classList.contains('splash-active'),
+          hasEnterWorkbenchApi: typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function'
+        })
+        : null;
+      if (visibilityDecision ? visibilityDecision.shouldSkip : !document.body.classList.contains('splash-active')) return;
+      if (visibilityDecision ? visibilityDecision.shouldUseEnterWorkbenchApi : (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function')) {
         window.splashApi.enterWorkbench(true);
         return;
       }
@@ -8983,14 +8989,23 @@ const app = createApp({
     }
 
     function goSplashHome() {
-      var shouldCloseSidebar = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
-          typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
-          1024
-        )
-        : window.innerWidth <= 1024;
+      var splashTransition = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition === 'function'
+        ? window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition({
+          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
+          mobileBreakpoint: 1024,
+          hasSplashApiShowHome: typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function'
+        })
+        : null;
+      var shouldCloseSidebar = splashTransition
+        ? splashTransition.shouldCloseSidebar
+        : (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
+            ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
+              typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
+              1024
+            )
+            : window.innerWidth <= 1024);
       if (shouldCloseSidebar) sidebarOpen.value = false;
-      if (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function') {
+      if (splashTransition ? splashTransition.shouldUseSplashApiShowHome : (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function')) {
         window.splashApi.showHome();
       } else {
         if (window.SQLDEV_PREFERENCE_UTILS && typeof window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference === 'function') {
@@ -9011,9 +9026,16 @@ const app = createApp({
       try {
         var splashHash = '#' + ROUTE_SPLASH_PATH;
         var currentHash = String(window.location.hash || '');
-        if (currentHash !== splashHash) {
+        var hashSyncDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision === 'function'
+          ? window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision(
+            currentHash,
+            splashHash,
+            window.history && typeof window.history.replaceState === 'function'
+          )
+          : null;
+        if (hashSyncDecision ? hashSyncDecision.shouldSyncRoute : currentHash !== splashHash) {
           var splashUrl = window.location.pathname + window.location.search + splashHash;
-          if (window.history && typeof window.history.replaceState === 'function') {
+          if (hashSyncDecision ? hashSyncDecision.shouldUseHistoryReplaceState : (window.history && typeof window.history.replaceState === 'function')) {
             window.history.replaceState({ view: 'splash' }, '', splashUrl);
           } else {
             window.location.hash = splashHash.slice(1);

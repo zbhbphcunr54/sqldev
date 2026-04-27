@@ -73,6 +73,7 @@ const navigationPageState = read('src/features/navigation/page-state.ts')
 const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
 const navigationWorkbenchActions = read('src/features/navigation/workbench-actions.ts')
 const navigationEventDecisions = read('src/features/navigation/event-decisions.ts')
+const navigationWorkbenchEffects = read('src/features/navigation/workbench-effects.ts')
 const navigationLegacyBridge = read('src/features/navigation/legacy-bridge.ts')
 const idCardTools = read('src/features/id-tools/id-card.ts')
 const usccTools = read('src/features/id-tools/uscc.ts')
@@ -464,6 +465,14 @@ assert(
   'outside click decision logic must live in typed navigation feature module'
 )
 assert(
+  navigationWorkbenchEffects.includes('export function resolveLegacyWorkbenchVisibilityDecision'),
+  'workbench visibility orchestration decision must live in typed navigation feature module'
+)
+assert(
+  navigationWorkbenchEffects.includes('export function resolveLegacySplashHomeTransition'),
+  'splash home transition decision must live in typed navigation feature module'
+)
+assert(
   navigationLegacyBridge.includes('window.SQLDEV_ROUTE_UTILS'),
   'navigation feature module must expose a legacy bridge'
 )
@@ -578,6 +587,18 @@ assert(
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision'),
   'legacy app must prefer the typed workbench action decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision'),
+  'legacy app must prefer the typed workbench visibility decision bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition'),
+  'legacy app must prefer the typed splash home transition bridge'
+)
+assert(
+  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision'),
+  'legacy app must prefer the typed splash hash sync bridge'
 )
 assert(
   legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget'),

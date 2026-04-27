@@ -23,3 +23,8 @@ export {
   resolveLegacyPrimaryHotkeyTarget,
   shouldLegacyCloseRulesMenuOnEscape
 } from './event-decisions'
+export {
+  resolveLegacySplashHashSyncDecision,
+  resolveLegacySplashHomeTransition,
+  resolveLegacyWorkbenchVisibilityDecision
+} from './workbench-effects'
