@@ -46,6 +46,7 @@ export function resolveLegacyWorkbenchActionDecision(
       save: 'saveProcOutput'
     }
   }
-  const handlerName = pageActionMap[page][action]
+  const pageActionHandlers = pageActionMap[page]
+  const handlerName = pageActionHandlers?.[action]
   return handlerName ? { type: 'invoke', handlerName } : { type: 'unsupported' }
 }

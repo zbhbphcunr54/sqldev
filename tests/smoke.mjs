@@ -679,10 +679,40 @@ assert(
   'smoke test entry must live under tests/'
 )
 assert(testHelper.includes('export function loadTsModule'), 'TS module test loader must be shared')
-for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, routineConversionOrchestratorTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
+for (const testFile of [
+  sqlFormatTest,
+  ddlParserUtilsTest,
+  ddlColumnParsersTest,
+  ddlTableConstraintParsersTest,
+  ddlPostprocessTest,
+  ddlTypeMappingTest,
+  ddlOutputBuildersTest,
+  ddlExtraDdlTest,
+  ddlConversionOrchestratorTest,
+  ddlViewGeneratorsTest,
+  ddlViewParsingTest,
+  convertErrorMapTest,
+  browserFileActionsTest,
+  bodyTransformRulesTest,
+  routineParserPrimitivesTest,
+  routineFunctionParsersTest,
+  routineProcedureParsersTest,
+  routineConversionOrchestratorTest,
+  preferencesStorageTest,
+  rulesPersistenceTest,
+  idToolsTest
+]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
 }
-for (const testFile of [navigationRouteTest, navigationPageStateTest, navigationWorkbenchHelpersTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
+for (const testFile of [
+  navigationRouteTest,
+  navigationPageStateTest,
+  navigationWorkbenchHelpersTest,
+  ziweiHistoryTest,
+  ziweiPresentationTest,
+  ziweiShareTest,
+  ziweiAiUtilsTest
+]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'new feature tests must reuse the shared TS module loader')
 }
 
