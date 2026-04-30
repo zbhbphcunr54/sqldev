@@ -1,3 +1,5 @@
+import { normalizeSupportedDatabase, type SupportedDatabase } from '../shared/database'
+
 export interface ExtraSequenceDefinition {
   name: string
   startWith: number | null
@@ -44,7 +46,6 @@ export interface ExtraDdlParseResult {
   addColumns: ExtraAddColumnDefinition[]
 }
 
-type SupportedDatabase = 'oracle' | 'mysql' | 'postgresql'
 type SplitStatements = (sql: string) => string[]
 type TypeConverter = (
   typeStr: string,
@@ -54,6 +55,29 @@ type TypeConverter = (
   sourceDb: SupportedDatabase,
   targetDb: SupportedDatabase
 ) => string
+
+const TYPE_WITH_OPTIONAL_PRECISION_RE = /^([\w]+)(?:\s*\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\))?/i
+const DEFAULT_LITERAL_OR_FUNCTION_RE = /DEFAULT\s+('(?:[^']*)'|[\w.()]+)/i
+// CREATE SEQUENCE supports optional schema, quoted names, and captures the remaining option body.
+const CREATE_SEQUENCE_RE =
+  /^CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i
+// ALTER SEQUENCE uses the same schema/name prefix parsing as CREATE SEQUENCE, then parses options.
+const ALTER_SEQUENCE_RE = /^ALTER\s+SEQUENCE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i
+// Oracle MODIFY may wrap the single column clause in parentheses.
+const ORACLE_ALTER_TABLE_MODIFY_COLUMN_RE =
+  /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+MODIFY\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)\s*\)?/i
+// Oracle ADD may include an inline nullable/default suffix after the column type.
+const ORACLE_ALTER_TABLE_ADD_COLUMN_RE =
+  /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^)]*)\)?/i
+const MYSQL_ALTER_TABLE_MODIFY_COLUMN_RE =
+  /^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+MODIFY\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)/i
+const MYSQL_ALTER_TABLE_ADD_COLUMN_RE =
+  /^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+ADD\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i
+const POSTGRES_ALTER_TABLE_TYPE_COLUMN_RE =
+  /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ALTER\s+COLUMN\s+["']?([\w]+)["']?\s+(?:SET\s+DATA\s+)?TYPE\s+([\w]+(?:\s*\([^)]*\))?)/i
+const POSTGRES_ALTER_TABLE_ADD_COLUMN_RE =
+  /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+(?:COLUMN\s+)?["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i
+const ADD_COLUMN_CONSTRAINT_PREFIX_RE = /^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|KEY|CHECK)\b/i
 
 export function createEmptyExtraDdlParseResult(): ExtraDdlParseResult {
   return {
@@ -80,9 +104,7 @@ export function parseAlterColumnTypeDefinition(
     action: String(actionValue || '')
   }
 
-  const typeMatch = String(typeValue || '').match(
-    /^([\w]+)(?:\s*\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\))?/i
-  )
+  const typeMatch = String(typeValue || '').match(TYPE_WITH_OPTIONAL_PRECISION_RE)
   if (typeMatch) {
     result.newType = typeMatch[1].toUpperCase()
     if (typeMatch[2] && typeMatch[3]) {
@@ -113,9 +135,7 @@ export function parseAddColumnDefinition(
     defaultValue: null
   }
 
-  const typeMatch = String(typeValue || '').match(
-    /^([\w]+)(?:\s*\(\s*(\d+)(?:\s*,\s*(\d+))?\s*\))?/i
-  )
+  const typeMatch = String(typeValue || '').match(TYPE_WITH_OPTIONAL_PRECISION_RE)
   if (typeMatch) {
     result.type = typeMatch[1].toUpperCase()
     if (typeMatch[2] && typeMatch[3]) {
@@ -129,11 +149,131 @@ export function parseAddColumnDefinition(
   const rest = String(restValue || '')
   if (rest) {
     if (/NOT\s+NULL/i.test(rest)) result.nullable = false
-    const defaultMatch = rest.match(/DEFAULT\s+('(?:[^']*)'|[\w.()]+)/i)
+    const defaultMatch = rest.match(DEFAULT_LITERAL_OR_FUNCTION_RE)
     if (defaultMatch) result.defaultValue = defaultMatch[1]
   }
 
   return result
+}
+
+function parseCreateSequenceStatement(sqlStatement: string): ExtraSequenceDefinition | null {
+  const createSequenceMatch = sqlStatement.match(CREATE_SEQUENCE_RE)
+  if (!createSequenceMatch) return null
+
+  const body = createSequenceMatch[2] || ''
+  const sequence: ExtraSequenceDefinition = {
+    name: createSequenceMatch[1],
+    startWith: null,
+    incrementBy: null,
+    minValue: null,
+    maxValue: null,
+    cache: null,
+    cycle: false
+  }
+  const startMatch = body.match(/START\s+(?:WITH\s+)?(\d+)/i)
+  if (startMatch) sequence.startWith = parseInt(startMatch[1], 10)
+  const incrementMatch = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i)
+  if (incrementMatch) sequence.incrementBy = parseInt(incrementMatch[1], 10)
+  const minMatch = body.match(/MINVALUE\s+(\d+)/i)
+  if (minMatch) sequence.minValue = parseInt(minMatch[1], 10)
+  if (/NO\s*MINVALUE/i.test(body)) sequence.minValue = null
+  const maxMatch = body.match(/MAXVALUE\s+(\d+)/i)
+  if (maxMatch) sequence.maxValue = parseInt(maxMatch[1], 10)
+  if (/NO\s*MAXVALUE/i.test(body)) sequence.maxValue = null
+  const cacheMatch = body.match(/CACHE\s+(\d+)/i)
+  if (cacheMatch) sequence.cache = parseInt(cacheMatch[1], 10)
+  if (/\bCYCLE\b/i.test(body) && !/\bNO\s*CYCLE\b/i.test(body)) sequence.cycle = true
+  if (/\bNOCYCLE\b/i.test(body)) sequence.cycle = false
+  return sequence
+}
+
+function parseAlterSequenceStatement(sqlStatement: string): ExtraAlterSequenceDefinition | null {
+  const alterSequenceMatch = sqlStatement.match(ALTER_SEQUENCE_RE)
+  if (!alterSequenceMatch) return null
+
+  const body = alterSequenceMatch[2] || ''
+  const sequence: ExtraAlterSequenceDefinition = {
+    name: alterSequenceMatch[1],
+    incrementBy: null,
+    maxValue: null,
+    cache: null,
+    restartWith: null
+  }
+  const incrementMatch = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i)
+  if (incrementMatch) sequence.incrementBy = parseInt(incrementMatch[1], 10)
+  const maxMatch = body.match(/MAXVALUE\s+(\d+)/i)
+  if (maxMatch) sequence.maxValue = parseInt(maxMatch[1], 10)
+  const cacheMatch = body.match(/CACHE\s+(\d+)/i)
+  if (cacheMatch) sequence.cache = parseInt(cacheMatch[1], 10)
+  const restartMatch = body.match(/RESTART\s+(?:WITH\s+)?(\d+)/i)
+  if (restartMatch) sequence.restartWith = parseInt(restartMatch[1], 10)
+  return sequence
+}
+
+function parseOracleExtraTableStatement(
+  sqlStatement: string,
+  result: ExtraDdlParseResult
+): boolean {
+  const alterMatch = sqlStatement.match(ORACLE_ALTER_TABLE_MODIFY_COLUMN_RE)
+  if (alterMatch) {
+    result.alterColumns.push(
+      parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
+    )
+    return true
+  }
+
+  const addMatch = sqlStatement.match(ORACLE_ALTER_TABLE_ADD_COLUMN_RE)
+  if (addMatch && !ADD_COLUMN_CONSTRAINT_PREFIX_RE.test(addMatch[2])) {
+    result.addColumns.push(
+      parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
+    )
+    return true
+  }
+
+  return false
+}
+
+function parseMySqlExtraTableStatement(sqlStatement: string, result: ExtraDdlParseResult): boolean {
+  const alterMatch = sqlStatement.match(MYSQL_ALTER_TABLE_MODIFY_COLUMN_RE)
+  if (alterMatch) {
+    result.alterColumns.push(
+      parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
+    )
+    return true
+  }
+
+  const addMatch = sqlStatement.match(MYSQL_ALTER_TABLE_ADD_COLUMN_RE)
+  if (addMatch && !ADD_COLUMN_CONSTRAINT_PREFIX_RE.test(addMatch[2])) {
+    result.addColumns.push(
+      parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
+    )
+    return true
+  }
+
+  return false
+}
+
+function parsePostgresExtraTableStatement(
+  sqlStatement: string,
+  result: ExtraDdlParseResult
+): boolean {
+  const alterMatch = sqlStatement.match(POSTGRES_ALTER_TABLE_TYPE_COLUMN_RE)
+  if (alterMatch) {
+    result.alterColumns.push(
+      parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
+    )
+    return true
+  }
+
+  const addMatch = sqlStatement.match(POSTGRES_ALTER_TABLE_ADD_COLUMN_RE)
+  if (addMatch && !ADD_COLUMN_CONSTRAINT_PREFIX_RE.test(addMatch[2])) {
+    result.addColumns.push(
+      parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
+    )
+    return true
+  }
+
+  return false
 }
 
 export function parseExtraDdlStatements(
@@ -142,130 +282,32 @@ export function parseExtraDdlStatements(
   splitStatements: SplitStatements
 ): ExtraDdlParseResult {
   const sql = String(sqlValue || '')
-  const sourceDb = String(sourceDbValue || '').toLowerCase() as SupportedDatabase
+  const sourceDb = normalizeSupportedDatabase(sourceDbValue)
   const result = createEmptyExtraDdlParseResult()
-  if (!sql.trim()) return result
+  if (!sql.trim() || !sourceDb) return result
 
   const statements = splitStatements(sql)
   for (const statement of statements) {
     const sqlStatement = String(statement || '').trim()
 
-    const createSequenceMatch = sqlStatement.match(
-      /^CREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i
-    )
-    if (createSequenceMatch) {
-      const body = createSequenceMatch[2] || ''
-      const sequence: ExtraSequenceDefinition = {
-        name: createSequenceMatch[1],
-        startWith: null,
-        incrementBy: null,
-        minValue: null,
-        maxValue: null,
-        cache: null,
-        cycle: false
-      }
-      const startMatch = body.match(/START\s+(?:WITH\s+)?(\d+)/i)
-      if (startMatch) sequence.startWith = parseInt(startMatch[1], 10)
-      const incrementMatch = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i)
-      if (incrementMatch) sequence.incrementBy = parseInt(incrementMatch[1], 10)
-      const minMatch = body.match(/MINVALUE\s+(\d+)/i)
-      if (minMatch) sequence.minValue = parseInt(minMatch[1], 10)
-      if (/NO\s*MINVALUE/i.test(body)) sequence.minValue = null
-      const maxMatch = body.match(/MAXVALUE\s+(\d+)/i)
-      if (maxMatch) sequence.maxValue = parseInt(maxMatch[1], 10)
-      if (/NO\s*MAXVALUE/i.test(body)) sequence.maxValue = null
-      const cacheMatch = body.match(/CACHE\s+(\d+)/i)
-      if (cacheMatch) sequence.cache = parseInt(cacheMatch[1], 10)
-      if (/\bCYCLE\b/i.test(body) && !/\bNO\s*CYCLE\b/i.test(body)) sequence.cycle = true
-      if (/\bNOCYCLE\b/i.test(body)) sequence.cycle = false
+    const sequence = parseCreateSequenceStatement(sqlStatement)
+    if (sequence) {
       result.sequences.push(sequence)
       continue
     }
 
-    const alterSequenceMatch = sqlStatement.match(
-      /^ALTER\s+SEQUENCE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s*([\s\S]*)/i
-    )
-    if (alterSequenceMatch) {
-      const body = alterSequenceMatch[2] || ''
-      const sequence: ExtraAlterSequenceDefinition = {
-        name: alterSequenceMatch[1],
-        incrementBy: null,
-        maxValue: null,
-        cache: null,
-        restartWith: null
-      }
-      const incrementMatch = body.match(/INCREMENT\s+(?:BY\s+)?(-?\d+)/i)
-      if (incrementMatch) sequence.incrementBy = parseInt(incrementMatch[1], 10)
-      const maxMatch = body.match(/MAXVALUE\s+(\d+)/i)
-      if (maxMatch) sequence.maxValue = parseInt(maxMatch[1], 10)
-      const cacheMatch = body.match(/CACHE\s+(\d+)/i)
-      if (cacheMatch) sequence.cache = parseInt(cacheMatch[1], 10)
-      const restartMatch = body.match(/RESTART\s+(?:WITH\s+)?(\d+)/i)
-      if (restartMatch) sequence.restartWith = parseInt(restartMatch[1], 10)
-      result.alterSequences.push(sequence)
+    const alterSequence = parseAlterSequenceStatement(sqlStatement)
+    if (alterSequence) {
+      result.alterSequences.push(alterSequence)
       continue
     }
 
     if (sourceDb === 'oracle') {
-      const alterMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+MODIFY\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)\s*\)?/i
-      )
-      if (alterMatch) {
-        result.alterColumns.push(
-          parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
-        )
-        continue
-      }
-      const addMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+\(?\s*["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)([^)]*)\)?/i
-      )
-      if (addMatch && !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(addMatch[2])) {
-        result.addColumns.push(
-          parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
-        )
-        continue
-      }
+      if (parseOracleExtraTableStatement(sqlStatement, result)) continue
     } else if (sourceDb === 'mysql') {
-      const alterMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+MODIFY\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)/i
-      )
-      if (alterMatch) {
-        result.alterColumns.push(
-          parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
-        )
-        continue
-      }
-      const addMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+[`"]?([\w]+)[`"]?\s+ADD\s+(?:COLUMN\s+)?[`"]?([\w]+)[`"]?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i
-      )
-      if (
-        addMatch &&
-        !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|KEY|CHECK)\b/i.test(addMatch[2])
-      ) {
-        result.addColumns.push(
-          parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
-        )
-        continue
-      }
+      if (parseMySqlExtraTableStatement(sqlStatement, result)) continue
     } else if (sourceDb === 'postgresql') {
-      const alterMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ALTER\s+COLUMN\s+["']?([\w]+)["']?\s+(?:SET\s+DATA\s+)?TYPE\s+([\w]+(?:\s*\([^)]*\))?)/i
-      )
-      if (alterMatch) {
-        result.alterColumns.push(
-          parseAlterColumnTypeDefinition(alterMatch[1], alterMatch[2], alterMatch[3], 'modify')
-        )
-        continue
-      }
-      const addMatch = sqlStatement.match(
-        /^ALTER\s+TABLE\s+(?:[\w"]+\.)?["']?([\w]+)["']?\s+ADD\s+(?:COLUMN\s+)?["']?([\w]+)["']?\s+([\w]+(?:\s*\([^)]*\))?)(.*)/i
-      )
-      if (addMatch && !/^(CONSTRAINT|PRIMARY|FOREIGN|UNIQUE|INDEX|CHECK)\b/i.test(addMatch[2])) {
-        result.addColumns.push(
-          parseAddColumnDefinition(addMatch[1], addMatch[2], addMatch[3], addMatch[4])
-        )
-        continue
-      }
+      if (parsePostgresExtraTableStatement(sqlStatement, result)) continue
     }
   }
 

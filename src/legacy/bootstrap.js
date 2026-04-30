@@ -9,6 +9,11 @@
   var started = false;
   var done = false;
 
+  function logDeferredError(scope, err) {
+    if (!err) return;
+    console.warn('[bootstrap] ' + scope + ' failed:', err);
+  }
+
   function resolveAsset(path) {
     if (!ASSET_MANIFEST) return path;
     var mapped = ASSET_MANIFEST[path];
@@ -35,7 +40,6 @@
     coreVue: toLegacyPath('vendor/vue.global.prod.js'),
     authStack: [
       toLegacyPath('vendor/supabase.js'),
-      toLegacyPath(resolveAsset('supabase-config.js')),
       toLegacyPath(resolveAsset('auth.js')),
       toLegacyPath(resolveAsset('feedback.js'))
     ]
@@ -92,8 +96,6 @@
     }).then(function () {
       return loadScript(assets.authStack[2]);
     }).then(function () {
-      return loadScript(assets.authStack[3]);
-    }).then(function () {
       authReady = true;
       window.__sqldevAuthReady = true;
     }).catch(function (err) {
@@ -130,56 +132,8 @@
     });
   }
 
-  function scheduleIdleBoot() {
-    if (typeof window.requestIdleCallback === 'function') {
-      window.requestIdleCallback(function () { boot('idle'); }, { timeout: 5000 });
-      window.requestIdleCallback(function () { loadAuthStack('idle-auth').catch(function () {}); }, { timeout: 9000 });
-    } else {
-      setTimeout(function () { boot('timeout'); }, 2500);
-      setTimeout(function () { loadAuthStack('timeout-auth').catch(function () {}); }, 4200);
-    }
-  }
-
-  function bindAuthIntent() {
-    function onAuthIntent() {
-      loadAuthStack('auth-intent').then(function () {
-        if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
-          window.authApi.openAuthModal();
-        }
-      }).catch(function () {});
-    }
-    var splashTopBtn = document.getElementById('sp-auth-top-btn');
-    var splashHeroBtn = document.getElementById('sp-auth-hero-btn');
-    var feedbackFab = document.getElementById('feedback-fab');
-    if (splashTopBtn) splashTopBtn.addEventListener('click', onAuthIntent);
-    if (splashHeroBtn) splashHeroBtn.addEventListener('click', onAuthIntent);
-    if (feedbackFab) {
-      feedbackFab.addEventListener('click', function () {
-        if (typeof window.openFeedbackModal === 'function') return;
-        loadAuthStack('feedback-intent').then(function () {
-          if (typeof window.openFeedbackModal === 'function') window.openFeedbackModal('splash-fab');
-        }).catch(function () {});
-      });
-    }
-  }
-
   window.__loadSqldevAppNow = function () { boot('manual'); };
   window.__loadSqldevAuthNow = function () { return loadAuthStack('manual'); };
 
-  bindAuthIntent();
-
-  if (window.__SQDEV_STARTUP_VIEW === 'workbench' || document.documentElement.classList.contains('startup-workbench')) {
-    boot('startup-workbench');
-    return;
-  }
-
-  var enterBtn = document.getElementById('sp-enter-btn');
-  if (enterBtn) {
-    enterBtn.addEventListener('pointerdown', function () { boot('enter-btn'); }, { once: true, passive: true });
-  } else {
-    document.addEventListener('pointerdown', function () { boot('interaction'); }, { once: true, passive: true });
-  }
-  window.addEventListener('auth:login-success', function () { boot('auth-success'); }, { once: true });
-  document.addEventListener('keydown', function () { boot('interaction'); }, { once: true });
-  scheduleIdleBoot();
+  boot('startup-workbench');
 })();

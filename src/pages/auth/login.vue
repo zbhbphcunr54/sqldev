@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StatePanel from '@/components/common/StatePanel.vue'
 import { useAuth } from '@/composables/useAuth'
+import { sanitizeInternalRedirectPath } from '@/features/navigation/redirect'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 type AuthTab = 'password' | 'otp' | 'reset'
 
@@ -15,7 +17,7 @@ const password = ref('')
 const loading = ref(false)
 const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({ type: 'idle', text: '' })
 
-const redirectPath = computed(() => String(route.query.redirect || '/workbench'))
+const redirectPath = computed(() => sanitizeInternalRedirectPath(route.query.redirect))
 
 function setStatus(type: 'success' | 'error', text: string) {
   status.value = { type, text }
@@ -28,7 +30,7 @@ async function loginWithPassword() {
     await auth.signInWithPassword(email.value.trim(), password.value)
   } catch {
     loading.value = false
-    setStatus('error', '登录失败，请检查邮箱和密码。')
+    setStatus('error', mapErrorCodeToMessage('auth_password_failed'))
     return
   }
   loading.value = false
@@ -42,11 +44,11 @@ async function loginWithOtp() {
     await auth.signInWithOtp(email.value.trim())
   } catch {
     loading.value = false
-    setStatus('error', '验证码发送失败，请稍后重试。')
+    setStatus('error', mapErrorCodeToMessage('auth_otp_failed'))
     return
   }
   loading.value = false
-  setStatus('success', '验证码已发送，请检查邮箱。')
+  setStatus('success', mapErrorCodeToMessage('auth_otp_sent'))
 }
 
 async function resetPassword() {
@@ -56,11 +58,11 @@ async function resetPassword() {
     await auth.resetPasswordByEmail(email.value.trim())
   } catch {
     loading.value = false
-    setStatus('error', '重置邮件发送失败，请稍后重试。')
+    setStatus('error', mapErrorCodeToMessage('auth_reset_failed'))
     return
   }
   loading.value = false
-  setStatus('success', '重置邮件已发送，请检查邮箱。')
+  setStatus('success', mapErrorCodeToMessage('auth_reset_sent'))
 }
 </script>
 

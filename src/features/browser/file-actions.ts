@@ -1,3 +1,5 @@
+import { downloadTextFileByDom, fallbackCopyTextByDom } from '../../utils/browser-dom'
+
 export function resolveSqlFileExtension(dbKey: unknown): 'mysql' | 'pgsql' | 'oracle' {
   if (dbKey === 'mysql') return 'mysql'
   if (dbKey === 'postgresql') return 'pgsql'
@@ -15,23 +17,6 @@ export function buildSqlDownloadFileName(
   return `${safePrefix}_${ext}_${day}.sql`
 }
 
-function fallbackCopyText(text: string): boolean {
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px'
-  document.body.appendChild(textarea)
-  textarea.focus()
-  textarea.select()
-
-  try {
-    return document.execCommand('copy')
-  } catch {
-    return false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-}
-
 export async function copyTextToClipboard(text: unknown): Promise<boolean> {
   const content = String(text || '')
   if (!content.trim()) return false
@@ -41,11 +26,11 @@ export async function copyTextToClipboard(text: unknown): Promise<boolean> {
       await navigator.clipboard.writeText(content)
       return true
     } catch {
-      return fallbackCopyText(content)
+      return fallbackCopyTextByDom(content)
     }
   }
 
-  return fallbackCopyText(content)
+  return fallbackCopyTextByDom(content)
 }
 
 export function downloadSqlTextFile(text: unknown, prefix: unknown, dbKey: unknown): string {
@@ -53,16 +38,7 @@ export function downloadSqlTextFile(text: unknown, prefix: unknown, dbKey: unkno
   if (!content.trim()) return ''
 
   const fileName = buildSqlDownloadFileName(prefix, dbKey)
-  const blob = new Blob([content], { type: 'text/sql;charset=utf-8' })
-  const link = document.createElement('a')
-  const objectUrl = URL.createObjectURL(blob)
-
-  link.href = objectUrl
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  downloadTextFileByDom(content, fileName, 'text/sql;charset=utf-8')
 
   return fileName
 }

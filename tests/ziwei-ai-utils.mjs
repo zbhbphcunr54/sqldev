@@ -91,6 +91,11 @@ assertEqual(
   'AI 服务鉴权失败，请检查 API Key、余额或模型权限。',
   'error code must map to user message'
 )
+assertEqual(
+  ziwei.mapZiweiAiErrorMessage('invalid_chart_payload'),
+  '命盘数据不完整，请重新排盘后再试。',
+  'invalid chart payload must map to a safe user message'
+)
 
 const parsed = await ziwei.parseZiweiInvokeError({
   context: {

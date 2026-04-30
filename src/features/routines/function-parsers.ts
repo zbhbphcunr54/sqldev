@@ -5,14 +5,17 @@ import {
   parseOracleRoutineParam,
   parseOracleVariableDeclarations,
   parsePostgresRoutineParam,
-  splitRoutineParamList,
+  parseRoutineParams,
   type RoutineParameterModel,
   type RoutineVariableModel
 } from './parser-primitives'
 import {
+  extractBeginEndBody,
   extractRoutineHeaderWithParams,
+  splitRoutineDeclarationsAndBody,
   stripTrailingOracleStyleComments,
-  stripTrailingPostgresDollarComments
+  stripTrailingPostgresDollarComments,
+  unwrapPostgresDollarBody
 } from './header-utils'
 
 export interface ParsedRoutineFunctionModel {
@@ -55,20 +58,11 @@ export function parseOracleFunctionDefinition(input: string): ParsedRoutineFunct
 
   const returnType = returnMatch[1]
   const afterHeader = afterParams.substring(returnMatch[0].length)
-  const beginIndex = afterHeader.search(/\bBEGIN\b/i)
-  let declBlock = ''
-  let bodyPart = afterHeader
-  if (beginIndex >= 0) {
-    declBlock = afterHeader.substring(0, beginIndex).trim()
-    bodyPart = afterHeader.substring(beginIndex)
-  }
+  const parts = splitRoutineDeclarationsAndBody(afterHeader)
 
-  const params = splitRoutineParamList(paramStr)
-    .map(parseOracleRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
-  const vars = parseOracleVariableDeclarations(declBlock)
-  const bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i)
-  const body = bodyMatch ? bodyMatch[1] : bodyPart
+  const params = parseRoutineParams(paramStr, parseOracleRoutineParam)
+  const vars = parseOracleVariableDeclarations(parts.declarations)
+  const body = extractBeginEndBody(parts.body)
 
   return { name, params, returnType, vars, body }
 }
@@ -101,9 +95,7 @@ export function parseMySqlFunctionDefinition(input: string): ParsedRoutineFuncti
   }
 
   const extracted = extractMySqlRoutineDeclarations(bodyMatch[1])
-  const params = splitRoutineParamList(header.paramStr)
-    .map(parseMySqlRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
+  const params = parseRoutineParams(header.paramStr, parseMySqlRoutineParam)
 
   return {
     name: header.name,
@@ -137,21 +129,10 @@ export function parsePostgresFunctionDefinition(input: string): ParsedRoutineFun
   }
 
   const returnType = returnMatch[1]
-  let inner = header.afterParams
-    .substring(returnMatch[0].length)
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '')
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .trim()
-  inner = inner
-    .replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '')
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .trim()
+  const inner = unwrapPostgresDollarBody(header.afterParams.substring(returnMatch[0].length))
 
   const extracted = extractPostgresRoutineDeclarations(inner)
-  const params = splitRoutineParamList(header.paramStr)
-    .map(parsePostgresRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
+  const params = parseRoutineParams(header.paramStr, parsePostgresRoutineParam)
 
   return {
     name: header.name,

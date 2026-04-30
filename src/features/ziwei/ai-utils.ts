@@ -348,7 +348,12 @@ export function mapZiweiAiErrorMessage(raw: unknown): string {
   if (code.includes('429') || code.includes('rate limit')) return 'AI 请求过于频繁，请稍后重试。'
   if (code === 'forbidden_user') return '当前账号未开通紫微工具权限。'
   if (code === 'unauthorized') return '登录状态已失效，请重新登录后重试。'
-  if (code === 'invalid_json' || code === 'invalid_payload' || code === 'chart_payload_too_small') {
+  if (
+    code === 'invalid_json' ||
+    code === 'invalid_payload' ||
+    code === 'invalid_chart_payload' ||
+    code === 'chart_payload_too_small'
+  ) {
     return '命盘数据不完整，请重新排盘后再试。'
   }
   if (code === 'invalid_question') return '请输入有效问题后再发送。'

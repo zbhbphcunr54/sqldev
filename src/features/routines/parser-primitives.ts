@@ -130,6 +130,13 @@ export function parsePostgresRoutineParam(paramStr: string): RoutineParameterMod
   return parseFallbackRoutineParam(trimmed)
 }
 
+export function parseRoutineParams(
+  paramStr: string,
+  parser: (param: string) => RoutineParameterModel | null
+): RoutineParameterModel[] {
+  return splitRoutineParamList(paramStr).map(parser).filter(Boolean) as RoutineParameterModel[]
+}
+
 export function parseOracleVariableDeclarations(declBlock: string): RoutineVariableModel[] {
   const vars: RoutineVariableModel[] = []
   if (!declBlock) return vars

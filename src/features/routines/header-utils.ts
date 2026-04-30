@@ -4,6 +4,11 @@ export interface HeaderWithParamsMatch {
   afterParams: string
 }
 
+export interface RoutineBodyParts {
+  declarations: string
+  body: string
+}
+
 function extractParenBlock(source: string, startIndex: number): { content: string; after: string } {
   let depth = 1
   let cursor = startIndex
@@ -38,4 +43,31 @@ export function stripTrailingOracleStyleComments(source: string): string {
 
 export function stripTrailingPostgresDollarComments(source: string): string {
   return source.replace(/(\$\$\s*;?)\s*(?:\n\s*--[^\n]*)*\s*$/i, '$1')
+}
+
+export function splitRoutineDeclarationsAndBody(afterHeader: string): RoutineBodyParts {
+  const beginIndex = afterHeader.search(/\bBEGIN\b/i)
+  if (beginIndex < 0) return { declarations: '', body: afterHeader }
+  return {
+    declarations: afterHeader.substring(0, beginIndex).trim(),
+    body: afterHeader.substring(beginIndex)
+  }
+}
+
+export function extractBeginEndBody(bodyPart: string): string {
+  const bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i)
+  return bodyMatch ? bodyMatch[1] : bodyPart
+}
+
+export function unwrapPostgresDollarBody(source: string): string {
+  let inner = source
+    .replace(/\$\$\s*;?\s*$/g, '')
+    .replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '')
+    .replace(/\$\$\s*;?\s*$/g, '')
+    .trim()
+  inner = inner
+    .replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '')
+    .replace(/\$\$\s*;?\s*$/g, '')
+    .trim()
+  return inner
 }

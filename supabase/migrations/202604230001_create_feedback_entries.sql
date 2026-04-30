@@ -21,6 +21,18 @@ create index if not exists idx_feedback_entries_created_at
 create index if not exists idx_feedback_entries_user_id
   on public.feedback_entries (user_id);
 
+create index if not exists idx_feedback_entries_category
+  on public.feedback_entries (category);
+
+create index if not exists idx_feedback_entries_source
+  on public.feedback_entries (source);
+
+create index if not exists idx_feedback_entries_client_ip
+  on public.feedback_entries (client_ip);
+
+create index if not exists idx_feedback_entries_user_id_created_at
+  on public.feedback_entries (user_id, created_at desc);
+
 alter table public.feedback_entries enable row level security;
 
 drop policy if exists "feedback_select_none" on public.feedback_entries;

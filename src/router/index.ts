@@ -1,9 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import LoginPage from '@/pages/auth/login.vue'
-import NotFoundPage from '@/pages/not-found.vue'
-import SplashPage from '@/pages/splash/index.vue'
-import WorkbenchPage from '@/pages/workbench/index.vue'
-import ZiweiPage from '@/pages/workbench/ziwei.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -11,31 +6,29 @@ const router = createRouter({
     {
       path: '/',
       name: 'splash',
-      component: SplashPage,
-      meta: { legacyFrame: true }
+      component: () => import('@/pages/splash/index.vue'),
+      meta: { fullPage: true }
     },
     {
       path: '/login',
       name: 'login',
-      component: LoginPage,
+      component: () => import('@/pages/auth/login.vue'),
       meta: { layout: 'auth' }
     },
     {
       path: '/workbench',
-      name: 'workbench',
-      component: WorkbenchPage,
-      meta: { legacyFrame: true }
+      redirect: '/workbench/ddl'
     },
     {
-      path: '/workbench/ziwei',
-      name: 'ziwei',
-      component: ZiweiPage,
+      path: '/workbench/:section',
+      name: 'workbench',
+      component: () => import('@/pages/workbench/index.vue'),
       meta: { legacyFrame: true }
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: NotFoundPage
+      component: () => import('@/pages/not-found.vue')
     }
   ]
 })

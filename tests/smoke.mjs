@@ -22,6 +22,7 @@ const legacyHtml = read('legacy.html')
 const testHtml = exists('test.html') ? read('test.html') : ''
 const packageJson = JSON.parse(read('package.json'))
 const prettierIgnore = read('.prettierignore')
+const eslintConfig = read('eslint.config.mjs')
 const router = read('src/router/index.ts')
 const appEntry = read('src/main.ts')
 const appRoot = read('src/App.vue')
@@ -30,17 +31,52 @@ const viteConfig = read('vite.config.mjs')
 const apiHttp = read('src/api/http.ts')
 const supabaseClient = read('src/lib/supabase.ts')
 const typeIndex = read('src/types/index.ts')
-const legacySupabaseTypes = read('src/types/supabase.ts')
 const authComposable = read('src/composables/useAuth.ts')
+const authStore = read('src/stores/auth.ts')
+const appStore = read('src/stores/app.ts')
+const themeRuntime = read('src/composables/useThemeRuntime.ts')
+const errorMap = read('src/utils/error-map.ts')
 const loginPage = read('src/pages/auth/login.vue')
+const authLayout = read('src/layouts/AuthLayout.vue')
+const defaultLayout = read('src/layouts/DefaultLayout.vue')
+const notFoundPage = read('src/pages/not-found.vue')
+const splashPage = read('src/pages/splash/index.vue')
 const legacyFrameView = read('src/components/business/legacy/LegacyFrameView.vue')
+const feedbackWidget = read('src/components/business/feedback/FeedbackWidget.vue')
+const workbenchSidebar = read('src/components/business/workbench/WorkbenchSidebar.vue')
+const asyncStateComposable = read('src/composables/useAsyncState.ts')
+const mainCss = read('src/styles/main.css')
+const envExample = read('.env.example')
 const legacyApp = read('src/legacy/app.js')
-const legacySupabaseConfig = read('src/legacy/supabase-config.js')
+const legacyAuth = read('src/legacy/auth.js')
+const legacyStyle = read('src/legacy/style.css')
 const legacyRuntimeConfig = read('src/legacy/runtime-config.js')
 const legacyBootstrap = read('src/legacy/bootstrap.js')
 const legacyPreferencesRuntime = read('src/legacy/preferences-runtime.js')
+const legacyStartupView = read('src/legacy/startup-view.js')
+const legacyNavigationState = read('src/legacy/modules/navigation-state.js')
+const workbenchSections = read('src/features/navigation/workbench-sections.ts')
+const legacySqlEditorComponent = read('src/legacy/modules/sql-editor-component.js')
+const legacySqlConversionActions = read('src/legacy/modules/sql-conversion-actions.js')
+const legacyIdToolActions = read('src/legacy/modules/id-tool-actions.js')
+const legacyZiweiAiCooldown = read('src/legacy/modules/ziwei-ai-cooldown.js')
+const legacyZiweiAiSuggestions = read('src/legacy/modules/ziwei-ai-suggestions.js')
+const legacyZiweiAiRequests = read('src/legacy/modules/ziwei-ai-requests.js')
+const legacyZiweiSharePoster = read('src/legacy/modules/ziwei-share-poster.js')
 const migration = read('supabase/migrations/202604230001_create_feedback_entries.sql')
+const profilesMigration = read('supabase/migrations/202604290001_create_profiles.sql')
 const authStrategy = read('supabase/FUNCTION-AUTH-STRATEGY.md')
+const edgeResponseShared = read('supabase/functions/_shared/response.ts')
+const convertSharedEngine = read('supabase/functions/_shared/convert-engine/app-engine.js')
+const convertSharedRules = read('supabase/functions/_shared/convert-engine/rules.js')
+const convertSharedSamples = read('supabase/functions/_shared/convert-engine/samples.js')
+const convertFunction = read('supabase/functions/convert/index.ts')
+const feedbackFunction = read('supabase/functions/feedback/index.ts')
+const ziweiAnalysisFunction = read('supabase/functions/ziwei-analysis/index.ts')
+const ziweiAnalysisHandler = read('supabase/functions/ziwei-analysis/handler.ts')
+const ziweiAnalysisProvider = read('supabase/functions/ziwei-analysis/provider.ts')
+const ziweiAnalysisPromptTemplate = read('supabase/functions/ziwei-analysis/prompt-template.ts')
+const ziweiAnalysisResponseParser = read('supabase/functions/ziwei-analysis/response-parser.ts')
 const sqlFormat = read('src/features/sql/sql-format.ts')
 const sqlLegacyBridge = read('src/features/sql/legacy-bridge.ts')
 const ddlParserUtils = read('src/features/ddl/parser-utils.ts')
@@ -51,12 +87,15 @@ const ddlTypeMapping = read('src/features/ddl/type-mapping.ts')
 const ddlOutputBuilders = read('src/features/ddl/output-builders.ts')
 const ddlExtraDdl = read('src/features/ddl/extra-ddl.ts')
 const ddlConversionOrchestrator = read('src/features/ddl/conversion-orchestrator.ts')
+const ddlFacade = read('src/features/ddl/facade.ts')
+const ddlIndex = read('src/features/ddl/index.ts')
 const ddlViewGenerators = read('src/features/ddl/view-generators.ts')
 const ddlViewParsing = read('src/features/ddl/view-parsing.ts')
 const ddlLegacyBridge = read('src/features/ddl/legacy-bridge.ts')
 const convertErrorMap = read('src/features/convert/error-map.ts')
 const convertLegacyBridge = read('src/features/convert/legacy-bridge.ts')
 const browserFileActions = read('src/features/browser/file-actions.ts')
+const browserDomUtils = read('src/utils/browser-dom.ts')
 const browserLegacyBridge = read('src/features/browser/legacy-bridge.ts')
 const preferencesStorage = read('src/features/preferences/storage.ts')
 const bodyTransformRules = read('src/features/rules/body-transform.ts')
@@ -66,16 +105,9 @@ const rulesLegacyBridge = read('src/features/rules/legacy-bridge.ts')
 const routineParserPrimitives = read('src/features/routines/parser-primitives.ts')
 const routineFunctionParsers = read('src/features/routines/function-parsers.ts')
 const routineProcedureParsers = read('src/features/routines/procedure-parsers.ts')
-const routineConversionOrchestrator = read('src/features/routines/conversion-orchestrator.ts')
 const routinesLegacyBridge = read('src/features/routines/legacy-bridge.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
-const navigationRouteSync = read('src/features/navigation/route-sync.ts')
-const navigationRouteApplication = read('src/features/navigation/route-application.ts')
-const navigationPageState = read('src/features/navigation/page-state.ts')
-const navigationWorkbenchState = read('src/features/navigation/workbench-state.ts')
-const navigationWorkbenchActions = read('src/features/navigation/workbench-actions.ts')
-const navigationEventDecisions = read('src/features/navigation/event-decisions.ts')
-const navigationWorkbenchEffects = read('src/features/navigation/workbench-effects.ts')
+const navigationRedirect = read('src/features/navigation/redirect.ts')
 const navigationLegacyBridge = read('src/features/navigation/legacy-bridge.ts')
 const idCardTools = read('src/features/id-tools/id-card.ts')
 const usccTools = read('src/features/id-tools/uscc.ts')
@@ -89,7 +121,9 @@ const ziweiShare = read('src/features/ziwei/share.ts')
 const ziweiShareLegacyBridge = read('src/features/ziwei/share-legacy-bridge.ts')
 const ziweiLegacyBridge = read('src/features/ziwei/legacy-bridge.ts')
 const routineGenerators = read('src/features/routines/generators.ts')
+const testRunner = read('tests/run-all.mjs')
 const routineGeneratorsTest = read('tests/routine-generators.mjs')
+const testHelper = read('tests/helpers/load-ts-module.mjs')
 const sqlFormatTest = read('tests/sql-format.mjs')
 const ddlParserUtilsTest = read('tests/ddl-parser-utils.mjs')
 const ddlColumnParsersTest = read('tests/ddl-column-parsers.mjs')
@@ -107,32 +141,50 @@ const bodyTransformRulesTest = read('tests/body-transform.mjs')
 const routineParserPrimitivesTest = read('tests/routine-parser-primitives.mjs')
 const routineFunctionParsersTest = read('tests/routine-function-parsers.mjs')
 const routineProcedureParsersTest = read('tests/routine-procedure-parsers.mjs')
-const routineConversionOrchestratorTest = read('tests/routine-conversion-orchestrator.mjs')
 const preferencesStorageTest = read('tests/preferences-storage.mjs')
 const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
-const navigationRouteSyncTest = read('tests/navigation-route-sync.mjs')
-const navigationRouteApplicationTest = read('tests/navigation-route-application.mjs')
-const navigationPageStateTest = read('tests/navigation-page-state.mjs')
-const navigationWorkbenchHelpersTest = read('tests/navigation-workbench-helpers.mjs')
+const navigationWorkbenchSectionsTest = read('tests/navigation-workbench-sections.mjs')
+const navigationRedirectTest = read('tests/navigation-redirect.mjs')
 const ziweiHistoryTest = read('tests/ziwei-history.mjs')
 const ziweiPresentationTest = read('tests/ziwei-presentation.mjs')
 const ziweiShareTest = read('tests/ziwei-share.mjs')
 const ziweiAiUtilsTest = read('tests/ziwei-ai-utils.mjs')
-const testHelper = read('tests/helpers/load-ts-module.mjs')
 
 assert(indexHtml.includes('/src/main.ts'), 'index.html must load the Vue app entry')
+assert(indexHtml.includes('rel="icon"'), 'index.html must declare a favicon')
+assert(indexHtml.includes('og:title'), 'index.html must declare Open Graph metadata')
 assert(!exists('index.vite.html'), 'obsolete index.vite.html redirect shell must be removed')
 if (exists('test.html')) {
   assert(testHtml.includes('Deprecated Preview'), 'test.html must be an explicit deprecated preview notice')
 }
+assert(
+  eslintConfig.includes('@typescript-eslint/no-explicit-any') &&
+    eslintConfig.includes('@typescript-eslint/no-unused-vars'),
+  'ESLint must enforce strict TypeScript safety rules'
+)
+assert(packageJson.scripts?.test === 'node ./tests/run-all.mjs', 'test script must use the unified runner')
+assert(
+  packageJson.scripts?.['perf:report'] === 'node ./scripts/perf-report.mjs',
+  'perf:report script must provide repeatable local build metrics'
+)
+assert(
+  packageJson.scripts?.verify ===
+    'pnpm typecheck && pnpm lint && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit',
+  'verify script must run static checks, legacy tests and Vitest unit tests'
+)
+assert(
+  testRunner.includes('const testFiles = [') && testRunner.includes('tests/smoke.mjs'),
+  'tests/run-all.mjs must define the unified suite list'
+)
 assert(prettierIgnore.includes('legacy.html'), 'Prettier must ignore legacy.html to avoid noisy formatting churn')
 assert(prettierIgnore.includes('src/legacy/**'), 'Prettier must ignore legacy runtime files during migration')
 assert(
   legacyHtml.includes('src/legacy/bootstrap.js'),
   'legacy.html must retain the legacy bootstrap script'
 )
+assert(legacyHtml.includes('rel="icon"'), 'legacy.html must declare a favicon')
 assert(
   legacyHtml.includes('src/legacy/runtime-config.js'),
   'legacy.html must load runtime config as an external module'
@@ -178,6 +230,22 @@ assert(
   'legacy.html must load the typed route bridge before legacy app boot'
 )
 assert(
+  legacyHtml.includes('src/legacy/modules/navigation-state.js'),
+  'legacy.html must load the split legacy navigation-state module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/sql-editor-component.js'),
+  'legacy.html must load the split legacy SQL editor component module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/sql-conversion-actions.js'),
+  'legacy.html must load the split legacy SQL conversion actions module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/id-tool-actions.js'),
+  'legacy.html must load the split legacy ID tool actions module before app boot'
+)
+assert(
   legacyHtml.includes('src/features/ziwei/legacy-bridge.ts'),
   'legacy.html must load the typed Ziwei AI bridge before legacy app boot'
 )
@@ -194,14 +262,57 @@ assert(
   'legacy.html must load the typed Ziwei share bridge before legacy app boot'
 )
 assert(
+  legacyHtml.includes('src/legacy/modules/ziwei-ai-cooldown.js'),
+  'legacy.html must load the split legacy Ziwei AI cooldown module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/ziwei-ai-suggestions.js'),
+  'legacy.html must load the split legacy Ziwei AI suggestions module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/ziwei-ai-requests.js'),
+  'legacy.html must load the split legacy Ziwei AI request module before app boot'
+)
+assert(
+  legacyHtml.includes('src/legacy/modules/ziwei-share-poster.js'),
+  'legacy.html must load the split legacy Ziwei share poster module before app boot'
+)
+assert(
   !legacyHtml.includes('loadRuntimeSupabaseConfig'),
   'legacy.html must not rely on CSP-blocked inline runtime config'
 )
-assert(router.includes("path: '/workbench/ziwei'"), 'router must expose the Ziwei workbench route')
+assert(
+  router.includes("path: '/workbench'") &&
+    router.includes("redirect: '/workbench/ddl'") &&
+    router.includes("path: '/workbench/:section'") &&
+    router.includes("component: () => import('@/pages/workbench/index.vue')"),
+  'router must expose one normalized workbench section route'
+)
+assert(!exists('src/pages/workbench/ziwei.vue'), 'Ziwei workbench must use the normalized section route')
+assert(
+  workbenchSections.includes('WORKBENCH_SECTION_NAV_ITEMS') &&
+    workbenchSections.includes('normalizeWorkbenchSection') &&
+    workbenchSections.includes('buildWorkbenchPath'),
+  'workbench section route metadata must live in a typed single source'
+)
+assert(
+  read('src/pages/workbench/index.vue').includes('router.replace(buildWorkbenchPath(normalized))'),
+  'workbench page must normalize invalid section routes'
+)
+assert(
+  router.includes("component: () => import('@/pages/splash/index.vue')"),
+  'router page components must use lazy imports'
+)
+assert(router.includes('meta: { fullPage: true }'), 'splash route must render as a native full page')
 assert(router.includes('legacyFrame: true'), 'legacy-backed routes must be marked with legacyFrame')
 assert(
   appEntry.includes('setupRouterGuards(router)'),
   'router guards must be installed after Pinia is active'
+)
+assert(appEntry.includes('app.config.errorHandler'), 'Vue app must register a global error handler')
+assert(
+  appEntry.includes('showGlobalErrorNotice'),
+  'Vue global error handler must show a friendly user-facing notice'
 )
 assert(
   appRoot.includes('@/layouts/DefaultLayout.vue'),
@@ -210,6 +321,17 @@ assert(
 assert(
   appRoot.includes('@/layouts/AuthLayout.vue'),
   'App.vue must delegate auth pages to AuthLayout'
+)
+assert(
+  appRoot.includes('isFullPage') && appRoot.includes('isLegacyFramePage || isFullPage'),
+  'App.vue must allow native full-page routes without the default shell'
+)
+assert(
+  splashPage.includes('@/components/business/feedback/FeedbackWidget.vue') &&
+    splashPage.includes('function enterWorkbench') &&
+    splashPage.includes("router.push('/workbench/ddl')") &&
+    !splashPage.includes('LegacyFrameView'),
+  'splash page must be a native Vue page instead of the legacy iframe wrapper'
 )
 assert(routerGuards.includes('to.meta.requiresAuth'), 'router guards must handle protected routes')
 assert(
@@ -221,8 +343,12 @@ assert(
   'src/types/index.ts must re-export generated database types'
 )
 assert(
-  legacySupabaseTypes.trim() === "export type { Database, Json } from './database.types'",
-  'obsolete supabase.ts type file must be a compatibility re-export only'
+  typeIndex.includes('./result'),
+  'src/types/index.ts must re-export the shared Result type'
+)
+assert(
+  !exists('src/types/supabase.ts'),
+  'obsolete duplicate supabase.ts type barrel must be removed'
 )
 assert(
   supabaseClient.includes("import type { Database } from '@/types'"),
@@ -244,21 +370,130 @@ assert(
   !loginPage.includes('@/stores/auth'),
   'login page must not couple directly to the auth store'
 )
+assert(authStore.includes('let initPromise'), 'auth store must serialize initAuth calls')
+assert(
+  authStore.includes('disposeAuthListener') && authStore.includes('unsubscribe()'),
+  'auth store must expose subscription cleanup for HMR/tests'
+)
+assert(
+  authStore.includes('function applySession'),
+  'auth store must use a single helper to apply auth session state'
+)
+assert(
+  !authStore.includes('loading.value = false\r\n    })') &&
+    !authStore.includes('loading.value = false\n    })'),
+  'auth state change callback must not race initAuth loading state'
+)
+assert(!appStore.includes('document.'), 'app store must not operate DOM directly')
+assert(!appStore.includes('localStorage'), 'app store must not own browser storage side effects')
+assert(
+  themeRuntime.includes('applyThemeToDocument') && themeRuntime.includes('matchMedia'),
+  'theme DOM and system-theme runtime must live in a composable'
+)
 assert(
   apiHttp.includes('@/utils/error-map'),
   'API client must use the centralized error message mapper'
+)
+assert(apiHttp.includes('AbortController'), 'API client must enforce fetch timeouts')
+assert(apiHttp.includes('refreshSession()'), 'API client must refresh near-expired tokens')
+assert(
+  apiHttp.includes('VITE_API_TIMEOUT_MS'),
+  'API client timeout must be configurable through VITE_API_TIMEOUT_MS'
 )
 assert(
   apiHttp.includes('parsed.code'),
   'API client must accept normalized error codes from Edge Functions'
 )
+assert(errorMap.includes('network_timeout'), 'error map must include a safe timeout message')
+assert(
+  errorMap.includes('session_refresh_failed'),
+  'error map must include a safe session refresh failure message'
+)
+assert(
+  asyncStateComposable.includes('mapErrorCodeToMessage'),
+  'useAsyncState must use the centralized error message mapper'
+)
 assert(
   viteConfig.includes("base: './'"),
   'vite base must stay relative for sub-path static hosting'
 )
+assert(viteConfig.includes('loadEnv(mode'), 'vite config must load mode-specific env values')
+assert(viteConfig.includes('VITE_DEV_PORT'), 'vite dev port must be configurable')
+assert(viteConfig.includes('VITE_PREVIEW_PORT'), 'vite preview port must be configurable')
+assert(
+  viteConfig.includes("mode === 'staging'") && viteConfig.includes('VITE_BUILD_SOURCEMAP'),
+  'vite sourcemap must be enabled for staging or explicit env opt-in'
+)
+assert(
+  viteConfig.includes('const legacyFiles = [') &&
+    viteConfig.includes("vendor/codemirror.min.js") &&
+    !viteConfig.includes('cp(sourceDir, targetDir'),
+  'copyLegacyAssetsPlugin must copy a curated legacy asset allowlist instead of the whole directory'
+)
+assert(
+  authLayout.includes('Transition name="page-soft"') &&
+    defaultLayout.includes('Transition name="page-soft"') &&
+    mainCss.includes('.page-soft-enter-active'),
+  'app layouts must use the shared lightweight page transition'
+)
+assert(
+  notFoundPage.includes('进入工作台') && notFoundPage.includes('Route inspector'),
+  '404 page must provide branded guidance and homepage/workbench CTAs'
+)
 assert(
   legacyFrameView.includes('import.meta.env.BASE_URL'),
   'legacy iframe must resolve from Vite base URL'
+)
+assert(
+  legacyFrameView.includes('sandbox="allow-same-origin allow-scripts allow-forms"'),
+  'legacy iframe must be sandboxed'
+)
+assert(
+  legacyFrameView.includes('@load="handleFrameLoad"') &&
+    legacyFrameView.includes('legacy-frame-state'),
+  'legacy iframe must expose a loading/error state'
+)
+assert(
+  legacyFrameView.includes("data.type === 'sqldev:navigate-home'") &&
+    legacyFrameView.includes("router.push('/')"),
+  'legacy iframe must delegate homepage navigation back to the Vue router'
+)
+assert(
+  legacyFrameView.includes("'sqldev:navigate-workbench-section'") &&
+    legacyFrameView.includes("'sqldev:set-workbench-hash'") &&
+    legacyFrameView.includes('allowedWorkbenchSections') &&
+    legacyFrameView.includes("router.replace(target)") &&
+    legacyFrameView.includes("router.push(target)"),
+  'legacy iframe must sync workbench section navigation back to the Vue router'
+)
+assert(!legacyHtml.includes('src/legacy/splash.js'), 'legacy splash script must not be loaded')
+assert(!exists('src/legacy/splash.js'), 'obsolete legacy splash runtime must be removed')
+assert(!viteConfig.includes("'splash.js'"), 'obsolete legacy splash runtime must not be copied')
+assert(!legacyHtml.includes('id="splash-poster"'), 'legacy splash poster DOM must be removed')
+assert(!legacyHtml.includes('id="sp-enter-btn"'), 'legacy splash CTA DOM must be removed')
+assert(
+  feedbackWidget.includes("console.error('[SQLDev] Feedback submit failed'"),
+  'feedback widget must log submit errors'
+)
+assert(
+  feedbackWidget.includes('error instanceof ApiError'),
+  'feedback widget must classify API errors'
+)
+assert(
+  feedbackWidget.includes('mapErrorCodeToMessage'),
+  'feedback widget must use centralized status/error messages'
+)
+assert(
+  workbenchSidebar.includes('exact-active-class=') && !workbenchSidebar.includes('route.path ==='),
+  'workbench sidebar must use RouterLink active matching instead of fragile path comparison'
+)
+assert(
+  workbenchSidebar.includes('WORKBENCH_SECTION_NAV_ITEMS'),
+  'workbench sidebar must read section navigation from the shared section metadata'
+)
+assert(
+  mainCss.includes('focus-visible:ring-2') && mainCss.includes('focus-visible:ring-offset-bg'),
+  'primary button styles must include visible keyboard focus states'
 )
 assert(
   sqlFormat.includes('export function splitSqlStatements'),
@@ -285,6 +520,11 @@ assert(
   'DDL column parsers must live in typed feature module'
 )
 assert(
+  ddlColumnParsers.includes('ORACLE_COLUMN_TYPE_RE') &&
+    ddlColumnParsers.includes('PostgreSQL accepts multi-word types'),
+  'complex DDL column regexes must be named and documented'
+)
+assert(
   ddlTableConstraintParsers.includes('export function parseOracleTableConstraintDefinition'),
   'DDL table constraint parsers must live in typed feature module'
 )
@@ -301,8 +541,26 @@ assert(
   'DDL extra parser/generator helpers must live in typed feature module'
 )
 assert(
+  ddlExtraDdl.includes('CREATE_SEQUENCE_RE') &&
+    ddlExtraDdl.includes('CREATE SEQUENCE supports optional schema'),
+  'complex extra DDL regexes must be named and documented'
+)
+assert(
   ddlConversionOrchestrator.includes('export function convertDdlOrchestrated'),
   'DDL conversion orchestrator must live in typed feature module'
+)
+assert(
+  ddlConversionOrchestrator.includes('export function convertDdlOrchestratedResult'),
+  'DDL conversion orchestrator must expose a structured Result API'
+)
+assert(
+  ddlFacade.includes('export const ddlFacade') &&
+    ddlIndex.includes("export { ddlFacade, type DdlFacade } from './facade'"),
+  'DDL public API must be narrowed through a facade'
+)
+assert(
+  !ddlLegacyBridge.includes("from './index'"),
+  'DDL legacy bridge must import internal modules directly instead of widening the public facade'
 )
 assert(
   ddlViewGenerators.includes('export function generateOracleViewStatements'),
@@ -389,6 +647,11 @@ assert(
   'browser file actions must expose typed clipboard helper'
 )
 assert(
+  !browserFileActions.includes('document.createElement') &&
+    browserDomUtils.includes('document.createElement'),
+  'feature browser file actions must delegate DOM work to utils'
+)
+assert(
   browserFileActions.includes('export function downloadSqlTextFile'),
   'browser file actions must expose typed SQL download helper'
 )
@@ -433,14 +696,6 @@ assert(
   'routine procedure parsing must live in typed feature module'
 )
 assert(
-  routineConversionOrchestrator.includes('export function convertFunctionOrchestrated'),
-  'routine function conversion orchestration must live in typed feature module'
-)
-assert(
-  routineConversionOrchestrator.includes('export function convertProcedureOrchestrated'),
-  'routine procedure conversion orchestration must live in typed feature module'
-)
-assert(
   routinesLegacyBridge.includes('window.SQLDEV_ROUTINE_UTILS'),
   'routine parsing feature must expose a legacy bridge'
 )
@@ -449,48 +704,8 @@ assert(
   'route parsing must live in typed feature module'
 )
 assert(
-  navigationRouteApplication.includes('export function resolveLegacyRouteApplicationDecision'),
-  'route application decision logic must live in typed navigation feature module'
-)
-assert(
-  navigationRouteSync.includes('export function resolveLegacyRouteSyncDecision'),
-  'route sync decision logic must live in typed navigation feature module'
-)
-assert(
-  navigationPageState.includes('export function resolveLegacyPageTransition'),
-  'page state transition logic must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchState.includes('export function resolveLegacySidebarHoverState'),
-  'sidebar hover state logic must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchState.includes('export function resolveLegacyTestToolsMenuToggleState'),
-  'test tools menu toggle logic must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchActions.includes('export function resolveLegacyPrimaryActionHandlerName'),
-  'primary action handler mapping must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchActions.includes('export function resolveLegacyWorkbenchActionDecision'),
-  'workbench action decision logic must live in typed navigation feature module'
-)
-assert(
-  navigationEventDecisions.includes('export function resolveLegacyMenuKeyDecision'),
-  'menu key decision logic must live in typed navigation feature module'
-)
-assert(
-  navigationEventDecisions.includes('export function resolveLegacyOutsideClickDecision'),
-  'outside click decision logic must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchEffects.includes('export function resolveLegacyWorkbenchVisibilityDecision'),
-  'workbench visibility orchestration decision must live in typed navigation feature module'
-)
-assert(
-  navigationWorkbenchEffects.includes('export function resolveLegacySplashHomeTransition'),
-  'splash home transition decision must live in typed navigation feature module'
+  navigationRedirect.includes('export function sanitizeInternalRedirectPath'),
+  'redirect sanitization must live in typed feature module'
 )
 assert(
   navigationLegacyBridge.includes('window.SQLDEV_ROUTE_UTILS'),
@@ -557,14 +772,6 @@ assert(
   'legacy app must prefer the typed PostgreSQL routine procedure parser bridge'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated'),
-  'legacy app must prefer the typed routine function orchestration bridge'
-)
-assert(
-  legacyApp.includes('window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated'),
-  'legacy app must prefer the typed routine procedure orchestration bridge'
-)
-assert(
   idCardTools.includes('export function calcIdCardCheckDigit'),
   'ID card check digit must live in typed feature module'
 )
@@ -581,68 +788,106 @@ assert(
   'legacy app must prefer the typed ID card check bridge'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ID_TOOL_UTILS.validateUsccOrLegacyToken'),
-  'legacy app must prefer the typed USCC validation bridge'
+  legacyApp.includes('window.SQLDEV_ID_TOOL_UTILS.validateUsccOrLegacyToken') ||
+    legacyIdToolActions.includes('idUtils.validateUsccOrLegacyToken'),
+  'legacy ID tool flow must prefer the typed USCC validation bridge'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation'),
-  'legacy app must prefer the typed route parser bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState'),
+  'legacy app must delegate navigation state helpers to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision'),
-  'legacy app must prefer the typed route application decision bridge'
+  legacyNavigationState.includes('window.SQLDEV_LEGACY_NAV_STATE') &&
+    legacyNavigationState.includes('parseRouteInfoFromLocation') &&
+    legacyNavigationState.includes('buildWorkbenchHash'),
+  'legacy navigation state module must own route parsing and workbench hash helpers'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision'),
-  'legacy app must prefer the typed route sync decision bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent'),
+  'legacy app must delegate SQL editor component registration to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage'),
-  'legacy app must prefer the typed page accessibility bridge'
+  legacySqlEditorComponent.includes('export function registerSqlEditorComponent') &&
+    legacySqlEditorComponent.includes("app.component('sql-editor'") &&
+    legacySqlEditorComponent.includes('CodeMirror(wrap.value'),
+  'legacy SQL editor component module must own the CodeMirror wrapper'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition'),
-  'legacy app must prefer the typed page transition bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions'),
+  'legacy app must delegate repeated SQL conversion actions to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState'),
-  'legacy app must prefer the typed sidebar hover state bridge'
+  legacySqlConversionActions.includes('export function createSqlConversionActions') &&
+    legacySqlConversionActions.includes('function createPairActions') &&
+    legacySqlConversionActions.includes("kind: 'ddl'") &&
+    legacySqlConversionActions.includes("kind: 'func'") &&
+    legacySqlConversionActions.includes("kind: 'proc'"),
+  'legacy SQL conversion actions module must own DDL/function/procedure action wiring'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState'),
-  'legacy app must prefer the typed test tools menu toggle bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions'),
+  'legacy app must delegate ID/USCC action handlers to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName'),
-  'legacy app must prefer the typed primary action handler bridge'
+  legacyIdToolActions.includes('export function createIdToolActions') &&
+    legacyIdToolActions.includes('function generateIdNumber') &&
+    legacyIdToolActions.includes('function validateIdNumber') &&
+    legacyIdToolActions.includes('function generateUsccCode') &&
+    legacyIdToolActions.includes('function validateUsccCode'),
+  'legacy ID tool actions module must own ID/USCC generate and validate actions'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision'),
-  'legacy app must prefer the typed workbench action decision bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster'),
+  'legacy app must delegate Ziwei share poster rendering to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision'),
-  'legacy app must prefer the typed workbench visibility decision bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions'),
+  'legacy app must delegate Ziwei AI suggestion UI/config logic to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition'),
-  'legacy app must prefer the typed splash home transition bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions'),
+  'legacy app must delegate Ziwei AI cooldown state logic to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision'),
-  'legacy app must prefer the typed splash hash sync bridge'
+  legacyApp.includes('window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions'),
+  'legacy app must delegate Ziwei AI request actions to the split legacy module'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision'),
-  'legacy app must prefer the typed menu key decision bridge'
+  legacyApp.includes("window.parent.postMessage({ type: 'sqldev:navigate-home' }"),
+  'legacy workbench home action must request parent Vue navigation instead of reviving legacy splash'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget'),
-  'legacy app must prefer the typed primary hotkey decision bridge'
+  legacyApp.includes("type: 'sqldev:navigate-workbench-section'") &&
+    legacyApp.includes('notifyParentWorkbenchRoute(page') &&
+    legacyApp.includes('section: segment') &&
+    legacyApp.includes("data.type !== 'sqldev:set-workbench-hash'") &&
+    legacyApp.includes('applyRouteFromParentMessage'),
+  'legacy workbench route changes must sync with the parent Vue router without forcing iframe reloads'
 )
 assert(
-  legacyApp.includes('window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision'),
-  'legacy app must prefer the typed outside click decision bridge'
+  legacyZiweiAiCooldown.includes('export function createZiweiAiCooldownActions') &&
+    legacyZiweiAiCooldown.includes('function ensureRequestAllowed') &&
+    legacyZiweiAiCooldown.includes('function startCooldown'),
+  'legacy Ziwei AI cooldown module must own cooldown and request interval gating'
+)
+assert(
+  legacyZiweiAiRequests.includes('export function createZiweiAiRequestActions') &&
+    legacyZiweiAiRequests.includes('async function submitQuestion') &&
+    legacyZiweiAiRequests.includes('async function requestAnalysis') &&
+    legacyZiweiAiRequests.includes("invokeFunction('ziwei-analysis'"),
+  'legacy Ziwei AI request module must own analysis and QA invoke actions'
+)
+assert(
+  legacyZiweiAiSuggestions.includes('export function createZiweiAiSuggestionActions') &&
+    legacyZiweiAiSuggestions.includes('function normalizeZiweiQaSuggestionText') &&
+    legacyZiweiAiSuggestions.includes("invokeFunction('ziwei-analysis'"),
+  'legacy Ziwei AI suggestions module must own suggestion layout and server config loading'
+)
+assert(
+  legacyZiweiSharePoster.includes('export function renderZiweiSharePoster') &&
+    legacyZiweiSharePoster.includes('canvas.toDataURL') &&
+    legacyZiweiSharePoster.includes('export function downloadZiweiSharePosterDataUrl'),
+  'legacy Ziwei share poster module must own canvas poster rendering and download'
 )
 assert(
   ziweiAiUtils.includes('export function buildZiweiAiPayload'),
@@ -697,12 +942,25 @@ assert(
   'legacy app must prefer the typed Ziwei share bridge'
 )
 assert(
-  !legacySupabaseConfig.includes('DEFAULT_PUBLIC_SUPABASE_URL'),
-  'legacy auth must not hardcode Supabase fallback config'
+  legacyAuth.includes('if (!Number.isFinite(exp) || exp <= 0) return true;'),
+  'legacy auth must treat invalid JWT exp as expired'
 )
 assert(
-  legacySupabaseConfig.includes('sb_secret_'),
-  'legacy Supabase config must reject secret browser keys'
+  routerGuards.includes('sanitizeInternalRedirectPath'),
+  'router guards must sanitize login redirect paths'
+)
+assert(
+  loginPage.includes('sanitizeInternalRedirectPath(route.query.redirect)'),
+  'login page must sanitize redirect query before router.push'
+)
+assert(
+  !exists('src/legacy/supabase-config.js'),
+  'legacy Supabase config must be consolidated into runtime-config.js'
+)
+assert(
+  legacyRuntimeConfig.includes('window.SUPABASE_URL = url') &&
+    legacyRuntimeConfig.includes('sb_secret_'),
+  'legacy runtime config must inject public config and reject privileged browser keys'
 )
 assert(
   legacyRuntimeConfig.includes('import.meta.env.VITE_SUPABASE_URL'),
@@ -717,10 +975,112 @@ assert(
   'legacy startup layer must share a single preference runtime helper'
 )
 assert(
+  legacyStartupView.includes("window.__SQDEV_STARTUP_VIEW = 'workbench'") &&
+    !legacyStartupView.includes("'splash'"),
+  'legacy startup view must default to workbench after native splash migration'
+)
+assert(!legacyApp.includes('splashApi'), 'legacy app must not depend on removed splashApi')
+assert(!legacyAuth.includes('splashApi'), 'legacy auth must not depend on removed splashApi')
+assert(
+  !legacyStyle.includes('#splash-poster') &&
+    !legacyStyle.includes('.sp-') &&
+    !legacyStyle.includes('splash-active'),
+  'legacy stylesheet must not keep retired splash poster rules'
+)
+assert(
+  !legacyApp.includes('splash-active') && !legacyApp.includes('sp-theme-sync'),
+  'legacy app must not keep retired splash route/theme hooks'
+)
+assert(
+  legacyHtml.includes('<div class="auth-modal-mask" id="auth-modal-mask" hidden>') &&
+    !legacyHtml.includes('id="splash-poster"'),
+  'legacy auth modal must remain after retired splash poster removal'
+)
+assert(!legacyAuth.includes('ensureGlobalModalHost'), 'legacy auth must not move modal out of splash at runtime')
+assert(
+  legacyBootstrap.includes("boot('startup-workbench')") &&
+    !legacyBootstrap.includes('scheduleIdleBoot') &&
+    !legacyBootstrap.includes('bindAuthIntent'),
+  'legacy bootstrap must boot the workbench directly after native splash migration'
+)
+assert(
   migration.includes('create table if not exists public.feedback_entries'),
   'feedback migration must create feedback_entries'
 )
 assert(migration.includes('enable row level security'), 'feedback migration must enable RLS')
+assert(
+  profilesMigration.includes('create table if not exists public.profiles') &&
+    profilesMigration.includes('enable row level security'),
+  'profiles migration must define the typed profiles table with RLS'
+)
+for (const indexName of [
+  'idx_feedback_entries_category',
+  'idx_feedback_entries_source',
+  'idx_feedback_entries_client_ip',
+  'idx_feedback_entries_user_id_created_at'
+]) {
+  assert(migration.includes(indexName), `feedback migration must include ${indexName}`)
+}
+assert(
+  convertFunction.includes('function validateEngineModuleShape') &&
+    convertFunction.includes('app-engine export') &&
+    convertFunction.includes("validateEngineModuleShape(await import('../_shared/convert-engine/app-engine.js'))"),
+  'convert function must validate dynamically imported engine module shape'
+)
+assert(
+  convertFunction.includes("await import('../_shared/convert-engine/samples.js')") &&
+    convertFunction.includes("await import('../_shared/convert-engine/rules.js')"),
+  'convert function must load conversion engine assets from _shared/convert-engine'
+)
+assert(
+  convertSharedEngine.includes('export { convertDDL, convertFunction, convertProcedure }') &&
+    convertSharedRules.includes('export { _ddlRulesData, _bodyRulesData, _bodyRulesDefault }') &&
+    convertSharedSamples.includes('export const DB_LABELS'),
+  'shared convert engine must expose engine, rules and sample metadata modules'
+)
+assert(
+  edgeResponseShared.includes('export function logEdgeError') &&
+    edgeResponseShared.includes('Bearer [redacted]') &&
+    edgeResponseShared.includes('export function errorResponse'),
+  'Edge Functions must share sanitized logging and safe error responses'
+)
+assert(
+  convertFunction.includes("logEdgeError('convert'") &&
+    feedbackFunction.includes("logEdgeError('feedback'") &&
+    ziweiAnalysisHandler.includes("logEdgeError('ziwei-analysis'"),
+  'Edge Functions must use shared sanitized error logging'
+)
+assert(
+  feedbackFunction.includes("Deno.env.get('CORS_PRIMARY_ORIGIN')"),
+  'feedback function CORS must read CORS_PRIMARY_ORIGIN'
+)
+assert(
+  ziweiAnalysisFunction.trim() === "import { handleZiweiAnalysisRequest } from './handler.ts'\n\nDeno.serve(handleZiweiAnalysisRequest)",
+  'ziwei analysis index must stay as a thin function entry'
+)
+assert(
+  ziweiAnalysisHandler.includes('export async function handleZiweiAnalysisRequest') &&
+    ziweiAnalysisHandler.includes('createRateLimiter') &&
+    ziweiAnalysisHandler.includes('validateBearerToken'),
+  'ziwei analysis handler must own auth, rate limit and request routing'
+)
+assert(
+  ziweiAnalysisProvider.includes('export async function requestAiAnalysis') &&
+    ziweiAnalysisProvider.includes('export async function requestAiQa') &&
+    ziweiAnalysisProvider.includes('fetchAiChat'),
+  'ziwei analysis provider must own upstream AI calls'
+)
+assert(
+  ziweiAnalysisPromptTemplate.includes('export function buildAnalysisSystemPrompt') &&
+    ziweiAnalysisPromptTemplate.includes('export function normalizeQaTemplate'),
+  'ziwei analysis prompt templates must live outside the handler'
+)
+assert(
+  ziweiAnalysisResponseParser.includes('export function isValidChartPayloadStructure') &&
+    ziweiAnalysisResponseParser.includes('export function normalizeAnalysis') &&
+    ziweiAnalysisResponseParser.includes('export function mapAiErrorStatus'),
+  'ziwei analysis response parser must validate chart payloads and normalize AI output'
+)
 assert(authStrategy.includes('## convert'), 'function auth strategy must document convert')
 assert(authStrategy.includes('## feedback'), 'function auth strategy must document feedback')
 assert(
@@ -735,43 +1095,15 @@ assert(
   packageJson.scripts?.['test:smoke'] === 'node ./tests/smoke.mjs',
   'smoke test entry must live under tests/'
 )
+assert(
+  envExample.includes('VITE_API_TIMEOUT_MS') && envExample.includes('supabase secrets set'),
+  '.env.example must document frontend env and Edge Function secret ownership'
+)
 assert(testHelper.includes('export function loadTsModule'), 'TS module test loader must be shared')
-for (const testFile of [
-  sqlFormatTest,
-  ddlParserUtilsTest,
-  ddlColumnParsersTest,
-  ddlTableConstraintParsersTest,
-  ddlPostprocessTest,
-  ddlTypeMappingTest,
-  ddlOutputBuildersTest,
-  ddlExtraDdlTest,
-  ddlConversionOrchestratorTest,
-  ddlViewGeneratorsTest,
-  ddlViewParsingTest,
-  convertErrorMapTest,
-  browserFileActionsTest,
-  bodyTransformRulesTest,
-  routineParserPrimitivesTest,
-  routineFunctionParsersTest,
-  routineProcedureParsersTest,
-  routineConversionOrchestratorTest,
-  preferencesStorageTest,
-  rulesPersistenceTest,
-  idToolsTest
-]) {
+for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
 }
-for (const testFile of [
-  navigationRouteTest,
-  navigationRouteSyncTest,
-  navigationRouteApplicationTest,
-  navigationPageStateTest,
-  navigationWorkbenchHelpersTest,
-  ziweiHistoryTest,
-  ziweiPresentationTest,
-  ziweiShareTest,
-  ziweiAiUtilsTest
-]) {
+for (const testFile of [navigationRouteTest, navigationWorkbenchSectionsTest, navigationRedirectTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
   assert(testFile.includes('./helpers/load-ts-module.mjs'), 'new feature tests must reuse the shared TS module loader')
 }
 

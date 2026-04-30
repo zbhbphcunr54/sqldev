@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQLDev UI 优化 — Before / After 对比</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-sans: 'Inter', 'PingFang SC', 'Noto Sans SC', 'SF Pro Text', -apple-system, system-ui, sans-serif;
+  --font-old: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  --bg: #0c1021; --bg2: #10172b; --bg3: #182038;
+  --border: rgba(99,135,241,.12); --text: #d8e1f2; --text2: #8ea0c0; --text3: #5a6d8a;
+  --accent-old: #2563eb; --accent-new: #4f7df9; --accent-tailwind: #2f6bff;
+  --purple: #8b5cf6; --green: #22c55e; --red: #ef4444;
+  --grad: linear-gradient(135deg, #4f7df9, #8b5cf6);
+  --radius-old: 8px; --radius-new: 14px; --radius-sm-old: 6px; --radius-sm-new: 10px;
+  --glass: rgba(10,14,27,.92);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); background: #060a14; color: var(--text); line-height: 1.6; }
+
+.fix { margin-bottom: 32px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-new); overflow: hidden; }
+.fix-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.fix-num { width: 28px; height: 28px; border-radius: 8px; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.fix-title { font-size: 14px; font-weight: 600; }
+.fix-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+.tag-high { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+.tag-med { background: rgba(245,158,11,.15); color: #f59e0b; border: 1px solid rgba(245,158,11,.3); }
+.tag-low { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+.fix-body { padding: 20px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.col-head { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+.col-head.before { color: var(--red); }
+.col-head.after { color: var(--green); }
+.code { font-family: var(--font-mono); font-size: 12px; padding: 12px 16px; border-radius: var(--radius-sm-new); border: 1px solid var(--border); line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+.code.before { background: rgba(239,68,68,.06); border-color: rgba(239,68,68,.15); }
+.code.after { background: rgba(34,197,94,.06); border-color: rgba(34,197,94,.15); }
+.code .del { color: var(--red); text-decoration: line-through; opacity: .7; }
+.code .add { color: var(--green); }
+.code .file { color: var(--text3); font-size: 11px; display: block; margin-bottom: 6px; }
+.code .hl { background: rgba(79,125,249,.12); padding: 0 4px; border-radius: 3px; }
+.desc { font-size: 13px; color: var(--text2); margin-top: 12px; line-height: 1.7; }
+
+/* ── 视觉对比 ── */
+.vis { display: flex; gap: 16px; margin-top: 16px; }
+.vis-box { flex: 1; padding: 16px; border-radius: var(--radius-new); border: 1px solid var(--border); }
+.swatch { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.swatch-circle { width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(255,255,255,.1); }
+.swatch-label { font-size: 12px; font-family: var(--font-mono); }
+.radius-demo { display: inline-block; width: 48px; height: 32px; border: 2px solid var(--accent-new); margin-right: 8px; }
+.font-demo { font-size: 16px; margin-bottom: 4px; }
+</style>
+</head>
+<body style="padding:32px 24px;max-width:1100px;margin:0 auto">
+
+<h1 style="font-size:20px;font-weight:700;margin-bottom:4px">SQLDev UI 精准优化清单</h1>
+<p style="color:var(--text2);font-size:13px;margin-bottom:28px">不改布局，只统一字体、圆角、颜色、变量名 · 共 7 条修复</p>
+
+<!-- Fix 1 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">1</div>
+    <div class="fix-title">统一字体栈</div>
+    <span class="fix-tag tag-high">高</span>
+  </div>
+  <div class="fix-body">
+    <div class="vis">
+      <div class="vis-box" style="background:rgba(239,68,68,.04)">
+        <div class="col-head before">Before — 3 套字体并存</div>
+        <div class="font-demo" style="font-family:'PingFang SC','Microsoft YaHei UI','Microsoft YaHei',sans-serif">PingFang SC：这是 Legacy 页面的字体效果</div>
+        <div class="font-demo" style="font-family:Inter,'PingFang SC','SF Pro Text',system-ui,sans-serif">Inter：这是 Vue 新页面的字体效果</div>
+        <div class="font-demo" style="font-family:'DM Sans','Noto Sans SC',sans-serif">DM Sans：这是 Splash 页面的字体效果</div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">三个页面切换时，字体明显跳变</p>
+      </div>
+      <div class="vis-box" style="background:rgba(34,197,94,.04)">
+        <div class="col-head after">After — 统一 Inter + PingFang SC + Noto Sans SC</div>
+        <div class="font-demo" style="font-family:Inter,'PingFang SC','Noto Sans SC',sans-serif">Inter：所有页面统一使用这套字体栈</div>
+        <div class="font-demo" style="font-family:Inter,'PingFang SC','Noto Sans SC',sans-serif">中文回退到 PingFang SC → Noto Sans SC</div>
+        <div class="font-demo" style="font-family:Inter,'PingFang SC','Noto Sans SC',sans-serif">页面切换无视觉跳变</div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">index.html + legacy.html 引入相同的 Google Fonts</p>
+      </div>
+    </div>
+    <div class="cols" style="margin-top:16px">
+      <div>
+        <div class="code before"><span class="file">src/legacy/style.css:10</span>
+<span class="del">--font-body:"PingFang SC","Microsoft YaHei UI",
+  "Microsoft YaHei","Noto Sans SC","Segoe UI",
+  -apple-system,BlinkMacSystemFont,sans-serif</span></div>
+      </div>
+      <div>
+        <div class="code after"><span class="file">src/legacy/style.css:10</span>
+<span class="add">--font-body:'Inter','PingFang SC','Noto Sans SC',
+  'SF Pro Text',-apple-system,system-ui,sans-serif</span></div>
+      </div>
+    </div>
+    <div class="desc">
+      同步修改：<code>index.html</code> 新增 Inter / Noto Sans SC / JetBrains Mono 的 Google Fonts 引入；
+      <code>legacy.html:53</code> 移除 DM Sans 和 Instrument Serif（死字体）；
+      <code>tailwind.config.ts:9</code> 对齐字体栈；
+      <code>style.css:627</code> 的硬编码字体改为 <code>var(--font-body)</code>；
+      <code>style.css:500-501</code> 删除重复定义
+    </div>
+  </div>
+</div>
+
+<!-- Fix 2 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">2</div>
+    <div class="fix-title">统一品牌蓝色</div>
+    <span class="fix-tag tag-high">高</span>
+  </div>
+  <div class="fix-body">
+    <div class="vis">
+      <div class="vis-box">
+        <div class="col-head before">Before — 3 种蓝色混用</div>
+        <div class="swatch"><div class="swatch-circle" style="background:#2563eb"></div><span class="swatch-label">#2563eb — style.css :root</span></div>
+        <div class="swatch"><div class="swatch-circle" style="background:#3b82f6"></div><span class="swatch-label">#3b82f6 — style.css dark (旧)</span></div>
+        <div class="swatch"><div class="swatch-circle" style="background:#4f7df9"></div><span class="swatch-label">#4f7df9 — style.css dark (新)</span></div>
+        <div class="swatch"><div class="swatch-circle" style="background:#2f6bff"></div><span class="swatch-label">#2f6bff — tokens.css</span></div>
+      </div>
+      <div class="vis-box">
+        <div class="col-head after">After — 统一 #4f7df9</div>
+        <div class="swatch"><div class="swatch-circle" style="background:#4f7df9"></div><span class="swatch-label">#4f7df9 — 全站唯一品牌蓝</span></div>
+        <div class="swatch"><div class="swatch-circle" style="background:#6992ff"></div><span class="swatch-label">#6992ff — hover 状态</span></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">tokens.css、style.css、tailwind 全部对齐</p>
+      </div>
+    </div>
+    <div class="cols" style="margin-top:16px">
+      <div>
+        <div class="code before"><span class="file">src/styles/tokens.css:9</span>
+<span class="del">--color-brand-500: #2f6bff</span>
+<span class="file">src/legacy/style.css:6</span>
+<span class="del">--accent:#2563eb</span>
+<span class="file">src/legacy/style.css:27</span>
+<span class="del">--accent:#3b82f6</span></div>
+      </div>
+      <div>
+        <div class="code after"><span class="file">src/styles/tokens.css:9</span>
+<span class="add">--color-brand-500: #4f7df9</span>
+<span class="file">src/legacy/style.css:6</span>
+<span class="add">--accent:#4f7df9</span>
+<span class="file">src/legacy/style.css:27</span>
+<span class="add">（删除，line 517 已定义）</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fix 3 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">3</div>
+    <div class="fix-title">修复 LegacyFrameView.vue CSS 变量 Bug</div>
+    <span class="fix-tag tag-high">高</span>
+  </div>
+  <div class="fix-body">
+    <div class="cols">
+      <div>
+        <div class="code before"><span class="file">LegacyFrameView.vue:101</span>
+<span class="del">color: var(--color-subtle, #8fa0bb)</span>
+<span style="font-size:11px;color:var(--red)">❌ --color-subtle 不存在于 tokens.css
+   定义的是 --color-text-subtle
+   永远回退到硬编码 #8fa0bb</span>
+
+<span class="file">LegacyFrameView.vue:109</span>
+<span class="del">color: var(--color-brand-500, #6477ff)</span>
+<span style="font-size:11px;color:var(--red)">❌ fallback #6477ff 与实际值 #2f6bff 不匹配</span></div>
+      </div>
+      <div>
+        <div class="code after"><span class="file">LegacyFrameView.vue:101</span>
+<span class="add">color: var(--color-text-subtle, #8fa0bb)</span>
+<span style="font-size:11px;color:var(--green)">✅ 正确引用 tokens.css 变量</span>
+
+<span class="file">LegacyFrameView.vue:109</span>
+<span class="add">color: var(--color-brand-500, #4f7df9)</span>
+<span style="font-size:11px;color:var(--green)">✅ fallback 与统一后的品牌色一致</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fix 4 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">4</div>
+    <div class="fix-title">统一圆角</div>
+    <span class="fix-tag tag-med">中</span>
+  </div>
+  <div class="fix-body">
+    <div class="vis">
+      <div class="vis-box">
+        <div class="col-head before">Before — Legacy 8px vs Vue 14px</div>
+        <div style="display:flex;gap:12px;align-items:end">
+          <div><div class="radius-demo" style="border-radius:8px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">8px</p></div>
+          <div><div class="radius-demo" style="border-radius:6px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">6px</p></div>
+          <div><div class="radius-demo" style="border-radius:14px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">14px</p></div>
+          <div><div class="radius-demo" style="border-radius:10px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">10px</p></div>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">Legacy 用 8px/6px，Vue 用 14px/10px，风格割裂</p>
+      </div>
+      <div class="vis-box">
+        <div class="col-head after">After — 统一 14px / 10px</div>
+        <div style="display:flex;gap:12px;align-items:end">
+          <div><div class="radius-demo" style="border-radius:14px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">卡片 14px</p></div>
+          <div><div class="radius-demo" style="border-radius:10px"></div><p style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px">控件 10px</p></div>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">style.css 的 --radius 对齐 tokens.css 的 --radius-card</p>
+      </div>
+    </div>
+    <div class="code before" style="margin-top:16px"><span class="file">src/legacy/style.css:8</span>
+<span class="del">--radius:8px;--radius-sm:6px;--radius-lg:12px</span>
+<span class="add">--radius:14px;--radius-sm:10px;--radius-lg:16px</span></div>
+  </div>
+</div>
+
+<!-- Fix 5 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">5</div>
+    <div class="fix-title">CSS 变量桥接</div>
+    <span class="fix-tag tag-med">中</span>
+  </div>
+  <div class="fix-body">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">tokens.css 和 style.css 使用完全不同的变量命名体系，需要在 tokens.css 中添加别名桥接</p>
+    <div class="code after"><span class="file">src/styles/tokens.css — 末尾追加</span>
+<span class="add">:root {
+  --bg: var(--color-bg);
+  --bg-secondary: var(--color-panel-2);
+  --bg-tertiary: var(--color-panel);
+  --border: var(--color-border);
+  --text: var(--color-text);
+  --text-secondary: var(--color-text-subtle);
+  --accent: var(--color-brand-500);
+  --accent-hover: var(--color-brand-600);
+}</span></div>
+    <p class="desc">这样 LegacyFrameView 等使用 <code>--color-*</code> 前缀的 Vue 组件，也能正确读取到 style.css 定义的 <code>--bg</code>、<code>--accent</code> 等变量值。</p>
+  </div>
+</div>
+
+<!-- Fix 6 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">6</div>
+    <div class="fix-title">移除死字体 + 清理硬编码</div>
+    <span class="fix-tag tag-low">低</span>
+  </div>
+  <div class="fix-body">
+    <div class="cols">
+      <div>
+        <div class="code before"><span class="file">legacy.html:53 — Google Fonts 加载</span>
+<span class="del">family=DM+Sans:opsz,wght@9..40,400;...
+&family=Instrument+Serif
+&family=JetBrains+Mono:wght@400;500;600
+&family=Noto+Sans+SC:wght@400;500;700</span>
+<span style="font-size:11px;color:var(--red)">❌ DM Sans 仅 splash.vue 用了一处
+❌ Instrument Serif 从未使用（浪费 ~50KB）</span></div>
+      </div>
+      <div>
+        <div class="code after"><span class="file">legacy.html:53 — 精简后</span>
+<span class="add">family=Inter:wght@400;500;600;700
+&family=Noto+Sans+SC:wght@400;500;700
+&family=JetBrains+Mono:wght@400;500;600</span>
+<span style="font-size:11px;color:var(--green)">✅ 仅加载实际使用的字体
+✅ 减少 ~50KB + 1 个 DNS 查询</span></div>
+      </div>
+    </div>
+    <div class="code before" style="margin-top:12px"><span class="file">src/legacy/style.css:627 — 硬编码字体</span>
+<span class="del">.sp-title{font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",sans-serif}</span>
+<span class="add">.sp-title{font-family:var(--font-body)}</span>
+
+<span class="file">src/legacy/style.css:416 — 硬编码字体</span>
+<span class="del">.sp-tok{font-family:'JetBrains Mono',monospace}</span>
+<span class="add">.sp-tok{font-family:var(--font-code)}</span></div>
+  </div>
+</div>
+
+<!-- Fix 7 -->
+<div class="fix">
+  <div class="fix-head">
+    <div class="fix-num">7</div>
+    <div class="fix-title">index.html 引入 Web Font</div>
+    <span class="fix-tag tag-high">高</span>
+  </div>
+  <div class="fix-body">
+    <div class="cols">
+      <div>
+        <div class="code before"><span class="file">index.html — 当前</span>
+<span class="del">（无任何字体引入）
+Vue 页面完全依赖系统字体渲染
+Inter 在大多数系统上不存在</span></div>
+      </div>
+      <div>
+        <div class="code after"><span class="file">index.html — &lt;head&gt; 中新增</span>
+<span class="add">&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;
+&lt;link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"&gt;</span></div>
+      </div>
+    </div>
+    <p class="desc">与 legacy.html 引入相同的字体，确保 Vue SPA 和 Legacy iframe 的字体渲染完全一致。</p>
+  </div>
+</div>
+
+</body>
+</html>

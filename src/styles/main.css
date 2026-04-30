@@ -16,11 +16,11 @@
 
 @layer components {
   .btn-primary {
-    @apply rounded-control bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-control bg-brand-500 text-white transition-colors hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply rounded-control border border-border bg-panel2 text-text transition-colors hover:bg-panel;
+    @apply rounded-control border border-border bg-panel2 text-text transition-colors hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
   }
 
   .input-control {
@@ -46,5 +46,38 @@
     background-image: radial-gradient(circle at 12% 18%, rgba(122, 162, 255, 0.2), transparent 42%),
       radial-gradient(circle at 82% 30%, rgba(93, 189, 255, 0.14), transparent 44%),
       linear-gradient(180deg, rgba(122, 162, 255, 0.06), rgba(122, 162, 255, 0));
+  }
+
+  .page-soft-enter-active,
+  .page-soft-leave-active {
+    transition:
+      opacity 180ms ease-out,
+      transform 180ms ease-out,
+      filter 180ms ease-out;
+  }
+
+  .page-soft-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+
+  .page-soft-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(1px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-soft-enter-active,
+    .page-soft-leave-active {
+      transition: none;
+    }
+
+    .page-soft-enter-from,
+    .page-soft-leave-to {
+      transform: none;
+      filter: none;
+    }
   }
 }

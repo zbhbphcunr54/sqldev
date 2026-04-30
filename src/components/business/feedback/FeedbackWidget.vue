@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { submitFeedback, type FeedbackRequest } from '@/api/feedback'
+import { ApiError } from '@/api/http'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 const props = withDefaults(
   defineProps<{
@@ -19,6 +21,26 @@ const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({ type:
 
 const canSubmit = computed(() => content.value.trim().length >= 6)
 
+function getFeedbackErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return mapErrorCodeToMessage('unauthorized')
+    if (error.status === 400 || error.code === 'invalid_payload') {
+      return mapErrorCodeToMessage('feedback_invalid_payload')
+    }
+    if (error.status === 429 || error.code === 'rate_limited') {
+      return mapErrorCodeToMessage('rate_limited')
+    }
+    if (error.status >= 500) return mapErrorCodeToMessage('feedback_service_unavailable')
+    return error.message
+  }
+
+  if (error instanceof TypeError) {
+    return mapErrorCodeToMessage('feedback_network_failed')
+  }
+
+  return mapErrorCodeToMessage('feedback_submit_failed')
+}
+
 async function handleSubmit() {
   if (!canSubmit.value || loading.value) return
   loading.value = true
@@ -30,9 +52,10 @@ async function handleSubmit() {
       source: props.source
     })
     content.value = ''
-    status.value = { type: 'success', text: '建议已提交，感谢你的反馈。' }
-  } catch {
-    status.value = { type: 'error', text: '提交失败，请稍后重试。' }
+    status.value = { type: 'success', text: mapErrorCodeToMessage('feedback_success') }
+  } catch (error) {
+    console.error('[SQLDev] Feedback submit failed', error)
+    status.value = { type: 'error', text: getFeedbackErrorMessage(error) }
   } finally {
     loading.value = false
   }

@@ -1,0 +1,830 @@
+[
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 143,
+    "color": "#0b1020",
+    "text": "background: var(--color-bg, #0b1020);"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 160,
+    "color": "rgba(80, 111, 255, 0.2)",
+    "text": "radial-gradient(circle at 50% 35%, rgba(80, 111, 255, 0.2), transparent 34%),"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 161,
+    "color": "#0b1020",
+    "text": "var(--color-bg, #0b1020);"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 170,
+    "color": "rgba(148, 163, 184, 0.18)",
+    "text": "border: 1px solid var(--color-border, rgba(148, 163, 184, 0.18));"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 172,
+    "color": "#e5eefc",
+    "text": "color: var(--color-text, #e5eefc);"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 173,
+    "color": "rgba(12, 18, 34, 0.86)",
+    "text": "background: var(--color-panel, rgba(12, 18, 34, 0.86));"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 174,
+    "color": "rgba(0, 0, 0, 0.28)",
+    "text": "box-shadow: var(--shadow-panel, 0 20px 70px rgba(0, 0, 0, 0.28));"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 179,
+    "color": "#8fa0bb",
+    "text": "color: var(--color-subtle, #8fa0bb);"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 187,
+    "color": "#6477ff",
+    "text": "background: var(--color-brand-500, #6477ff);"
+  },
+  {
+    "file": "src/components/business/legacy/LegacyFrameView.vue",
+    "line": 188,
+    "color": "rgba(100, 119, 255, 0.72)",
+    "text": "box-shadow: 0 0 18px rgba(100, 119, 255, 0.72);"
+  },
+  {
+    "file": "src/pages/not-found.vue",
+    "line": 47,
+    "color": "rgba(100,119,255,.22)",
+    "text": "class=\"absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(100,119,255,.22),transparent_34%),radial-gradient(circle_at_84%_28%,rgba(76,231,216,.16),tran"
+  },
+  {
+    "file": "src/pages/not-found.vue",
+    "line": 47,
+    "color": "rgba(76,231,216,.16)",
+    "text": "class=\"absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(100,119,255,.22),transparent_34%),radial-gradient(circle_at_84%_28%,rgba(76,231,216,.16),tran"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 107,
+    "color": "#8fb6ff",
+    "text": "<stop offset=\"0%\" stop-color=\"#8fb6ff\" />"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 108,
+    "color": "#8b8cff",
+    "text": "<stop offset=\"48%\" stop-color=\"#8b8cff\" />"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 109,
+    "color": "#26d7e8",
+    "text": "<stop offset=\"100%\" stop-color=\"#26d7e8\" />"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 216,
+    "color": "#eaf1ff",
+    "text": "color: #eaf1ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 218,
+    "color": "rgba(74, 124, 255, 0.28)",
+    "text": "radial-gradient(circle at 10% 5%, rgba(74, 124, 255, 0.28), transparent 34rem),"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 219,
+    "color": "rgba(35, 211, 238, 0.14)",
+    "text": "radial-gradient(circle at 86% 18%, rgba(35, 211, 238, 0.14), transparent 30rem),"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 220,
+    "color": "#071126",
+    "text": "linear-gradient(180deg, #071126 0%, #0a1530 46%, #101b3a 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 220,
+    "color": "#0a1530",
+    "text": "linear-gradient(180deg, #071126 0%, #0a1530 46%, #101b3a 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 220,
+    "color": "#101b3a",
+    "text": "linear-gradient(180deg, #071126 0%, #0a1530 46%, #101b3a 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 225,
+    "color": "#122142",
+    "text": "color: #122142;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 227,
+    "color": "rgba(77, 125, 249, 0.16)",
+    "text": "radial-gradient(circle at 8% 8%, rgba(77, 125, 249, 0.16), transparent 32rem),"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 228,
+    "color": "rgba(34, 211, 238, 0.12)",
+    "text": "radial-gradient(circle at 86% 18%, rgba(34, 211, 238, 0.12), transparent 28rem),"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 229,
+    "color": "#edf3ff",
+    "text": "linear-gradient(180deg, #f6f8ff 0%, #edf3ff 48%, #f8fbff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 229,
+    "color": "#f6f8ff",
+    "text": "linear-gradient(180deg, #f6f8ff 0%, #edf3ff 48%, #f8fbff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 229,
+    "color": "#f8fbff",
+    "text": "linear-gradient(180deg, #f6f8ff 0%, #edf3ff 48%, #f8fbff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 243,
+    "color": "rgba(148, 163, 184, 0.12)",
+    "text": "linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 244,
+    "color": "rgba(148, 163, 184, 0.12)",
+    "text": "linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 260,
+    "color": "rgba(79, 125, 249, 0.32)",
+    "text": "background: rgba(79, 125, 249, 0.32);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 266,
+    "color": "rgba(139, 92, 246, 0.22)",
+    "text": "background: rgba(139, 92, 246, 0.22);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 272,
+    "color": "rgba(34, 211, 238, 0.16)",
+    "text": "background: rgba(34, 211, 238, 0.16);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 315,
+    "color": "rgba(148, 190, 255, 0.4)",
+    "text": "border: 1px solid rgba(148, 190, 255, 0.4);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 317,
+    "color": "rgba(34, 211, 238, 0.14)",
+    "text": "background: linear-gradient(135deg, rgba(79, 125, 249, 0.24), rgba(34, 211, 238, 0.14));"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 317,
+    "color": "rgba(79, 125, 249, 0.24)",
+    "text": "background: linear-gradient(135deg, rgba(79, 125, 249, 0.24), rgba(34, 211, 238, 0.14));"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 318,
+    "color": "#b9d0ff",
+    "text": "color: #b9d0ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 336,
+    "color": "rgba(148, 163, 184, 0.24)",
+    "text": "border: 1px solid rgba(148, 163, 184, 0.24);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 338,
+    "color": "rgba(8, 14, 30, 0.42)",
+    "text": "background: rgba(8, 14, 30, 0.42);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 343,
+    "color": "rgba(255, 255, 255, 0.7)",
+    "text": "background: rgba(255, 255, 255, 0.7);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 359,
+    "color": "rgba(226, 238, 255, 0.68)",
+    "text": "color: rgba(226, 238, 255, 0.68);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 364,
+    "color": "rgba(18, 33, 66, 0.62)",
+    "text": "color: rgba(18, 33, 66, 0.62);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 368,
+    "color": "#ffffff",
+    "text": "color: #ffffff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 369,
+    "color": "rgba(79, 125, 249, 0.72)",
+    "text": "background: rgba(79, 125, 249, 0.72);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 374,
+    "color": "rgba(148, 163, 184, 0.24)",
+    "text": "border: 1px solid rgba(148, 163, 184, 0.24);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 377,
+    "color": "rgba(8, 14, 30, 0.36)",
+    "text": "background: rgba(8, 14, 30, 0.36);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 384,
+    "color": "rgba(255, 255, 255, 0.72)",
+    "text": "background: rgba(255, 255, 255, 0.72);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 409,
+    "color": "#8fb6ff",
+    "text": "color: #8fb6ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 427,
+    "color": "#7fa5ff",
+    "text": "background: linear-gradient(135deg, #9bd8ff 0%, #7fa5ff 42%, #c19cff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 427,
+    "color": "#9bd8ff",
+    "text": "background: linear-gradient(135deg, #9bd8ff 0%, #7fa5ff 42%, #c19cff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 427,
+    "color": "#c19cff",
+    "text": "background: linear-gradient(135deg, #9bd8ff 0%, #7fa5ff 42%, #c19cff 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 435,
+    "color": "#0f9aa8",
+    "text": "background-image: linear-gradient(135deg, #1f68d8 0%, #4f46e5 55%, #0f9aa8 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 435,
+    "color": "#1f68d8",
+    "text": "background-image: linear-gradient(135deg, #1f68d8 0%, #4f46e5 55%, #0f9aa8 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 435,
+    "color": "#4f46e5",
+    "text": "background-image: linear-gradient(135deg, #1f68d8 0%, #4f46e5 55%, #0f9aa8 100%);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 441,
+    "color": "rgba(226, 238, 255, 0.72)",
+    "text": "color: rgba(226, 238, 255, 0.72);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 447,
+    "color": "rgba(18, 33, 66, 0.68)",
+    "text": "color: rgba(18, 33, 66, 0.68);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 470,
+    "color": "#061022",
+    "text": "color: #061022;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 471,
+    "color": "#83f2ff",
+    "text": "background: linear-gradient(135deg, #d8efff, #8db7ff 42%, #83f2ff);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 471,
+    "color": "#8db7ff",
+    "text": "background: linear-gradient(135deg, #d8efff, #8db7ff 42%, #83f2ff);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 471,
+    "color": "#d8efff",
+    "text": "background: linear-gradient(135deg, #d8efff, #8db7ff 42%, #83f2ff);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 472,
+    "color": "rgba(60, 128, 255, 0.36)",
+    "text": "box-shadow: 0 24px 70px rgba(60, 128, 255, 0.36);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 480,
+    "color": "rgba(148, 163, 184, 0.24)",
+    "text": "border: 1px solid rgba(148, 163, 184, 0.24);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 481,
+    "color": "rgba(255, 255, 255, 0.06)",
+    "text": "background: rgba(255, 255, 255, 0.06);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 496,
+    "color": "rgba(34, 211, 238, 0.03)",
+    "text": "fill: rgba(34, 211, 238, 0.03);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 503,
+    "color": "#82ecff",
+    "text": "fill: #82ecff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 504,
+    "color": "rgba(130, 236, 255, 0.9)",
+    "text": "filter: drop-shadow(0 0 10px rgba(130, 236, 255, 0.9));"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 553,
+    "color": "rgba(0, 0, 0, 0.28)",
+    "text": "box-shadow: 0 22px 50px rgba(0, 0, 0, 0.28);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 557,
+    "color": "rgba(226, 238, 255, 0.74)",
+    "text": "color: rgba(226, 238, 255, 0.74);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 563,
+    "color": "rgba(18, 33, 66, 0.68)",
+    "text": "color: rgba(18, 33, 66, 0.68);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 572,
+    "color": "#93281f",
+    "text": "background: linear-gradient(135deg, #d45140, #93281f);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 572,
+    "color": "#d45140",
+    "text": "background: linear-gradient(135deg, #d45140, #93281f);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 581,
+    "color": "#07546a",
+    "text": "background: linear-gradient(135deg, #0f8faa, #07546a);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 581,
+    "color": "#0f8faa",
+    "text": "background: linear-gradient(135deg, #0f8faa, #07546a);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 590,
+    "color": "#244765",
+    "text": "background: linear-gradient(135deg, #437eb0, #244765);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 590,
+    "color": "#437eb0",
+    "text": "background: linear-gradient(135deg, #437eb0, #244765);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 607,
+    "color": "rgba(148, 190, 255, 0.38)",
+    "text": "background: linear-gradient(90deg, transparent, rgba(148, 190, 255, 0.38), transparent);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 612,
+    "color": "#9db9f8",
+    "text": "color: #9db9f8;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 627,
+    "color": "rgba(135, 164, 224, 0.18)",
+    "text": "border: 1px solid rgba(135, 164, 224, 0.18);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 629,
+    "color": "rgba(7, 13, 28, 0.72)",
+    "text": "background: rgba(7, 13, 28, 0.72);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 630,
+    "color": "rgba(1, 7, 20, 0.28)",
+    "text": "box-shadow: 0 28px 80px rgba(1, 7, 20, 0.28);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 635,
+    "color": "rgba(255, 255, 255, 0.76)",
+    "text": "background: rgba(255, 255, 255, 0.76);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 636,
+    "color": "rgba(68, 92, 140, 0.14)",
+    "text": "box-shadow: 0 28px 70px rgba(68, 92, 140, 0.14);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 643,
+    "color": "rgba(135, 164, 224, 0.14)",
+    "text": "border-bottom: 1px solid rgba(135, 164, 224, 0.14);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 649,
+    "color": "rgba(165, 183, 220, 0.68)",
+    "text": "color: rgba(165, 183, 220, 0.68);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 661,
+    "color": "#e25b4a",
+    "text": "background: #e25b4a;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 665,
+    "color": "#4c93c8",
+    "text": "background: #4c93c8;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 672,
+    "color": "#dce7ff",
+    "text": "color: #dce7ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 679,
+    "color": "#203152",
+    "text": "color: #203152;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 683,
+    "color": "#6fa8ff",
+    "text": "color: #6fa8ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 687,
+    "color": "#8fb6ff",
+    "text": "color: #8fb6ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 692,
+    "color": "#6fe6d1",
+    "text": "color: #6fe6d1;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 696,
+    "color": "#087e79",
+    "text": "color: #087e79;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 702,
+    "color": "#9db9f8",
+    "text": "color: #9db9f8;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 716,
+    "color": "rgba(135, 164, 224, 0.18)",
+    "text": "border: 1px solid rgba(135, 164, 224, 0.18);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 718,
+    "color": "rgba(10, 18, 38, 0.58)",
+    "text": "background: rgba(10, 18, 38, 0.58);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 719,
+    "color": "rgba(0, 0, 0, 0.16)",
+    "text": "box-shadow: 0 18px 55px rgba(0, 0, 0, 0.16);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 725,
+    "color": "rgba(255, 255, 255, 0.72)",
+    "text": "background: rgba(255, 255, 255, 0.72);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 733,
+    "color": "#9bd8ff",
+    "text": "color: #9bd8ff;"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 746,
+    "color": "rgba(226, 238, 255, 0.66)",
+    "text": "color: rgba(226, 238, 255, 0.66);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 752,
+    "color": "rgba(18, 33, 66, 0.62)",
+    "text": "color: rgba(18, 33, 66, 0.62);"
+  },
+  {
+    "file": "src/pages/splash/index.vue",
+    "line": 771,
+    "color": "rgba(165, 183, 220, 0.72)",
+    "text": "color: rgba(165, 183, 220, 0.72);"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 40,
+    "color": "rgba(47, 107, 255, 0.2)",
+    "text": "background-image: radial-gradient(circle at 12% 18%, rgba(47, 107, 255, 0.2), transparent 42%),"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 41,
+    "color": "rgba(76, 164, 255, 0.16)",
+    "text": "radial-gradient(circle at 82% 30%, rgba(76, 164, 255, 0.16), transparent 44%),"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 42,
+    "color": "rgba(47, 107, 255, 0.06)",
+    "text": "linear-gradient(180deg, rgba(47, 107, 255, 0.06), rgba(47, 107, 255, 0));"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 42,
+    "color": "rgba(47, 107, 255, 0)",
+    "text": "linear-gradient(180deg, rgba(47, 107, 255, 0.06), rgba(47, 107, 255, 0));"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 46,
+    "color": "rgba(122, 162, 255, 0.2)",
+    "text": "background-image: radial-gradient(circle at 12% 18%, rgba(122, 162, 255, 0.2), transparent 42%),"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 47,
+    "color": "rgba(93, 189, 255, 0.14)",
+    "text": "radial-gradient(circle at 82% 30%, rgba(93, 189, 255, 0.14), transparent 44%),"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 48,
+    "color": "rgba(122, 162, 255, 0.06)",
+    "text": "linear-gradient(180deg, rgba(122, 162, 255, 0.06), rgba(122, 162, 255, 0));"
+  },
+  {
+    "file": "src/styles/main.css",
+    "line": 48,
+    "color": "rgba(122, 162, 255, 0)",
+    "text": "linear-gradient(180deg, rgba(122, 162, 255, 0.06), rgba(122, 162, 255, 0));"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 10,
+    "color": "#2155d8",
+    "text": "--color-brand-600: #2155d8;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 11,
+    "color": "#15915f",
+    "text": "--color-success: #15915f;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 12,
+    "color": "#b7791f",
+    "text": "--color-warning: #b7791f;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 13,
+    "color": "#d64545",
+    "text": "--color-danger: #d64545;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 14,
+    "color": "#dce4f2",
+    "text": "--color-border: #dce4f2;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 17,
+    "color": "rgba(15, 23, 42, 0.08)",
+    "text": "--shadow-soft: 0 8px 30px rgba(15, 23, 42, 0.08);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 18,
+    "color": "rgba(15, 23, 42, 0.08)",
+    "text": "--shadow-panel: 0 4px 18px rgba(15, 23, 42, 0.08);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 2,
+    "color": "#f6f8fc",
+    "text": "--color-bg: #f6f8fc;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 22,
+    "color": "#0b1020",
+    "text": "--color-bg: #0b1020;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 23,
+    "color": "#111830",
+    "text": "--color-panel: #111830;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 24,
+    "color": "#15203f",
+    "text": "--color-panel-2: #15203f;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 25,
+    "color": "#e4ecff",
+    "text": "--color-text: #e4ecff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 26,
+    "color": "#9fb0d9",
+    "text": "--color-text-subtle: #9fb0d9;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 27,
+    "color": "#1a2a57",
+    "text": "--color-brand-50: #1a2a57;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 28,
+    "color": "#1f3570",
+    "text": "--color-brand-100: #1f3570;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 29,
+    "color": "#7aa2ff",
+    "text": "--color-brand-500: #7aa2ff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 3,
+    "color": "#ffffff",
+    "text": "--color-panel: #ffffff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 30,
+    "color": "#8bb0ff",
+    "text": "--color-brand-600: #8bb0ff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 31,
+    "color": "#31c187",
+    "text": "--color-success: #31c187;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 32,
+    "color": "#f0b55b",
+    "text": "--color-warning: #f0b55b;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 33,
+    "color": "#ff7c7c",
+    "text": "--color-danger: #ff7c7c;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 34,
+    "color": "#243155",
+    "text": "--color-border: #243155;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 35,
+    "color": "rgba(2, 8, 23, 0.45)",
+    "text": "--shadow-soft: 0 12px 36px rgba(2, 8, 23, 0.45);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 36,
+    "color": "rgba(2, 8, 23, 0.4)",
+    "text": "--shadow-panel: 0 8px 24px rgba(2, 8, 23, 0.4);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 4,
+    "color": "#f3f6fb",
+    "text": "--color-panel-2: #f3f6fb;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 5,
+    "color": "#0f172a",
+    "text": "--color-text: #0f172a;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 6,
+    "color": "#475569",
+    "text": "--color-text-subtle: #475569;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 7,
+    "color": "#e0ecff",
+    "text": "--color-brand-50: #e0ecff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 8,
+    "color": "#c8dcff",
+    "text": "--color-brand-100: #c8dcff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 9,
+    "color": "#2f6bff",
+    "text": "--color-brand-500: #2f6bff;"
+  }
+]

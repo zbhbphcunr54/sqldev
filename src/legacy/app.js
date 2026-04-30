@@ -1879,12 +1879,6 @@ function _parseOracleVarDecl(declBlock) {
 /* ===== FUNCTION TRANSLATION ENGINE ===== */
 
 function convertFunction(input, sourceDb, targetDb) {
-  if (window.SQLDEV_ROUTINE_UTILS && typeof window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated === 'function') {
-    return window.SQLDEV_ROUTINE_UTILS.convertFunctionOrchestrated(input, sourceDb, targetDb, {
-      labels: DB_LABELS,
-      convertSingleFunction: _convertSingleFunction
-    });
-  }
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源函数定义';
   if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
@@ -2376,12 +2370,6 @@ function _genPGFunction(name, params, returnType, vars, body) {
 /* ===== STORED PROCEDURE TRANSLATION ENGINE ===== */
 
 function convertProcedure(input, sourceDb, targetDb) {
-  if (window.SQLDEV_ROUTINE_UTILS && typeof window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated === 'function') {
-    return window.SQLDEV_ROUTINE_UTILS.convertProcedureOrchestrated(input, sourceDb, targetDb, {
-      labels: DB_LABELS,
-      convertSingleProcedure: _convertSingleProcedure
-    });
-  }
   if (!input || !input.trim()) return '-- 请在左侧输入区粘贴源存储过程定义';
   if (input.length > 5 * 1024 * 1024) return '-- 错误：输入超过5MB限制\n';
   if (sourceDb === targetDb) return '-- 源库与目标库相同 (' + DB_LABELS[sourceDb] + ')，无需翻译\n\n' + input.trim();
@@ -3001,68 +2989,21 @@ const app = createApp({
       { value: 'mysql', label: 'MySQL', abbr: 'MY' },
       { value: 'postgresql', label: 'PostgreSQL', abbr: 'PG' }
     ];
-    const PAGE_ROUTE_SEGMENTS = Object.freeze({
-      ddl: 'ddl',
-      func: 'function',
-      proc: 'procedure',
-      idTool: 'id-tool',
-      ziweiTool: 'ziwei',
-      rules: 'rules',
-      bodyRules: 'body-rules'
-    });
-    const ROUTE_SEGMENT_TO_PAGE = Object.freeze((function() {
-      var map = {};
-      var keys = Object.keys(PAGE_ROUTE_SEGMENTS);
-      for (var i = 0; i < keys.length; i++) {
-        map[PAGE_ROUTE_SEGMENTS[keys[i]]] = keys[i];
-      }
-      return map;
-    })());
-    const ROUTE_WORKBENCH_PREFIX = '/workbench';
-    const ROUTE_SPLASH_PATH = '/splash';
-    const ROUTE_PAGE_KEYS = Object.freeze(Object.keys(PAGE_ROUTE_SEGMENTS));
-    function normalizeEmail(value) {
-      return String(value || '').trim().toLowerCase();
-    }
-    function parseEmailAllowList(raw) {
-      if (Array.isArray(raw)) {
-        return raw.map(normalizeEmail).filter(Boolean);
-      }
-      if (typeof raw === 'string') {
-        return raw.split(',').map(normalizeEmail).filter(Boolean);
-      }
-      return [];
-    }
+    const legacyNavState = window.SQLDEV_LEGACY_NAV_STATE && typeof window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState === 'function'
+      ? window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState(window)
+      : null;
+    const PAGE_ROUTE_SEGMENTS = legacyNavState ? legacyNavState.PAGE_ROUTE_SEGMENTS : Object.freeze({ ddl: 'ddl', func: 'function', proc: 'procedure', idTool: 'id-tool', ziweiTool: 'ziwei', rules: 'rules', bodyRules: 'body-rules' });
+    const ROUTE_PAGE_KEYS = legacyNavState ? legacyNavState.ROUTE_PAGE_KEYS : Object.freeze(Object.keys(PAGE_ROUTE_SEGMENTS));
+    const normalizeEmail = legacyNavState ? legacyNavState.normalizeEmail : function(value) { return String(value || '').trim().toLowerCase(); };
     const ZIWEI_ALLOWED_EMAILS = Object.freeze((function() {
-      if (typeof window === 'undefined') return [];
-      var configured = window.SQDEV_ZIWEI_ALLOWED_EMAILS;
-      if (configured == null || configured === '') configured = window.__SQDEV_ZIWEI_ALLOWED_EMAILS;
-      return parseEmailAllowList(configured);
+      if (legacyNavState) return legacyNavState.readConfiguredZiweiAllowedEmails();
+      return [];
     })());
     function readCurrentAuthEmail() {
-      try {
-        if (typeof window === 'undefined' || !window.authApi || typeof window.authApi.getUserSync !== 'function') return '';
-        var authUser = window.authApi.getUserSync();
-        return normalizeEmail(authUser && authUser.email);
-      } catch (_err) {
-        return '';
-      }
+      return legacyNavState ? legacyNavState.readCurrentAuthEmail() : '';
     }
     function _readZiweiShareModeFromLocation() {
-      try {
-        if (typeof window === 'undefined' || !window.location) return false;
-        var search = new URLSearchParams(String(window.location.search || ''));
-        var raw = search.get('ziwei_share') || search.get('zwshare') || '';
-        if (!raw && String(window.location.hash || '').indexOf('?') >= 0) {
-          var hashQuery = String(window.location.hash || '').split('?')[1] || '';
-          var hashParams = new URLSearchParams(hashQuery);
-          raw = hashParams.get('ziwei_share') || hashParams.get('zwshare') || '';
-        }
-        var flag = String(raw || '').trim().toLowerCase();
-        return flag === '1' || flag === 'true' || flag === 'yes';
-      } catch (_err) {
-        return false;
-      }
+      return legacyNavState ? legacyNavState.readZiweiShareModeFromLocation() : false;
     }
     const ziweiShareMode = ref(_readZiweiShareModeFromLocation());
     const currentUserEmail = ref(readCurrentAuthEmail());
@@ -3078,23 +3019,11 @@ const app = createApp({
     });
 
     function normalizePageKey(page) {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.normalizeLegacyPageKey(page, ROUTE_PAGE_KEYS, 'ddl');
-      }
+      if (legacyNavState) return legacyNavState.normalizePageKey(page);
       var key = String(page || '').trim();
       return ROUTE_PAGE_KEYS.indexOf(key) >= 0 ? key : 'ddl';
     }
     function normalizeAccessiblePage(page) {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.normalizeAccessibleLegacyPage(page, {
-          routePageKeys: ROUTE_PAGE_KEYS,
-          ziweiPageKey: 'ziweiTool',
-          fallbackPageKey: 'ddl',
-          deniedZiweiFallbackPageKey: 'idTool',
-          isZiweiShareMode: ziweiShareMode.value,
-          canAccessZiweiTool: canAccessZiweiTool.value
-        });
-      }
       var key = normalizePageKey(page);
       if (ziweiShareMode.value) return 'ziweiTool';
       if (key === 'ziweiTool' && !canAccessZiweiTool.value) return 'idTool';
@@ -3102,60 +3031,35 @@ const app = createApp({
     }
 
     function normalizeRoutePath(path) {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeLegacyRoutePath === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.normalizeLegacyRoutePath(path);
-      }
-      var value = String(path || '').trim();
-      if (!value) return '/';
-      if (value.charAt(0) !== '/') value = '/' + value;
-      value = value.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
-      return value || '/';
+      return legacyNavState ? legacyNavState.normalizeRoutePath(path) : '/';
     }
 
     function parseRouteInfoFromPath(path) {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromPath === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromPath(path, {
-          pageRouteSegments: PAGE_ROUTE_SEGMENTS,
-          routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
-        });
-      }
-      var normalized = normalizeRoutePath(path);
-      if (/(?:^|\/)splash(?:\/)?$/i.test(normalized)) {
-        return { view: 'splash' };
-      }
-      var match = normalized.match(/(?:^|\/)workbench(?:\/([^/?#]+))?/i);
-      if (!match) return null;
-      var segment = String(match[1] || 'ddl').toLowerCase();
-      return { view: 'workbench', page: ROUTE_SEGMENT_TO_PAGE[segment] || 'ddl' };
+      return legacyNavState ? legacyNavState.parseRouteInfoFromPath(path) : null;
     }
 
     function parseRouteInfoFromLocation() {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation(
-          typeof window === 'undefined' ? null : window.location,
-          {
-            pageRouteSegments: PAGE_ROUTE_SEGMENTS,
-            routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
-          }
-        );
-      }
-      if (typeof window === 'undefined' || !window.location) return null;
-      var hashPath = normalizeRoutePath(String(window.location.hash || '').replace(/^#/, ''));
-      var infoFromHash = parseRouteInfoFromPath(hashPath);
-      if (infoFromHash) return infoFromHash;
-      return parseRouteInfoFromPath(window.location.pathname || '/');
+      return legacyNavState ? legacyNavState.parseRouteInfoFromLocation() : null;
     }
 
     function buildWorkbenchHash(page) {
-      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.buildLegacyWorkbenchHash === 'function') {
-        return window.SQLDEV_ROUTE_UTILS.buildLegacyWorkbenchHash(page, {
-          pageRouteSegments: PAGE_ROUTE_SEGMENTS,
-          routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
-        });
-      }
-      var normalizedPage = normalizePageKey(page);
-      var segment = PAGE_ROUTE_SEGMENTS[normalizedPage] || PAGE_ROUTE_SEGMENTS.ddl;
-      return '#' + ROUTE_WORKBENCH_PREFIX + '/' + segment;
+      return legacyNavState ? legacyNavState.buildWorkbenchHash(page) : '#/workbench/ddl';
+    }
+
+    function notifyParentWorkbenchRoute(page, replaceUrl) {
+      if (typeof window === 'undefined' || window.parent === window) return;
+      try {
+        var normalizedPage = normalizePageKey(page);
+        var segment = PAGE_ROUTE_SEGMENTS[normalizedPage] || PAGE_ROUTE_SEGMENTS.ddl || 'ddl';
+        window.parent.postMessage(
+          {
+            type: 'sqldev:navigate-workbench-section',
+            section: segment,
+            replace: !!replaceUrl
+          },
+          window.location.origin
+        );
+      } catch (_postMessageErr) {}
     }
 
     function syncRouteForPage(page, replaceUrl) {
@@ -3163,39 +3067,24 @@ const app = createApp({
       var targetHash = buildWorkbenchHash(page);
       var currentHashRaw = String(window.location.hash || '').replace(/^#/, '');
       var currentHash = currentHashRaw ? ('#' + normalizeRoutePath(currentHashRaw)) : '';
-      var routeSyncDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteSyncDecision({
-          currentHash: currentHash,
-          targetHash: targetHash,
-          replaceUrl: !!replaceUrl,
-          hasHistoryApi: !!window.history,
-          hasReplaceStateApi: !!(window.history && typeof window.history.replaceState === 'function'),
-          hasPushStateApi: !!(window.history && typeof window.history.pushState === 'function')
-        })
-        : null;
-      if (routeSyncDecision ? !routeSyncDecision.shouldSync : currentHash === targetHash) return;
+      if (currentHash === targetHash) return;
       var nextUrl = window.location.pathname + window.location.search + targetHash;
       try {
-        if (routeSyncDecision ? routeSyncDecision.strategy === 'replaceState' : (window.history && replaceUrl && typeof window.history.replaceState === 'function')) {
-          window.history.replaceState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
-          return;
-        }
-        if (routeSyncDecision ? routeSyncDecision.strategy === 'pushState' : (window.history && !replaceUrl && typeof window.history.pushState === 'function')) {
-          window.history.pushState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
-          return;
-        }
-        if (!routeSyncDecision && window.history) {
+        if (window.history) {
           if (replaceUrl && typeof window.history.replaceState === 'function') {
             window.history.replaceState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
+            notifyParentWorkbenchRoute(page, true);
             return;
           }
           if (!replaceUrl && typeof window.history.pushState === 'function') {
             window.history.pushState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
+            notifyParentWorkbenchRoute(page, false);
             return;
           }
         }
       } catch (_historyErr) {}
       window.location.hash = targetHash.slice(1);
+      notifyParentWorkbenchRoute(page, !!replaceUrl);
     }
 
     const initialRouteInfo = parseRouteInfoFromLocation();
@@ -3211,15 +3100,9 @@ const app = createApp({
         : false
     );
     function handleSidebarHover(open) {
-      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacySidebarHoverState(open, {
-          mobileBreakpoint: 1024,
-          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth
-        })
-        : null;
-      if (nextState ? nextState.shouldIgnore : window.innerWidth <= 1024) return;
-      sidebarOpen.value = nextState ? nextState.nextSidebarOpen : !!open;
-      if (nextState ? nextState.shouldCloseSettings : !open) sidebarSettingsOpen.value = false;
+      if (window.innerWidth <= 1024) return;
+      sidebarOpen.value = !!open;
+      if (!open) sidebarSettingsOpen.value = false;
     }
     function toggleSidebar() {
       sidebarCollapsed.value = !sidebarCollapsed.value;
@@ -3233,107 +3116,33 @@ const app = createApp({
     const TEST_TOOL_PAGES = ['idTool', 'ziweiTool'];
     const testToolsExpanded = ref(TEST_TOOL_PAGES.indexOf(activePage.value) >= 0);
     function toggleTestToolsMenu() {
-      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyTestToolsMenuToggleState(testToolsExpanded.value, {
-          activePage: activePage.value,
-          testToolPages: TEST_TOOL_PAGES,
-          fallbackPage: 'ddl'
-        })
-        : null;
-      testToolsExpanded.value = nextState ? nextState.nextExpanded : !testToolsExpanded.value;
-      var fallbackPage = nextState ? nextState.nextPage : (!testToolsExpanded.value && TEST_TOOL_PAGES.indexOf(activePage.value) >= 0 ? 'ddl' : null);
-      if (fallbackPage) setPage(fallbackPage);
+      testToolsExpanded.value = !testToolsExpanded.value;
+      if (!testToolsExpanded.value && TEST_TOOL_PAGES.indexOf(activePage.value) >= 0) {
+        setPage('ddl');
+      }
     }
     function applyPageState(page, options) {
       var opts = options || {};
-      var nextState = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPageTransition(page, {
-          routePageKeys: ROUTE_PAGE_KEYS,
-          ziweiPageKey: 'ziweiTool',
-          fallbackPageKey: 'ddl',
-          deniedZiweiFallbackPageKey: 'idTool',
-          isZiweiShareMode: ziweiShareMode.value,
-          canAccessZiweiTool: canAccessZiweiTool.value,
-          testToolPages: TEST_TOOL_PAGES,
-          ensureRegionPageKey: 'idTool',
-          keepSidebarOnMobile: !!opts.keepSidebarOnMobile,
-          mobileBreakpoint: 1024,
-          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth
-        })
-        : null;
-      var normalizedPage = nextState ? nextState.normalizedPage : normalizeAccessiblePage(page);
+      var normalizedPage = normalizeAccessiblePage(page);
       activePage.value = normalizedPage;
-      if (nextState ? nextState.shouldExpandTestTools : TEST_TOOL_PAGES.indexOf(normalizedPage) >= 0) {
+      if (TEST_TOOL_PAGES.indexOf(normalizedPage) >= 0) {
         testToolsExpanded.value = true;
       }
-      if (nextState ? nextState.shouldEnsureRegionData : normalizedPage === 'idTool') {
+      if (normalizedPage === 'idTool') {
         ensureRegionDataLoaded();
       }
       if (opts.syncRoute !== false) {
         syncRouteForPage(normalizedPage, !!opts.replaceRoute);
       }
-      if (nextState ? nextState.shouldCloseSidebarOnMobile : (!opts.keepSidebarOnMobile && window.innerWidth <= 1024)) {
-        sidebarOpen.value = false;
-      }
+      if (!opts.keepSidebarOnMobile && window.innerWidth <= 1024) sidebarOpen.value = false;
     }
     function setPage(page) {
       applyPageState(page, { syncRoute: true, replaceRoute: false });
-    }
-    function ensureWorkbenchVisibleForRoute() {
-      if (typeof document === 'undefined') return;
-      var visibilityDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchVisibilityDecision({
-          isSplashActive: document.body.classList.contains('splash-active'),
-          hasEnterWorkbenchApi: typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function'
-        })
-        : null;
-      if (visibilityDecision ? visibilityDecision.shouldSkip : !document.body.classList.contains('splash-active')) return;
-      if (visibilityDecision ? visibilityDecision.shouldUseEnterWorkbenchApi : (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function')) {
-        window.splashApi.enterWorkbench(true);
-        return;
-      }
-      document.documentElement.classList.add('startup-workbench');
-      document.body.classList.remove('splash-active');
-      var poster = document.getElementById('splash-poster');
-      if (poster) poster.style.display = 'none';
     }
     function applyRouteFromLocation() {
       ziweiShareMode.value = _readZiweiShareModeFromLocation();
       var routeInfo = parseRouteInfoFromLocation();
       if (!routeInfo) return;
-      var routeDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyRouteApplicationDecision({
-          routeInfo: routeInfo,
-          isZiweiShareMode: ziweiShareMode.value,
-          canAccessZiweiTool: canAccessZiweiTool.value,
-          activePage: activePage.value,
-          isSplashActive: typeof document !== 'undefined' && document.body.classList.contains('splash-active')
-        })
-        : null;
-      if (routeDecision) {
-        if (routeDecision.shouldEnsureWorkbenchVisible) {
-          ensureWorkbenchVisibleForRoute();
-        }
-        if (routeDecision.shouldGoSplashHome) {
-          goSplashHome();
-        }
-        if (routeDecision.nextPage && routeDecision.nextPageOptions) {
-          applyPageState(routeDecision.nextPage, routeDecision.nextPageOptions);
-        }
-        return;
-      }
-      if (routeInfo.view === 'splash') {
-        if (ziweiShareMode.value) {
-          ensureWorkbenchVisibleForRoute();
-          applyPageState('ziweiTool', { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
-          return;
-        }
-        if (typeof document !== 'undefined' && !document.body.classList.contains('splash-active')) {
-          goSplashHome();
-        }
-        return;
-      }
-      ensureWorkbenchVisibleForRoute();
       if (ziweiShareMode.value) {
         if (activePage.value !== 'ziweiTool') {
           applyPageState('ziweiTool', { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
@@ -3348,6 +3157,17 @@ const app = createApp({
         applyPageState(routeInfo.page, { syncRoute: false, keepSidebarOnMobile: true });
       }
     }
+
+    function applyRouteFromParentMessage(hashPath) {
+      var routeInfo = parseRouteInfoFromPath(hashPath);
+      if (!routeInfo || routeInfo.view !== 'workbench') return;
+      var nextPage = normalizeAccessiblePage(routeInfo.page);
+      if (nextPage === activePage.value) {
+        syncRouteForPage(nextPage, true);
+        return;
+      }
+      applyPageState(nextPage, { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
+    }
     /* navKeydown removed: sidebar is now role="navigation" with aria-current, not tablist */
     const showRulesMenu = ref(false);
     const sidebarSettingsOpen = ref(false);
@@ -3358,25 +3178,11 @@ const app = createApp({
       var items = e.currentTarget.querySelectorAll('[role="menuitem"]');
       if (!items.length) return;
       var idx = Array.prototype.indexOf.call(items, document.activeElement);
-      var menuKeyDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyMenuKeyDecision({
-          key: e.key,
-          activeIndex: idx,
-          itemCount: items.length
-        })
-        : null;
-      if (menuKeyDecision ? menuKeyDecision.action === 'focus' : e.key === 'ArrowDown') {
-        e.preventDefault();
-        var focusIndex = menuKeyDecision ? menuKeyDecision.nextIndex : ((idx + 1) % items.length);
-        if (items[focusIndex]) items[focusIndex].focus();
-      } else if (menuKeyDecision ? menuKeyDecision.action === 'closeMenu' : e.key === 'Escape') {
-        e.preventDefault();
-        showRulesMenu.value = false;
-        var t = document.getElementById('settings-trigger');
-        if (t) t.focus();
-      } else if (!menuKeyDecision && e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
-      else if (!menuKeyDecision && e.key === 'Home') { e.preventDefault(); items[0].focus(); }
-      else if (!menuKeyDecision && e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+      else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); showRulesMenu.value = false; var t = document.getElementById('settings-trigger'); if (t) t.focus(); }
     }
     watch(showRulesMenu, function(open) {
       if (open) { nextTick(function() { var el = document.querySelector('.settings-menu [role="menuitem"]'); if (el) el.focus(); }); }
@@ -3438,11 +3244,6 @@ const app = createApp({
         if (themeMode.value === 'system') applyTheme('system');
       });
     } catch(e) {}
-    /* Sync theme if poster forced dark after Vue mounted */
-    window.addEventListener('sp-theme-sync', function(e) {
-      themeMode.value = e.detail || 'system';
-      applyTheme(themeMode.value);
-    });
     const refCollapsed = ref(true);
     const ruleSearchQuery = ref('');
     const ruleFilterDir = ref('all');
@@ -3694,7 +3495,6 @@ const app = createApp({
     const ziweiAiCooldownHint = ref('');
     const ziweiAiLastRequestAt = ref(0);
     const ziweiLastAiSignature = ref('');
-    const _ziweiAiCache = new Map();
     const _ZIWEI_AI_CACHE_MAX = 12;
     const _ZIWEI_AI_MIN_INTERVAL_MS = 2200;
     const _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS = 30000;
@@ -3702,9 +3502,8 @@ const app = createApp({
       var raw = String(window.SQDEV_ZIWEI_AI_PRIMARY_PAYLOAD || 'lite').trim().toLowerCase();
       return raw === 'compact' ? 'compact' : 'lite';
     })();
-    var _ziweiAiInFlightPromise = null;
-    var _ziweiAiInFlightSignature = '';
-    var _ziweiAiCooldownTimer = 0;
+    var ziweiAiCooldownActions = null;
+    var ziweiAiRequestActions = null;
     /*
     const LEGACY_UNUSED_QA_LIST = [
       '请解读我今年事业和收入变化重点',
@@ -4704,293 +4503,59 @@ const app = createApp({
       _flashButtonState(usccVerifyDone, 'usccVerify');
     }
 
-    function generateIdNumber() {
-      if (!regionReady.value) {
-        idGenerateResult.value = { type: 'error', text: regionLoadError.value || '行政区划数据尚未就绪，请稍后再试' };
-        return;
-      }
-      var regionCode = _pickBestRegionCode(idProvinceCode.value, idCityCode.value, idCountyCode.value);
-      if (!regionCode) {
-        idGenerateResult.value = { type: 'error', text: '请选择有效的省市区' };
-        return;
-      }
-      var ymd = _parseYmdFromIsoDate(idBirthDate.value);
-      if (!ymd) {
-        idGenerateResult.value = { type: 'error', text: '请输入合法的出生日期' };
-        return;
-      }
-      if (!_validateBirthYmd8(ymd)) {
-        idGenerateResult.value = { type: 'error', text: '出生日期不在合理范围内' };
-        return;
-      }
-      var seq = _randomSeqByGender(idGender.value);
-      var id17 = regionCode + ymd + seq;
-      var check = _calcIdCheckDigit(id17);
-      if (!check) {
-        idGenerateResult.value = { type: 'error', text: '生成失败，请重试' };
-        return;
-      }
-      idGeneratedNumber.value = id17 + check;
-      idGenerateResult.value = { type: 'success', text: '已生成合法身份证号码' };
+    var idToolActions = window.SQLDEV_LEGACY_ID_TOOL_ACTIONS &&
+      typeof window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions === 'function'
+        ? window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions({
+            regionReady,
+            regionLoadError,
+            regionCodeSet,
+            idProvinceCode,
+            idCityCode,
+            idCountyCode,
+            idBirthDate,
+            idBirthMax,
+            idGender,
+            idGeneratedNumber,
+            idGenerateResult,
+            idVerifyInput,
+            idCopyDone,
+            usccProvinceCode,
+            usccCityCode,
+            usccCountyCode,
+            usccCodeMode,
+            usccDeptCode,
+            usccOrgTypeCode,
+            usccGeneratedCode,
+            usccLegacyGenerated,
+            usccCopyPayload,
+            usccGenerateResult,
+            usccVerifyInput,
+            usccCopyDone,
+            setIdVerifyResult: _setIdVerifyResult,
+            setUsccVerifyResult: _setUsccVerifyResult,
+            flashButtonState: _flashButtonState,
+            clipboardWrite
+          })
+        : null;
+
+    if (!idToolActions) {
+      console.error('[SQLDev] Legacy ID tool actions module is not available');
     }
 
-    function validateIdNumber() {
-      var rawInput = String(idVerifyInput.value || '').trim().toUpperCase();
-      if (!rawInput) {
-        _setIdVerifyResult('error', '\u8bf7\u8f93\u5165\u5f85\u6821\u9a8c\u7684\u8eab\u4efd\u8bc1\u53f7\u7801');
-        return;
+    function _runIdToolAction(actionName) {
+      if (!idToolActions || typeof idToolActions[actionName] !== 'function') {
+        idGenerateResult.value = { type: 'error', text: '证件工具初始化失败，请刷新页面后重试' };
+        return undefined;
       }
-      if (!/^\d{17}[\dX]$/.test(rawInput)) {
-        _setIdVerifyResult('error', '\u683c\u5f0f\u9519\u8bef\uff1a\u5e94\u4e3a18\u4f4d\uff0817\u4f4d\u6570\u5b57 + \u6700\u540e1\u4f4d\u6570\u5b57\u6216X\uff09');
-        return;
-      }
-      if (!regionCodeSet.value.has(rawInput.slice(0, 6))) {
-        _setIdVerifyResult('error', '\u884c\u653f\u533a\u5212\u4ee3\u7801\u4e0d\u5b58\u5728\uff1a' + rawInput.slice(0, 6));
-        return;
-      }
-      var birthYmd = rawInput.slice(6, 14);
-      if (!_validateBirthYmd8(birthYmd)) {
-        _setIdVerifyResult('error', '\u51fa\u751f\u65e5\u671f\u4e0d\u5408\u6cd5\uff1a' + birthYmd);
-        return;
-      }
-      var expectedCheck = _calcIdCheckDigit(rawInput.slice(0, 17));
-      if (!expectedCheck || expectedCheck !== rawInput[17]) {
-        _setIdVerifyResult('error', '\u6821\u9a8c\u7801\u9519\u8bef\uff1a\u5e94\u4e3a ' + expectedCheck + '\uff0c\u5b9e\u9645\u4e3a ' + rawInput[17]);
-        return;
-      }
-      _setIdVerifyResult('success', '\u6821\u9a8c\u901a\u8fc7\uff1a\u8eab\u4efd\u8bc1\u53f7\u7801\u5408\u6cd5');
-      return;
-
+      return idToolActions[actionName]();
     }
 
-    function copyGeneratedIdNumber() {
-      if (!idGeneratedNumber.value) {
-        idGenerateResult.value = { type: 'info', text: '请先生成身份证号码' };
-        return;
-      }
-      clipboardWrite(idGeneratedNumber.value).then(function(ok) {
-        if (ok) _flashButtonState(idCopyDone, 'idCopy');
-      });
-      return;
-    }
-
-    function _calcUsccCheckChar(base17) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.calcUsccCheckChar(base17);
-      }
-      if (!/^[0-9A-HJ-NPQRTUWXY]{17}$/.test(base17)) return '';
-      var sum = 0;
-      for (var i = 0; i < 17; i++) {
-        var v = usccCharIndexMap[base17[i]];
-        if (typeof v !== 'number') return '';
-        sum += v * USCC_WEIGHTS[i];
-      }
-      var checkIndex = (31 - (sum % 31)) % 31;
-      return USCC_CHARSET[checkIndex];
-    }
-
-    function _randomUsccBody(len) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.randomUsccBody(len, _randomInt);
-      }
-      var out = '';
-      for (var i = 0; i < len; i++) {
-        out += USCC_CHARSET[_randomInt(0, USCC_CHARSET.length - 1)];
-      }
-      return out;
-    }
-
-    function _randomOrgCodeBody(len) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.randomOrgCodeBody(len, _randomInt);
-      }
-      var out = '';
-      for (var i = 0; i < len; i++) {
-        out += ORG_CODE_CHARSET[_randomInt(0, ORG_CODE_CHARSET.length - 1)];
-      }
-      return out;
-    }
-
-    function _calcOrgCodeCheckChar(base8) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.calcOrgCodeCheckChar(base8);
-      }
-      if (!/^[0-9A-Z]{8}$/.test(base8)) return '';
-      var sum = 0;
-      for (var i = 0; i < 8; i++) {
-        var idx = ORG_CODE_CHARSET.indexOf(base8[i]);
-        if (idx < 0) return '';
-        sum += idx * ORG_CODE_WEIGHTS[i];
-      }
-      var c9 = 11 - (sum % 11);
-      if (c9 === 10) return 'X';
-      if (c9 === 11) return '0';
-      if (c9 === 12) return '0';
-      return String(c9);
-    }
-
-    function _generateLegacyThreeCert(regionCode) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.generateLegacyThreeCert(regionCode, _randomInt);
-      }
-      var businessRegNo = String(regionCode) + String(_randomInt(0, 999999999)).padStart(9, '0');
-      var orgBody = _randomOrgCodeBody(8);
-      var orgCheck = _calcOrgCodeCheckChar(orgBody);
-      if (!orgCheck) return null;
-      var orgCode = orgBody + '-' + orgCheck;
-      var taxNo = String(regionCode) + orgBody + orgCheck;
-      return {
-        businessRegNo: businessRegNo,
-        orgCode: orgCode,
-        taxNo: taxNo
-      };
-    }
-
-    function _validateUscc18(raw) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.validateUscc18(raw, function(code) { return regionCodeSet.value.has(code); });
-      }
-      if (!/^[0-9A-HJ-NPQRTUWXY]{18}$/.test(raw)) {
-        return { ok: false, msg: '格式错误：应为18位，仅允许数字及大写字母（不含 I/O/S/V/Z）' };
-      }
-      if (!USCC_DEPT_ALLOWED.has(raw[0])) {
-        return { ok: false, msg: '登记管理部门代码不合法：' + raw[0] };
-      }
-      if (!USCC_CHARSET.includes(raw[1])) {
-        return { ok: false, msg: '机构类别代码不合法：' + raw[1] };
-      }
-      var regionCode = raw.slice(2, 8);
-      if (!regionCodeSet.value.has(regionCode)) {
-        return { ok: false, msg: '行政区划码不存在：' + regionCode };
-      }
-      var expected = _calcUsccCheckChar(raw.slice(0, 17));
-      if (!expected || expected !== raw[17]) {
-        return { ok: false, msg: '校验码错误：应为 ' + expected + '，实际为 ' + raw[17] };
-      }
-      return { ok: true, msg: '校验通过：统一社会信用代码合法' };
-    }
-
-    function _validateOrgCode(raw) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.validateOrgCode(raw);
-      }
-      var normalized = String(raw || '').toUpperCase().replace(/-/g, '');
-      if (!/^[0-9A-Z]{8}[0-9X]$/.test(normalized)) {
-        return { ok: false, msg: '组织机构代码格式错误：应为 8位主体码 + 校验位（支持中划线）' };
-      }
-      var expected = _calcOrgCodeCheckChar(normalized.slice(0, 8));
-      if (!expected || expected !== normalized[8]) {
-        return { ok: false, msg: '组织机构代码校验位错误：应为 ' + expected + '，实际为 ' + normalized[8] };
-      }
-      return { ok: true, msg: '校验通过：组织机构代码合法' };
-    }
-
-    function _validateLegacy15(raw) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.validateLegacy15(raw, function(code) { return regionCodeSet.value.has(code); });
-      }
-      if (!/^\d{15}$/.test(raw)) {
-        return { ok: false, msg: '旧版15位号码格式错误：应为15位数字' };
-      }
-      var regionCode = raw.slice(0, 6);
-      if (!regionCodeSet.value.has(regionCode)) {
-        return { ok: false, msg: '行政区划码不存在：' + regionCode };
-      }
-      return { ok: true, msg: '校验通过：15位旧版号码格式合法' };
-    }
-
-    function _validateUsccOrLegacyToken(raw) {
-      if (typeof window !== 'undefined' && window.SQLDEV_ID_TOOL_UTILS) {
-        return window.SQLDEV_ID_TOOL_UTILS.validateUsccOrLegacyToken(raw, function(code) { return regionCodeSet.value.has(code); });
-      }
-      if (/^[0-9A-HJ-NPQRTUWXY]{18}$/.test(raw)) return _validateUscc18(raw);
-      if (/^[0-9A-Z]{8}-?[0-9X]$/.test(raw)) return _validateOrgCode(raw);
-      if (/^\d{15}$/.test(raw)) return _validateLegacy15(raw);
-      return { ok: false, msg: '无法识别的编码格式：' + raw };
-    }
-
-    function generateUsccCode() {
-      if (!regionReady.value) {
-        usccGenerateResult.value = { type: 'error', text: regionLoadError.value || '行政区划数据尚未就绪，请稍后再试' };
-        return;
-      }
-      if (!USCC_DEPT_ALLOWED.has(usccDeptCode.value)) {
-        usccGenerateResult.value = { type: 'error', text: '登记管理部门代码无效' };
-        return;
-      }
-      if (!USCC_CHARSET.includes(usccOrgTypeCode.value)) {
-        usccGenerateResult.value = { type: 'error', text: '机构类别代码无效' };
-        return;
-      }
-      var regionCode = _pickBestRegionCode(usccProvinceCode.value, usccCityCode.value, usccCountyCode.value);
-      if (!regionCode) {
-        usccGenerateResult.value = { type: 'error', text: '请选择有效的登记机关行政区划' };
-        return;
-      }
-      if (usccCodeMode.value === 'legacy3') {
-        var legacy = _generateLegacyThreeCert(regionCode);
-        if (!legacy) {
-          usccGenerateResult.value = { type: 'error', text: '旧版三证生成失败，请重试' };
-          return;
-        }
-        usccLegacyGenerated.value = legacy;
-        usccGeneratedCode.value = legacy.businessRegNo;
-        usccCopyPayload.value =
-          '工商注册号：' + legacy.businessRegNo + '\n' +
-          '组织机构代码：' + legacy.orgCode + '\n' +
-          '税务登记号：' + legacy.taxNo;
-        usccGenerateResult.value = { type: 'success', text: '已生成旧版三证号码（工商/组织机构/税务）' };
-        return;
-      }
-      var body9 = _randomUsccBody(9);
-      var base17 = String(usccDeptCode.value) + String(usccOrgTypeCode.value) + regionCode + body9;
-      var check = _calcUsccCheckChar(base17);
-      if (!check) {
-        usccGenerateResult.value = { type: 'error', text: '生成失败，请重试' };
-        return;
-      }
-      usccLegacyGenerated.value = null;
-      usccGeneratedCode.value = base17 + check;
-      usccCopyPayload.value = usccGeneratedCode.value;
-      usccGenerateResult.value = { type: 'success', text: '已生成统一社会信用代码' };
-    }
-
-    function validateUsccCode() {
-      var rawInput = String(usccVerifyInput.value || '').trim().toUpperCase();
-      if (!rawInput) {
-        _setUsccVerifyResult('error', '\u8bf7\u8f93\u5165\u5f85\u6821\u9a8c\u7684\u4ee3\u7801');
-        return;
-      }
-      var tokens = rawInput.match(/[0-9A-HJ-NPQRTUWXY]{18}|[0-9A-Z]{8}-?[0-9X]|\d{15}/g);
-      if (tokens && tokens.length > 1) {
-        var lines = [];
-        var allOk = true;
-        for (var idx = 0; idx < tokens.length; idx++) {
-          var token = tokens[idx];
-          var checkRes = _validateUsccOrLegacyToken(token);
-          lines.push((checkRes.ok ? '\u221a ' : '\u00d7 ') + token + '\uff1a' + checkRes.msg.replace(/^\u6821\u9a8c\u901a\u8fc7\uff1a/, ''));
-          if (!checkRes.ok) allOk = false;
-        }
-        _setUsccVerifyResult(allOk ? 'success' : 'info', lines.join('\uff1b'));
-        return;
-      }
-      var verifyRes = _validateUsccOrLegacyToken(rawInput);
-      _setUsccVerifyResult(verifyRes.ok ? 'success' : 'error', verifyRes.msg);
-      return;
-
-    }
-
-    function copyGeneratedUsccCode() {
-      var payload = String(usccCopyPayload.value || usccGeneratedCode.value || '').trim();
-      if (!payload) {
-        usccGenerateResult.value = { type: 'info', text: '请先生成代码' };
-        return;
-      }
-      clipboardWrite(payload).then(function(ok) {
-        if (ok) _flashButtonState(usccCopyDone, 'usccCopy');
-      });
-      return;
-    }
+    function generateIdNumber() { return _runIdToolAction('generateIdNumber'); }
+    function validateIdNumber() { return _runIdToolAction('validateIdNumber'); }
+    function copyGeneratedIdNumber() { return _runIdToolAction('copyGeneratedIdNumber'); }
+    function generateUsccCode() { return _runIdToolAction('generateUsccCode'); }
+    function validateUsccCode() { return _runIdToolAction('validateUsccCode'); }
+    function copyGeneratedUsccCode() { return _runIdToolAction('copyGeneratedUsccCode'); }
 
     function _zwNormalizeSolarDay() {
       var year = Number(ziweiSolarYear.value || '1990');
@@ -6342,173 +5907,46 @@ const app = createApp({
       ziweiFocusBranch.value = b;
     }
 
-    function updateZiweiAiSuggestionLayout() {
-      var wrapEl = ziweiAiQaInputWrapRef.value;
-      if (!wrapEl || typeof wrapEl.getBoundingClientRect !== 'function') return;
-      var wrapRect = wrapEl.getBoundingClientRect();
-      var viewportH = Number(window.innerHeight || document.documentElement.clientHeight || 0);
-      if (!Number.isFinite(viewportH) || viewportH <= 0) viewportH = 800;
+    var ziweiAiSuggestionActions = window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS &&
+      typeof window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions === 'function'
+        ? window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions({
+            nextTick,
+            ziweiAiQaInputWrapRef,
+            ziweiAiSuggestionsFiltered,
+            ziweiAiSuggestionPlacement,
+            ziweiAiSuggestionMaxHeight,
+            ziweiAiSuggestionOpen,
+            ziweiAiQuestionInput,
+            ziweiAiQaSuggestions
+          })
+        : null;
 
-      var spaceBelow = Math.max(0, viewportH - wrapRect.bottom - 12);
-      var spaceAbove = Math.max(0, wrapRect.top - 12);
-      var shouldOpenUp = spaceBelow < 260 && spaceAbove > spaceBelow;
-      ziweiAiSuggestionPlacement.value = shouldOpenUp ? 'up' : 'down';
-      var available = shouldOpenUp ? spaceAbove : spaceBelow;
-      var itemCount = Array.isArray(ziweiAiSuggestionsFiltered.value)
-        ? ziweiAiSuggestionsFiltered.value.length
-        : 0;
-      var desired = Math.max(1, Math.min(itemCount, 10)) * 40 + 10;
-      var nextHeight = Math.floor(Math.min(available, desired));
-      if (!Number.isFinite(nextHeight) || nextHeight <= 0) nextHeight = desired;
-      ziweiAiSuggestionMaxHeight.value = Math.max(140, Math.min(560, nextHeight));
+    if (!ziweiAiSuggestionActions) {
+      console.error('[SQLDev] Legacy Ziwei AI suggestion module is not available');
+    }
+
+    function updateZiweiAiSuggestionLayout() {
+      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.updateLayout();
     }
 
     function scheduleZiweiAiSuggestionLayout() {
-      nextTick(function() {
-        window.requestAnimationFrame(updateZiweiAiSuggestionLayout);
-      });
+      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.scheduleLayout();
     }
 
     function openZiweiAiSuggestions() {
-      ziweiAiSuggestionOpen.value = true;
-      scheduleZiweiAiSuggestionLayout();
+      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.openSuggestions();
     }
 
     function pickZiweiAiSuggestion(value) {
-      var text = '';
-      if (value && typeof value === 'object') {
-        text = String(value.text || value.label || '').trim();
-      } else {
-        text = String(value || '').trim();
-      }
-      if (!text) return;
-      ziweiAiQuestionInput.value = text;
-      ziweiAiSuggestionOpen.value = false;
-    }
-
-    function isLikelyMojibakeZh(text) {
-      if (window.SQLDEV_ZIWEI_PRESENTATION_UTILS && typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.isLikelyMojibakeZh === 'function') {
-        return window.SQLDEV_ZIWEI_PRESENTATION_UTILS.isLikelyMojibakeZh(text);
-      }
-      var t = String(text || '');
-      if (!t) return false;
-      var hit = (t.match(/[锛銆鍙闂璇鎴浠鐨鎬]/g) || []).length;
-      return hit >= 2;
-    }
-
-    function normalizeZiweiQaSuggestionText(text) {
-      if (window.SQLDEV_ZIWEI_PRESENTATION_UTILS && typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.normalizeZiweiQaSuggestionText === 'function') {
-        return window.SQLDEV_ZIWEI_PRESENTATION_UTILS.normalizeZiweiQaSuggestionText(text);
-      }
-      var t = String(text || '').trim();
-      if (!t) return '';
-      // 修复“身体X健康”中间出现的 1-2 个乱码字符。
-      t = t.replace(/身体([^与和及、，,\s\/-]{1,2})健康/g, '身体与健康');
-      return t;
+      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.pickSuggestion(value);
     }
 
     async function loadZiweiAiServerConfig() {
-      if (!window.authApi || typeof window.authApi.invokeFunction !== 'function') return;
-      if (typeof window.authApi.getUserSync === 'function' && !window.authApi.getUserSync()) return;
-      try {
-        var result = await window.authApi.invokeFunction('ziwei-analysis', {
-          mode: 'config'
-        });
-        if (result && result.error) return;
-        var data = result ? result.data : null;
-        var cfg = data && data.config && typeof data.config === 'object' ? data.config : null;
-        if (!cfg) return;
-
-        if (Array.isArray(cfg.suggestions)) {
-          var suggestions = cfg.suggestions
-            .map(function(item) { return normalizeZiweiQaSuggestionText(item); })
-            .filter(function(item) { return !isLikelyMojibakeZh(item); })
-            .filter(Boolean)
-            .slice(0, 12);
-          ziweiAiQaSuggestions.value = suggestions;
-        }
-
-      } catch (_err) {
-        // keep empty server config when fetch fails
-      }
+      if (ziweiAiSuggestionActions) return ziweiAiSuggestionActions.loadServerConfig();
     }
 
     async function submitZiweiAiQuestion() {
-      if (!ziweiChart.value) {
-        ziweiStatus.value = { type: 'info', text: '\u8bf7\u5148\u5b8c\u6210\u6392\u76d8\u3002' };
-        return;
-      }
-      if (ziweiAiQuestionLoading.value) return;
-      if ((!window.authApi || typeof window.authApi.invokeFunction !== 'function') &&
-          typeof window.__loadSqldevAuthNow === 'function') {
-        try {
-          await window.__loadSqldevAuthNow();
-        } catch (_authLoadErr) {}
-      }
-      if (!window.authApi || typeof window.authApi.invokeFunction !== 'function') {
-        ziweiStatus.value = { type: 'error', text: '\u8ba4\u8bc1\u6a21\u5757\u672a\u521d\u59cb\u5316\uff0c\u65e0\u6cd5\u53d1\u9001 AI \u95ee\u7b54\u3002' };
-        return;
-      }
-      if (typeof window.authApi.getUserSync === 'function' && !window.authApi.getUserSync()) {
-        if (typeof window.authApi.openAuthModal === 'function') {
-          window.authApi.openAuthModal('\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528 AI \u95ee\u7b54');
-        }
-        ziweiStatus.value = { type: 'error', text: '\u672a\u767b\u5f55\uff0c\u65e0\u6cd5\u4f7f\u7528 AI \u95ee\u7b54\u3002' };
-        return;
-      }
-
-      var question = String(ziweiAiQuestionInput.value || '').trim();
-      if (!question) {
-        ziweiStatus.value = { type: 'info', text: '\u8bf7\u8f93\u5165\u95ee\u9898\u540e\u518d\u53d1\u9001\u3002' };
-        openZiweiAiSuggestions();
-        return;
-      }
-      if (!_zwEnsureAiRequestAllowed()) return;
-
-      ziweiAiQuestionLoading.value = true;
-      ziweiAiSuggestionOpen.value = false;
-      ziweiAiResult.value = null;
-      ziweiAiDone.value = false;
-      ziweiAiError.value = '';
-      ziweiAiQuestionAnswer.value = '';
-      ziweiStatus.value = { type: 'info', text: 'AI \u6b63\u5728\u601d\u8003\u4e2d\uff0c\u8bf7\u7a0d\u540e...' };
-      var startedAt = Date.now();
-      try {
-        var signature = _zwBuildAiSignature(ziweiChart.value) + '|qa|' + question.slice(0, 64);
-        var result = await window.authApi.invokeFunction('ziwei-analysis', {
-          signature: signature,
-          style: 'pro',
-          mode: 'qa',
-          question: question,
-          chart: _zwBuildAiPayloadCompact(ziweiChart.value)
-        });
-        if (result && result.error) {
-          var parsed = await _zwParseInvokeError(result.error);
-          var detail = String(parsed.detail || (result.error && result.error.message) || result.error || '\u8bf7\u6c42\u5931\u8d25');
-          throw new Error(detail || '\u8bf7\u6c42\u5931\u8d25');
-        }
-        var data = result ? result.data : null;
-        var answer = '';
-        if (data && typeof data.answer === 'string') answer = String(data.answer || '').trim();
-        if (!answer && data && data.analysis && typeof data.analysis.overview === 'string') {
-          answer = String(data.analysis.overview || '').trim();
-        }
-        if (!answer) throw new Error('\u0041\u0049 \u672a\u8fd4\u56de\u53ef\u7528\u95ee\u7b54\u5185\u5bb9');
-        ziweiAiQuestionAnswer.value = answer;
-        var elapsedMs = Date.now() - startedAt;
-        ziweiAiLastDurationMs.value = elapsedMs;
-        ziweiStatus.value = { type: 'success', text: '\u0041\u0049 \u95ee\u7b54\u5df2\u751f\u6210\uff08\u601d\u8003\u8017\u65f6 ' + formatZiweiDurationText(elapsedMs) + '\uff09\u3002' };
-      } catch (err) {
-        var msg = String((err && err.message) || err || '\u0041\u0049 \u95ee\u7b54\u5931\u8d25');
-        if (_zwIsAiRateLimitErrorMessage(msg)) {
-          _zwStartAiCooldown(_ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS, '您的账户已达到速率限制，请稍后再试。');
-          msg = ziweiAiCooldownHint.value || msg;
-        }
-        if (!_zwIsAiRateLimitErrorMessage(msg)) msg = _zwMapAiErrorMessage(msg);
-        ziweiStatus.value = { type: 'error', text: '\u0041\u0049 \u95ee\u7b54\u5931\u8d25\uff1a' + msg };
-      } finally {
-        ziweiAiQuestionLoading.value = false;
-      }
+      if (ziweiAiRequestActions) return ziweiAiRequestActions.submitQuestion();
     }
 
     function toggleZiweiAnalysis(key) {
@@ -6780,39 +6218,25 @@ const app = createApp({
         || text.indexOf('"code":"1302"') >= 0
         || text.indexOf("'code':'1302'") >= 0;
     }
-    function _zwAiCooldownRemainingSeconds() {
-      var remainMs = Math.max(0, Number(ziweiAiCooldownUntil.value || 0) - Date.now());
-      return Math.max(0, Math.ceil(remainMs / 1000));
+    ziweiAiCooldownActions = window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN &&
+      typeof window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions === 'function'
+        ? window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions({
+            ziweiAiCooldownUntil,
+            ziweiAiCooldownHint,
+            ziweiAiLastRequestAt,
+            ziweiStatus,
+            minIntervalMs: _ZIWEI_AI_MIN_INTERVAL_MS,
+            rateLimitCooldownMs: _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS
+          })
+        : null;
+    if (!ziweiAiCooldownActions) {
+      console.error('[SQLDev] Legacy Ziwei AI cooldown module is not available');
     }
     function _zwStartAiCooldown(ms, reasonText) {
-      var cooldownMs = Math.max(1000, Number(ms || _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS));
-      ziweiAiCooldownUntil.value = Date.now() + cooldownMs;
-      var sec = Math.max(1, Math.ceil(cooldownMs / 1000));
-      var reason = String(reasonText || '').trim();
-      ziweiAiCooldownHint.value = reason || ('AI 请求过于频繁，请 ' + String(sec) + ' 秒后重试。');
-      if (_ziweiAiCooldownTimer) clearTimeout(_ziweiAiCooldownTimer);
-      _ziweiAiCooldownTimer = window.setTimeout(function() {
-        ziweiAiCooldownUntil.value = 0;
-        ziweiAiCooldownHint.value = '';
-        _ziweiAiCooldownTimer = 0;
-      }, cooldownMs + 120);
+      if (ziweiAiCooldownActions) ziweiAiCooldownActions.startCooldown(ms, reasonText);
     }
     function _zwEnsureAiRequestAllowed() {
-      var cooldownSec = _zwAiCooldownRemainingSeconds();
-      if (cooldownSec > 0) {
-        var msg = ziweiAiCooldownHint.value || ('AI 请求过于频繁，请 ' + String(cooldownSec) + ' 秒后重试。');
-        ziweiStatus.value = { type: 'info', text: msg };
-        return false;
-      }
-      var now = Date.now();
-      var delta = now - Number(ziweiAiLastRequestAt.value || 0);
-      if (delta > 0 && delta < _ZIWEI_AI_MIN_INTERVAL_MS) {
-        _zwStartAiCooldown(_ZIWEI_AI_MIN_INTERVAL_MS - delta + 500, '请求过快，请稍后再试。');
-        ziweiStatus.value = { type: 'info', text: ziweiAiCooldownHint.value || '请求过快，请稍后再试。' };
-        return false;
-      }
-      ziweiAiLastRequestAt.value = now;
-      return true;
+      return ziweiAiCooldownActions ? ziweiAiCooldownActions.ensureRequestAllowed() : false;
     }
     function _zwMapAiErrorMessage(raw) {
       if (window.SQLDEV_ZIWEI_AI_UTILS && typeof window.SQLDEV_ZIWEI_AI_UTILS.mapZiweiAiErrorMessage === 'function') {
@@ -6902,134 +6326,46 @@ const app = createApp({
       return payload;
     }
 
+    ziweiAiRequestActions = window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS &&
+      typeof window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions === 'function'
+        ? window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions({
+            ziweiChart,
+            ziweiStatus,
+            ziweiAiQuestionInput,
+            ziweiAiQuestionAnswer,
+            ziweiAiQuestionLoading,
+            ziweiAiSuggestionOpen,
+            ziweiAiResult,
+            ziweiAiDone,
+            ziweiAiError,
+            ziweiAiLastDurationMs,
+            ziweiAiLoading,
+            ziweiAiUpdatedAt,
+            ziweiLastAiSignature,
+            ziweiAiCooldownHint,
+            cacheMax: _ZIWEI_AI_CACHE_MAX,
+            rateLimitCooldownMs: _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS,
+            primaryPayloadMode: _ZIWEI_AI_PRIMARY_PAYLOAD,
+            buildAiSignature: _zwBuildAiSignature,
+            buildAiPayload: _zwBuildAiPayloadCompact,
+            buildAiPayloadCompact: _zwBuildAiPayloadCompact,
+            buildAiPayloadLite: _zwBuildAiPayloadLite,
+            parseInvokeError: _zwParseInvokeError,
+            isRateLimitError: _zwIsAiRateLimitErrorMessage,
+            isComputeResourceError: _zwIsComputeResourceErrorMessage,
+            startCooldown: _zwStartAiCooldown,
+            ensureRequestAllowed: _zwEnsureAiRequestAllowed,
+            mapErrorMessage: _zwMapAiErrorMessage,
+            formatDuration: formatZiweiDurationText,
+            openSuggestions: openZiweiAiSuggestions
+          })
+        : null;
+    if (!ziweiAiRequestActions) {
+      console.error('[SQLDev] Legacy Ziwei AI request module is not available');
+    }
+
     async function requestZiweiAiAnalysis(options) {
-      var opt = options || {};
-      var force = opt.force === true;
-      var silent = opt.silent === true;
-      if (!ziweiChart.value) {
-        if (!silent) ziweiStatus.value = { type: 'info', text: '\u8bf7\u5148\u5b8c\u6210\u6392\u76d8\u3002' };
-        return;
-      }
-      if ((!window.authApi || typeof window.authApi.invokeFunction !== 'function') &&
-          typeof window.__loadSqldevAuthNow === 'function') {
-        try {
-          await window.__loadSqldevAuthNow();
-        } catch (_authLoadErr) {}
-      }
-      if (!window.authApi || typeof window.authApi.invokeFunction !== 'function') {
-        if (!silent) ziweiStatus.value = { type: 'error', text: '\u8ba4\u8bc1\u6a21\u5757\u672a\u521d\u59cb\u5316\uff0c\u65e0\u6cd5\u8c03\u7528 AI \u89e3\u8bfb\u3002' };
-        return;
-      }
-      if (typeof window.authApi.getUserSync === 'function' && !window.authApi.getUserSync()) {
-        if (!silent) {
-          if (typeof window.authApi.openAuthModal === 'function') {
-            window.authApi.openAuthModal('\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528 AI \u6df1\u5ea6\u89e3\u76d8');
-          }
-          ziweiStatus.value = { type: 'error', text: '\u672a\u767b\u5f55\uff0c\u65e0\u6cd5\u8c03\u7528 AI \u6df1\u5ea6\u89e3\u76d8\u3002' };
-        }
-        return;
-      }
-      if (!_zwEnsureAiRequestAllowed()) return;
-
-      var aiSignature = _zwBuildAiSignature(ziweiChart.value);
-      if (!force && aiSignature && _ziweiAiCache.has(aiSignature)) {
-        var cached = _ziweiAiCache.get(aiSignature);
-        ziweiAiResult.value = cached;
-        ziweiAiDone.value = true;
-        ziweiAiError.value = '';
-        ziweiAiUpdatedAt.value = Date.now();
-        ziweiLastAiSignature.value = aiSignature;
-        if (!silent) ziweiStatus.value = { type: 'success', text: '\u5df2\u52a0\u8f7d\u7f13\u5b58\u7684 AI \u4e2a\u6027\u5316\u89e3\u76d8\u3002' };
-        return;
-      }
-      if (_ziweiAiInFlightPromise) {
-        if (!silent) ziweiStatus.value = { type: 'info', text: 'AI \u6b63\u5728\u601d\u8003\u4e2d\uff0c\u8bf7\u52ff\u91cd\u590d\u70b9\u51fb\u3002' };
-        return _ziweiAiInFlightPromise;
-      }
-      if (ziweiAiLoading.value) {
-        if (!silent) ziweiStatus.value = { type: 'info', text: 'AI \u6b63\u5728\u601d\u8003\u4e2d\uff0c\u8bf7\u7a0d\u540e...' };
-        return;
-      }
-
-      var invokeAnalysis = async function(payload) {
-        return await window.authApi.invokeFunction('ziwei-analysis', {
-          signature: aiSignature,
-          style: 'pro',
-          chart: payload
-        });
-      };
-      var primaryPayloadBuilder = _ZIWEI_AI_PRIMARY_PAYLOAD === 'compact'
-        ? _zwBuildAiPayloadCompact
-        : _zwBuildAiPayloadLite;
-      var secondaryPayloadBuilder = _ZIWEI_AI_PRIMARY_PAYLOAD === 'compact'
-        ? _zwBuildAiPayloadLite
-        : _zwBuildAiPayloadCompact;
-      var getErrorDetail = async function(rawErr) {
-        var parsed = await _zwParseInvokeError(rawErr);
-        return String(parsed.detail || (rawErr && rawErr.message) || rawErr || '\u8bf7\u6c42\u5931\u8d25');
-      };
-
-      ziweiAiLoading.value = true;
-      ziweiAiError.value = '';
-      ziweiAiLastDurationMs.value = 0;
-      var startedAt = Date.now();
-      if (!silent) ziweiStatus.value = { type: 'info', text: 'AI \u6b63\u5728\u601d\u8003\u4e2d\uff0c\u8bf7\u7a0d\u540e...' };
-      try {
-        _ziweiAiInFlightSignature = aiSignature;
-        var result = null;
-        try {
-          _ziweiAiInFlightPromise = invokeAnalysis(primaryPayloadBuilder(ziweiChart.value));
-          result = await _ziweiAiInFlightPromise;
-          if (result && result.error) throw result.error;
-        } catch (firstErr) {
-          var firstDetail = await getErrorDetail(firstErr);
-          if (_zwIsAiRateLimitErrorMessage(firstDetail)) throw new Error(firstDetail || '\u8bf7\u6c42\u5931\u8d25');
-          if (!_zwIsComputeResourceErrorMessage(firstDetail)) throw new Error(firstDetail || '\u8bf7\u6c42\u5931\u8d25');
-          _ziweiAiInFlightPromise = invokeAnalysis(secondaryPayloadBuilder(ziweiChart.value));
-          result = await _ziweiAiInFlightPromise;
-          if (result && result.error) {
-            var secondDetail = await getErrorDetail(result.error);
-            throw new Error(secondDetail || '\u8bf7\u6c42\u5931\u8d25');
-          }
-        }
-
-        var data = result ? result.data : null;
-        var analysis = data && data.analysis ? data.analysis : null;
-        if (!analysis || typeof analysis.overview !== 'string' || !Array.isArray(analysis.sections)) {
-          throw new Error('AI \u8fd4\u56de\u683c\u5f0f\u5f02\u5e38');
-        }
-
-        ziweiAiResult.value = analysis;
-        ziweiAiDone.value = true;
-        ziweiAiError.value = '';
-        ziweiAiUpdatedAt.value = Date.now();
-        ziweiLastAiSignature.value = aiSignature;
-        if (aiSignature) {
-          _ziweiAiCache.set(aiSignature, analysis);
-          if (_ziweiAiCache.size > _ZIWEI_AI_CACHE_MAX) {
-            var firstKey = _ziweiAiCache.keys().next().value;
-            if (firstKey) _ziweiAiCache.delete(firstKey);
-          }
-        }
-        var elapsedMs = Date.now() - startedAt;
-        ziweiAiLastDurationMs.value = elapsedMs;
-        if (!silent) ziweiStatus.value = { type: 'success', text: 'AI \u4e2a\u6027\u5316\u89e3\u76d8\u5df2\u751f\u6210\uff08\u601d\u8003\u8017\u65f6 ' + formatZiweiDurationText(elapsedMs) + '\uff09\u3002' };
-      } catch (err) {
-        var msg = String((err && err.message) || err || 'AI \u8bf7\u6c42\u5931\u8d25');
-        if (_zwIsAiRateLimitErrorMessage(msg)) {
-          _zwStartAiCooldown(_ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS, '您的账户已达到速率限制，请稍后再试。');
-          msg = ziweiAiCooldownHint.value || msg;
-        }
-        if (!_zwIsAiRateLimitErrorMessage(msg)) msg = _zwMapAiErrorMessage(msg);
-        ziweiAiDone.value = false;
-        ziweiAiError.value = msg;
-        ziweiAiLastDurationMs.value = Date.now() - startedAt;
-        if (!silent) ziweiStatus.value = { type: 'error', text: 'AI \u6df1\u5ea6\u89e3\u76d8\u5931\u8d25\uff1a' + msg };
-      } finally {
-        ziweiAiLoading.value = false;
-        _ziweiAiInFlightPromise = null;
-        _ziweiAiInFlightSignature = '';
-      }
+      if (ziweiAiRequestActions) return ziweiAiRequestActions.requestAnalysis(options);
     }
 
     function _zwBuildChartText(chart) {
@@ -7775,11 +7111,10 @@ const app = createApp({
     }
 
     function downloadZiweiSharePoster() {
-      if (!ziweiSharePosterDataUrl.value) return;
-      var link = document.createElement('a');
-      link.href = ziweiSharePosterDataUrl.value;
-      link.download = 'ziwei-share-poster.png';
-      link.click();
+      if (window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER &&
+          typeof window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.downloadZiweiSharePosterDataUrl === 'function') {
+        window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.downloadZiweiSharePosterDataUrl(ziweiSharePosterDataUrl.value);
+      }
     }
 
     async function _zwLegacyGenerateZiweiSharePoster() {
@@ -7797,150 +7132,14 @@ const app = createApp({
         var posterSpec = window.SQLDEV_ZIWEI_SHARE_UTILS && typeof window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec === 'function'
           ? window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec(shareLink)
           : null;
-        var posterW = posterSpec ? Number(posterSpec.posterWidth || 1200) : 1200;
-        var posterH = posterSpec ? Number(posterSpec.posterHeight || 1880) : 1880;
-        var canvas = document.createElement('canvas');
-        canvas.width = posterW;
-        canvas.height = posterH;
-        var ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('\u6d77\u62a5\u753b\u5e03\u521b\u5efa\u5931\u8d25');
-        var drawRoundRect = function(x, y, w, h, r) {
-          var radius = Math.max(0, Number(r) || 0);
-          if (typeof ctx.roundRect === 'function') {
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, radius);
-            return;
-          }
-          ctx.beginPath();
-          ctx.moveTo(x + radius, y);
-          ctx.arcTo(x + w, y, x + w, y + h, radius);
-          ctx.arcTo(x + w, y + h, x, y + h, radius);
-          ctx.arcTo(x, y + h, x, y, radius);
-          ctx.arcTo(x, y, x + w, y, radius);
-          ctx.closePath();
-        };
-
-        var bg = ctx.createLinearGradient(0, 0, posterW, posterH);
-        var bgStops = posterSpec && Array.isArray(posterSpec.backgroundStops) ? posterSpec.backgroundStops : [
-          { offset: 0, color: '#060d1f' },
-          { offset: 0.52, color: '#0b1531' },
-          { offset: 1, color: '#111f44' }
-        ];
-        bgStops.forEach(function(stop) {
-          bg.addColorStop(Number(stop && stop.offset || 0), String(stop && stop.color || '#060d1f'));
+        if (!window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER ||
+            typeof window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster !== 'function') {
+          throw new Error('分享海报模块未加载');
+        }
+        ziweiSharePosterDataUrl.value = window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster({
+          shareLink: shareLink,
+          posterSpec: posterSpec
         });
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, posterW, posterH);
-
-        function drawGlow(x, y, r, color) {
-          var g = ctx.createRadialGradient(x, y, 0, x, y, r);
-          g.addColorStop(0, color);
-          g.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        var glowList = posterSpec && Array.isArray(posterSpec.glows) ? posterSpec.glows : [
-          { x: 190, y: 240, radius: 320, color: 'rgba(79,125,249,.32)' },
-          { x: 1020, y: 360, radius: 360, color: 'rgba(95,180,255,.2)' },
-          { x: 640, y: 1520, radius: 420, color: 'rgba(139,92,246,.24)' }
-        ];
-        glowList.forEach(function(glow) {
-          drawGlow(
-            Number(glow && glow.x || 0),
-            Number(glow && glow.y || 0),
-            Number(glow && glow.radius || 0),
-            String(glow && glow.color || 'rgba(0,0,0,0)')
-          );
-        });
-
-        ctx.fillStyle = 'rgba(255,255,255,.08)';
-        var gridStep = posterSpec ? Number(posterSpec.gridStep || 36) : 36;
-        for (var gx = 0; gx <= posterW; gx += gridStep) {
-          ctx.fillRect(gx, 0, 1, posterH);
-        }
-        for (var gy = 0; gy <= posterH; gy += gridStep) {
-          ctx.fillRect(0, gy, posterW, 1);
-        }
-
-        ctx.fillStyle = '#c8d8ff';
-        ctx.font = '600 24px "JetBrains Mono","Noto Sans SC",monospace';
-        ctx.fillText(posterSpec ? String(posterSpec.eyebrow || '') : 'Z I W E I  D O U  S H U', 84, 118);
-
-        ctx.fillStyle = '#edf2ff';
-        ctx.font = '700 78px "Noto Sans SC","PingFang SC",sans-serif';
-        ctx.fillText(posterSpec ? String(posterSpec.title || '') : '\u7d2b\u5fae\u6597\u6570\u547d\u76d8', 84, 212);
-
-        ctx.fillStyle = 'rgba(214,226,255,.9)';
-        ctx.font = '500 34px "Noto Sans SC","PingFang SC",sans-serif';
-        ctx.fillText(
-          posterSpec ? String(posterSpec.subtitle || '') : '\u4e13\u4e1a\u6392\u76d8 + AI \u6df1\u5ea6\u89e3\u8bfb + \u4e00\u952e\u5206\u4eab',
-          84,
-          266
-        );
-
-        var featureCards = posterSpec && Array.isArray(posterSpec.featureCards) ? posterSpec.featureCards : [];
-
-        var cardX = 78;
-        var cardY = 334;
-        var cardW = posterW - cardX * 2;
-        var cardH = 216;
-        for (var fi = 0; fi < featureCards.length; fi++) {
-          var item = featureCards[fi];
-          var y = cardY + fi * (cardH + 20);
-          ctx.fillStyle = 'rgba(10,20,45,.74)';
-          ctx.strokeStyle = 'rgba(129,140,248,.3)';
-          ctx.lineWidth = 2;
-          drawRoundRect(cardX, y, cardW, cardH, 18);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = item.color;
-          ctx.beginPath();
-          ctx.arc(cardX + 40, y + 44, 14, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#f2f6ff';
-          ctx.font = '700 40px "Noto Sans SC","PingFang SC",sans-serif';
-          ctx.fillText(item.title, cardX + 72, y + 58);
-          ctx.fillStyle = 'rgba(202,216,248,.95)';
-          ctx.font = '500 30px "Noto Sans SC","PingFang SC",sans-serif';
-          ctx.fillText(item.desc, cardX + 72, y + 116);
-        }
-
-        ctx.fillStyle = 'rgba(255,255,255,.86)';
-        ctx.font = '600 32px "Noto Sans SC","PingFang SC",sans-serif';
-        ctx.fillText(posterSpec ? String(posterSpec.shareEntryTitle || '') : '\u4f53\u9a8c\u5165\u53e3', 84, 1338);
-
-        ctx.fillStyle = 'rgba(15,24,52,.82)';
-        ctx.strokeStyle = 'rgba(129,140,248,.45)';
-        ctx.lineWidth = 2;
-        drawRoundRect(84, 1368, posterW - 168, 184, 16);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#d6e3ff';
-        ctx.font = '500 27px "JetBrains Mono","Noto Sans SC",monospace';
-        var linkText = posterSpec ? String(posterSpec.shareLinkDisplay || shareLink) : (shareLink.length > 74 ? (shareLink.slice(0, 74) + '...') : shareLink);
-        ctx.fillText(linkText, 116, 1452);
-
-        ctx.fillStyle = 'rgba(178,196,233,.95)';
-        ctx.font = '500 26px "Noto Sans SC","PingFang SC",sans-serif';
-        ctx.fillText(
-          posterSpec ? String(posterSpec.shareEntryDescription || '') : '\u626b\u7801\u6216\u6253\u5f00\u94fe\u63a5\uff0c\u5373\u53ef\u8fdb\u5165\u547d\u76d8\u754c\u9762\u4f53\u9a8c\u5b8c\u6574\u529f\u80fd',
-          116,
-          1506
-        );
-
-        ctx.fillStyle = '#f8fbff';
-        ctx.font = '700 30px "Noto Sans SC","PingFang SC",sans-serif';
-        ctx.fillText(posterSpec ? String(posterSpec.footerTitle || '') : 'SQLDev \u00d7 \u7d2b\u5fae\u6597\u6570\u5de5\u5177', 84, 1718);
-        ctx.fillStyle = 'rgba(199,214,247,.88)';
-        ctx.font = '500 22px "JetBrains Mono","Noto Sans SC",monospace';
-        ctx.fillText(posterSpec ? String(posterSpec.footerSubtitle || '') : 'AI Powered Professional Charting Platform', 84, 1760);
-
-        ziweiSharePosterDataUrl.value = canvas.toDataURL('image/png');
         clipboardWrite(shareLink).then(function(ok) {
           ziweiStatus.value = ok
             ? { type: 'success', text: '\u5206\u4eab\u6d77\u62a5\u5df2\u751f\u6210\uff0c\u5206\u4eab\u94fe\u63a5\u5df2\u590d\u5236\u3002' }
@@ -8847,30 +8046,6 @@ const app = createApp({
       return json.output;
     }
 
-    // ========== DDL Methods ==========
-    async function swapDbs() {
-      if ((inputDdl.value.trim() || outputDdl.value.trim()) &&
-          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
-      const tmp = sourceDb.value;
-      sourceDb.value = targetDb.value;
-      targetDb.value = tmp;
-      const tmpDdl = inputDdl.value;
-      inputDdl.value = outputDdl.value;
-      outputDdl.value = tmpDdl;
-      statusText.value = '\u5DF2\u4EA4\u6362: ' + sourceLabel.value + ' \u2192 ' + targetLabel.value;
-    }
-
-    function loadSample() {
-      inputDdl.value = (typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES[sourceDb.value] : '') || '-- \u6682\u65E0 ' + sourceLabel.value + ' \u793A\u4F8B';
-      outputDdl.value = '';
-      statusText.value = '\u5DF2\u52A0\u8F7D ' + sourceLabel.value + ' DDL \u793A\u4F8B';
-    }
-
-    function clearAll() {
-      inputDdl.value = ''; outputDdl.value = '';
-      statusText.value = '\u5DF2\u6E05\u7A7A';
-    }
-
     // ========== Conversion gate: require signed-in user ==========
     function _hasSignedUser() {
       return !!(window.authApi &&
@@ -8893,134 +8068,71 @@ const app = createApp({
       return false;
     }
 
-    async function convert() {
-      try {
-        if (!inputDdl.value.trim()) {
-          statusText.value = '请输入待转换的 DDL SQL';
-          return;
-        }
-        if (!(await _ensureLoginForConversion())) {
-          statusText.value = '请登录后继续使用翻译功能';
-          return;
-        }
-        statusText.value = 'DDL 转换中，请稍候...';
-        var result = await _convertViaBackend('ddl', inputDdl.value, sourceDb.value, targetDb.value);
-        outputDdl.value = result;
-        var cls = _classifyResult(result);
-        statusText.value = cls.level === 'error'   ? cls.summary
-                         : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value + ' (' + cls.summary + ')'
-                         : 'DDL 翻译完成: ' + sourceLabel.value + ' → ' + targetLabel.value;
-      } catch (e) {
-        outputDdl.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
-        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
+    var sqlConversionActions = window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS &&
+      typeof window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions === 'function'
+        ? window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions({
+            inputDdl,
+            outputDdl,
+            sourceDb,
+            targetDb,
+            sourceLabel,
+            targetLabel,
+            ddlSamples: typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES : null,
+            funcInput,
+            funcOutput,
+            funcSourceDb,
+            funcTargetDb,
+            funcSourceLabel,
+            funcTargetLabel,
+            funcSamples: typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES : null,
+            procInput,
+            procOutput,
+            procSourceDb,
+            procTargetDb,
+            procSourceLabel,
+            procTargetLabel,
+            procSamples: typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES : null,
+            showConfirm: _showConfirm,
+            statusText,
+            ensureLogin: _ensureLoginForConversion,
+            backendConvert: _convertViaBackend,
+            classifyResult: _classifyResult,
+            clipboardWrite,
+            saveFile
+          })
+        : null;
+
+    if (!sqlConversionActions) {
+      console.error('[SQLDev] Legacy SQL conversion actions module is not available');
+    }
+
+    function _runSqlConversionAction(actionName) {
+      if (!sqlConversionActions || typeof sqlConversionActions[actionName] !== 'function') {
+        statusText.value = '转换功能初始化失败，请刷新页面后重试';
+        return undefined;
       }
+      return sqlConversionActions[actionName]();
     }
 
-    function copyOutput() { clipboardWrite(outputDdl.value); }
-    function saveOutput() { saveFile(outputDdl.value, 'ddl', targetDb.value); }
-
-    // ========== Function Methods ==========
-    async function swapFuncDbs() {
-      if ((funcInput.value.trim() || funcOutput.value.trim()) &&
-          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
-      const tmp = funcSourceDb.value;
-      funcSourceDb.value = funcTargetDb.value;
-      funcTargetDb.value = tmp;
-      const tmpF = funcInput.value;
-      funcInput.value = funcOutput.value;
-      funcOutput.value = tmpF;
-      statusText.value = '\u5DF2\u4EA4\u6362: ' + funcSourceLabel.value + ' \u2192 ' + funcTargetLabel.value;
-    }
-
-    function loadFuncSample() {
-      funcInput.value = (typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES[funcSourceDb.value] : '') || '-- \u6682\u65E0 ' + funcSourceLabel.value + ' \u51FD\u6570\u793A\u4F8B';
-      funcOutput.value = '';
-      statusText.value = '\u5DF2\u52A0\u8F7D ' + funcSourceLabel.value + ' \u51FD\u6570\u793A\u4F8B';
-    }
-
-    function clearFunc() {
-      funcInput.value = ''; funcOutput.value = '';
-      statusText.value = '\u5DF2\u6E05\u7A7A';
-    }
-
-    async function convertFunc() {
-      try {
-        if (!funcInput.value.trim()) {
-          statusText.value = '请输入待转换的函数 SQL';
-          return;
-        }
-        if (!(await _ensureLoginForConversion())) {
-          statusText.value = '请登录后继续使用翻译功能';
-          return;
-        }
-        statusText.value = '函数转换中，请稍候...';
-        var result = await _convertViaBackend('func', funcInput.value, funcSourceDb.value, funcTargetDb.value);
-        funcOutput.value = result;
-        var cls = _classifyResult(result);
-        statusText.value = cls.level === 'error'   ? cls.summary
-                         : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value + ' (' + cls.summary + ')'
-                         : '函数翻译完成: ' + funcSourceLabel.value + ' → ' + funcTargetLabel.value;
-      } catch (e) {
-        funcOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
-        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
-      }
-    }
-
-    function copyFuncOutput() { clipboardWrite(funcOutput.value); }
-    function saveFuncOutput() { saveFile(funcOutput.value, 'func', funcTargetDb.value); }
-
-    // ========== Procedure Methods ==========
-    async function swapProcDbs() {
-      if ((procInput.value.trim() || procOutput.value.trim()) &&
-          !(await _showConfirm('交换确认', '输入/输出区域存在未保存内容，交换后将覆盖，是否继续？'))) return;
-      const tmp = procSourceDb.value;
-      procSourceDb.value = procTargetDb.value;
-      procTargetDb.value = tmp;
-      const tmpP = procInput.value;
-      procInput.value = procOutput.value;
-      procOutput.value = tmpP;
-      statusText.value = '\u5DF2\u4EA4\u6362: ' + procSourceLabel.value + ' \u2192 ' + procTargetLabel.value;
-    }
-
-    function loadProcSample() {
-      procInput.value = (typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES[procSourceDb.value] : '') || '-- \u6682\u65E0 ' + procSourceLabel.value + ' \u5B58\u50A8\u8FC7\u7A0B\u793A\u4F8B';
-      procOutput.value = '';
-      statusText.value = '\u5DF2\u52A0\u8F7D ' + procSourceLabel.value + ' \u5B58\u50A8\u8FC7\u7A0B\u793A\u4F8B';
-    }
-
-    function clearProc() {
-      procInput.value = ''; procOutput.value = '';
-      statusText.value = '\u5DF2\u6E05\u7A7A';
-    }
-
-    async function convertProc() {
-      try {
-        if (!procInput.value.trim()) {
-          statusText.value = '请输入待转换的存储过程 SQL';
-          return;
-        }
-        if (!(await _ensureLoginForConversion())) {
-          statusText.value = '请登录后继续使用翻译功能';
-          return;
-        }
-        statusText.value = '存储过程转换中，请稍候...';
-        var result = await _convertViaBackend('proc', procInput.value, procSourceDb.value, procTargetDb.value);
-        procOutput.value = result;
-        var cls = _classifyResult(result);
-        statusText.value = cls.level === 'error'   ? cls.summary
-                         : cls.level === 'info'    ? cls.summary
-                         : cls.level === 'warning' ? '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value + ' (' + cls.summary + ')'
-                         : '存储过程翻译完成: ' + procSourceLabel.value + ' → ' + procTargetLabel.value;
-      } catch (e) {
-        procOutput.value = '-- \u8F6C\u6362\u5F02\u5E38: ' + e.message;
-        statusText.value = '\u8F6C\u6362\u5F02\u5E38: ' + e.message;
-      }
-    }
-
-    function copyProcOutput() { clipboardWrite(procOutput.value); }
-    function saveProcOutput() { saveFile(procOutput.value, 'proc', procTargetDb.value); }
+    // ========== DDL / Routine Methods ==========
+    async function swapDbs() { return _runSqlConversionAction('swapDbs'); }
+    function loadSample() { return _runSqlConversionAction('loadSample'); }
+    function clearAll() { return _runSqlConversionAction('clearAll'); }
+    async function convert() { return _runSqlConversionAction('convert'); }
+    function copyOutput() { return _runSqlConversionAction('copyOutput'); }
+    function saveOutput() { return _runSqlConversionAction('saveOutput'); }
+    async function swapFuncDbs() { return _runSqlConversionAction('swapFuncDbs'); }
+    function loadFuncSample() { return _runSqlConversionAction('loadFuncSample'); }
+    function clearFunc() { return _runSqlConversionAction('clearFunc'); }
+    async function convertFunc() { return _runSqlConversionAction('convertFunc'); }
+    function copyFuncOutput() { return _runSqlConversionAction('copyFuncOutput'); }
+    function saveFuncOutput() { return _runSqlConversionAction('saveFuncOutput'); }
+    async function swapProcDbs() { return _runSqlConversionAction('swapProcDbs'); }
+    function loadProcSample() { return _runSqlConversionAction('loadProcSample'); }
+    function clearProc() { return _runSqlConversionAction('clearProc'); }
+    async function convertProc() { return _runSqlConversionAction('convertProc'); }
+    function copyProcOutput() { return _runSqlConversionAction('copyProcOutput'); }
+    function saveProcOutput() { return _runSqlConversionAction('saveProcOutput'); }
 
     // ========== File upload (shared) ==========
     function uploadFile() {
@@ -9032,91 +8144,40 @@ const app = createApp({
     }
 
     function runPrimaryAction() {
-      var handlerName = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryActionHandlerName(activePage.value)
-        : null;
-      if (!handlerName) {
-        var targetPage = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage === 'function'
-          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryWorkbenchPage(activePage.value)
-          : (activePage.value === 'func' || activePage.value === 'proc' || activePage.value === 'ddl' ? activePage.value : null);
-        if (targetPage === 'func') handlerName = 'convertFunc';
-        else if (targetPage === 'proc') handlerName = 'convertProc';
-        else if (targetPage === 'ddl') handlerName = 'convert';
-      }
-      if (handlerName === 'convertFunc') return convertFunc();
-      if (handlerName === 'convertProc') return convertProc();
-      if (handlerName === 'convert') return convert();
+      if (activePage.value === 'func') return convertFunc();
+      if (activePage.value === 'proc') return convertProc();
+      if (activePage.value === 'ddl') return convert();
       return;
     }
 
     function goSplashHome() {
-      var splashTransition = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHomeTransition({
-          windowWidth: typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
-          mobileBreakpoint: 1024,
-          hasSplashApiShowHome: typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function'
-        })
-        : null;
-      var fallbackShouldCloseSidebar = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseSidebarForSplash(
-          typeof window === 'undefined' ? Number.MAX_SAFE_INTEGER : window.innerWidth,
-          1024
-        )
-        : window.innerWidth <= 1024;
-      var shouldCloseSidebar = splashTransition ? splashTransition.shouldCloseSidebar : fallbackShouldCloseSidebar;
-      if (shouldCloseSidebar) sidebarOpen.value = false;
-      if (splashTransition ? splashTransition.shouldUseSplashApiShowHome : (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.showHome === 'function')) {
-        window.splashApi.showHome();
-      } else {
-        if (window.SQLDEV_PREFERENCE_UTILS && typeof window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference === 'function') {
-          window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference(localStorage, 'splash');
-        } else {
-          try { localStorage.setItem('sqldev_last_view', 'splash'); } catch (_err) {}
-        }
-        document.documentElement.classList.remove('startup-workbench');
-        var poster = document.getElementById('splash-poster');
-        if (poster) {
-          poster.style.display = '';
-          poster.classList.remove('leaving');
-          poster.scrollTop = 0;
-        }
-        document.body.classList.add('splash-active');
-        try { window.scrollTo(0, 0); } catch (_scrollErr) {}
+      if (window.innerWidth <= 1024) sidebarOpen.value = false;
+      if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage({ type: 'sqldev:navigate-home' }, window.location.origin);
+          statusText.value = '\u5df2\u8fd4\u56de\u9996\u9875';
+          showRulesMenu.value = false;
+          return;
+        } catch (_postMessageErr) {}
       }
-      try {
-        var splashHash = '#' + ROUTE_SPLASH_PATH;
-        var currentHash = String(window.location.hash || '');
-        var hashSyncDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision === 'function'
-          ? window.SQLDEV_ROUTE_UTILS.resolveLegacySplashHashSyncDecision(
-            currentHash,
-            splashHash,
-            window.history && typeof window.history.replaceState === 'function'
-          )
-          : null;
-        if (hashSyncDecision ? hashSyncDecision.shouldSyncRoute : currentHash !== splashHash) {
-          var splashUrl = window.location.pathname + window.location.search + splashHash;
-          if (hashSyncDecision ? hashSyncDecision.shouldUseHistoryReplaceState : (window.history && typeof window.history.replaceState === 'function')) {
-            window.history.replaceState({ view: 'splash' }, '', splashUrl);
-          } else {
-            window.location.hash = splashHash.slice(1);
-          }
-        }
-      } catch (_routeErr) {}
+      if (window.SQLDEV_PREFERENCE_UTILS && typeof window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference === 'function') {
+        window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference(localStorage, 'splash');
+      } else {
+        try { localStorage.setItem('sqldev_last_view', 'splash'); } catch (_err) {}
+      }
+      window.location.href = './';
       statusText.value = '\u5df2\u8fd4\u56de\u9996\u9875';
       showRulesMenu.value = false;
     }
 
     function runWorkbenchAction(action) {
       // Theme toggle works on all pages
-      var actionDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision === 'function'
-        ? window.SQLDEV_ROUTE_UTILS.resolveLegacyWorkbenchActionDecision(activePage.value, action)
-        : null;
-      if (actionDecision ? actionDecision.type === 'theme' : action === 'theme') {
+      if (action === 'theme') {
         toggleTheme();
         closeSettingsMenu();
         return;
       }
-      if (actionDecision ? actionDecision.type === 'feedback' : action === 'feedback') {
+      if (action === 'feedback') {
         if (typeof window.openFeedbackModal === 'function') {
           window.openFeedbackModal('workbench-header');
         } else if (typeof window.__loadSqldevAuthNow === 'function') {
@@ -9135,47 +8196,38 @@ const app = createApp({
         closeSettingsMenu();
         return;
       }
-      if (actionDecision ? actionDecision.type === 'unsupported' : (activePage.value !== 'ddl' && activePage.value !== 'func' && activePage.value !== 'proc')) {
+      var page = activePage.value;
+      if (page !== 'ddl' && page !== 'func' && page !== 'proc') {
         statusText.value = '当前页面暂无此操作';
         closeSettingsMenu();
         return;
       }
-      var handlerName = actionDecision ? actionDecision.handlerName : null;
-      if (!handlerName) {
-        var page = activePage.value;
-        if (action === 'upload') handlerName = 'uploadFile';
-        else if (action === 'format') handlerName = 'formatActiveWorkbench';
-        else if (page === 'ddl') {
-          if (action === 'sample') handlerName = 'loadSample';
-          else if (action === 'clear') handlerName = 'clearAll';
-          else if (action === 'copy') handlerName = 'copyOutput';
-          else if (action === 'save') handlerName = 'saveOutput';
-        } else if (page === 'func') {
-          if (action === 'sample') handlerName = 'loadFuncSample';
-          else if (action === 'clear') handlerName = 'clearFunc';
-          else if (action === 'copy') handlerName = 'copyFuncOutput';
-          else if (action === 'save') handlerName = 'saveFuncOutput';
-        } else if (page === 'proc') {
-          if (action === 'sample') handlerName = 'loadProcSample';
-          else if (action === 'clear') handlerName = 'clearProc';
-          else if (action === 'copy') handlerName = 'copyProcOutput';
-          else if (action === 'save') handlerName = 'saveProcOutput';
-        }
+      if (action === 'upload') {
+        uploadFile();
+        closeSettingsMenu();
+        return;
       }
-      if (handlerName === 'uploadFile') uploadFile();
-      else if (handlerName === 'formatActiveWorkbench') formatActiveWorkbench();
-      else if (handlerName === 'loadSample') loadSample();
-      else if (handlerName === 'clearAll') clearAll();
-      else if (handlerName === 'copyOutput') copyOutput();
-      else if (handlerName === 'saveOutput') saveOutput();
-      else if (handlerName === 'loadFuncSample') loadFuncSample();
-      else if (handlerName === 'clearFunc') clearFunc();
-      else if (handlerName === 'copyFuncOutput') copyFuncOutput();
-      else if (handlerName === 'saveFuncOutput') saveFuncOutput();
-      else if (handlerName === 'loadProcSample') loadProcSample();
-      else if (handlerName === 'clearProc') clearProc();
-      else if (handlerName === 'copyProcOutput') copyProcOutput();
-      else if (handlerName === 'saveProcOutput') saveProcOutput();
+      if (action === 'format') {
+        formatActiveWorkbench();
+        closeSettingsMenu();
+        return;
+      }
+      if (page === 'ddl') {
+        if (action === 'sample') loadSample();
+        else if (action === 'clear') clearAll();
+        else if (action === 'copy') copyOutput();
+        else if (action === 'save') saveOutput();
+      } else if (page === 'func') {
+        if (action === 'sample') loadFuncSample();
+        else if (action === 'clear') clearFunc();
+        else if (action === 'copy') copyFuncOutput();
+        else if (action === 'save') saveFuncOutput();
+      } else {
+        if (action === 'sample') loadProcSample();
+        else if (action === 'clear') clearProc();
+        else if (action === 'copy') copyProcOutput();
+        else if (action === 'save') saveProcOutput();
+      }
       closeSettingsMenu();
     }
 
@@ -9220,6 +8272,7 @@ const app = createApp({
     let keyHandler;
     let outsideClickHandler;
     let routeChangeHandler;
+    let parentRouteMessageHandler;
     let authStateChangeHandler;
     let ziweiAiSuggestViewportHandler;
     let _scrollTicking = false;
@@ -9249,33 +8302,19 @@ const app = createApp({
           if (e.key === 'Tab') { _trapFocus(e, alertModalRef); return; }
         }
         /* --- Existing handlers --- */
-        var shouldCloseRulesMenu = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseRulesMenuOnEscape === 'function'
-          ? window.SQLDEV_ROUTE_UTILS.shouldLegacyCloseRulesMenuOnEscape(e.key, showRulesMenu.value)
-          : (e.key === 'Escape' && showRulesMenu.value);
-        if (shouldCloseRulesMenu) {
+        if (e.key === 'Escape' && showRulesMenu.value) {
           e.preventDefault();
           showRulesMenu.value = false;
           var trigger = document.getElementById('settings-trigger');
           if (trigger) trigger.focus();
           return;
         }
-        var hotkeyTarget = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget === 'function'
-          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyPrimaryHotkeyTarget({
-            key: e.key,
-            ctrlKey: e.ctrlKey,
-            metaKey: e.metaKey,
-            hasBlockingModal: ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible,
-            activePage: activePage.value
-          })
-          : ((e.ctrlKey || e.metaKey) && e.key === 'Enter' &&
-            !(ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible) &&
-            (activePage.value === 'ddl' || activePage.value === 'func' || activePage.value === 'proc')
-              ? activePage.value
-              : null);
-        if (hotkeyTarget) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          if (ruleModal.value.visible || alertModal.value.visible || confirmModal.value.visible) return;
+          if (activePage.value !== 'ddl' && activePage.value !== 'func' && activePage.value !== 'proc') return;
           e.preventDefault();
-          if (hotkeyTarget === 'func') convertFunc();
-          else if (hotkeyTarget === 'proc') convertProc();
+          if (activePage.value === 'func') convertFunc();
+          else if (activePage.value === 'proc') convertProc();
           else convert();
         }
       };
@@ -9288,18 +8327,10 @@ const app = createApp({
       window.addEventListener('scroll', ziweiAiSuggestViewportHandler, true);
       // Close floating panels on outside click
       outsideClickHandler = function(e) {
-        var outsideDecision = window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision === 'function'
-          ? window.SQLDEV_ROUTE_UTILS.resolveLegacyOutsideClickDecision({
-            showRulesMenu: showRulesMenu.value,
-            ziweiAiSuggestionOpen: ziweiAiSuggestionOpen.value,
-            clickedInSettingsDropdown: !!(e.target && e.target.closest && e.target.closest('.settings-dropdown')),
-            clickedInZiweiInputWrap: !!(e.target && e.target.closest && e.target.closest('.ziwei-ai-qa-input-wrap'))
-          })
-          : null;
-        if (outsideDecision ? outsideDecision.shouldCloseRulesMenu : (showRulesMenu.value && !e.target.closest('.settings-dropdown'))) {
+        if (showRulesMenu.value && !e.target.closest('.settings-dropdown')) {
           showRulesMenu.value = false;
         }
-        if (outsideDecision ? outsideDecision.shouldCloseZiweiAiSuggestion : (ziweiAiSuggestionOpen.value && !e.target.closest('.ziwei-ai-qa-input-wrap'))) {
+        if (ziweiAiSuggestionOpen.value && !e.target.closest('.ziwei-ai-qa-input-wrap')) {
           ziweiAiSuggestionOpen.value = false;
         }
       };
@@ -9326,10 +8357,17 @@ const app = createApp({
       };
       window.addEventListener('popstate', routeChangeHandler);
       window.addEventListener('hashchange', routeChangeHandler);
+      parentRouteMessageHandler = function(e) {
+        if (!e || e.origin !== window.location.origin) return;
+        var data = e.data || {};
+        if (data.type !== 'sqldev:set-workbench-hash') return;
+        applyRouteFromParentMessage(data.hashPath);
+      };
+      window.addEventListener('message', parentRouteMessageHandler);
       var initialRoute = parseRouteInfoFromLocation();
       if (initialRoute) {
         applyRouteFromLocation();
-      } else if (!document.body.classList.contains('splash-active')) {
+      } else {
         syncRouteForPage(activePage.value, true);
       }
     });
@@ -9340,6 +8378,9 @@ const app = createApp({
       if (routeChangeHandler) {
         window.removeEventListener('popstate', routeChangeHandler);
         window.removeEventListener('hashchange', routeChangeHandler);
+      }
+      if (parentRouteMessageHandler) {
+        window.removeEventListener('message', parentRouteMessageHandler);
       }
       if (authStateChangeHandler) {
         window.removeEventListener('auth:state-changed', authStateChangeHandler);
@@ -9357,7 +8398,7 @@ const app = createApp({
       if (ziweiCopyTimer) clearTimeout(ziweiCopyTimer);
       if (ziweiAiCopyTimer) clearTimeout(ziweiAiCopyTimer);
       if (ziweiGenerateTimer) clearTimeout(ziweiGenerateTimer);
-      if (_ziweiAiCooldownTimer) clearTimeout(_ziweiAiCooldownTimer);
+      if (ziweiAiCooldownActions) ziweiAiCooldownActions.clearCooldownTimer();
       cancelRegionWarmup();
     });
 
@@ -9444,65 +8485,12 @@ const app = createApp({
 });
 
 // ===== SQL Editor Component (CodeMirror wrapper) =====
-app.component('sql-editor', {
-  inheritAttrs: false,
-  props: {
-    modelValue: { type: String, default: '' },
-    placeholder: { type: String, default: '' },
-    ariaLabel: { type: String, default: '' }
-  },
-  emits: ['update:modelValue'],
-  template: '<div ref="wrap" class="sql-editor-wrap"></div>',
-  setup(props, { emit, attrs }) {
-    const wrap = Vue.ref(null);
-    let cm = null;
-    let ignoreChange = false;
-    const changeHandler = () => {
-      if (ignoreChange) return;
-      emit('update:modelValue', cm.getValue());
-    };
-    Vue.onMounted(() => {
-      cm = CodeMirror(wrap.value, {
-        value: props.modelValue || '',
-        mode: 'text/x-sql',
-        lineNumbers: true,
-        lineWrapping: true,
-        styleActiveLine: true,
-        matchBrackets: true,
-        placeholder: props.placeholder,
-        indentWithTabs: false,
-        tabSize: 2,
-        indentUnit: 2
-      });
-      cm.on('change', changeHandler);
-      // Forward aria-label to the actual editable textarea for accessibility
-      const label = props.ariaLabel || attrs['aria-label'] || '';
-      if (label) {
-        cm.getInputField().setAttribute('aria-label', label);
-      }
-    });
-    Vue.onUnmounted(() => {
-      if (cm) {
-        cm.off('change', changeHandler);
-        const el = cm.getWrapperElement();
-        if (el && el.parentNode) {
-          el.parentNode.removeChild(el);
-        }
-        cm = null;
-      }
-    });
-    Vue.watch(() => props.modelValue, (val) => {
-      if (cm && val !== cm.getValue()) {
-        ignoreChange = true;
-        const cursor = cm.getCursor();
-        cm.setValue(val || '');
-        cm.setCursor(cursor);
-        ignoreChange = false;
-      }
-    });
-    return { wrap };
-  }
-});
+if (window.SQLDEV_LEGACY_SQL_EDITOR &&
+    typeof window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent === 'function') {
+  window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent(app, Vue, CodeMirror);
+} else {
+  console.error('[SQLDev] Legacy SQL editor component module is not available');
+}
 
 // v-click-outside directive for closing dropdowns
 app.directive('click-outside', {

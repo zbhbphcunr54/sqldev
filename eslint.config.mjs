@@ -28,6 +28,15 @@ export default [
       }
     },
     rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_'
+        }
+      ],
       'vue/multi-word-component-names': 'off'
     }
   },

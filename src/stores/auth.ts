@@ -9,27 +9,46 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(true)
   const initialized = ref(false)
   const lastEvent = ref<AuthChangeEvent | null>(null)
+  let initPromise: Promise<void> | null = null
+  let authListenerRegistered = false
+  let authSubscription: { unsubscribe: () => void } | null = null
 
   const isAuthenticated = computed(() => !!user.value)
 
+  function applySession(nextSession: Session | null): void {
+    session.value = nextSession
+    user.value = nextSession?.user ?? null
+  }
+
   async function initAuth(): Promise<void> {
     if (initialized.value) return
+    if (initPromise) return initPromise
+
     loading.value = true
-    const {
-      data: { session: currentSession }
-    } = await supabase.auth.getSession()
-    session.value = currentSession
-    user.value = currentSession?.user ?? null
+    initPromise = (async () => {
+      try {
+        const {
+          data: { session: currentSession }
+        } = await supabase.auth.getSession()
+        applySession(currentSession)
 
-    supabase.auth.onAuthStateChange((event, nextSession) => {
-      lastEvent.value = event
-      session.value = nextSession
-      user.value = nextSession?.user ?? null
-      loading.value = false
-    })
+        if (!authListenerRegistered) {
+          authListenerRegistered = true
+          const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+            lastEvent.value = event
+            applySession(nextSession)
+          })
+          authSubscription = data.subscription
+        }
 
-    initialized.value = true
-    loading.value = false
+        initialized.value = true
+      } finally {
+        loading.value = false
+        initPromise = null
+      }
+    })()
+
+    return initPromise
   }
 
   async function signOut(): Promise<void> {
@@ -61,6 +80,12 @@ export const useAuthStore = defineStore('auth', () => {
     if (error) throw error
   }
 
+  function disposeAuthListener(): void {
+    authSubscription?.unsubscribe()
+    authSubscription = null
+    authListenerRegistered = false
+  }
+
   return {
     session,
     user,
@@ -72,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     signOut,
     signInWithPassword,
     signInWithOtp,
-    resetPasswordByEmail
+    resetPasswordByEmail,
+    disposeAuthListener
   }
 })

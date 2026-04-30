@@ -4,13 +4,14 @@ import { useRoute } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useAppStore } from '@/stores/app'
+import { useThemeRuntime } from '@/composables/useThemeRuntime'
 
 const route = useRoute()
 const authStore = useAuthStore()
-useAppStore()
+useThemeRuntime()
 
 const isLegacyFramePage = computed(() => route.meta.legacyFrame === true)
+const isFullPage = computed(() => route.meta.fullPage === true)
 const isAuthLayout = computed(() => route.meta.layout === 'auth')
 
 onMounted(async () => {
@@ -19,7 +20,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <RouterView v-if="isLegacyFramePage" />
+  <RouterView v-if="isLegacyFramePage || isFullPage" />
   <AuthLayout v-else-if="isAuthLayout" />
   <DefaultLayout v-else />
 </template>

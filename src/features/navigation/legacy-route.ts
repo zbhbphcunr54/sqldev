@@ -1,5 +1,5 @@
 export interface LegacyRouteInfo {
-  view: 'splash' | 'workbench'
+  view: 'workbench'
   page?: string
 }
 
@@ -21,10 +21,6 @@ export function parseLegacyRouteInfoFromPath(
   config: LegacyRouteConfig
 ): LegacyRouteInfo | null {
   const normalized = normalizeLegacyRoutePath(pathValue)
-  if (/(?:^|\/)splash(?:\/)?$/i.test(normalized)) {
-    return { view: 'splash' }
-  }
-
   const match = normalized.match(/(?:^|\/)workbench(?:\/([^/?#]+))?/i)
   if (!match) return null
 

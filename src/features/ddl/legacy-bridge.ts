@@ -1,12 +1,18 @@
 import {
-  applyOracleCommentStatements,
-  applyOracleForeignKeyStatements,
-  applyOracleIndexStatements,
-  applyOraclePrimaryKeyStatements,
-  applyPostgresCommentStatements,
-  applyPostgresForeignKeyStatements,
-  applyPostgresIndexStatements,
-  applyPostgresPartitionStatements,
+  parseMySqlColumnDefinition,
+  parseOracleColumnDefinition,
+  parsePostgresColumnDefinition
+} from './column-parsers'
+import { convertDdlOrchestrated } from './conversion-orchestrator'
+import {
+  convertExtraColumnType,
+  createEmptyExtraDdlParseResult,
+  generateExtraDdlStatements,
+  parseAddColumnDefinition,
+  parseAlterColumnTypeDefinition,
+  parseExtraDdlStatements
+} from './extra-ddl'
+import {
   buildMySqlInlineConstraintLines,
   buildOracleCommentLines,
   buildOracleForeignKeyLines,
@@ -14,39 +20,46 @@ import {
   buildPostgresCommentLines,
   buildPostgresForeignKeyLines,
   buildPostgresIndexLines,
-  convertDdlOrchestrated,
-  convertExtraColumnType,
-  createEmptyExtraDdlParseResult,
-  escapeDdlSqlLiteral,
-  generateExtraDdlStatements,
-  generateMySqlViewStatements,
-  generateOracleViewStatements,
-  generatePostgresViewStatements,
-  parseViewStatements,
+  escapeDdlSqlLiteral
+} from './output-builders'
+import {
   createDdlColumnModel,
-  extractCreateTableSections,
   createDdlTableModel,
   createDdlViewModel,
+  extractCreateTableSections,
   extractParenthesizedBody,
   padText,
-  parseMySqlColumnDefinition,
-  parseMySqlTableConstraintDefinition,
-  parseOracleColumnDefinition,
-  parseOracleTableConstraintDefinition,
-  parsePostgresColumnDefinition,
-  parsePostgresTableConstraintDefinition,
-  parseDdlRuleSource,
-  parseAddColumnDefinition,
-  parseAlterColumnTypeDefinition,
-  parseExtraDdlStatements,
-  transformViewQueryText,
-  matchesDdlRuleSource,
-  applyDdlRuleTarget,
-  mapDdlTypeByRules,
-  convertDdlDefaultValue,
   splitColumnDefinitions,
   splitListValues
-} from './index'
+} from './parser-utils'
+import {
+  applyOracleCommentStatements,
+  applyOracleForeignKeyStatements,
+  applyOracleIndexStatements,
+  applyOraclePrimaryKeyStatements,
+  applyPostgresCommentStatements,
+  applyPostgresForeignKeyStatements,
+  applyPostgresIndexStatements,
+  applyPostgresPartitionStatements
+} from './postprocess'
+import {
+  parseMySqlTableConstraintDefinition,
+  parseOracleTableConstraintDefinition,
+  parsePostgresTableConstraintDefinition
+} from './table-constraint-parsers'
+import {
+  applyDdlRuleTarget,
+  convertDdlDefaultValue,
+  mapDdlTypeByRules,
+  matchesDdlRuleSource,
+  parseDdlRuleSource
+} from './type-mapping'
+import {
+  generateMySqlViewStatements,
+  generateOracleViewStatements,
+  generatePostgresViewStatements
+} from './view-generators'
+import { parseViewStatements, transformViewQueryText } from './view-parsing'
 
 declare global {
   interface Window {

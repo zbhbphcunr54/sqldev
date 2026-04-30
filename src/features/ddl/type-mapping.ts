@@ -1,3 +1,5 @@
+import { normalizeSupportedDatabase, type SupportedDatabase } from '../shared/database'
+
 export interface DdlRuleCondition {
   op: '<' | '>' | '<=' | '>='
   val: number
@@ -24,8 +26,6 @@ export interface DdlTypeRule {
   source?: string
   target?: string
 }
-
-type SupportedDatabase = 'oracle' | 'mysql' | 'postgresql'
 
 export function parseDdlRuleSource(sourceValue: unknown): DdlParsedSourceRule {
   let source = String(sourceValue || '').trim()
@@ -160,8 +160,9 @@ export function convertDdlDefaultValue(
   if (!value) return null
 
   const original = String(value)
-  const from = String(fromValue || '').toLowerCase() as SupportedDatabase
-  const to = String(toValue || '').toLowerCase() as SupportedDatabase
+  const from = normalizeSupportedDatabase(fromValue)
+  const to = normalizeSupportedDatabase(toValue)
+  if (!from || !to) return original
   const normalized = original.toUpperCase().trim()
 
   if (from === 'oracle') {

@@ -1,5 +1,8 @@
-﻿import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+const TOKEN_REFRESH_SKEW_SECONDS = 60
 
 export class ApiError extends Error {
   code: string
@@ -13,20 +16,76 @@ export class ApiError extends Error {
   }
 }
 
-export async function invokeEdgeFunction<TReq extends Record<string, unknown>, TRes>(
-  functionName: string,
-  body: TReq
-): Promise<TRes> {
+function readRequestTimeoutMs(): number {
+  const raw = Number(import.meta.env.VITE_API_TIMEOUT_MS)
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_REQUEST_TIMEOUT_MS
+  return Math.min(raw, 120_000)
+}
+
+function shouldRefreshSession(expiresAt?: number): boolean {
+  if (!Number.isFinite(expiresAt)) return false
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  return Number(expiresAt) <= nowSeconds + TOKEN_REFRESH_SKEW_SECONDS
+}
+
+async function getFreshAccessToken(): Promise<string | null> {
   const {
     data: { session }
   } = await supabase.auth.getSession()
 
+  if (!session) return null
+  if (!shouldRefreshSession(session.expires_at)) return session.access_token ?? null
+
+  const {
+    data: { session: refreshedSession },
+    error
+  } = await supabase.auth.refreshSession()
+
+  if (error) {
+    throw new ApiError(
+      mapErrorCodeToMessage('session_refresh_failed'),
+      'session_refresh_failed',
+      401
+    )
+  }
+
+  return refreshedSession?.access_token ?? session.access_token ?? null
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(mapErrorCodeToMessage('network_timeout'), 'network_timeout', 408)
+    }
+    throw error
+  } finally {
+    globalThis.clearTimeout(timeoutId)
+  }
+}
+
+export async function invokeEdgeFunction<TReq extends Record<string, unknown>, TRes>(
+  functionName: string,
+  body: TReq
+): Promise<TRes> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   }
 
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`
+  const accessToken = await getFreshAccessToken()
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
   }
 
   const projectUrl = import.meta.env.VITE_SUPABASE_URL
@@ -35,11 +94,15 @@ export async function invokeEdgeFunction<TReq extends Record<string, unknown>, T
   }
 
   const url = `${projectUrl}/functions/v1/${functionName}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  })
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    },
+    readRequestTimeoutMs()
+  )
 
   const text = await res.text()
   let parsed: Record<string, unknown> = {}

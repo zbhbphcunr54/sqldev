@@ -29,6 +29,11 @@ assertEqual(
   { view: 'workbench', page: 'func' },
   'hash route must override pathname route'
 )
+assertEqual(
+  routes.parseLegacyRouteInfoFromPath('/splash', config),
+  null,
+  'legacy route parser must not own native splash routes'
+)
 assertEqual(routes.buildLegacyWorkbenchHash('unknown', config), '#/workbench/ddl', 'unknown page must fallback to ddl')
 
 console.log('Navigation route tests passed')

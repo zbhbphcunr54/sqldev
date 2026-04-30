@@ -2,7 +2,7 @@ import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
 import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp, getRequestContentLength } from '../_shared/request.ts'
-import { jsonResponse } from '../_shared/response.ts'
+import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.ts'
 import { parsePositiveInt } from '../_shared/utils.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
@@ -23,11 +23,17 @@ type RulesModuleShape = {
   _bodyRulesData?: Record<string, Array<Record<string, unknown>>>
   _bodyRulesDefault?: Record<string, Array<Record<string, unknown>>>
 }
+type ConvertEngineFunction = (input: string, from: string, to: string) => string
+type EngineModuleShape = {
+  convertDDL?: ConvertEngineFunction
+  convertFunction?: ConvertEngineFunction
+  convertProcedure?: ConvertEngineFunction
+}
 
 let engineReady = false
-let convertDDLFn: ((input: string, from: string, to: string) => string) | null = null
-let convertFunctionFn: ((input: string, from: string, to: string) => string) | null = null
-let convertProcedureFn: ((input: string, from: string, to: string) => string) | null = null
+let convertDDLFn: ConvertEngineFunction | null = null
+let convertFunctionFn: ConvertEngineFunction | null = null
+let convertProcedureFn: ConvertEngineFunction | null = null
 let rulesModule: RulesModuleShape | null = null
 let ddlRulesDefaultSnapshot: Record<string, DdlRuleItem[]> | null = null
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -46,11 +52,6 @@ const rateLimiter = createRateLimiter({
   trackMax: RATE_LIMIT_TRACK_MAX,
   storeMode: RATE_LIMIT_STORE_MODE
 })
-
-function logConvertError(stage: string, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err || '')
-  console.error(`[convert] ${stage}: ${message.slice(0, 300)}`)
-}
 
 function estimateJsonBytes(value: unknown): number {
   try {
@@ -78,6 +79,38 @@ function exceedsJsonDepth(value: unknown, maxDepth: number, depth = 0): boolean 
 
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object'
+}
+
+function isConvertEngineFunction(value: unknown): value is ConvertEngineFunction {
+  return typeof value === 'function'
+}
+
+function validateEngineModuleShape(value: unknown): EngineModuleShape {
+  if (!isRecord(value)) throw new Error('app-engine module is not an object')
+
+  const moduleShape: EngineModuleShape = {}
+  for (const key of ['convertDDL', 'convertFunction', 'convertProcedure'] as const) {
+    const candidate = value[key]
+    if (candidate == null) continue
+    if (!isConvertEngineFunction(candidate)) {
+      throw new Error(`app-engine export ${key} must be a function`)
+    }
+    moduleShape[key] = candidate
+  }
+
+  if (
+    !moduleShape.convertDDL &&
+    !moduleShape.convertFunction &&
+    !moduleShape.convertProcedure
+  ) {
+    throw new Error('app-engine module does not export any converter')
+  }
+
+  return moduleShape
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -225,16 +258,12 @@ async function ensureEngineReady() {
     }
   }
 
-  await import('./samples.js')
-  rulesModule = (await import('./rules.js')) as RulesModuleShape
+  await import('../_shared/convert-engine/samples.js')
+  rulesModule = (await import('../_shared/convert-engine/rules.js')) as RulesModuleShape
   if (!ddlRulesDefaultSnapshot && rulesModule._ddlRulesData) {
     ddlRulesDefaultSnapshot = cloneJson(rulesModule._ddlRulesData)
   }
-  const engineModule = (await import('./app-engine.js')) as {
-    convertDDL?: (input: string, from: string, to: string) => string
-    convertFunction?: (input: string, from: string, to: string) => string
-    convertProcedure?: (input: string, from: string, to: string) => string
-  }
+  const engineModule = validateEngineModuleShape(await import('../_shared/convert-engine/app-engine.js'))
   convertDDLFn = engineModule.convertDDL || null
   convertFunctionFn = engineModule.convertFunction || null
   convertProcedureFn = engineModule.convertProcedure || null
@@ -273,7 +302,7 @@ Deno.serve(async (req) => {
     try {
       limit = await rateLimiter.consume(`${sessionState.userId}:${clientIp}`)
     } catch (err) {
-      logConvertError('rate_limit_failed', err)
+      logEdgeError('convert', 'rate_limit_failed', err)
       limit = { ok: true, remaining: RATE_LIMIT_MAX_REQUESTS }
     }
     if (!limit.ok) {
@@ -304,16 +333,16 @@ Deno.serve(async (req) => {
     try {
       await ensureEngineReady()
     } catch (err) {
-      logConvertError('engine_init_failed', err)
-      return jsonResponse(503, { error: 'engine_init_failed' }, corsHeaders)
+      logEdgeError('convert', 'engine_init_failed', err)
+      return errorResponse(503, 'engine_init_failed', corsHeaders)
     }
 
     let runtimeApplied = false
     try {
       runtimeApplied = runtimeRules ? applyRuntimeRules(runtimeRules) : false
     } catch (err) {
-      logConvertError('rules_apply_failed', err)
-      return jsonResponse(400, { error: 'invalid_rules' }, corsHeaders)
+      logEdgeError('convert', 'rules_apply_failed', err)
+      return errorResponse(400, 'invalid_rules', corsHeaders)
     }
 
     let output = ''
@@ -332,8 +361,8 @@ Deno.serve(async (req) => {
         output = fn(input, fromDb, toDb)
       }
     } catch (err) {
-      logConvertError('conversion_failed', err)
-      return jsonResponse(500, { error: 'conversion_failed' }, corsHeaders)
+      logEdgeError('convert', 'conversion_failed', err)
+      return errorResponse(500, 'conversion_failed', corsHeaders)
     } finally {
       if (runtimeApplied) resetRuntimeRules()
     }
@@ -347,7 +376,7 @@ Deno.serve(async (req) => {
       rulesVersion: runtimeRules?.version || 'server-default'
     }, corsHeaders)
   } catch (err) {
-    logConvertError('internal_error', err)
-    return jsonResponse(500, { error: 'internal_error' }, corsHeaders)
+    logEdgeError('convert', 'internal_error', err)
+    return errorResponse(500, 'internal_error', corsHeaders)
   }
 })

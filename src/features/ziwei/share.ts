@@ -27,6 +27,19 @@ export interface ZiweiSharePosterSpec {
   glows: Array<{ x: number; y: number; radius: number; color: string }>
 }
 
+const ZIWEI_POSTER_COLORS = {
+  featureBlue: '#7aa8ff',
+  featureCyan: '#7ce7d8',
+  featureGold: '#fcbf74',
+  featurePurple: '#c69cff',
+  backgroundTop: '#060d1f',
+  backgroundMiddle: '#0b1531',
+  backgroundBottom: '#111f44',
+  glowBlue: 'rgba(79,125,249,.32)',
+  glowCyan: 'rgba(95,180,255,.2)',
+  glowPurple: 'rgba(139,92,246,.24)'
+} as const
+
 export function buildZiweiShareLink(
   locationLike: ZiweiShareLocationLike | null | undefined
 ): string {
@@ -57,33 +70,33 @@ export function createZiweiSharePosterSpec(shareLinkValue: unknown): ZiweiShareP
       {
         title: '完整命盘分析',
         desc: '支持主星/辅星/杂曜/四化、大限/流年/小限',
-        color: '#7aa8ff'
+        color: ZIWEI_POSTER_COLORS.featureBlue
       },
       {
         title: 'AI 个性化解盘',
         desc: '一键生成专业结构化解读，并支持追问',
-        color: '#7ce7d8'
+        color: ZIWEI_POSTER_COLORS.featureCyan
       },
       {
         title: '云端配置模板',
         desc: '解读模板、问答建议由服务端统一控制',
-        color: '#fcbf74'
+        color: ZIWEI_POSTER_COLORS.featureGold
       },
       {
         title: '分享友好体验',
         desc: '生成专属分享入口，访客可直达命盘界面',
-        color: '#c69cff'
+        color: ZIWEI_POSTER_COLORS.featurePurple
       }
     ],
     backgroundStops: [
-      { offset: 0, color: '#060d1f' },
-      { offset: 0.52, color: '#0b1531' },
-      { offset: 1, color: '#111f44' }
+      { offset: 0, color: ZIWEI_POSTER_COLORS.backgroundTop },
+      { offset: 0.52, color: ZIWEI_POSTER_COLORS.backgroundMiddle },
+      { offset: 1, color: ZIWEI_POSTER_COLORS.backgroundBottom }
     ],
     glows: [
-      { x: 190, y: 240, radius: 320, color: 'rgba(79,125,249,.32)' },
-      { x: 1020, y: 360, radius: 360, color: 'rgba(95,180,255,.2)' },
-      { x: 640, y: 1520, radius: 420, color: 'rgba(139,92,246,.24)' }
+      { x: 190, y: 240, radius: 320, color: ZIWEI_POSTER_COLORS.glowBlue },
+      { x: 1020, y: 360, radius: 360, color: ZIWEI_POSTER_COLORS.glowCyan },
+      { x: 640, y: 1520, radius: 420, color: ZIWEI_POSTER_COLORS.glowPurple }
     ]
   }
 }

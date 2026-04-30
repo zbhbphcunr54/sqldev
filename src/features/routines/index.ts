@@ -5,6 +5,7 @@ export {
   parseOracleRoutineParam,
   parseOracleVariableDeclarations,
   parsePostgresRoutineParam,
+  parseRoutineParams,
   splitRoutineParamList
 } from './parser-primitives'
 export {

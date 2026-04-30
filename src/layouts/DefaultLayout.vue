@@ -22,10 +22,18 @@ const feedbackSource = computed<'splash' | 'workbench' | 'ziwei'>(() => {
       <div v-if="isWorkbenchArea" class="flex flex-col gap-4 md:flex-row">
         <WorkbenchSidebar />
         <section class="min-w-0 flex-1">
-          <RouterView />
+          <RouterView v-slot="{ Component, route: viewRoute }">
+            <Transition name="page-soft" mode="out-in">
+              <component :is="Component" :key="viewRoute.fullPath" />
+            </Transition>
+          </RouterView>
         </section>
       </div>
-      <RouterView v-else />
+      <RouterView v-else v-slot="{ Component, route: viewRoute }">
+        <Transition name="page-soft" mode="out-in">
+          <component :is="Component" :key="viewRoute.fullPath" />
+        </Transition>
+      </RouterView>
     </main>
     <FeedbackWidget :source="feedbackSource" />
   </div>

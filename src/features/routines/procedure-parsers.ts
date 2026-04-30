@@ -5,14 +5,17 @@ import {
   parseOracleRoutineParam,
   parseOracleVariableDeclarations,
   parsePostgresRoutineParam,
-  splitRoutineParamList,
+  parseRoutineParams,
   type RoutineParameterModel,
   type RoutineVariableModel
 } from './parser-primitives'
 import {
+  extractBeginEndBody,
   extractRoutineHeaderWithParams,
+  splitRoutineDeclarationsAndBody,
   stripTrailingOracleStyleComments,
-  stripTrailingPostgresDollarComments
+  stripTrailingPostgresDollarComments,
+  unwrapPostgresDollarBody
 } from './header-utils'
 
 export interface ParsedRoutineProcedureModel {
@@ -40,21 +43,14 @@ export function parseOracleProcedureDefinition(input: string): ParsedRoutineProc
     }
 
     const afterHeader = source.substring(withoutParams.index + withoutParams[0].length)
-    const beginIndex = afterHeader.search(/\bBEGIN\b/i)
-    let declBlock = ''
-    let bodyPart = afterHeader
-    if (beginIndex >= 0) {
-      declBlock = afterHeader.substring(0, beginIndex).trim()
-      bodyPart = afterHeader.substring(beginIndex)
-    }
+    const parts = splitRoutineDeclarationsAndBody(afterHeader)
 
-    const vars = parseOracleVariableDeclarations(declBlock)
-    const bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i)
+    const vars = parseOracleVariableDeclarations(parts.declarations)
     return {
       name: withoutParams[1],
       params: [],
       vars,
-      body: bodyMatch ? bodyMatch[1] : bodyPart
+      body: extractBeginEndBody(parts.body)
     }
   }
 
@@ -64,25 +60,16 @@ export function parseOracleProcedureDefinition(input: string): ParsedRoutineProc
   }
 
   const afterHeader = withParams.afterParams.substring(isAsMatch[0].length)
-  const beginIndex = afterHeader.search(/\bBEGIN\b/i)
-  let declBlock = ''
-  let bodyPart = afterHeader
-  if (beginIndex >= 0) {
-    declBlock = afterHeader.substring(0, beginIndex).trim()
-    bodyPart = afterHeader.substring(beginIndex)
-  }
+  const parts = splitRoutineDeclarationsAndBody(afterHeader)
 
-  const params = splitRoutineParamList(withParams.paramStr)
-    .map(parseOracleRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
-  const vars = parseOracleVariableDeclarations(declBlock)
-  const bodyMatch = bodyPart.match(/\bBEGIN\b([\s\S]*)\bEND\b\s*\w*\s*;?\s*$/i)
+  const params = parseRoutineParams(withParams.paramStr, parseOracleRoutineParam)
+  const vars = parseOracleVariableDeclarations(parts.declarations)
 
   return {
     name: withParams.name,
     params,
     vars,
-    body: bodyMatch ? bodyMatch[1] : bodyPart
+    body: extractBeginEndBody(parts.body)
   }
 }
 
@@ -105,9 +92,7 @@ export function parseMySqlProcedureDefinition(input: string): ParsedRoutineProce
   }
 
   const extracted = extractMySqlRoutineDeclarations(bodyMatch[1])
-  const params = splitRoutineParamList(header.paramStr)
-    .map(parseMySqlRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
+  const params = parseRoutineParams(header.paramStr, parseMySqlRoutineParam)
 
   return {
     name: header.name,
@@ -139,21 +124,10 @@ export function parsePostgresProcedureDefinition(input: string): ParsedRoutinePr
     throw new Error('无法解析 PostgreSQL 存储过程头 AS $$')
   }
 
-  let inner = header.afterParams
-    .substring(asMatch[0].length)
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .replace(/\bLANGUAGE\s+\w+\s*;?\s*$/gi, '')
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .trim()
-  inner = inner
-    .replace(/\$\$\s*LANGUAGE\s+\w+\s*;?\s*$/gi, '')
-    .replace(/\$\$\s*;?\s*$/g, '')
-    .trim()
+  const inner = unwrapPostgresDollarBody(header.afterParams.substring(asMatch[0].length))
 
   const extracted = extractPostgresRoutineDeclarations(inner)
-  const params = splitRoutineParamList(header.paramStr)
-    .map(parsePostgresRoutineParam)
-    .filter(Boolean) as RoutineParameterModel[]
+  const params = parseRoutineParams(header.paramStr, parsePostgresRoutineParam)
 
   return {
     name: header.name,
