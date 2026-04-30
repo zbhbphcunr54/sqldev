@@ -157,14 +157,20 @@ assert(indexHtml.includes('rel="icon"'), 'index.html must declare a favicon')
 assert(indexHtml.includes('og:title'), 'index.html must declare Open Graph metadata')
 assert(!exists('index.vite.html'), 'obsolete index.vite.html redirect shell must be removed')
 if (exists('test.html')) {
-  assert(testHtml.includes('Deprecated Preview'), 'test.html must be an explicit deprecated preview notice')
+  assert(
+    testHtml.includes('Deprecated Preview'),
+    'test.html must be an explicit deprecated preview notice'
+  )
 }
 assert(
   eslintConfig.includes('@typescript-eslint/no-explicit-any') &&
     eslintConfig.includes('@typescript-eslint/no-unused-vars'),
   'ESLint must enforce strict TypeScript safety rules'
 )
-assert(packageJson.scripts?.test === 'node ./tests/run-all.mjs', 'test script must use the unified runner')
+assert(
+  packageJson.scripts?.test === 'node ./tests/run-all.mjs',
+  'test script must use the unified runner'
+)
 assert(
   packageJson.scripts?.['perf:report'] === 'node ./scripts/perf-report.mjs',
   'perf:report script must provide repeatable local build metrics'
@@ -178,8 +184,14 @@ assert(
   testRunner.includes('const testFiles = [') && testRunner.includes('tests/smoke.mjs'),
   'tests/run-all.mjs must define the unified suite list'
 )
-assert(prettierIgnore.includes('legacy.html'), 'Prettier must ignore legacy.html to avoid noisy formatting churn')
-assert(prettierIgnore.includes('src/legacy/**'), 'Prettier must ignore legacy runtime files during migration')
+assert(
+  prettierIgnore.includes('legacy.html'),
+  'Prettier must ignore legacy.html to avoid noisy formatting churn'
+)
+assert(
+  prettierIgnore.includes('src/legacy/**'),
+  'Prettier must ignore legacy runtime files during migration'
+)
 assert(
   legacyHtml.includes('src/legacy/bootstrap.js'),
   'legacy.html must retain the legacy bootstrap script'
@@ -288,7 +300,10 @@ assert(
     router.includes("component: () => import('@/pages/workbench/index.vue')"),
   'router must expose one normalized workbench section route'
 )
-assert(!exists('src/pages/workbench/ziwei.vue'), 'Ziwei workbench must use the normalized section route')
+assert(
+  !exists('src/pages/workbench/ziwei.vue'),
+  'Ziwei workbench must use the normalized section route'
+)
 assert(
   workbenchSections.includes('WORKBENCH_SECTION_NAV_ITEMS') &&
     workbenchSections.includes('normalizeWorkbenchSection') &&
@@ -303,7 +318,10 @@ assert(
   router.includes("component: () => import('@/pages/splash/index.vue')"),
   'router page components must use lazy imports'
 )
-assert(router.includes('meta: { fullPage: true }'), 'splash route must render as a native full page')
+assert(
+  router.includes('meta: { fullPage: true }'),
+  'splash route must render as a native full page'
+)
 assert(router.includes('legacyFrame: true'), 'legacy-backed routes must be marked with legacyFrame')
 assert(
   appEntry.includes('setupRouterGuards(router)'),
@@ -327,11 +345,11 @@ assert(
   'App.vue must allow native full-page routes without the default shell'
 )
 assert(
-  splashPage.includes('@/components/business/feedback/FeedbackWidget.vue') &&
-    splashPage.includes('function enterWorkbench') &&
-    splashPage.includes("router.push('/workbench/ddl')") &&
-    !splashPage.includes('LegacyFrameView'),
-  'splash page must be a native Vue page instead of the legacy iframe wrapper'
+  !splashPage.includes('LegacyFrameView') &&
+    splashPage.includes('id="splash-poster"') &&
+    splashPage.includes('sp-enter-btn') &&
+    splashPage.includes('FeedbackWidget'),
+  'splash page must render the preserved homepage layout as a native Vue SFC'
 )
 assert(routerGuards.includes('to.meta.requiresAuth'), 'router guards must handle protected routes')
 assert(
@@ -342,10 +360,7 @@ assert(
   typeIndex.includes('./database.types'),
   'src/types/index.ts must re-export generated database types'
 )
-assert(
-  typeIndex.includes('./result'),
-  'src/types/index.ts must re-export the shared Result type'
-)
+assert(typeIndex.includes('./result'), 'src/types/index.ts must re-export the shared Result type')
 assert(
   !exists('src/types/supabase.ts'),
   'obsolete duplicate supabase.ts type barrel must be removed'
@@ -426,7 +441,7 @@ assert(
 )
 assert(
   viteConfig.includes('const legacyFiles = [') &&
-    viteConfig.includes("vendor/codemirror.min.js") &&
+    viteConfig.includes('vendor/codemirror.min.js') &&
     !viteConfig.includes('cp(sourceDir, targetDir'),
   'copyLegacyAssetsPlugin must copy a curated legacy asset allowlist instead of the whole directory'
 )
@@ -462,15 +477,18 @@ assert(
   legacyFrameView.includes("'sqldev:navigate-workbench-section'") &&
     legacyFrameView.includes("'sqldev:set-workbench-hash'") &&
     legacyFrameView.includes('allowedWorkbenchSections') &&
-    legacyFrameView.includes("router.replace(target)") &&
-    legacyFrameView.includes("router.push(target)"),
+    legacyFrameView.includes('router.replace(target)') &&
+    legacyFrameView.includes('router.push(target)'),
   'legacy iframe must sync workbench section navigation back to the Vue router'
 )
-assert(!legacyHtml.includes('src/legacy/splash.js'), 'legacy splash script must not be loaded')
-assert(!exists('src/legacy/splash.js'), 'obsolete legacy splash runtime must be removed')
-assert(!viteConfig.includes("'splash.js'"), 'obsolete legacy splash runtime must not be copied')
-assert(!legacyHtml.includes('id="splash-poster"'), 'legacy splash poster DOM must be removed')
-assert(!legacyHtml.includes('id="sp-enter-btn"'), 'legacy splash CTA DOM must be removed')
+assert(!legacyHtml.includes('id="splash-poster"'), 'legacy splash poster DOM must move to Vue SFC')
+assert(!legacyHtml.includes('id="sp-enter-btn"'), 'legacy splash CTA DOM must move to Vue SFC')
+assert(
+  !legacyHtml.includes('src/legacy/splash.js'),
+  'legacy splash must not require a separate splash.js runtime'
+)
+assert(!exists('src/legacy/splash.js'), 'legacy splash.js runtime must stay retired')
+assert(!viteConfig.includes("'splash.js'"), 'retired splash.js runtime must not be copied')
 assert(
   feedbackWidget.includes("console.error('[SQLDev] Feedback submit failed'"),
   'feedback widget must log submit errors'
@@ -976,32 +994,29 @@ assert(
 )
 assert(
   legacyStartupView.includes("window.__SQDEV_STARTUP_VIEW = 'workbench'") &&
-    !legacyStartupView.includes("'splash'"),
-  'legacy startup view must default to workbench after native splash migration'
+    legacyStartupView.includes("window.__SQDEV_STARTUP_VIEW = 'splash'"),
+  'legacy startup view must support both splash and workbench entry modes'
 )
-assert(!legacyApp.includes('splashApi'), 'legacy app must not depend on removed splashApi')
-assert(!legacyAuth.includes('splashApi'), 'legacy auth must not depend on removed splashApi')
+assert(legacyApp.includes('splashApi'), 'legacy app must keep splash bridge hooks during migration')
+assert(legacyAuth.includes('splashApi'), 'legacy auth must keep splash auth hooks during migration')
 assert(
-  !legacyStyle.includes('#splash-poster') &&
-    !legacyStyle.includes('.sp-') &&
-    !legacyStyle.includes('splash-active'),
-  'legacy stylesheet must not keep retired splash poster rules'
-)
-assert(
-  !legacyApp.includes('splash-active') && !legacyApp.includes('sp-theme-sync'),
-  'legacy app must not keep retired splash route/theme hooks'
+  legacyStyle.includes('#splash-poster'),
+  'legacy stylesheet must preserve homepage splash poster rules'
 )
 assert(
   legacyHtml.includes('<div class="auth-modal-mask" id="auth-modal-mask" hidden>') &&
     !legacyHtml.includes('id="splash-poster"'),
-  'legacy auth modal must remain after retired splash poster removal'
+  'legacy auth modal may remain for workbench, but splash poster must live in Vue'
 )
-assert(!legacyAuth.includes('ensureGlobalModalHost'), 'legacy auth must not move modal out of splash at runtime')
+assert(
+  legacyAuth.includes('ensureGlobalModalHost'),
+  'legacy auth must keep the modal host guard for the preserved homepage'
+)
 assert(
   legacyBootstrap.includes("boot('startup-workbench')") &&
-    !legacyBootstrap.includes('scheduleIdleBoot') &&
-    !legacyBootstrap.includes('bindAuthIntent'),
-  'legacy bootstrap must boot the workbench directly after native splash migration'
+    legacyBootstrap.includes('scheduleIdleBoot') &&
+    legacyBootstrap.includes('bindAuthIntent'),
+  'legacy bootstrap must support direct workbench boot and preserved splash lazy boot'
 )
 assert(
   migration.includes('create table if not exists public.feedback_entries'),
@@ -1024,7 +1039,9 @@ for (const indexName of [
 assert(
   convertFunction.includes('function validateEngineModuleShape') &&
     convertFunction.includes('app-engine export') &&
-    convertFunction.includes("validateEngineModuleShape(await import('../_shared/convert-engine/app-engine.js'))"),
+    convertFunction.includes(
+      "validateEngineModuleShape(await import('../_shared/convert-engine/app-engine.js'))"
+    ),
   'convert function must validate dynamically imported engine module shape'
 )
 assert(
@@ -1055,7 +1072,8 @@ assert(
   'feedback function CORS must read CORS_PRIMARY_ORIGIN'
 )
 assert(
-  ziweiAnalysisFunction.trim() === "import { handleZiweiAnalysisRequest } from './handler.ts'\n\nDeno.serve(handleZiweiAnalysisRequest)",
+  ziweiAnalysisFunction.trim() ===
+    "import { handleZiweiAnalysisRequest } from './handler.ts'\n\nDeno.serve(handleZiweiAnalysisRequest)",
   'ziwei analysis index must stay as a thin function entry'
 )
 assert(
@@ -1100,11 +1118,46 @@ assert(
   '.env.example must document frontend env and Edge Function secret ownership'
 )
 assert(testHelper.includes('export function loadTsModule'), 'TS module test loader must be shared')
-for (const testFile of [sqlFormatTest, ddlParserUtilsTest, ddlColumnParsersTest, ddlTableConstraintParsersTest, ddlPostprocessTest, ddlTypeMappingTest, ddlOutputBuildersTest, ddlExtraDdlTest, ddlConversionOrchestratorTest, ddlViewGeneratorsTest, ddlViewParsingTest, convertErrorMapTest, browserFileActionsTest, bodyTransformRulesTest, routineParserPrimitivesTest, routineFunctionParsersTest, routineProcedureParsersTest, preferencesStorageTest, rulesPersistenceTest, idToolsTest]) {
-  assert(testFile.includes('./helpers/load-ts-module.mjs'), 'feature tests must reuse the shared TS module loader')
+for (const testFile of [
+  sqlFormatTest,
+  ddlParserUtilsTest,
+  ddlColumnParsersTest,
+  ddlTableConstraintParsersTest,
+  ddlPostprocessTest,
+  ddlTypeMappingTest,
+  ddlOutputBuildersTest,
+  ddlExtraDdlTest,
+  ddlConversionOrchestratorTest,
+  ddlViewGeneratorsTest,
+  ddlViewParsingTest,
+  convertErrorMapTest,
+  browserFileActionsTest,
+  bodyTransformRulesTest,
+  routineParserPrimitivesTest,
+  routineFunctionParsersTest,
+  routineProcedureParsersTest,
+  preferencesStorageTest,
+  rulesPersistenceTest,
+  idToolsTest
+]) {
+  assert(
+    testFile.includes('./helpers/load-ts-module.mjs'),
+    'feature tests must reuse the shared TS module loader'
+  )
 }
-for (const testFile of [navigationRouteTest, navigationWorkbenchSectionsTest, navigationRedirectTest, ziweiHistoryTest, ziweiPresentationTest, ziweiShareTest, ziweiAiUtilsTest]) {
-  assert(testFile.includes('./helpers/load-ts-module.mjs'), 'new feature tests must reuse the shared TS module loader')
+for (const testFile of [
+  navigationRouteTest,
+  navigationWorkbenchSectionsTest,
+  navigationRedirectTest,
+  ziweiHistoryTest,
+  ziweiPresentationTest,
+  ziweiShareTest,
+  ziweiAiUtilsTest
+]) {
+  assert(
+    testFile.includes('./helpers/load-ts-module.mjs'),
+    'new feature tests must reuse the shared TS module loader'
+  )
 }
 
 const functionConfigs = [

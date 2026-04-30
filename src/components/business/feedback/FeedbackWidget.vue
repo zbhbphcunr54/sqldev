@@ -41,7 +41,7 @@ function getFeedbackErrorMessage(error: unknown): string {
   return mapErrorCodeToMessage('feedback_submit_failed')
 }
 
-async function handleSubmit() {
+async function handleSubmit(): Promise<void> {
   if (!canSubmit.value || loading.value) return
   loading.value = true
   status.value = { type: 'idle', text: '' }

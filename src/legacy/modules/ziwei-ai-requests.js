@@ -1,6 +1,8 @@
 async function ensureAuthReady(options, silent, authPrompt) {
-  if ((!window.authApi || typeof window.authApi.invokeFunction !== 'function') &&
-      typeof window.__loadSqldevAuthNow === 'function') {
+  if (
+    (!window.authApi || typeof window.authApi.invokeFunction !== 'function') &&
+    typeof window.__loadSqldevAuthNow === 'function'
+  ) {
     try {
       await window.__loadSqldevAuthNow()
     } catch (err) {
@@ -126,20 +128,18 @@ export function createZiweiAiRequestActions(options) {
       return
     }
 
-    var invokeAnalysis = async function(payload) {
+    var invokeAnalysis = async function (payload) {
       return await window.authApi.invokeFunction('ziwei-analysis', {
         signature: aiSignature,
         style: 'pro',
         chart: payload
       })
     }
-    var primaryPayloadBuilder = options.primaryPayloadMode === 'compact'
-      ? options.buildAiPayloadCompact
-      : options.buildAiPayloadLite
-    var secondaryPayloadBuilder = options.primaryPayloadMode === 'compact'
-      ? options.buildAiPayloadLite
-      : options.buildAiPayloadCompact
-    var getErrorDetail = async function(rawErr) {
+    var primaryPayloadBuilder =
+      options.primaryPayloadMode === 'compact' ? options.buildAiPayloadCompact : options.buildAiPayloadLite
+    var secondaryPayloadBuilder =
+      options.primaryPayloadMode === 'compact' ? options.buildAiPayloadLite : options.buildAiPayloadCompact
+    var getErrorDetail = async function (rawErr) {
       var parsed = await options.parseInvokeError(rawErr)
       return String(parsed.detail || (rawErr && rawErr.message) || rawErr || '请求失败')
     }

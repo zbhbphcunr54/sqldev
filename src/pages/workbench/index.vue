@@ -10,9 +10,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 
-const hashPath = computed(() => {
-  return `/workbench/${normalizeWorkbenchSection(route.params.section)}`
-})
+const hashPath = computed(() => `/workbench/${normalizeWorkbenchSection(route.params.section)}`)
 
 watch(
   () => route.params.section,

@@ -2979,6 +2979,11 @@ function _genPGProcedure(name, params, vars, body) {
 /* ===== VUE 3 APP ===== */
 const { createApp, ref, computed, watch, nextTick, onMounted, onUnmounted, triggerRef } = Vue;
 
+const legacyNavigationState =
+  window.SQLDEV_LEGACY_NAV_STATE && typeof window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState === 'function'
+    ? window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState(window)
+    : null;
+
 const app = createApp({
   setup() {
     // ===== DB Picker state =====
@@ -2989,21 +2994,68 @@ const app = createApp({
       { value: 'mysql', label: 'MySQL', abbr: 'MY' },
       { value: 'postgresql', label: 'PostgreSQL', abbr: 'PG' }
     ];
-    const legacyNavState = window.SQLDEV_LEGACY_NAV_STATE && typeof window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState === 'function'
-      ? window.SQLDEV_LEGACY_NAV_STATE.createLegacyNavigationState(window)
-      : null;
-    const PAGE_ROUTE_SEGMENTS = legacyNavState ? legacyNavState.PAGE_ROUTE_SEGMENTS : Object.freeze({ ddl: 'ddl', func: 'function', proc: 'procedure', idTool: 'id-tool', ziweiTool: 'ziwei', rules: 'rules', bodyRules: 'body-rules' });
-    const ROUTE_PAGE_KEYS = legacyNavState ? legacyNavState.ROUTE_PAGE_KEYS : Object.freeze(Object.keys(PAGE_ROUTE_SEGMENTS));
-    const normalizeEmail = legacyNavState ? legacyNavState.normalizeEmail : function(value) { return String(value || '').trim().toLowerCase(); };
-    const ZIWEI_ALLOWED_EMAILS = Object.freeze((function() {
-      if (legacyNavState) return legacyNavState.readConfiguredZiweiAllowedEmails();
+    const PAGE_ROUTE_SEGMENTS = Object.freeze({
+      ddl: 'ddl',
+      func: 'function',
+      proc: 'procedure',
+      idTool: 'id-tool',
+      ziweiTool: 'ziwei',
+      rules: 'rules',
+      bodyRules: 'body-rules'
+    });
+    const ROUTE_SEGMENT_TO_PAGE = Object.freeze((function() {
+      var map = {};
+      var keys = Object.keys(PAGE_ROUTE_SEGMENTS);
+      for (var i = 0; i < keys.length; i++) {
+        map[PAGE_ROUTE_SEGMENTS[keys[i]]] = keys[i];
+      }
+      return map;
+    })());
+    const ROUTE_WORKBENCH_PREFIX = '/workbench';
+    const ROUTE_SPLASH_PATH = '/splash';
+    const ROUTE_PAGE_KEYS = Object.freeze(Object.keys(PAGE_ROUTE_SEGMENTS));
+    function normalizeEmail(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+    function parseEmailAllowList(raw) {
+      if (Array.isArray(raw)) {
+        return raw.map(normalizeEmail).filter(Boolean);
+      }
+      if (typeof raw === 'string') {
+        return raw.split(',').map(normalizeEmail).filter(Boolean);
+      }
       return [];
+    }
+    const ZIWEI_ALLOWED_EMAILS = Object.freeze((function() {
+      if (typeof window === 'undefined') return [];
+      var configured = window.SQDEV_ZIWEI_ALLOWED_EMAILS;
+      if (configured == null || configured === '') configured = window.__SQDEV_ZIWEI_ALLOWED_EMAILS;
+      return parseEmailAllowList(configured);
     })());
     function readCurrentAuthEmail() {
-      return legacyNavState ? legacyNavState.readCurrentAuthEmail() : '';
+      try {
+        if (typeof window === 'undefined' || !window.authApi || typeof window.authApi.getUserSync !== 'function') return '';
+        var authUser = window.authApi.getUserSync();
+        return normalizeEmail(authUser && authUser.email);
+      } catch (_err) {
+        return '';
+      }
     }
     function _readZiweiShareModeFromLocation() {
-      return legacyNavState ? legacyNavState.readZiweiShareModeFromLocation() : false;
+      try {
+        if (typeof window === 'undefined' || !window.location) return false;
+        var search = new URLSearchParams(String(window.location.search || ''));
+        var raw = search.get('ziwei_share') || search.get('zwshare') || '';
+        if (!raw && String(window.location.hash || '').indexOf('?') >= 0) {
+          var hashQuery = String(window.location.hash || '').split('?')[1] || '';
+          var hashParams = new URLSearchParams(hashQuery);
+          raw = hashParams.get('ziwei_share') || hashParams.get('zwshare') || '';
+        }
+        var flag = String(raw || '').trim().toLowerCase();
+        return flag === '1' || flag === 'true' || flag === 'yes';
+      } catch (_err) {
+        return false;
+      }
     }
     const ziweiShareMode = ref(_readZiweiShareModeFromLocation());
     const currentUserEmail = ref(readCurrentAuthEmail());
@@ -3019,7 +3071,6 @@ const app = createApp({
     });
 
     function normalizePageKey(page) {
-      if (legacyNavState) return legacyNavState.normalizePageKey(page);
       var key = String(page || '').trim();
       return ROUTE_PAGE_KEYS.indexOf(key) >= 0 ? key : 'ddl';
     }
@@ -3031,39 +3082,85 @@ const app = createApp({
     }
 
     function normalizeRoutePath(path) {
-      return legacyNavState ? legacyNavState.normalizeRoutePath(path) : '/';
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.normalizeLegacyRoutePath === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.normalizeLegacyRoutePath(path);
+      }
+      var value = String(path || '').trim();
+      if (!value) return '/';
+      if (value.charAt(0) !== '/') value = '/' + value;
+      value = value.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+      return value || '/';
     }
 
     function parseRouteInfoFromPath(path) {
-      return legacyNavState ? legacyNavState.parseRouteInfoFromPath(path) : null;
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromPath === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromPath(path, {
+          pageRouteSegments: PAGE_ROUTE_SEGMENTS,
+          routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
+        });
+      }
+      var normalized = normalizeRoutePath(path);
+      if (/(?:^|\/)splash(?:\/)?$/i.test(normalized)) {
+        return { view: 'splash' };
+      }
+      var match = normalized.match(/(?:^|\/)workbench(?:\/([^/?#]+))?/i);
+      if (!match) return null;
+      var segment = String(match[1] || 'ddl').toLowerCase();
+      return { view: 'workbench', page: ROUTE_SEGMENT_TO_PAGE[segment] || 'ddl' };
     }
 
     function parseRouteInfoFromLocation() {
-      return legacyNavState ? legacyNavState.parseRouteInfoFromLocation() : null;
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.parseLegacyRouteInfoFromLocation(
+          typeof window === 'undefined' ? null : window.location,
+          {
+            pageRouteSegments: PAGE_ROUTE_SEGMENTS,
+            routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
+          }
+        );
+      }
+      if (typeof window === 'undefined' || !window.location) return null;
+      var hashPath = normalizeRoutePath(String(window.location.hash || '').replace(/^#/, ''));
+      var infoFromHash = parseRouteInfoFromPath(hashPath);
+      if (infoFromHash) return infoFromHash;
+      return parseRouteInfoFromPath(window.location.pathname || '/');
     }
 
     function buildWorkbenchHash(page) {
-      return legacyNavState ? legacyNavState.buildWorkbenchHash(page) : '#/workbench/ddl';
+      if (window.SQLDEV_ROUTE_UTILS && typeof window.SQLDEV_ROUTE_UTILS.buildLegacyWorkbenchHash === 'function') {
+        return window.SQLDEV_ROUTE_UTILS.buildLegacyWorkbenchHash(page, {
+          pageRouteSegments: PAGE_ROUTE_SEGMENTS,
+          routeWorkbenchPrefix: ROUTE_WORKBENCH_PREFIX
+        });
+      }
+      var normalizedPage = normalizePageKey(page);
+      var segment = PAGE_ROUTE_SEGMENTS[normalizedPage] || PAGE_ROUTE_SEGMENTS.ddl;
+      return '#' + ROUTE_WORKBENCH_PREFIX + '/' + segment;
     }
 
-    function notifyParentWorkbenchRoute(page, replaceUrl) {
-      if (typeof window === 'undefined' || window.parent === window) return;
+    function notifyParentWorkbenchRoute(page, replaceRoute) {
+      if (typeof window === 'undefined' || !window.parent || window.parent === window) return false;
+      var normalizedPage = normalizePageKey(page);
+      var segment = PAGE_ROUTE_SEGMENTS[normalizedPage] || PAGE_ROUTE_SEGMENTS.ddl;
       try {
-        var normalizedPage = normalizePageKey(page);
-        var segment = PAGE_ROUTE_SEGMENTS[normalizedPage] || PAGE_ROUTE_SEGMENTS.ddl || 'ddl';
         window.parent.postMessage(
           {
             type: 'sqldev:navigate-workbench-section',
             section: segment,
-            replace: !!replaceUrl
+            replace: !!replaceRoute
           },
           window.location.origin
         );
-      } catch (_postMessageErr) {}
+        return true;
+      } catch (err) {
+        console.warn('[sqldev] notify parent workbench route failed', err);
+        return false;
+      }
     }
 
     function syncRouteForPage(page, replaceUrl) {
       if (typeof window === 'undefined' || !window.location) return;
+      if (notifyParentWorkbenchRoute(page, !!replaceUrl)) return;
       var targetHash = buildWorkbenchHash(page);
       var currentHashRaw = String(window.location.hash || '').replace(/^#/, '');
       var currentHash = currentHashRaw ? ('#' + normalizeRoutePath(currentHashRaw)) : '';
@@ -3073,18 +3170,23 @@ const app = createApp({
         if (window.history) {
           if (replaceUrl && typeof window.history.replaceState === 'function') {
             window.history.replaceState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
-            notifyParentWorkbenchRoute(page, true);
             return;
           }
           if (!replaceUrl && typeof window.history.pushState === 'function') {
             window.history.pushState({ view: 'workbench', page: normalizePageKey(page) }, '', nextUrl);
-            notifyParentWorkbenchRoute(page, false);
             return;
           }
         }
       } catch (_historyErr) {}
       window.location.hash = targetHash.slice(1);
-      notifyParentWorkbenchRoute(page, !!replaceUrl);
+    }
+
+    function applyRouteFromParentMessage(data) {
+      if (!data || data.type !== 'sqldev:set-workbench-hash') return false;
+      var routeInfo = parseRouteInfoFromPath(data.hashPath || '');
+      if (!routeInfo || routeInfo.view !== 'workbench') return false;
+      applyPageState(routeInfo.page, { syncRoute: false, keepSidebarOnMobile: true });
+      return true;
     }
 
     const initialRouteInfo = parseRouteInfoFromLocation();
@@ -3139,10 +3241,34 @@ const app = createApp({
     function setPage(page) {
       applyPageState(page, { syncRoute: true, replaceRoute: false });
     }
+    function ensureWorkbenchVisibleForRoute() {
+      if (typeof document === 'undefined') return;
+      if (!document.body.classList.contains('splash-active')) return;
+      if (typeof window !== 'undefined' && window.splashApi && typeof window.splashApi.enterWorkbench === 'function') {
+        window.splashApi.enterWorkbench(true);
+        return;
+      }
+      document.documentElement.classList.add('startup-workbench');
+      document.body.classList.remove('splash-active');
+      var poster = document.getElementById('splash-poster');
+      if (poster) poster.style.display = 'none';
+    }
     function applyRouteFromLocation() {
       ziweiShareMode.value = _readZiweiShareModeFromLocation();
       var routeInfo = parseRouteInfoFromLocation();
       if (!routeInfo) return;
+      if (routeInfo.view === 'splash') {
+        if (ziweiShareMode.value) {
+          ensureWorkbenchVisibleForRoute();
+          applyPageState('ziweiTool', { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
+          return;
+        }
+        if (typeof document !== 'undefined' && !document.body.classList.contains('splash-active')) {
+          goSplashHome();
+        }
+        return;
+      }
+      ensureWorkbenchVisibleForRoute();
       if (ziweiShareMode.value) {
         if (activePage.value !== 'ziweiTool') {
           applyPageState('ziweiTool', { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
@@ -3156,17 +3282,6 @@ const app = createApp({
       if (routeInfo.page !== activePage.value) {
         applyPageState(routeInfo.page, { syncRoute: false, keepSidebarOnMobile: true });
       }
-    }
-
-    function applyRouteFromParentMessage(hashPath) {
-      var routeInfo = parseRouteInfoFromPath(hashPath);
-      if (!routeInfo || routeInfo.view !== 'workbench') return;
-      var nextPage = normalizeAccessiblePage(routeInfo.page);
-      if (nextPage === activePage.value) {
-        syncRouteForPage(nextPage, true);
-        return;
-      }
-      applyPageState(nextPage, { syncRoute: true, replaceRoute: true, keepSidebarOnMobile: true });
     }
     /* navKeydown removed: sidebar is now role="navigation" with aria-current, not tablist */
     const showRulesMenu = ref(false);
@@ -3244,6 +3359,11 @@ const app = createApp({
         if (themeMode.value === 'system') applyTheme('system');
       });
     } catch(e) {}
+    /* Sync theme if poster forced dark after Vue mounted */
+    window.addEventListener('sp-theme-sync', function(e) {
+      themeMode.value = e.detail || 'system';
+      applyTheme(themeMode.value);
+    });
     const refCollapsed = ref(true);
     const ruleSearchQuery = ref('');
     const ruleFilterDir = ref('all');
@@ -3495,6 +3615,7 @@ const app = createApp({
     const ziweiAiCooldownHint = ref('');
     const ziweiAiLastRequestAt = ref(0);
     const ziweiLastAiSignature = ref('');
+    const _ziweiAiCache = new Map();
     const _ZIWEI_AI_CACHE_MAX = 12;
     const _ZIWEI_AI_MIN_INTERVAL_MS = 2200;
     const _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS = 30000;
@@ -3502,8 +3623,9 @@ const app = createApp({
       var raw = String(window.SQDEV_ZIWEI_AI_PRIMARY_PAYLOAD || 'lite').trim().toLowerCase();
       return raw === 'compact' ? 'compact' : 'lite';
     })();
-    var ziweiAiCooldownActions = null;
-    var ziweiAiRequestActions = null;
+    var _ziweiAiInFlightPromise = null;
+    var _ziweiAiInFlightSignature = '';
+    var _ziweiAiCooldownTimer = 0;
     /*
     const LEGACY_UNUSED_QA_LIST = [
       '请解读我今年事业和收入变化重点',
@@ -4503,61 +4625,62 @@ const app = createApp({
       _flashButtonState(usccVerifyDone, 'usccVerify');
     }
 
-    var idToolActions = window.SQLDEV_LEGACY_ID_TOOL_ACTIONS &&
-      typeof window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions === 'function'
-        ? window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions({
-            regionReady,
-            regionLoadError,
-            regionCodeSet,
-            idProvinceCode,
-            idCityCode,
-            idCountyCode,
-            idBirthDate,
-            idBirthMax,
-            idGender,
-            idGeneratedNumber,
-            idGenerateResult,
-            idVerifyInput,
-            idCopyDone,
-            usccProvinceCode,
-            usccCityCode,
-            usccCountyCode,
-            usccCodeMode,
-            usccDeptCode,
-            usccOrgTypeCode,
-            usccGeneratedCode,
-            usccLegacyGenerated,
-            usccCopyPayload,
-            usccGenerateResult,
-            usccVerifyInput,
-            usccCopyDone,
-            setIdVerifyResult: _setIdVerifyResult,
-            setUsccVerifyResult: _setUsccVerifyResult,
-            flashButtonState: _flashButtonState,
-            clipboardWrite
-          })
-        : null;
-
-    if (!idToolActions) {
-      console.error('[SQLDev] Legacy ID tool actions module is not available');
-    }
-
-    function _runIdToolAction(actionName) {
-      if (!idToolActions || typeof idToolActions[actionName] !== 'function') {
-        idGenerateResult.value = { type: 'error', text: '证件工具初始化失败，请刷新页面后重试' };
-        return undefined;
+    const idToolActions = window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions({
+      refs: {
+        idProvince: idProvince,
+        idCity: idCity,
+        idCounty: idCounty,
+        idBirthDate: idBirthDate,
+        idGender: idGender,
+        idGenerated: idGenerated,
+        idGenerateStatus: idGenerateStatus,
+        idVerifyInput: idVerifyInput,
+        idVerifyStatus: idVerifyStatus,
+        idCopyState: idCopyState,
+        idVerifyState: idVerifyState,
+        usccDeptType: usccDeptType,
+        usccGenerated: usccGenerated,
+        usccGenerateStatus: usccGenerateStatus,
+        usccVerifyInput: usccVerifyInput,
+        usccVerifyStatus: usccVerifyStatus,
+        usccCopyState: usccCopyState,
+        usccVerifyState: usccVerifyState
+      },
+      computed: {
+        selectedCountyCode: selectedCountyCode,
+        countyOptions: countyOptions
+      },
+      helpers: {
+        randomInt: randomInt,
+        calcIdCardCheckDigit: calcIdCardCheckDigit,
+        validateIdCardNumber: validateIdCardNumber,
+        calcUsccCheckChar: calcUsccCheckChar,
+        validateUsccCodeValue: validateUsccCodeValue,
+        copyText: copyText,
+        usccChars: USCC_CHARS,
+        usccDeptOptions: USCC_DEPT_OPTIONS
+      },
+      timers: {
+        getIdCopyTimer: function() { return idCopyTimer; },
+        setIdCopyTimer: function(timer) { idCopyTimer = timer; },
+        getIdVerifyTimer: function() { return idVerifyTimer; },
+        setIdVerifyTimer: function(timer) { idVerifyTimer = timer; },
+        getUsccCopyTimer: function() { return usccCopyTimer; },
+        setUsccCopyTimer: function(timer) { usccCopyTimer = timer; },
+        getUsccVerifyTimer: function() { return usccVerifyTimer; },
+        setUsccVerifyTimer: function(timer) { usccVerifyTimer = timer; }
       }
-      return idToolActions[actionName]();
-    }
+    });
+    const {
+      generateIdNumber,
+      validateIdNumber,
+      copyGeneratedIdNumber,
+      generateUsccCode,
+      validateUsccCode,
+      copyGeneratedUsccCode
+    } = idToolActions;
 
-    function generateIdNumber() { return _runIdToolAction('generateIdNumber'); }
-    function validateIdNumber() { return _runIdToolAction('validateIdNumber'); }
-    function copyGeneratedIdNumber() { return _runIdToolAction('copyGeneratedIdNumber'); }
-    function generateUsccCode() { return _runIdToolAction('generateUsccCode'); }
-    function validateUsccCode() { return _runIdToolAction('validateUsccCode'); }
-    function copyGeneratedUsccCode() { return _runIdToolAction('copyGeneratedUsccCode'); }
-
-    function _zwNormalizeSolarDay() {
+        function _zwNormalizeSolarDay() {
       var year = Number(ziweiSolarYear.value || '1990');
       var month = Number(ziweiSolarMonth.value || '1');
       var day = Number(ziweiSolarDay.value || '1');
@@ -5907,49 +6030,63 @@ const app = createApp({
       ziweiFocusBranch.value = b;
     }
 
-    var ziweiAiSuggestionActions = window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS &&
-      typeof window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions === 'function'
-        ? window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions({
-            nextTick,
-            ziweiAiQaInputWrapRef,
-            ziweiAiSuggestionsFiltered,
-            ziweiAiSuggestionPlacement,
-            ziweiAiSuggestionMaxHeight,
-            ziweiAiSuggestionOpen,
-            ziweiAiQuestionInput,
-            ziweiAiQaSuggestions
-          })
-        : null;
+    const ziweiAiSuggestionActions = window.SQLDEV_LEGACY_ZIWEI_AI_SUGGESTIONS.createZiweiAiSuggestionActions({
+      refs: {
+        inputWrapRef: ziweiAiQaInputWrapRef,
+        suggestionOpen: ziweiAiSuggestionOpen,
+        suggestionPlacement: ziweiAiSuggestionPlacement,
+        suggestionMaxHeight: ziweiAiSuggestionMaxHeight,
+        suggestionsFiltered: ziweiAiSuggestionsFiltered,
+        questionInput: ziweiAiQuestionInput,
+        qaSuggestions: ziweiAiQaSuggestions
+      },
+      nextTick: nextTick,
+      requestAnimationFrame: window.requestAnimationFrame.bind(window),
+      authApi: function() { return window.authApi; }
+    });
+    function updateZiweiAiSuggestionLayout() { return ziweiAiSuggestionActions.updateLayout(); }
+    function scheduleZiweiAiSuggestionLayout() { return ziweiAiSuggestionActions.scheduleLayout(); }
+    function openZiweiAiSuggestions() { return ziweiAiSuggestionActions.openSuggestions(); }
+    function pickZiweiAiSuggestion(value) { return ziweiAiSuggestionActions.pickSuggestion(value); }
+    async function loadZiweiAiServerConfig() { return ziweiAiSuggestionActions.loadServerConfig(); }
 
-    if (!ziweiAiSuggestionActions) {
-      console.error('[SQLDev] Legacy Ziwei AI suggestion module is not available');
-    }
+        const ziweiAiRequestActions = window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions({
+      refs: {
+        chart: ziweiChart,
+        status: ziweiStatus,
+        questionInput: ziweiAiQuestionInput,
+        questionLoading: ziweiAiQuestionLoading,
+        suggestionOpen: ziweiAiSuggestionOpen,
+        result: ziweiAiResult,
+        done: ziweiAiDone,
+        error: ziweiAiError,
+        questionAnswer: ziweiAiQuestionAnswer,
+        lastDurationMs: ziweiAiLastDurationMs,
+        loading: ziweiAiLoading,
+        updatedAt: ziweiAiUpdatedAt,
+        lastAiSignature: ziweiLastAiSignature
+      },
+      constants: {
+        primaryPayload: _ZIWEI_AI_PRIMARY_PAYLOAD,
+        cacheMax: _ZIWEI_AI_CACHE_MAX
+      },
+      authApi: function() { return window.authApi; },
+      loadAuthNow: function() { return window.__loadSqldevAuthNow ? window.__loadSqldevAuthNow() : Promise.resolve(); },
+      openSuggestions: openZiweiAiSuggestions,
+      ensureRequestAllowed: _zwEnsureAiRequestAllowed,
+      startCooldown: _zwStartAiCooldown,
+      isRateLimitError: _zwIsAiRateLimitErrorMessage,
+      isComputeResourceError: _zwIsComputeResourceErrorMessage,
+      mapErrorMessage: _zwMapAiErrorMessage,
+      parseInvokeError: _zwParseInvokeError,
+      formatDuration: formatZiweiDurationText,
+      buildSignature: _zwBuildAiSignature,
+      buildCompactPayload: _zwBuildAiPayloadCompact,
+      buildLitePayload: _zwBuildAiPayloadLite
+    });
+    async function submitZiweiAiQuestion() { return ziweiAiRequestActions.submitQuestion(); }
 
-    function updateZiweiAiSuggestionLayout() {
-      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.updateLayout();
-    }
-
-    function scheduleZiweiAiSuggestionLayout() {
-      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.scheduleLayout();
-    }
-
-    function openZiweiAiSuggestions() {
-      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.openSuggestions();
-    }
-
-    function pickZiweiAiSuggestion(value) {
-      if (ziweiAiSuggestionActions) ziweiAiSuggestionActions.pickSuggestion(value);
-    }
-
-    async function loadZiweiAiServerConfig() {
-      if (ziweiAiSuggestionActions) return ziweiAiSuggestionActions.loadServerConfig();
-    }
-
-    async function submitZiweiAiQuestion() {
-      if (ziweiAiRequestActions) return ziweiAiRequestActions.submitQuestion();
-    }
-
-    function toggleZiweiAnalysis(key) {
+        function toggleZiweiAnalysis(key) {
       var k = String(key || '');
       if (!k) return;
       ziweiAnalysisActiveKey.value = k;
@@ -6218,27 +6355,27 @@ const app = createApp({
         || text.indexOf('"code":"1302"') >= 0
         || text.indexOf("'code':'1302'") >= 0;
     }
-    ziweiAiCooldownActions = window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN &&
-      typeof window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions === 'function'
-        ? window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions({
-            ziweiAiCooldownUntil,
-            ziweiAiCooldownHint,
-            ziweiAiLastRequestAt,
-            ziweiStatus,
-            minIntervalMs: _ZIWEI_AI_MIN_INTERVAL_MS,
-            rateLimitCooldownMs: _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS
-          })
-        : null;
-    if (!ziweiAiCooldownActions) {
-      console.error('[SQLDev] Legacy Ziwei AI cooldown module is not available');
-    }
+    const ziweiAiCooldownActions = window.SQLDEV_LEGACY_ZIWEI_AI_COOLDOWN.createZiweiAiCooldownActions({
+      refs: {
+        cooldownUntil: ziweiAiCooldownUntil,
+        cooldownHint: ziweiAiCooldownHint,
+        lastRequestAt: ziweiAiLastRequestAt,
+        status: ziweiStatus
+      },
+      constants: {
+        rateLimitCooldownMs: _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS,
+        minIntervalMs: _ZIWEI_AI_MIN_INTERVAL_MS
+      },
+      setTimer: function(fn, ms) { return window.setTimeout(fn, ms); },
+      clearTimer: function(timer) { return window.clearTimeout(timer); }
+    });
+    function _zwAiCooldownRemainingSeconds() { return ziweiAiCooldownActions.remainingSeconds(); }
     function _zwStartAiCooldown(ms, reasonText) {
-      if (ziweiAiCooldownActions) ziweiAiCooldownActions.startCooldown(ms, reasonText);
+      _ziweiAiCooldownTimer = ziweiAiCooldownActions.startCooldown(ms, reasonText, _ziweiAiCooldownTimer);
     }
-    function _zwEnsureAiRequestAllowed() {
-      return ziweiAiCooldownActions ? ziweiAiCooldownActions.ensureRequestAllowed() : false;
-    }
-    function _zwMapAiErrorMessage(raw) {
+    function _zwEnsureAiRequestAllowed() { return ziweiAiCooldownActions.ensureRequestAllowed(); }
+
+        function _zwMapAiErrorMessage(raw) {
       if (window.SQLDEV_ZIWEI_AI_UTILS && typeof window.SQLDEV_ZIWEI_AI_UTILS.mapZiweiAiErrorMessage === 'function') {
         return window.SQLDEV_ZIWEI_AI_UTILS.mapZiweiAiErrorMessage(raw);
       }
@@ -6326,49 +6463,50 @@ const app = createApp({
       return payload;
     }
 
-    ziweiAiRequestActions = window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS &&
-      typeof window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions === 'function'
-        ? window.SQLDEV_LEGACY_ZIWEI_AI_REQUESTS.createZiweiAiRequestActions({
-            ziweiChart,
-            ziweiStatus,
-            ziweiAiQuestionInput,
-            ziweiAiQuestionAnswer,
-            ziweiAiQuestionLoading,
-            ziweiAiSuggestionOpen,
-            ziweiAiResult,
-            ziweiAiDone,
-            ziweiAiError,
-            ziweiAiLastDurationMs,
-            ziweiAiLoading,
-            ziweiAiUpdatedAt,
-            ziweiLastAiSignature,
-            ziweiAiCooldownHint,
-            cacheMax: _ZIWEI_AI_CACHE_MAX,
-            rateLimitCooldownMs: _ZIWEI_AI_RATE_LIMIT_COOLDOWN_MS,
-            primaryPayloadMode: _ZIWEI_AI_PRIMARY_PAYLOAD,
-            buildAiSignature: _zwBuildAiSignature,
-            buildAiPayload: _zwBuildAiPayloadCompact,
-            buildAiPayloadCompact: _zwBuildAiPayloadCompact,
-            buildAiPayloadLite: _zwBuildAiPayloadLite,
-            parseInvokeError: _zwParseInvokeError,
-            isRateLimitError: _zwIsAiRateLimitErrorMessage,
-            isComputeResourceError: _zwIsComputeResourceErrorMessage,
-            startCooldown: _zwStartAiCooldown,
-            ensureRequestAllowed: _zwEnsureAiRequestAllowed,
-            mapErrorMessage: _zwMapAiErrorMessage,
-            formatDuration: formatZiweiDurationText,
-            openSuggestions: openZiweiAiSuggestions
-          })
+    async function requestZiweiAiAnalysis(options) { return ziweiAiRequestActions.requestAnalysis(options); }
+
+    function closeZiweiSharePoster() {
+      ziweiSharePosterOpen.value = false;
+    }
+
+    function downloadZiweiSharePoster() {
+      return window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.downloadZiweiSharePosterDataUrl({
+        dataUrl: ziweiSharePosterDataUrl.value,
+        statusRef: ziweiStatus
+      });
+    }
+
+    async function _zwLegacyGenerateZiweiSharePoster() {
+      return generateZiweiSharePoster();
+    }
+
+    async function generateZiweiSharePoster() {
+      if (!ziweiChart.value) {
+        ziweiStatus.value = { type: 'info', text: '\u8bf7\u5148\u6392\u76d8\u540e\u518d\u751f\u6210\u5206\u4eab\u6d77\u62a5\u3002' };
+        return;
+      }
+      var shareLink = buildZiweiShareLink();
+      var posterSpec = window.SQLDEV_ZIWEI_SHARE_UTILS && typeof window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec === 'function'
+        ? window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec(ziweiChart.value, shareLink)
         : null;
-    if (!ziweiAiRequestActions) {
-      console.error('[SQLDev] Legacy Ziwei AI request module is not available');
+      try {
+        ziweiShareGenerating.value = true;
+        ziweiStatus.value = { type: 'info', text: '\u6b63\u5728\u751f\u6210\u5206\u4eab\u6d77\u62a5...' };
+        var dataUrl = await window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster({
+          shareLink: shareLink,
+          posterSpec: posterSpec
+        });
+        ziweiSharePosterDataUrl.value = dataUrl;
+        ziweiSharePosterOpen.value = true;
+        ziweiStatus.value = { type: 'success', text: '\u5206\u4eab\u6d77\u62a5\u5df2\u751f\u6210\uff0c\u53ef\u4ee5\u4e0b\u8f7d\u53d1\u9001\u7ed9\u670b\u53cb\u3002' };
+      } catch (err) {
+        ziweiStatus.value = { type: 'error', text: '\u5206\u4eab\u6d77\u62a5\u751f\u6210\u5931\u8d25\uff1a' + String((err && err.message) || err || '\u672a\u77e5\u9519\u8bef') };
+      } finally {
+        ziweiShareGenerating.value = false;
+      }
     }
 
-    async function requestZiweiAiAnalysis(options) {
-      if (ziweiAiRequestActions) return ziweiAiRequestActions.requestAnalysis(options);
-    }
-
-    function _zwBuildChartText(chart) {
+        function _zwBuildChartText(chart) {
       if (!chart) return '';
       var lines = [];
       lines.push('【紫微斗数命盘】');
@@ -7111,10 +7249,11 @@ const app = createApp({
     }
 
     function downloadZiweiSharePoster() {
-      if (window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER &&
-          typeof window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.downloadZiweiSharePosterDataUrl === 'function') {
-        window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.downloadZiweiSharePosterDataUrl(ziweiSharePosterDataUrl.value);
-      }
+      if (!ziweiSharePosterDataUrl.value) return;
+      var link = document.createElement('a');
+      link.href = ziweiSharePosterDataUrl.value;
+      link.download = 'ziwei-share-poster.png';
+      link.click();
     }
 
     async function _zwLegacyGenerateZiweiSharePoster() {
@@ -7132,14 +7271,150 @@ const app = createApp({
         var posterSpec = window.SQLDEV_ZIWEI_SHARE_UTILS && typeof window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec === 'function'
           ? window.SQLDEV_ZIWEI_SHARE_UTILS.createZiweiSharePosterSpec(shareLink)
           : null;
-        if (!window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER ||
-            typeof window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster !== 'function') {
-          throw new Error('分享海报模块未加载');
-        }
-        ziweiSharePosterDataUrl.value = window.SQLDEV_LEGACY_ZIWEI_SHARE_POSTER.renderZiweiSharePoster({
-          shareLink: shareLink,
-          posterSpec: posterSpec
+        var posterW = posterSpec ? Number(posterSpec.posterWidth || 1200) : 1200;
+        var posterH = posterSpec ? Number(posterSpec.posterHeight || 1880) : 1880;
+        var canvas = document.createElement('canvas');
+        canvas.width = posterW;
+        canvas.height = posterH;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('\u6d77\u62a5\u753b\u5e03\u521b\u5efa\u5931\u8d25');
+        var drawRoundRect = function(x, y, w, h, r) {
+          var radius = Math.max(0, Number(r) || 0);
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, radius);
+            return;
+          }
+          ctx.beginPath();
+          ctx.moveTo(x + radius, y);
+          ctx.arcTo(x + w, y, x + w, y + h, radius);
+          ctx.arcTo(x + w, y + h, x, y + h, radius);
+          ctx.arcTo(x, y + h, x, y, radius);
+          ctx.arcTo(x, y, x + w, y, radius);
+          ctx.closePath();
+        };
+
+        var bg = ctx.createLinearGradient(0, 0, posterW, posterH);
+        var bgStops = posterSpec && Array.isArray(posterSpec.backgroundStops) ? posterSpec.backgroundStops : [
+          { offset: 0, color: '#060d1f' },
+          { offset: 0.52, color: '#0b1531' },
+          { offset: 1, color: '#111f44' }
+        ];
+        bgStops.forEach(function(stop) {
+          bg.addColorStop(Number(stop && stop.offset || 0), String(stop && stop.color || '#060d1f'));
         });
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, posterW, posterH);
+
+        function drawGlow(x, y, r, color) {
+          var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, color);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        var glowList = posterSpec && Array.isArray(posterSpec.glows) ? posterSpec.glows : [
+          { x: 190, y: 240, radius: 320, color: 'rgba(79,125,249,.32)' },
+          { x: 1020, y: 360, radius: 360, color: 'rgba(95,180,255,.2)' },
+          { x: 640, y: 1520, radius: 420, color: 'rgba(139,92,246,.24)' }
+        ];
+        glowList.forEach(function(glow) {
+          drawGlow(
+            Number(glow && glow.x || 0),
+            Number(glow && glow.y || 0),
+            Number(glow && glow.radius || 0),
+            String(glow && glow.color || 'rgba(0,0,0,0)')
+          );
+        });
+
+        ctx.fillStyle = 'rgba(255,255,255,.08)';
+        var gridStep = posterSpec ? Number(posterSpec.gridStep || 36) : 36;
+        for (var gx = 0; gx <= posterW; gx += gridStep) {
+          ctx.fillRect(gx, 0, 1, posterH);
+        }
+        for (var gy = 0; gy <= posterH; gy += gridStep) {
+          ctx.fillRect(0, gy, posterW, 1);
+        }
+
+        ctx.fillStyle = '#c8d8ff';
+        ctx.font = '600 24px "JetBrains Mono","Noto Sans SC",monospace';
+        ctx.fillText(posterSpec ? String(posterSpec.eyebrow || '') : 'Z I W E I  D O U  S H U', 84, 118);
+
+        ctx.fillStyle = '#edf2ff';
+        ctx.font = '700 78px "Noto Sans SC","PingFang SC",sans-serif';
+        ctx.fillText(posterSpec ? String(posterSpec.title || '') : '\u7d2b\u5fae\u6597\u6570\u547d\u76d8', 84, 212);
+
+        ctx.fillStyle = 'rgba(214,226,255,.9)';
+        ctx.font = '500 34px "Noto Sans SC","PingFang SC",sans-serif';
+        ctx.fillText(
+          posterSpec ? String(posterSpec.subtitle || '') : '\u4e13\u4e1a\u6392\u76d8 + AI \u6df1\u5ea6\u89e3\u8bfb + \u4e00\u952e\u5206\u4eab',
+          84,
+          266
+        );
+
+        var featureCards = posterSpec && Array.isArray(posterSpec.featureCards) ? posterSpec.featureCards : [];
+
+        var cardX = 78;
+        var cardY = 334;
+        var cardW = posterW - cardX * 2;
+        var cardH = 216;
+        for (var fi = 0; fi < featureCards.length; fi++) {
+          var item = featureCards[fi];
+          var y = cardY + fi * (cardH + 20);
+          ctx.fillStyle = 'rgba(10,20,45,.74)';
+          ctx.strokeStyle = 'rgba(129,140,248,.3)';
+          ctx.lineWidth = 2;
+          drawRoundRect(cardX, y, cardW, cardH, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = item.color;
+          ctx.beginPath();
+          ctx.arc(cardX + 40, y + 44, 14, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#f2f6ff';
+          ctx.font = '700 40px "Noto Sans SC","PingFang SC",sans-serif';
+          ctx.fillText(item.title, cardX + 72, y + 58);
+          ctx.fillStyle = 'rgba(202,216,248,.95)';
+          ctx.font = '500 30px "Noto Sans SC","PingFang SC",sans-serif';
+          ctx.fillText(item.desc, cardX + 72, y + 116);
+        }
+
+        ctx.fillStyle = 'rgba(255,255,255,.86)';
+        ctx.font = '600 32px "Noto Sans SC","PingFang SC",sans-serif';
+        ctx.fillText(posterSpec ? String(posterSpec.shareEntryTitle || '') : '\u4f53\u9a8c\u5165\u53e3', 84, 1338);
+
+        ctx.fillStyle = 'rgba(15,24,52,.82)';
+        ctx.strokeStyle = 'rgba(129,140,248,.45)';
+        ctx.lineWidth = 2;
+        drawRoundRect(84, 1368, posterW - 168, 184, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#d6e3ff';
+        ctx.font = '500 27px "JetBrains Mono","Noto Sans SC",monospace';
+        var linkText = posterSpec ? String(posterSpec.shareLinkDisplay || shareLink) : (shareLink.length > 74 ? (shareLink.slice(0, 74) + '...') : shareLink);
+        ctx.fillText(linkText, 116, 1452);
+
+        ctx.fillStyle = 'rgba(178,196,233,.95)';
+        ctx.font = '500 26px "Noto Sans SC","PingFang SC",sans-serif';
+        ctx.fillText(
+          posterSpec ? String(posterSpec.shareEntryDescription || '') : '\u626b\u7801\u6216\u6253\u5f00\u94fe\u63a5\uff0c\u5373\u53ef\u8fdb\u5165\u547d\u76d8\u754c\u9762\u4f53\u9a8c\u5b8c\u6574\u529f\u80fd',
+          116,
+          1506
+        );
+
+        ctx.fillStyle = '#f8fbff';
+        ctx.font = '700 30px "Noto Sans SC","PingFang SC",sans-serif';
+        ctx.fillText(posterSpec ? String(posterSpec.footerTitle || '') : 'SQLDev \u00d7 \u7d2b\u5fae\u6597\u6570\u5de5\u5177', 84, 1718);
+        ctx.fillStyle = 'rgba(199,214,247,.88)';
+        ctx.font = '500 22px "JetBrains Mono","Noto Sans SC",monospace';
+        ctx.fillText(posterSpec ? String(posterSpec.footerSubtitle || '') : 'AI Powered Professional Charting Platform', 84, 1760);
+
+        ziweiSharePosterDataUrl.value = canvas.toDataURL('image/png');
         clipboardWrite(shareLink).then(function(ok) {
           ziweiStatus.value = ok
             ? { type: 'success', text: '\u5206\u4eab\u6d77\u62a5\u5df2\u751f\u6210\uff0c\u5206\u4eab\u94fe\u63a5\u5df2\u590d\u5236\u3002' }
@@ -8046,95 +8321,83 @@ const app = createApp({
       return json.output;
     }
 
-    // ========== Conversion gate: require signed-in user ==========
-    function _hasSignedUser() {
-      return !!(window.authApi &&
-        typeof window.authApi.getUserSync === 'function' &&
-        window.authApi.getUserSync());
-    }
-    async function _ensureLoginForConversion() {
-      if ((!window.authApi || typeof window.authApi.getUserSync !== 'function') &&
-          typeof window.__loadSqldevAuthNow === 'function') {
-        try {
-          await window.__loadSqldevAuthNow();
-        } catch (_authLoadErr) {}
+    // ========== DDL Methods ==========
+    async function _hasSignedUser() {
+      if (window.authApi && typeof window.authApi.getUser === 'function') {
+        try { return !!(await window.authApi.getUser()); } catch (_e) { return false; }
       }
-      if (_hasSignedUser()) return true;
-      if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
-        window.authApi.openAuthModal('请先注册/登录后再进行 SQL 转换');
-      } else {
-        _showAlert('需要登录', '请先注册或登录后继续使用翻译功能。');
+      if (window.authApi && typeof window.authApi.getUserSync === 'function') {
+        return !!window.authApi.getUserSync();
       }
       return false;
     }
 
-    var sqlConversionActions = window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS &&
-      typeof window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions === 'function'
-        ? window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions({
-            inputDdl,
-            outputDdl,
-            sourceDb,
-            targetDb,
-            sourceLabel,
-            targetLabel,
-            ddlSamples: typeof DDL_SAMPLES !== 'undefined' ? DDL_SAMPLES : null,
-            funcInput,
-            funcOutput,
-            funcSourceDb,
-            funcTargetDb,
-            funcSourceLabel,
-            funcTargetLabel,
-            funcSamples: typeof FUNC_SAMPLES !== 'undefined' ? FUNC_SAMPLES : null,
-            procInput,
-            procOutput,
-            procSourceDb,
-            procTargetDb,
-            procSourceLabel,
-            procTargetLabel,
-            procSamples: typeof PROC_SAMPLES !== 'undefined' ? PROC_SAMPLES : null,
-            showConfirm: _showConfirm,
-            statusText,
-            ensureLogin: _ensureLoginForConversion,
-            backendConvert: _convertViaBackend,
-            classifyResult: _classifyResult,
-            clipboardWrite,
-            saveFile
-          })
-        : null;
-
-    if (!sqlConversionActions) {
-      console.error('[SQLDev] Legacy SQL conversion actions module is not available');
-    }
-
-    function _runSqlConversionAction(actionName) {
-      if (!sqlConversionActions || typeof sqlConversionActions[actionName] !== 'function') {
-        statusText.value = '转换功能初始化失败，请刷新页面后重试';
-        return undefined;
+    async function _ensureLoginForConversion() {
+      if (await _hasSignedUser()) return true;
+      statusText.value = '\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528\u8f6c\u6362\u670d\u52a1';
+      if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
+        window.authApi.openAuthModal('\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528 SQL \u8f6c\u6362\u529f\u80fd');
+      } else if (typeof window.__loadSqldevAuthNow === 'function') {
+        try {
+          await window.__loadSqldevAuthNow();
+          if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
+            window.authApi.openAuthModal('\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528 SQL \u8f6c\u6362\u529f\u80fd');
+          }
+        } catch (_authLoadErr) {}
       }
-      return sqlConversionActions[actionName]();
+      return false;
     }
 
-    // ========== DDL / Routine Methods ==========
-    async function swapDbs() { return _runSqlConversionAction('swapDbs'); }
-    function loadSample() { return _runSqlConversionAction('loadSample'); }
-    function clearAll() { return _runSqlConversionAction('clearAll'); }
-    async function convert() { return _runSqlConversionAction('convert'); }
-    function copyOutput() { return _runSqlConversionAction('copyOutput'); }
-    function saveOutput() { return _runSqlConversionAction('saveOutput'); }
-    async function swapFuncDbs() { return _runSqlConversionAction('swapFuncDbs'); }
-    function loadFuncSample() { return _runSqlConversionAction('loadFuncSample'); }
-    function clearFunc() { return _runSqlConversionAction('clearFunc'); }
-    async function convertFunc() { return _runSqlConversionAction('convertFunc'); }
-    function copyFuncOutput() { return _runSqlConversionAction('copyFuncOutput'); }
-    function saveFuncOutput() { return _runSqlConversionAction('saveFuncOutput'); }
-    async function swapProcDbs() { return _runSqlConversionAction('swapProcDbs'); }
-    function loadProcSample() { return _runSqlConversionAction('loadProcSample'); }
-    function clearProc() { return _runSqlConversionAction('clearProc'); }
-    async function convertProc() { return _runSqlConversionAction('convertProc'); }
-    function copyProcOutput() { return _runSqlConversionAction('copyProcOutput'); }
-    function saveProcOutput() { return _runSqlConversionAction('saveProcOutput'); }
+    const sqlConversionActions = window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions({
+      refs: {
+        sourceDb: sourceDb,
+        targetDb: targetDb,
+        inputDdl: inputDdl,
+        outputDdl: outputDdl,
+        funcSourceDb: funcSourceDb,
+        funcTargetDb: funcTargetDb,
+        funcInput: funcInput,
+        funcOutput: funcOutput,
+        procSourceDb: procSourceDb,
+        procTargetDb: procTargetDb,
+        procInput: procInput,
+        procOutput: procOutput,
+        statusText: statusText
+      },
+      helpers: {
+        ensureLogin: _ensureLoginForConversion,
+        convertRemote: convertRemote,
+        setOutputWithTick: setOutputWithTick,
+        copyText: copyText,
+        saveSql: saveSql,
+        SQLDEV_SAMPLE_UTILS: window.SQLDEV_SAMPLE_UTILS,
+        sampleOracle: sampleOracle,
+        sampleFuncOracle: sampleFuncOracle,
+        sampleProcOracle: sampleProcOracle
+      }
+    });
+    const {
+      swapDbs,
+      loadSample,
+      clearAll,
+      convert,
+      copyOutput,
+      saveOutput,
+      swapFuncDbs,
+      loadFuncSample,
+      clearFunc,
+      convertFunc,
+      copyFuncOutput,
+      saveFuncOutput,
+      swapProcDbs,
+      loadProcSample,
+      clearProc,
+      convertProc,
+      copyProcOutput,
+      saveProcOutput
+    } = sqlConversionActions;
 
-    // ========== File upload (shared) ==========
+        // ========== File upload (shared) ==========
     function uploadFile() {
       if (fileInput.value) { fileInput.value.value = ''; fileInput.value.click(); }
     }
@@ -8152,20 +8415,15 @@ const app = createApp({
 
     function goSplashHome() {
       if (window.innerWidth <= 1024) sidebarOpen.value = false;
-      if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-        try {
+      try {
+        if (window.parent && window.parent !== window) {
           window.parent.postMessage({ type: 'sqldev:navigate-home' }, window.location.origin);
-          statusText.value = '\u5df2\u8fd4\u56de\u9996\u9875';
-          showRulesMenu.value = false;
-          return;
-        } catch (_postMessageErr) {}
+        } else if (window.location.pathname !== '/') {
+          window.location.assign('/');
+        }
+      } catch (routeErr) {
+        console.warn('[sqldev] navigate home failed', routeErr);
       }
-      if (window.SQLDEV_PREFERENCE_UTILS && typeof window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference === 'function') {
-        window.SQLDEV_PREFERENCE_UTILS.saveLastViewPreference(localStorage, 'splash');
-      } else {
-        try { localStorage.setItem('sqldev_last_view', 'splash'); } catch (_err) {}
-      }
-      window.location.href = './';
       statusText.value = '\u5df2\u8fd4\u56de\u9996\u9875';
       showRulesMenu.value = false;
     }
@@ -8357,17 +8615,17 @@ const app = createApp({
       };
       window.addEventListener('popstate', routeChangeHandler);
       window.addEventListener('hashchange', routeChangeHandler);
-      parentRouteMessageHandler = function(e) {
-        if (!e || e.origin !== window.location.origin) return;
-        var data = e.data || {};
+      parentRouteMessageHandler = function(event) {
+        if (!event || event.origin !== window.location.origin) return;
+        var data = event.data || {};
         if (data.type !== 'sqldev:set-workbench-hash') return;
-        applyRouteFromParentMessage(data.hashPath);
+        applyRouteFromParentMessage(data);
       };
       window.addEventListener('message', parentRouteMessageHandler);
       var initialRoute = parseRouteInfoFromLocation();
       if (initialRoute) {
         applyRouteFromLocation();
-      } else {
+      } else if (!document.body.classList.contains('splash-active')) {
         syncRouteForPage(activePage.value, true);
       }
     });
@@ -8398,7 +8656,7 @@ const app = createApp({
       if (ziweiCopyTimer) clearTimeout(ziweiCopyTimer);
       if (ziweiAiCopyTimer) clearTimeout(ziweiAiCopyTimer);
       if (ziweiGenerateTimer) clearTimeout(ziweiGenerateTimer);
-      if (ziweiAiCooldownActions) ziweiAiCooldownActions.clearCooldownTimer();
+      if (_ziweiAiCooldownTimer) clearTimeout(_ziweiAiCooldownTimer);
       cancelRegionWarmup();
     });
 
@@ -8485,11 +8743,10 @@ const app = createApp({
 });
 
 // ===== SQL Editor Component (CodeMirror wrapper) =====
-if (window.SQLDEV_LEGACY_SQL_EDITOR &&
-    typeof window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent === 'function') {
+if (window.SQLDEV_LEGACY_SQL_EDITOR && typeof window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent === 'function') {
   window.SQLDEV_LEGACY_SQL_EDITOR.registerSqlEditorComponent(app, Vue, CodeMirror);
 } else {
-  console.error('[SQLDev] Legacy SQL editor component module is not available');
+  throw new Error('SQL editor component module is not available');
 }
 
 // v-click-outside directive for closing dropdowns

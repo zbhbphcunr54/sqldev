@@ -36,23 +36,29 @@ export function renderZiweiSharePoster(options) {
   if (!ctx) throw new Error('海报画布创建失败')
 
   var bg = ctx.createLinearGradient(0, 0, posterW, posterH)
-  var bgStops = posterSpec && Array.isArray(posterSpec.backgroundStops) ? posterSpec.backgroundStops : [
-    { offset: 0, color: '#060d1f' },
-    { offset: 0.52, color: '#0b1531' },
-    { offset: 1, color: '#111f44' }
-  ]
-  bgStops.forEach(function(stop) {
+  var bgStops =
+    posterSpec && Array.isArray(posterSpec.backgroundStops)
+      ? posterSpec.backgroundStops
+      : [
+          { offset: 0, color: '#060d1f' },
+          { offset: 0.52, color: '#0b1531' },
+          { offset: 1, color: '#111f44' }
+        ]
+  bgStops.forEach(function (stop) {
     bg.addColorStop(Number((stop && stop.offset) || 0), String((stop && stop.color) || '#060d1f'))
   })
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, posterW, posterH)
 
-  var glowList = posterSpec && Array.isArray(posterSpec.glows) ? posterSpec.glows : [
-    { x: 190, y: 240, radius: 320, color: 'rgba(79,125,249,.32)' },
-    { x: 1020, y: 360, radius: 360, color: 'rgba(95,180,255,.2)' },
-    { x: 640, y: 1520, radius: 420, color: 'rgba(139,92,246,.24)' }
-  ]
-  glowList.forEach(function(glow) {
+  var glowList =
+    posterSpec && Array.isArray(posterSpec.glows)
+      ? posterSpec.glows
+      : [
+          { x: 190, y: 240, radius: 320, color: 'rgba(79,125,249,.32)' },
+          { x: 1020, y: 360, radius: 360, color: 'rgba(95,180,255,.2)' },
+          { x: 640, y: 1520, radius: 420, color: 'rgba(139,92,246,.24)' }
+        ]
+  glowList.forEach(function (glow) {
     drawGlow(
       ctx,
       Number((glow && glow.x) || 0),
@@ -126,7 +132,9 @@ export function renderZiweiSharePoster(options) {
   ctx.font = '500 27px "JetBrains Mono","Noto Sans SC",monospace'
   var linkText = posterSpec
     ? String(posterSpec.shareLinkDisplay || shareLink)
-    : (shareLink.length > 74 ? shareLink.slice(0, 74) + '...' : shareLink)
+    : shareLink.length > 74
+      ? shareLink.slice(0, 74) + '...'
+      : shareLink
   ctx.fillText(linkText, 116, 1452)
 
   ctx.fillStyle = 'rgba(178,196,233,.95)'

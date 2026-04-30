@@ -17,9 +17,9 @@ export function createZiweiAiCooldownActions(options) {
     options.ziweiAiCooldownUntil.value = Date.now() + cooldownMs
     var sec = Math.max(1, Math.ceil(cooldownMs / 1000))
     var reason = String(reasonText || '').trim()
-    options.ziweiAiCooldownHint.value = reason || ('AI 请求过于频繁，请 ' + String(sec) + ' 秒后重试。')
+    options.ziweiAiCooldownHint.value = reason || 'AI 请求过于频繁，请 ' + String(sec) + ' 秒后重试。'
     clearCooldownTimer()
-    cooldownTimer = window.setTimeout(function() {
+    cooldownTimer = window.setTimeout(function () {
       options.ziweiAiCooldownUntil.value = 0
       options.ziweiAiCooldownHint.value = ''
       cooldownTimer = 0
@@ -29,7 +29,7 @@ export function createZiweiAiCooldownActions(options) {
   function ensureRequestAllowed() {
     var cooldownSec = remainingSeconds()
     if (cooldownSec > 0) {
-      var msg = options.ziweiAiCooldownHint.value || ('AI 请求过于频繁，请 ' + String(cooldownSec) + ' 秒后重试。')
+      var msg = options.ziweiAiCooldownHint.value || 'AI 请求过于频繁，请 ' + String(cooldownSec) + ' 秒后重试。'
       options.ziweiStatus.value = { type: 'info', text: msg }
       return false
     }

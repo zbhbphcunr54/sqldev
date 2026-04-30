@@ -1,23 +1,26 @@
 function isLikelyMojibakeZh(text) {
-  if (window.SQLDEV_ZIWEI_PRESENTATION_UTILS &&
-      typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.isLikelyMojibakeZh === 'function') {
+  if (
+    window.SQLDEV_ZIWEI_PRESENTATION_UTILS &&
+    typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.isLikelyMojibakeZh === 'function'
+  ) {
     return window.SQLDEV_ZIWEI_PRESENTATION_UTILS.isLikelyMojibakeZh(text)
   }
   var t = String(text || '')
   if (!t) return false
-  var hit = (t.match(/[锛銆鍙闂璇鎴浠鐨鎬]/g) || []).length
+  var hit = (t.match(/[閿涢妴閸欓梻鐠囬幋娴犻惃閹琞]/g) || []).length
   return hit >= 2
 }
 
 function normalizeZiweiQaSuggestionText(text) {
-  if (window.SQLDEV_ZIWEI_PRESENTATION_UTILS &&
-      typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.normalizeZiweiQaSuggestionText === 'function') {
+  if (
+    window.SQLDEV_ZIWEI_PRESENTATION_UTILS &&
+    typeof window.SQLDEV_ZIWEI_PRESENTATION_UTILS.normalizeZiweiQaSuggestionText === 'function'
+  ) {
     return window.SQLDEV_ZIWEI_PRESENTATION_UTILS.normalizeZiweiQaSuggestionText(text)
   }
   var t = String(text || '').trim()
   if (!t) return ''
-  // 修复“身体X健康”中间出现的 1-2 个乱码字符。
-  return t.replace(/身体([^与和及、，,\s/-]{1,2})健康/g, '身体与健康')
+  return t.replace(/身体[^与和及、，,\s/-]{1,2}健康/g, '身体与健康')
 }
 
 export function createZiweiAiSuggestionActions(options) {
@@ -43,7 +46,7 @@ export function createZiweiAiSuggestionActions(options) {
   }
 
   function scheduleLayout() {
-    options.nextTick(function() {
+    options.nextTick(function () {
       window.requestAnimationFrame(updateLayout)
     })
   }
@@ -79,8 +82,12 @@ export function createZiweiAiSuggestionActions(options) {
 
       if (Array.isArray(cfg.suggestions)) {
         var suggestions = cfg.suggestions
-          .map(function(item) { return normalizeZiweiQaSuggestionText(item) })
-          .filter(function(item) { return !isLikelyMojibakeZh(item) })
+          .map(function (item) {
+            return normalizeZiweiQaSuggestionText(item)
+          })
+          .filter(function (item) {
+            return !isLikelyMojibakeZh(item)
+          })
           .filter(Boolean)
           .slice(0, 12)
         options.ziweiAiQaSuggestions.value = suggestions

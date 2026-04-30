@@ -85,7 +85,7 @@ function generateUscc18(options, regionCode) {
 function validateUsccToken(options, raw) {
   var idUtils = getIdUtils()
   if (!idUtils) return { ok: false, msg: '证件工具初始化失败，请刷新页面后重试' }
-  return idUtils.validateUsccOrLegacyToken(raw, function(code) {
+  return idUtils.validateUsccOrLegacyToken(raw, function (code) {
     return options.regionCodeSet.value.has(code)
   })
 }
@@ -132,7 +132,7 @@ export function createIdToolActions(options) {
       options.idGenerateResult.value = { type: 'info', text: '请先生成身份证号码' }
       return
     }
-    options.clipboardWrite(options.idGeneratedNumber.value).then(function(ok) {
+    options.clipboardWrite(options.idGeneratedNumber.value).then(function (ok) {
       if (ok) options.flashButtonState(options.idCopyDone, 'idCopy')
     })
   }
@@ -166,10 +166,18 @@ export function createIdToolActions(options) {
       options.usccLegacyGenerated.value = legacy
       options.usccGeneratedCode.value = legacy.businessRegNo
       options.usccCopyPayload.value =
-        '工商注册号：' + legacy.businessRegNo + '\n' +
-        '组织机构代码：' + legacy.orgCode + '\n' +
-        '税务登记号：' + legacy.taxNo
-      options.usccGenerateResult.value = { type: 'success', text: '已生成旧版三证号码（工商/组织机构/税务）' }
+        '工商注册号：' +
+        legacy.businessRegNo +
+        '\n' +
+        '组织机构代码：' +
+        legacy.orgCode +
+        '\n' +
+        '税务登记号：' +
+        legacy.taxNo
+      options.usccGenerateResult.value = {
+        type: 'success',
+        text: '已生成旧版三证号码（工商/组织机构/税务）'
+      }
       return
     }
     var uscc = generateUscc18(options, regionCode)
@@ -212,7 +220,7 @@ export function createIdToolActions(options) {
       options.usccGenerateResult.value = { type: 'info', text: '请先生成代码' }
       return
     }
-    options.clipboardWrite(payload).then(function(ok) {
+    options.clipboardWrite(payload).then(function (ok) {
       if (ok) options.flashButtonState(options.usccCopyDone, 'usccCopy')
     })
   }

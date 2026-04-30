@@ -35,6 +35,9 @@
   var authModalTitle = document.getElementById('auth-modal-title');
   var authModalDesc = document.getElementById('auth-modal-desc');
 
+  var splashAuthBtn = document.getElementById('sp-auth-top-btn');
+  var splashAuthHeroBtn = document.getElementById('sp-auth-hero-btn');
+  var splashEnterBtn = document.getElementById('sp-enter-btn');
   var appAuthBtn = document.getElementById('app-auth-btn');
   var appUserPop = document.getElementById('app-user-pop');
   var appUserEmail = document.getElementById('app-user-email');
@@ -82,6 +85,12 @@
   function stopAuthModalDrag() {
     authModalDragging = false;
     document.body.classList.remove('auth-dragging');
+  }
+
+  function ensureGlobalModalHost() {
+    if (!authModalMask) return;
+    var parent = authModalMask.parentElement;
+    if (parent && parent.id === 'splash-poster') document.body.appendChild(authModalMask);
   }
 
   function refreshHeaderRefs() {
@@ -395,6 +404,12 @@
   function updatePosterCta() {
     refreshHeaderRefs();
     var loggedIn = !!user;
+    if (splashAuthBtn) {
+      splashAuthBtn.textContent = loggedIn ? '进入工作台' : '注册 / 登录';
+      splashAuthBtn.hidden = false;
+    }
+    if (splashAuthHeroBtn) splashAuthHeroBtn.hidden = loggedIn;
+    if (splashEnterBtn) splashEnterBtn.textContent = '立即体验';
     if (appUserPop) appUserPop.hidden = !loggedIn;
     var sidebarLogout = document.getElementById('sidebar-logout-btn');
     var sidebarLogoutArea = document.getElementById('sidebar-logout-area');
@@ -421,6 +436,7 @@
   }
 
   function openAuthModal(message) {
+    ensureGlobalModalHost();
     if (!authModalMask) return;
     authModalMask.hidden = false;
     resetAuthModalPosition();
@@ -455,13 +471,14 @@
   function returnToSplashHome() {
     closeUserMenu();
     closeAuthModal();
-    if (window.parent && window.parent !== window) {
-      try {
-        window.parent.postMessage({ type: 'sqldev:navigate-home' }, window.location.origin);
-        return;
-      } catch (_postMessageErr) {}
+    if (window.splashApi && typeof window.splashApi.showHome === 'function') {
+      window.splashApi.showHome();
+      return;
     }
-    window.location.href = './';
+    var poster = document.getElementById('splash-poster');
+    if (poster) poster.style.display = '';
+    document.body.classList.add('splash-active');
+    try { window.scrollTo(0, 0); } catch (_e) {}
   }
 
   async function syncSession() {
@@ -703,12 +720,13 @@
 
   async function init() {
     refreshSupabaseRuntime();
+    ensureGlobalModalHost();
     if (!supabaseGlobal || !supabaseGlobal.createClient) {
       setStatus('Supabase SDK 未加载', true);
       return;
     }
     if (!projectUrl || projectUrl.indexOf('YOUR_PROJECT_ID') >= 0 || !anonKey || anonKey.indexOf('YOUR_SUPABASE') >= 0) {
-      setStatus('请先配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY', true);
+      setStatus('请先在 supabase-config.js 配置项目 URL 和 anon key', true);
       updatePosterCta();
       return;
     }
@@ -931,6 +949,25 @@
       setAuthMode('code');
       if (authCode) authCode.focus();
     });
+  }
+
+  function handleSplashAuthClick() {
+    return async function () {
+      if (user) {
+        if (window.splashApi && typeof window.splashApi.enterWorkbench === 'function') {
+          window.splashApi.enterWorkbench();
+        }
+        return;
+      }
+      openAuthModal('请选择登录方式并继续');
+    };
+  }
+
+  if (splashAuthBtn) {
+    splashAuthBtn.addEventListener('click', handleSplashAuthClick());
+  }
+  if (splashAuthHeroBtn) {
+    splashAuthHeroBtn.addEventListener('click', handleSplashAuthClick());
   }
 
   document.addEventListener('click', async function (e) {
