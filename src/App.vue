@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import AuthModal from '@/components/business/auth/AuthModal.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeRuntime } from '@/composables/useThemeRuntime'
 
@@ -23,4 +24,5 @@ onMounted(async () => {
   <RouterView v-if="isLegacyFramePage || isFullPage" />
   <AuthLayout v-else-if="isAuthLayout" />
   <DefaultLayout v-else />
+  <AuthModal />
 </template>

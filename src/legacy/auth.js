@@ -152,7 +152,8 @@
       sb = supabaseGlobal.createClient(projectUrl, anonKey);
       await syncSession();
       bindAuthStateChange();
-    } catch (_err) {
+    } catch (err) {
+      console.error('[auth] failed to initialize Supabase client', err);
       sb = null;
       setStatus(getAuthNotReadyMessage(), true);
       updatePosterCta();
@@ -231,7 +232,8 @@
       var exp = Number(json && json.exp);
       if (!Number.isFinite(exp) || exp <= 0) return true;
       return (Date.now() + 5000) >= exp * 1000;
-    } catch (_e) {
+    } catch (err) {
+      console.warn('[auth] failed to parse JWT payload', err);
       return true;
     }
   }
@@ -275,7 +277,8 @@
         options: { emailRedirectTo: redirectTo }
       });
       return !(resendRes && resendRes.error);
-    } catch (_e) {
+    } catch (err) {
+      console.warn('[auth] resend signup confirmation failed', err);
       return false;
     }
   }
@@ -471,6 +474,14 @@
   function returnToSplashHome() {
     closeUserMenu();
     closeAuthModal();
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({ type: 'sqldev:navigate-home' }, window.location.origin);
+        return;
+      } catch (err) {
+        console.warn('[auth] notify parent navigate home failed', err);
+      }
+    }
     if (window.splashApi && typeof window.splashApi.showHome === 'function') {
       window.splashApi.showHome();
       return;
@@ -478,7 +489,7 @@
     var poster = document.getElementById('splash-poster');
     if (poster) poster.style.display = '';
     document.body.classList.add('splash-active');
-    try { window.scrollTo(0, 0); } catch (_e) {}
+    try { window.scrollTo(0, 0); } catch (err) { console.warn('[auth] scroll to splash home failed', err); }
   }
 
   async function syncSession() {
@@ -616,7 +627,9 @@
       if (updateRes.error) throw updateRes.error;
       try {
         await sb.auth.signOut();
-      } catch (_e) {}
+      } catch (err) {
+        console.warn('[auth] signOut after password reset failed', err);
+      }
       user = null;
       accessToken = '';
       resetCompleted = true;
@@ -694,7 +707,9 @@
           emit();
           return accessToken;
         }
-      } catch (_refreshErr) {}
+      } catch (refreshErr) {
+        console.warn('[auth] refreshSession failed, falling back to getSession', refreshErr);
+      }
     }
     try {
       var sessionRes = await sb.auth.getSession();
@@ -705,7 +720,8 @@
       updatePosterCta();
       emit();
       return accessToken;
-    } catch (_e) {
+    } catch (err) {
+      console.warn('[auth] getSession failed while ensuring access token', err);
       accessToken = '';
       user = null;
       updatePosterCta();

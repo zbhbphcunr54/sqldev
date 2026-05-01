@@ -17,6 +17,12 @@
 
   if (!modalMask || !feedbackForm || !feedbackContent) return;
 
+  function logFeedbackWarning(stage, err) {
+    try {
+      console.warn('[feedback] ' + stage, err);
+    } catch (_consoleErr) {}
+  }
+
   function getCurrentScene() {
     if (document.body.classList.contains('splash-active')) return 'splash';
     return 'workbench';
@@ -62,7 +68,9 @@
           feedbackContact.value = user.email;
         }
       }
-    } catch (_err) {}
+    } catch (err) {
+      logFeedbackWarning('prefill contact failed', err);
+    }
     window.requestAnimationFrame(function () {
       if (feedbackContent) feedbackContent.focus();
     });
@@ -74,7 +82,7 @@
     document.body.classList.remove('feedback-open');
     setStatus('', false);
     if (lastTrigger && typeof lastTrigger.focus === 'function') {
-      try { lastTrigger.focus(); } catch (_err) {}
+      try { lastTrigger.focus(); } catch (err) { logFeedbackWarning('restore focus failed', err); }
     }
   }
 
@@ -140,7 +148,8 @@
     try {
       list = JSON.parse(localStorage.getItem(FEEDBACK_QUEUE_KEY) || '[]');
       if (!Array.isArray(list)) list = [];
-    } catch (_e) {
+    } catch (err) {
+      logFeedbackWarning('read local draft queue failed', err);
       list = [];
     }
     list.unshift({
@@ -151,7 +160,9 @@
     if (list.length > 30) list = list.slice(0, 30);
     try {
       localStorage.setItem(FEEDBACK_QUEUE_KEY, JSON.stringify(list));
-    } catch (_err) {}
+    } catch (err) {
+      logFeedbackWarning('persist local draft queue failed', err);
+    }
   }
 
   function toErrorText(err) {
@@ -185,7 +196,7 @@
         controller = new AbortController();
         options = Object.assign({}, options, { signal: controller.signal });
         timer = setTimeout(function () {
-          try { controller.abort(); } catch (_e) {}
+          try { controller.abort(); } catch (err) { logFeedbackWarning('abort timeout request failed', err); }
         }, timeoutMs);
       }
       return await fetch(url, options);
@@ -209,7 +220,9 @@
       if (authApi && typeof authApi.getAccessToken === 'function') {
         accessToken = authApi.getAccessToken() || '';
       }
-    } catch (_err) {}
+    } catch (err) {
+      logFeedbackWarning('read access token failed', err);
+    }
     if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
     var timeoutMs = Number(window.SQDEV_FEEDBACK_TIMEOUT_MS) || 6500;
     var res = await fetchWithTimeout(endpoint, {
@@ -220,14 +233,14 @@
     }, timeoutMs);
     if (!res.ok) {
       var bodyText = '';
-      try { bodyText = await res.text(); } catch (_err2) {}
+      try { bodyText = await res.text(); } catch (err) { logFeedbackWarning('read error response failed', err); }
       throw new Error(bodyText || ('HTTP_' + res.status));
     }
     var data = null;
-    try { data = await res.json(); } catch (_err3) {}
+    try { data = await res.json(); } catch (err) { logFeedbackWarning('parse success response failed', err); }
     if (!data || data.ok !== true) {
       var rejected = 'ONLINE_SUBMIT_REJECTED';
-      try { rejected = JSON.stringify(data); } catch (_err4) {}
+      try { rejected = JSON.stringify(data); } catch (err) { logFeedbackWarning('serialize rejected response failed', err); }
       throw new Error(rejected);
     }
     return { channel: 'direct-endpoint' };
@@ -243,7 +256,9 @@
       if (window.authApi && typeof window.authApi.getUserSync === 'function') {
         authUser = window.authApi.getUserSync();
       }
-    } catch (_err) {}
+    } catch (err) {
+      logFeedbackWarning('read auth user failed', err);
+    }
     return {
       category: category,
       content: content,

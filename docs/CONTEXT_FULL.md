@@ -3,9 +3,21 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ---
+
+## 2026-04-30: Strangler Mode — Homepage Native SFC + Legacy Hardening
+
+- 恢复认证为全局 Vue 弹窗体验：`src/components/business/auth/AuthModal.vue` 承载密码登录、验证码登录、密码注册、验证码重置密码；首页/Header 登录入口不再跳独立登录页，`/login` 仅保留为打开弹窗的兼容入口。
+- 修复首页进入工作台白屏：`src/legacy/app.js` 中 ID 工具与 SQL 转换动作模块已按迁移后的 flat options 接口传参，避免 `idProvince` / `convertRemote` 等旧变量缺失导致 Vue setup 崩溃；首页底部 CTA 恢复为登录/注册语义。
+- 首页已迁移为原生 Vue SFC：`src/pages/splash/index.vue`，视觉布局保持原首页不变，样式抽离为 `src/pages/splash/splash.css`。
+- 工作台继续使用 legacy iframe 过渡方案，但路由同步改为父级 Vue Router 接管：legacy 内部切页通过 `sqldev:navigate-workbench-section` 通知父页面，返回首页通过 `sqldev:navigate-home`。
+- `src/legacy/supabase-config.js` 已退役，公开运行时配置统一进入 `src/legacy/runtime-config.js`，并拒绝浏览器暴露 `service_role` / `sb_secret_`。
+- `src/legacy/modules/sql-editor-component.js` 已从 template 字符串改为 render function，减少运行时模板编译点；`legacy.html` 的 `unsafe-eval` 仍需等工作台主体 SFC 化后再移除。
+- 清理 legacy 关键链路空 `catch`：认证、反馈、本地偏好、启动视图、转换重试、紫微历史读写均补充上下文日志。
+- 验证通过：`pnpm test:smoke`、`pnpm test:unit`、`pnpm build`、`pnpm check:utf8`。
+- 当前已知工程噪音：`pnpm lint` 为 0 error，但大量历史 CRLF 换行触发 Prettier warning；暂未全仓格式化以避免巨大无关 diff。
 
 ## 2026-04-29: AI Config Plan Permission Model Revision
 

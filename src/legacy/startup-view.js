@@ -3,6 +3,12 @@
   var WORKBENCH_RE = /\/workbench(?:\/|$)/i;
   var SPLASH_RE = /\/splash(?:\/|$)/i;
 
+  function logStartupWarning(stage, err) {
+    try {
+      console.warn('[startup-view] ' + stage, err);
+    } catch (_consoleErr) {}
+  }
+
   function normalizePath(path) {
     var value = String(path || '').trim();
     if (!value) return '/';
@@ -16,7 +22,8 @@
     try {
       var hash = String(window.location.hash || '').replace(/^#/, '');
       return normalizePath(hash);
-    } catch (_err) {
+    } catch (err) {
+      logStartupWarning('read hash failed', err);
       return '/';
     }
   }
@@ -24,7 +31,8 @@
   function readPathname() {
     try {
       return normalizePath(window.location.pathname || '/');
-    } catch (_err) {
+    } catch (err) {
+      logStartupWarning('read pathname failed', err);
       return '/';
     }
   }
@@ -47,7 +55,8 @@
     if (mode === 'dark' || mode === 'light') return mode;
     try {
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } catch (_err) {
+    } catch (err) {
+      logStartupWarning('match media failed', err);
       return 'light';
     }
   }
@@ -61,7 +70,9 @@
       window.__SQDEV_STARTUP_VIEW = 'workbench';
       return;
     }
-  } catch (_err) {}
+  } catch (err) {
+    logStartupWarning('resolve startup view failed', err);
+  }
   if (!root.getAttribute('data-theme')) root.setAttribute('data-theme', 'light');
   window.__SQDEV_STARTUP_VIEW = 'splash';
 })();

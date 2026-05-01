@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useAuthStore } from '@/stores/auth'
 import { useAppStore, type ThemeMode } from '@/stores/app'
+import { useAuth } from '@/composables/useAuth'
+import { useAuthModal } from '@/composables/useAuthModal'
 
 const router = useRouter()
 const route = useRoute()
-const authStore = useAuthStore()
 const appStore = useAppStore()
-const { isAuthenticated, user } = storeToRefs(authStore)
+const auth = useAuth()
+const authModal = useAuthModal()
+const { isAuthenticated, user } = auth
 
 const navItems = computed(() => [
   { to: '/', label: '首页' },
@@ -18,12 +19,16 @@ const navItems = computed(() => [
 ])
 
 async function handleSignOut() {
-  await authStore.signOut()
+  await auth.signOut()
   await router.push('/')
 }
 
 function setTheme(mode: ThemeMode) {
   appStore.setTheme(mode)
+}
+
+function openLoginModal() {
+  authModal.openModal({ redirectTo: route.fullPath || '/workbench/ddl' })
 }
 </script>
 
@@ -75,13 +80,14 @@ function setTheme(mode: ThemeMode) {
           </button>
         </div>
 
-        <RouterLink
+        <button
           v-if="!isAuthenticated"
-          to="/login"
           class="rounded-control border border-border px-3 py-2 text-sm text-text transition-colors hover:bg-panel2"
+          type="button"
+          @click="openLoginModal"
         >
           登录 / 注册
-        </RouterLink>
+        </button>
         <div v-else class="flex items-center gap-2">
           <span class="hidden text-xs text-subtle sm:block">{{ user?.email }}</span>
           <button class="btn-secondary px-3 py-2 text-sm" @click="handleSignOut">退出</button>

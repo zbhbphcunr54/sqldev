@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import FeedbackWidget from '@/components/business/feedback/FeedbackWidget.vue'
 import { useAppStore, type ThemeMode } from '@/stores/app'
-import { useAuthStore } from '@/stores/auth'
+import { useAuth } from '@/composables/useAuth'
+import { useAuthModal } from '@/composables/useAuthModal'
 import './splash.css'
 
 interface FeatureCard {
@@ -17,10 +17,11 @@ interface FeatureCard {
 
 const router = useRouter()
 const appStore = useAppStore()
-const authStore = useAuthStore()
-const { isAuthenticated } = storeToRefs(authStore)
+const auth = useAuth()
+const authModal = useAuthModal()
+const { isAuthenticated } = auth
 
-const authButtonLabel = computed(() => (isAuthenticated.value ? '进入工作台' : '注册 / 登录'))
+const navAuthButtonLabel = computed(() => (isAuthenticated.value ? '进入工作台' : '注册 / 登录'))
 
 const features: FeatureCard[] = [
   {
@@ -99,7 +100,11 @@ async function enterWorkbench(): Promise<void> {
 }
 
 async function handleAuthIntent(): Promise<void> {
-  await router.push(isAuthenticated.value ? '/workbench/ddl' : '/login')
+  if (isAuthenticated.value) {
+    await router.push('/workbench/ddl')
+    return
+  }
+  authModal.openModal({ redirectTo: '/workbench/ddl' })
 }
 </script>
 
@@ -142,7 +147,7 @@ async function handleAuthIntent(): Promise<void> {
               </svg>
             </button>
             <button class="sp-nav-login" type="button" @click="handleAuthIntent">
-              {{ authButtonLabel }}
+              {{ navAuthButtonLabel }}
             </button>
           </div>
         </nav>
@@ -340,7 +345,7 @@ async function handleAuthIntent(): Promise<void> {
           <p>无需安装，打开即用。免费开源。</p>
           <div class="sp-hero-cta sp-hero-cta-center">
             <button class="sp-btn-primary sp-final-auth" type="button" @click="handleAuthIntent">
-              {{ authButtonLabel }}
+              {{ navAuthButtonLabel }}
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true">
                 <path
                   d="M3 8h10m-4-4 4 4-4 4"

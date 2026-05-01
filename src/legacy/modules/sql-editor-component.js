@@ -7,7 +7,6 @@ export function registerSqlEditorComponent(app, Vue, CodeMirror) {
       ariaLabel: { type: String, default: '' }
     },
     emits: ['update:modelValue'],
-    template: '<div ref="wrap" class="sql-editor-wrap"></div>',
     setup(props, { emit, attrs }) {
       const wrap = Vue.ref(null)
       let cm = null
@@ -55,7 +54,7 @@ export function registerSqlEditorComponent(app, Vue, CodeMirror) {
           ignoreChange = false
         }
       })
-      return { wrap }
+      return () => Vue.h('div', { ref: wrap, class: 'sql-editor-wrap' })
     }
   })
 }

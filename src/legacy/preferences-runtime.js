@@ -2,11 +2,18 @@
   var THEME_OPTIONS = ['system', 'dark', 'light'];
   var LAST_VIEW_OPTIONS = ['splash', 'workbench'];
 
+  function logPreferenceWarning(stage, err) {
+    try {
+      console.warn('[preferences] ' + stage, err);
+    } catch (_consoleErr) {}
+  }
+
   function readStoredString(key, fallback) {
     try {
       var value = localStorage.getItem(key);
       return value == null ? fallback : String(value);
-    } catch (_err) {
+    } catch (err) {
+      logPreferenceWarning('read localStorage failed: ' + key, err);
       return fallback;
     }
   }
@@ -15,7 +22,8 @@
     try {
       localStorage.setItem(key, String(value == null ? '' : value));
       return true;
-    } catch (_err) {
+    } catch (err) {
+      logPreferenceWarning('write localStorage failed: ' + key, err);
       return false;
     }
   }
@@ -44,7 +52,8 @@
     if (mode === 'dark' || mode === 'light') return mode;
     try {
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } catch (_err) {
+    } catch (err) {
+      logPreferenceWarning('match media failed', err);
       return 'light';
     }
   }

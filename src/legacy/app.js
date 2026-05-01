@@ -3037,7 +3037,8 @@ const app = createApp({
         if (typeof window === 'undefined' || !window.authApi || typeof window.authApi.getUserSync !== 'function') return '';
         var authUser = window.authApi.getUserSync();
         return normalizeEmail(authUser && authUser.email);
-      } catch (_err) {
+      } catch (err) {
+        console.warn('[sqldev] read current auth email failed', err);
         return '';
       }
     }
@@ -3053,7 +3054,8 @@ const app = createApp({
         }
         var flag = String(raw || '').trim().toLowerCase();
         return flag === '1' || flag === 'true' || flag === 'yes';
-      } catch (_err) {
+      } catch (err) {
+        console.warn('[sqldev] read ziwei share mode failed', err);
         return false;
       }
     }
@@ -3177,7 +3179,9 @@ const app = createApp({
             return;
           }
         }
-      } catch (_historyErr) {}
+      } catch (historyErr) {
+        console.warn('[sqldev] sync legacy route failed', historyErr);
+      }
       window.location.hash = targetHash.slice(1);
     }
 
@@ -3314,7 +3318,9 @@ const app = createApp({
         if (navigator.userAgentData && typeof navigator.userAgentData.platform === 'string') {
           return /mac/i.test(navigator.userAgentData.platform);
         }
-      } catch (_err) {}
+      } catch (err) {
+        console.warn('[sqldev] detect platform failed', err);
+      }
       var platform = String(navigator.platform || navigator.userAgent || '');
       return /mac|iphone|ipad|ipod/i.test(platform);
     });
@@ -4626,50 +4632,37 @@ const app = createApp({
     }
 
     const idToolActions = window.SQLDEV_LEGACY_ID_TOOL_ACTIONS.createIdToolActions({
-      refs: {
-        idProvince: idProvince,
-        idCity: idCity,
-        idCounty: idCounty,
-        idBirthDate: idBirthDate,
-        idGender: idGender,
-        idGenerated: idGenerated,
-        idGenerateStatus: idGenerateStatus,
-        idVerifyInput: idVerifyInput,
-        idVerifyStatus: idVerifyStatus,
-        idCopyState: idCopyState,
-        idVerifyState: idVerifyState,
-        usccDeptType: usccDeptType,
-        usccGenerated: usccGenerated,
-        usccGenerateStatus: usccGenerateStatus,
-        usccVerifyInput: usccVerifyInput,
-        usccVerifyStatus: usccVerifyStatus,
-        usccCopyState: usccCopyState,
-        usccVerifyState: usccVerifyState
-      },
-      computed: {
-        selectedCountyCode: selectedCountyCode,
-        countyOptions: countyOptions
-      },
-      helpers: {
-        randomInt: randomInt,
-        calcIdCardCheckDigit: calcIdCardCheckDigit,
-        validateIdCardNumber: validateIdCardNumber,
-        calcUsccCheckChar: calcUsccCheckChar,
-        validateUsccCodeValue: validateUsccCodeValue,
-        copyText: copyText,
-        usccChars: USCC_CHARS,
-        usccDeptOptions: USCC_DEPT_OPTIONS
-      },
-      timers: {
-        getIdCopyTimer: function() { return idCopyTimer; },
-        setIdCopyTimer: function(timer) { idCopyTimer = timer; },
-        getIdVerifyTimer: function() { return idVerifyTimer; },
-        setIdVerifyTimer: function(timer) { idVerifyTimer = timer; },
-        getUsccCopyTimer: function() { return usccCopyTimer; },
-        setUsccCopyTimer: function(timer) { usccCopyTimer = timer; },
-        getUsccVerifyTimer: function() { return usccVerifyTimer; },
-        setUsccVerifyTimer: function(timer) { usccVerifyTimer = timer; }
-      }
+      regionReady: regionReady,
+      regionLoadError: regionLoadError,
+      regionCodeSet: regionCodeSet,
+      idProvinceCode: idProvinceCode,
+      idCityCode: idCityCode,
+      idCountyCode: idCountyCode,
+      idBirthDate: idBirthDate,
+      idBirthMax: idBirthMax,
+      idGender: idGender,
+      idGeneratedNumber: idGeneratedNumber,
+      idGenerateResult: idGenerateResult,
+      idVerifyInput: idVerifyInput,
+      idCopyDone: idCopyDone,
+      idVerifyDone: idVerifyDone,
+      usccProvinceCode: usccProvinceCode,
+      usccCityCode: usccCityCode,
+      usccCountyCode: usccCountyCode,
+      usccCodeMode: usccCodeMode,
+      usccDeptCode: usccDeptCode,
+      usccOrgTypeCode: usccOrgTypeCode,
+      usccGeneratedCode: usccGeneratedCode,
+      usccLegacyGenerated: usccLegacyGenerated,
+      usccCopyPayload: usccCopyPayload,
+      usccGenerateResult: usccGenerateResult,
+      usccVerifyInput: usccVerifyInput,
+      usccCopyDone: usccCopyDone,
+      usccVerifyDone: usccVerifyDone,
+      setIdVerifyResult: _setIdVerifyResult,
+      setUsccVerifyResult: _setUsccVerifyResult,
+      flashButtonState: _flashButtonState,
+      clipboardWrite: clipboardWrite
     });
     const {
       generateIdNumber,
@@ -5813,9 +5806,10 @@ const app = createApp({
         return arr.filter(function(item) {
           return item && typeof item === 'object' && item.id && item.createdAt;
         }).slice(0, 30);
-      } catch (_err) {
-        return [];
-      }
+    } catch (err) {
+      console.warn('[sqldev] load ziwei history failed', err);
+      return [];
+    }
     }
 
     function _zwSaveHistory(historyList) {
@@ -5825,7 +5819,9 @@ const app = createApp({
       }
       try {
         localStorage.setItem(ZW_HISTORY_KEY, JSON.stringify(historyList || []));
-      } catch (_err) {}
+      } catch (err) {
+        console.warn('[sqldev] save ziwei history failed', err);
+      }
     }
 
     function _zwBuildHistoryLabel() {
@@ -6319,13 +6315,14 @@ const app = createApp({
             try {
               var obj = JSON.parse(txt);
               detail = String((obj && (obj.error || obj.message)) || txt || '');
-            } catch (_parseErr) {
+            } catch (parseErr) {
+              console.warn('[sqldev] parse convert error response failed', parseErr);
               detail = String(txt || '');
             }
           }
         }
-      } catch (_ctxErr) {
-        // ignore
+      } catch (ctxErr) {
+        console.warn('[sqldev] read convert error context failed', ctxErr);
       }
       if (!detail) detail = String((err && err.message) || err || '');
       return { status: status, detail: detail };
@@ -8176,13 +8173,14 @@ const app = createApp({
               try {
                 var obj = JSON.parse(txt);
                 detail = String((obj && (obj.error || obj.message)) || txt || '');
-              } catch (_parseErr) {
+              } catch (parseErr) {
+                console.warn('[sqldev] parse convert invoke error failed', parseErr);
                 detail = String(txt || '');
               }
             }
           }
-        } catch (_ctxErr) {
-          // ignore
+        } catch (ctxErr) {
+          console.warn('[sqldev] read convert invoke error context failed', ctxErr);
         }
         if (!detail) detail = String((err && err.message) || err || '');
         return { status: status, detail: detail };
@@ -8216,7 +8214,9 @@ const app = createApp({
       if (!window.authApi && typeof window.__loadSqldevAuthNow === 'function') {
         try {
           await window.__loadSqldevAuthNow();
-        } catch (_authLoadErr) {}
+        } catch (authLoadErr) {
+          console.warn('[sqldev] lazy auth load before convert failed', authLoadErr);
+        }
       }
       if (!window.authApi) {
         throw new Error('认证模块未初始化');
@@ -8282,7 +8282,9 @@ const app = createApp({
                 });
               }
             }
-          } catch (_retryErr) { /* fall through to error below */ }
+          } catch (retryErr) {
+            console.warn('[sqldev] convert retry after token refresh failed', retryErr);
+          }
         }
       }
       if (result.error) {
@@ -8305,7 +8307,9 @@ const app = createApp({
                 return fallbackJson.output;
               }
             }
-          } catch (_noRulesRetryErr) { /* keep original error */ }
+          } catch (noRulesRetryErr) {
+            console.warn('[sqldev] convert retry without frontend rules failed', noRulesRetryErr);
+          }
         }
         throw new Error(mapConvertErrorMessage(msg, status));
       }
@@ -8324,7 +8328,10 @@ const app = createApp({
     // ========== DDL Methods ==========
     async function _hasSignedUser() {
       if (window.authApi && typeof window.authApi.getUser === 'function') {
-        try { return !!(await window.authApi.getUser()); } catch (_e) { return false; }
+        try { return !!(await window.authApi.getUser()); } catch (err) {
+          console.warn('[sqldev] check signed user failed', err);
+          return false;
+        }
       }
       if (window.authApi && typeof window.authApi.getUserSync === 'function') {
         return !!window.authApi.getUserSync();
@@ -8343,38 +8350,42 @@ const app = createApp({
           if (window.authApi && typeof window.authApi.openAuthModal === 'function') {
             window.authApi.openAuthModal('\u8bf7\u5148\u767b\u5f55\u540e\u518d\u4f7f\u7528 SQL \u8f6c\u6362\u529f\u80fd');
           }
-        } catch (_authLoadErr) {}
+        } catch (authLoadErr) {
+          console.warn('[sqldev] lazy auth load for conversion failed', authLoadErr);
+        }
       }
       return false;
     }
 
     const sqlConversionActions = window.SQLDEV_LEGACY_SQL_CONVERSION_ACTIONS.createSqlConversionActions({
-      refs: {
-        sourceDb: sourceDb,
-        targetDb: targetDb,
-        inputDdl: inputDdl,
-        outputDdl: outputDdl,
-        funcSourceDb: funcSourceDb,
-        funcTargetDb: funcTargetDb,
-        funcInput: funcInput,
-        funcOutput: funcOutput,
-        procSourceDb: procSourceDb,
-        procTargetDb: procTargetDb,
-        procInput: procInput,
-        procOutput: procOutput,
-        statusText: statusText
-      },
-      helpers: {
-        ensureLogin: _ensureLoginForConversion,
-        convertRemote: convertRemote,
-        setOutputWithTick: setOutputWithTick,
-        copyText: copyText,
-        saveSql: saveSql,
-        SQLDEV_SAMPLE_UTILS: window.SQLDEV_SAMPLE_UTILS,
-        sampleOracle: sampleOracle,
-        sampleFuncOracle: sampleFuncOracle,
-        sampleProcOracle: sampleProcOracle
-      }
+      sourceDb: sourceDb,
+      targetDb: targetDb,
+      inputDdl: inputDdl,
+      outputDdl: outputDdl,
+      sourceLabel: sourceLabel,
+      targetLabel: targetLabel,
+      ddlSamples: DDL_SAMPLES,
+      funcSourceDb: funcSourceDb,
+      funcTargetDb: funcTargetDb,
+      funcInput: funcInput,
+      funcOutput: funcOutput,
+      funcSourceLabel: funcSourceLabel,
+      funcTargetLabel: funcTargetLabel,
+      funcSamples: FUNC_SAMPLES,
+      procSourceDb: procSourceDb,
+      procTargetDb: procTargetDb,
+      procInput: procInput,
+      procOutput: procOutput,
+      procSourceLabel: procSourceLabel,
+      procTargetLabel: procTargetLabel,
+      procSamples: PROC_SAMPLES,
+      statusText: statusText,
+      ensureLogin: _ensureLoginForConversion,
+      backendConvert: _convertViaBackend,
+      classifyResult: _classifyResult,
+      clipboardWrite: clipboardWrite,
+      saveFile: saveFile,
+      showConfirm: _showConfirm
     });
     const {
       swapDbs,

@@ -39,6 +39,8 @@ body:not(.splash-active) #app{
   transition:opacity .35s ease, filter .35s ease, transform .35s ease;
 }
 #splash-poster{
+  height:100vh;
+  height:100dvh;
   overflow-y:auto;
   overflow-x:hidden;
   overscroll-behavior:contain;

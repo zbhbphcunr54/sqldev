@@ -16,7 +16,10 @@ export function useAuth() {
     initAuth: authStore.initAuth,
     signOut: authStore.signOut,
     signInWithPassword: authStore.signInWithPassword,
-    signInWithOtp: authStore.signInWithOtp,
-    resetPasswordByEmail: authStore.resetPasswordByEmail
+    signUpWithPassword: authStore.signUpWithPassword,
+    sendEmailCode: authStore.sendEmailCode,
+    verifyEmailCode: authStore.verifyEmailCode,
+    resetPasswordByEmail: authStore.resetPasswordByEmail,
+    resetPasswordWithCode: authStore.resetPasswordWithCode
   }
 }

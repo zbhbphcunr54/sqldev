@@ -58,26 +58,81 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signInWithPassword(email: string, password: string): Promise<void> {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
     if (error) throw error
+    applySession(data.session)
   }
 
-  async function signInWithOtp(email: string): Promise<void> {
+  async function signUpWithPassword(email: string, password: string): Promise<void> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    })
+    if (error) throw error
+    applySession(data.session)
+  }
+
+  async function sendEmailCode(email: string): Promise<void> {
+    const redirectTo = `${window.location.origin}${window.location.pathname}`
+    const firstTry = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: redirectTo
+      }
+    })
+    if (!firstTry.error) return
+
+    const message = String(firstTry.error.message || '').toLowerCase()
+    const shouldCreateUser =
+      message.includes('user not found') ||
+      message.includes('no user') ||
+      message.includes('not registered')
+    if (!shouldCreateUser) throw firstTry.error
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        shouldCreateUser: true
+        shouldCreateUser: true,
+        emailRedirectTo: redirectTo
       }
     })
     if (error) throw error
   }
 
+  async function verifyEmailCode(email: string, token: string): Promise<void> {
+    const otpTypes = ['email', 'magiclink', 'signup'] as const
+    let lastError: unknown = null
+
+    for (const type of otpTypes) {
+      const { data, error } = await supabase.auth.verifyOtp({ email, token, type })
+      if (!error) {
+        applySession(data.session)
+        return
+      }
+      lastError = error
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('验证码无效或已过期')
+  }
+
   async function resetPasswordByEmail(email: string): Promise<void> {
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) throw error
+  }
+
+  async function resetPasswordWithCode(
+    email: string,
+    token: string,
+    nextPassword: string
+  ): Promise<void> {
+    await verifyEmailCode(email, token)
+    const { error } = await supabase.auth.updateUser({ password: nextPassword })
+    if (error) throw error
+    await signOut()
   }
 
   function disposeAuthListener(): void {
@@ -96,8 +151,11 @@ export const useAuthStore = defineStore('auth', () => {
     initAuth,
     signOut,
     signInWithPassword,
-    signInWithOtp,
+    signUpWithPassword,
+    sendEmailCode,
+    verifyEmailCode,
     resetPasswordByEmail,
+    resetPasswordWithCode,
     disposeAuthListener
   }
 })
