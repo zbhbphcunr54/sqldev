@@ -21,7 +21,15 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   feedback_invalid_payload: '建议内容格式不正确，请补充后再提交。',
   feedback_network_failed: '网络连接失败，请检查网络后重试。',
   feedback_service_unavailable: '反馈服务暂时不可用，请稍后重试。',
-  feedback_submit_failed: '提交失败，请稍后重试。'
+  feedback_submit_failed: '提交失败，请稍后重试。',
+  ai_config_limit_exceeded: '全站配置数已达上限（20 条），请删除不需要的配置后重试。',
+  ai_config_not_found: '找不到指定的 AI 配置。',
+  ai_config_test_failed: '连接测试失败，请检查 API Key 和地址。',
+  ai_config_save_failed: '保存配置失败，请稍后重试。',
+  ai_config_delete_failed: '删除配置失败，请稍后重试。',
+  ai_config_activate_failed: '激活配置失败，请稍后重试。',
+  provider_disabled: '该供应商已被禁用。',
+  forbidden: '无权限执行此操作，请联系管理员。'
 }
 
 export function mapErrorCodeToMessage(code: string): string {

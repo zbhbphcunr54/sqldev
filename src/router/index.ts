@@ -26,6 +26,12 @@ const router = createRouter({
       meta: { legacyFrame: true }
     },
     {
+      path: '/ai-config',
+      name: 'ai-config',
+      component: () => import('@/components/business/ai/AiConfigPage.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/pages/not-found.vue')
