@@ -21,6 +21,8 @@ const auth = useAuth()
 const authModal = useAuthModal()
 const { isAuthenticated } = auth
 
+const feedbackSource = 'splash' as const
+
 const navAuthButtonLabel = computed(() => (isAuthenticated.value ? '进入工作台' : '注册 / 登录'))
 
 const features: FeatureCard[] = [
@@ -365,6 +367,6 @@ async function handleAuthIntent(): Promise<void> {
       </div>
     </div>
 
-    <FeedbackWidget source="splash" />
+    <FeedbackWidget :source="feedbackSource" />
   </section>
 </template>

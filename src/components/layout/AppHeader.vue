@@ -134,6 +134,24 @@ onBeforeUnmount(() => {
                 </svg>
                 AI 配置
               </RouterLink>
+              <RouterLink
+                to="/operation-logs"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-text transition-colors hover:bg-panel2"
+                @click="showMenu = false"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 6v6l4 2" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                操作日志
+              </RouterLink>
             </div>
           </Transition>
         </div>

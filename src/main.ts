@@ -22,9 +22,9 @@ function showGlobalErrorNotice(): void {
     maxWidth: '320px',
     padding: '12px 16px',
     borderRadius: '14px',
-    color: '#f8fafc',
-    background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94))',
-    boxShadow: '0 18px 48px rgba(15, 23, 42, 0.32)',
+    color: 'var(--color-text)',
+    background: 'var(--color-modal-bg)',
+    boxShadow: 'var(--shadow-modal)',
     fontSize: '14px',
     lineHeight: '1.5'
   })

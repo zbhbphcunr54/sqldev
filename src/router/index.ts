@@ -23,18 +23,31 @@ const router = createRouter({
       path: '/workbench/:section',
       name: 'workbench',
       component: () => import('@/pages/workbench/index.vue'),
-      meta: { legacyFrame: true }
+      meta: { layout: 'workbench' }
+    },
+    {
+      path: '/operation-logs',
+      name: 'operation-logs',
+      component: () => import('@/pages/operation-logs/index.vue'),
+      meta: { requiresAuth: true, layout: 'default' }
     },
     {
       path: '/ai-config',
       name: 'ai-config',
       component: () => import('@/components/business/ai/AiConfigPage.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, layout: 'default' }
+    },
+    {
+      path: '/app-config',
+      name: 'app-config',
+      component: () => import('@/components/business/app-config/AppConfigPage.vue'),
+      meta: { requiresAuth: true, layout: 'default' }
     },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: () => import('@/pages/not-found.vue')
+      component: () => import('@/pages/not-found.vue'),
+      meta: { layout: 'default' }
     }
   ]
 })

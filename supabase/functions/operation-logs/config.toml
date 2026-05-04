@@ -1,0 +1,2 @@
+[functions.operation-logs]
+verify_jwt = true

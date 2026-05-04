@@ -3,11 +3,26 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthModal } from '@/composables/useAuthModal'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 const router = useRouter()
 const auth = useAuth()
 const authModal = useAuthModal()
 const { open, view, loginMode, message, redirectTo } = authModal
+
+// [2026-05-03] 新增：统一的错误代码映射
+const AUTH_ERRORS = {
+  invalid_credentials: 'auth_invalid_credentials',
+  email_not_confirmed: 'auth_email_not_confirmed',
+  email_registered: 'auth_email_already_registered',
+  password_same: 'auth_password_same',
+  password_weak: 'auth_weak_password',
+  password_short: 'auth_password_too_short',
+  email_invalid: 'auth_email_invalid',
+  rate_limit: 'auth_rate_limited',
+  otp_invalid: 'auth_otp_invalid',
+  network_error: 'auth_network_error'
+} as const
 
 const email = ref('')
 const password = ref('')
@@ -36,48 +51,26 @@ function setStatus(type: 'idle' | 'success' | 'error', text = ''): void {
   status.value = { type, text }
 }
 
-function localizeAuthError(error: unknown, fallback: string): string {
+// [2026-05-03] 修改：使用统一的错误代码映射
+function localizeAuthError(error: unknown, fallbackCode = 'auth_password_failed'): string {
   const raw = String(error instanceof Error ? error.message : error || '').trim()
   const msg = raw.toLowerCase()
-  if (!msg) return fallback
-  if (msg.includes('invalid login credentials')) return '邮箱或密码错误'
-  if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) {
-    return '邮箱未验证，请先完成邮箱验证'
-  }
-  if (msg.includes('user already registered')) return '该邮箱已注册，请直接登录'
-  if (msg.includes('new password should be different from the old password')) {
-    return '新密码不能与旧密码相同，请换一个新密码'
-  }
-  if (msg.includes('password should contain at least one character of each')) {
-    return '密码需同时包含大写字母、小写字母、数字和特殊字符'
-  }
-  if (msg.includes('password should be at least') || msg.includes('password is too short')) {
-    return '密码至少 6 位'
-  }
-  if (msg.includes('invalid email') || msg.includes('email address')) return '邮箱格式不正确'
-  if (
-    msg.includes('rate limit') ||
-    msg.includes('too many requests') ||
-    msg.includes('over_email_send_rate_limit')
-  ) {
-    return '操作过于频繁，请稍后再试'
-  }
-  if (
-    msg.includes('invalid otp') ||
-    msg.includes('otp') ||
-    msg.includes('expired') ||
-    msg.includes('token')
-  ) {
-    return '验证码无效或已过期，请重新获取'
-  }
-  if (
-    msg.includes('networkerror') ||
-    msg.includes('failed to fetch') ||
-    msg.includes('fetch failed')
-  ) {
-    return '网络异常，请检查网络后重试'
-  }
-  return fallback
+
+  let code = fallbackCode
+  if (!msg) return mapErrorCodeToMessage(code)
+
+  if (msg.includes('invalid login credentials')) code = AUTH_ERRORS.invalid_credentials
+  else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) code = AUTH_ERRORS.email_not_confirmed
+  else if (msg.includes('user already registered')) code = AUTH_ERRORS.email_registered
+  else if (msg.includes('new password should be different')) code = AUTH_ERRORS.password_same
+  else if (msg.includes('password should contain at least one character')) code = AUTH_ERRORS.password_weak
+  else if (msg.includes('password should be at least') || msg.includes('password is too short')) code = AUTH_ERRORS.password_short
+  else if (msg.includes('invalid email') || msg.includes('email address')) code = AUTH_ERRORS.email_invalid
+  else if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('over_email_send_rate_limit')) code = AUTH_ERRORS.rate_limit
+  else if (msg.includes('invalid otp') || msg.includes('expired') || msg.includes('token')) code = AUTH_ERRORS.otp_invalid
+  else if (msg.includes('networkerror') || msg.includes('failed to fetch') || msg.includes('fetch failed')) code = AUTH_ERRORS.network_error
+
+  return mapErrorCodeToMessage(code)
 }
 
 function resetTransientState(): void {
@@ -110,16 +103,16 @@ async function loginWithPassword(): Promise<void> {
   if (busy.value) return
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail || !password.value) {
-    setStatus('error', '请输入邮箱和密码')
+    setStatus('error', mapErrorCodeToMessage('auth_password_required'))
     return
   }
   busy.value = true
   setStatus('idle')
   try {
     await auth.signInWithPassword(normalizedEmail, password.value)
-    await finishLogin('登录成功')
+    await finishLogin(mapErrorCodeToMessage('auth_login_success') || '登录成功')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '登录失败'))
+    setStatus('error', localizeAuthError(error, 'auth_password_failed'))
   } finally {
     busy.value = false
   }
@@ -129,7 +122,7 @@ async function registerWithPassword(): Promise<void> {
   if (busy.value) return
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail || !password.value) {
-    setStatus('error', '请输入邮箱和密码')
+    setStatus('error', mapErrorCodeToMessage('auth_password_required'))
     return
   }
   busy.value = true
@@ -142,7 +135,7 @@ async function registerWithPassword(): Promise<void> {
     }
     setStatus('success', '注册成功。若项目开启邮箱验证，请先在邮件中完成验证后再登录。')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '注册失败'))
+    setStatus('error', localizeAuthError(error, 'auth_registration_failed'))
   } finally {
     busy.value = false
   }
@@ -152,16 +145,16 @@ async function sendLoginCode(): Promise<void> {
   if (busy.value) return
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail) {
-    setStatus('error', '请先输入邮箱')
+    setStatus('error', mapErrorCodeToMessage('auth_email_required'))
     return
   }
   busy.value = true
   setStatus('idle')
   try {
     await auth.sendEmailCode(normalizedEmail)
-    setStatus('success', '验证码已发送，请输入验证码后点击“验证码登录”。')
+    setStatus('success', '验证码已发送，请输入验证码后点击”验证码登录”。')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '发送验证码失败'))
+    setStatus('error', localizeAuthError(error, 'auth_otp_failed'))
   } finally {
     busy.value = false
   }
@@ -172,7 +165,7 @@ async function loginWithCode(): Promise<void> {
   const normalizedEmail = email.value.trim()
   const token = code.value.trim()
   if (!normalizedEmail || !token) {
-    setStatus('error', '请输入邮箱和验证码')
+    setStatus('error', mapErrorCodeToMessage('auth_code_required'))
     return
   }
   busy.value = true
@@ -181,7 +174,7 @@ async function loginWithCode(): Promise<void> {
     await auth.verifyEmailCode(normalizedEmail, token)
     await finishLogin('登录成功')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '验证码登录失败'))
+    setStatus('error', localizeAuthError(error, 'auth_otp_failed'))
   } finally {
     busy.value = false
   }
@@ -202,19 +195,19 @@ function validateResetForm(): { normalizedEmail: string; nextPassword: string } 
   const nextPassword = resetPassword.value.trim()
   const confirmPassword = resetConfirm.value.trim()
   if (!normalizedEmail) {
-    setStatus('error', '请先输入邮箱')
+    setStatus('error', mapErrorCodeToMessage('auth_email_required'))
     return null
   }
   if (!nextPassword) {
-    setStatus('error', '请输入新密码')
+    setStatus('error', mapErrorCodeToMessage('auth_password_required'))
     return null
   }
   if (nextPassword.length < 6) {
-    setStatus('error', '密码至少 6 位')
+    setStatus('error', mapErrorCodeToMessage('auth_password_too_short'))
     return null
   }
   if (nextPassword !== confirmPassword) {
-    setStatus('error', '两次输入的新密码不一致')
+    setStatus('error', mapErrorCodeToMessage('auth_password_mismatch'))
     return null
   }
   return { normalizedEmail, nextPassword }
@@ -231,7 +224,7 @@ async function sendResetCode(): Promise<void> {
     resetCodeSent.value = true
     setStatus('success', '验证码已发送，请查收邮箱后输入验证码。')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '发送验证码失败'))
+    setStatus('error', localizeAuthError(error, 'auth_otp_failed'))
   } finally {
     busy.value = false
   }
@@ -243,7 +236,7 @@ async function submitResetPassword(): Promise<void> {
   const token = resetCode.value.trim()
   if (!resetInfo) return
   if (!token) {
-    setStatus('error', '请输入验证码')
+    setStatus('error', mapErrorCodeToMessage('auth_code_required'))
     return
   }
   busy.value = true
@@ -252,9 +245,9 @@ async function submitResetPassword(): Promise<void> {
     await auth.resetPasswordWithCode(resetInfo.normalizedEmail, token, resetInfo.nextPassword)
     resetCompleted.value = true
     resetCodeSent.value = false
-    setStatus('success', '重置密码成功，请点击“重新登录”返回登录弹框。')
+    setStatus('success', '重置密码成功，请点击”重新登录”返回登录弹框。')
   } catch (error) {
-    setStatus('error', localizeAuthError(error, '重置密码失败'))
+    setStatus('error', localizeAuthError(error, 'auth_reset_failed'))
   } finally {
     busy.value = false
   }
@@ -574,7 +567,7 @@ watch(open, async (isOpen) => {
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(2, 6, 23, 0.58);
+  background: var(--color-overlay);
   backdrop-filter: blur(4px);
 }
 
@@ -582,10 +575,10 @@ watch(open, async (isOpen) => {
   width: min(420px, 96vw);
   padding: 16px 16px 14px;
   text-align: left;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: 1px solid var(--color-modal-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(8, 14, 27, 0.95) 100%);
-  box-shadow: 0 14px 40px rgba(2, 6, 23, 0.45);
+  background: var(--color-modal-bg);
+  box-shadow: var(--shadow-modal);
 }
 
 .auth-modal-head {
@@ -597,7 +590,7 @@ watch(open, async (isOpen) => {
 
 .auth-modal-head h3 {
   margin: 0;
-  color: #e2e8f0;
+  color: var(--color-modal-text);
   font-size: 16px;
 }
 
@@ -606,7 +599,7 @@ watch(open, async (isOpen) => {
   height: 28px;
   border: 0;
   border-radius: 8px;
-  color: #94a3b8;
+  color: var(--color-modal-text-subtle);
   background: transparent;
   cursor: pointer;
   font-size: 22px;
@@ -614,13 +607,13 @@ watch(open, async (isOpen) => {
 }
 
 .auth-close:hover {
-  color: #e2e8f0;
+  color: var(--color-modal-text);
   background: rgba(148, 163, 184, 0.12);
 }
 
 .auth-modal-desc {
   margin: 0 0 10px;
-  color: #94a3b8;
+  color: var(--color-modal-text-subtle);
   font-size: 12px;
 }
 
@@ -633,10 +626,10 @@ watch(open, async (isOpen) => {
 
 .auth-mode-btn,
 .auth-btn {
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--color-modal-input-border);
   border-radius: 8px;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.7);
+  color: var(--color-modal-text);
+  background: var(--color-modal-input-bg);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -653,20 +646,20 @@ watch(open, async (isOpen) => {
 
 .auth-mode-btn:hover,
 .auth-btn:hover {
-  border-color: #60a5fa;
-  color: #e2e8f0;
-  background: rgba(30, 41, 59, 0.8);
+  border-color: var(--color-brand-500);
+  color: var(--color-modal-text);
+  background: var(--color-modal-input-bg);
 }
 
 .auth-mode-btn.active,
 .auth-btn.primary {
-  border-color: #2563eb;
+  border-color: var(--color-modal-primary);
   color: #fff;
-  background: #2563eb;
+  background: var(--color-modal-primary);
 }
 
 .auth-btn.primary:hover {
-  background: #1d4ed8;
+  background: var(--color-modal-primary-hover);
 }
 
 .auth-form {
@@ -676,17 +669,17 @@ watch(open, async (isOpen) => {
 .auth-label {
   display: block;
   margin: 8px 0 5px;
-  color: #cbd5e1;
+  color: var(--color-modal-text);
   font-size: 12px;
 }
 
 .auth-input {
   width: 100%;
   padding: 9px 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--color-modal-input-border);
   border-radius: 8px;
-  color: #e2e8f0;
-  background: rgba(15, 23, 42, 0.78);
+  color: var(--color-modal-text);
+  background: var(--color-modal-input-bg);
   font-size: 13px;
 }
 
@@ -695,12 +688,12 @@ watch(open, async (isOpen) => {
 }
 
 .auth-input::placeholder {
-  color: #64748b;
+  color: var(--color-modal-text-subtle);
 }
 
 .auth-input:focus {
   outline: none;
-  border-color: #60a5fa;
+  border-color: var(--color-brand-500);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.24);
 }
 
@@ -724,14 +717,14 @@ watch(open, async (isOpen) => {
   justify-content: center;
   padding: 0;
   border: none;
-  color: #94a3b8;
+  color: var(--color-modal-text-subtle);
   background: none;
   cursor: pointer;
   transform: translateY(-50%);
 }
 
 .auth-password-toggle:hover {
-  color: #e2e8f0;
+  color: var(--color-modal-text);
 }
 
 .auth-password-toggle svg {
@@ -759,18 +752,18 @@ watch(open, async (isOpen) => {
 
 .auth-input-hint {
   margin: 5px 0 0;
-  color: #94a3b8;
+  color: var(--color-modal-text-subtle);
   line-height: 1.5;
 }
 
 .auth-status {
   min-height: 18px;
   margin: 8px 0 0;
-  color: #67e8f9;
+  color: var(--color-success);
 }
 
 .auth-status.error {
-  color: #fca5a5;
+  color: var(--color-danger);
 }
 
 .auth-actions {
@@ -796,65 +789,14 @@ watch(open, async (isOpen) => {
 
 .auth-text-btn {
   border: 0;
-  color: #93c5fd;
+  color: var(--color-brand-500);
   background: transparent;
   cursor: pointer;
   font-size: 12px;
 }
 
 .auth-text-btn:hover {
-  color: #bfdbfe;
+  color: var(--color-brand-600);
   text-decoration: underline;
-}
-
-[data-theme='light'] .auth-modal-mask {
-  background: rgba(15, 23, 42, 0.24);
-}
-
-[data-theme='light'] .auth-modal {
-  border-color: rgba(37, 99, 235, 0.22);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
-  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.18);
-}
-
-[data-theme='light'] .auth-modal-head h3 {
-  color: #0f172a;
-}
-
-[data-theme='light'] .auth-modal-desc,
-[data-theme='light'] .auth-input-hint {
-  color: #64748b;
-}
-
-[data-theme='light'] .auth-mode-btn,
-[data-theme='light'] .auth-btn,
-[data-theme='light'] .auth-input {
-  border-color: rgba(148, 163, 184, 0.42);
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.86);
-}
-
-[data-theme='light'] .auth-mode-btn:hover,
-[data-theme='light'] .auth-btn:hover {
-  border-color: #2563eb;
-  background: #eff6ff;
-}
-
-[data-theme='light'] .auth-mode-btn.active,
-[data-theme='light'] .auth-btn.primary {
-  color: #fff;
-  background: #2563eb;
-}
-
-[data-theme='light'] .auth-label {
-  color: #334155;
-}
-
-[data-theme='light'] .auth-status {
-  color: #0369a1;
-}
-
-[data-theme='light'] .auth-status.error {
-  color: #b91c1c;
 }
 </style>

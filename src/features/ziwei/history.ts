@@ -50,7 +50,8 @@ export function loadZiweiHistoryRecords(
         return Boolean(record.id && record.createdAt)
       })
       .slice(0, maxItems)
-  } catch {
+  } catch (error) {
+    console.error('[ziwei:history] load records failed:', error)
     return []
   }
 }
@@ -62,8 +63,8 @@ export function saveZiweiHistoryRecords(
 ): void {
   try {
     storage.setItem(storageKey, JSON.stringify(Array.isArray(historyList) ? historyList : []))
-  } catch {
-    // localStorage quota errors are ignored to preserve UX.
+  } catch (error) {
+    console.warn('[ziwei:history] save records failed (possibly quota exceeded):', error)
   }
 }
 

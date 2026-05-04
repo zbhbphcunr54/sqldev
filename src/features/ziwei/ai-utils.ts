@@ -61,140 +61,117 @@ function mapRuleSummary(ruleValue: unknown): RecordLike {
   }
 }
 
+function mapPalaceCell(cellValue: unknown): RecordLike {
+  const cell = asRecord(cellValue)
+  const mainStars = asArray(cell.mainStars)
+  const assistStars = asArray(cell.assistStars)
+  const miscStars = asArray(cell.miscStars)
+
+  return {
+    branch: asString(cell.branch),
+    palaceName: asString(cell.palaceName),
+    area: asString(cell.area),
+    stemBranch: asString(cell.stemBranch),
+    isMing: Boolean(cell.isMing),
+    isShen: Boolean(cell.isShen),
+    mainStars: mainStars.map((s) => mapStar(s, true)),
+    assistStars: assistStars.map((s) => mapStar(s, false)),
+    miscStars: miscStars.map((s) => mapStar(s, false)),
+    mainStarsText: trimZiweiText(cell.mainStarsText, 220),
+    assistStarsText: trimZiweiText(cell.assistStarsText, 220),
+    miscStarsText: trimZiweiText(cell.miscStarsText, 220),
+    daXian: asString(cell.daXian),
+    xiaoXian: asString(cell.xiaoXian),
+    changSheng: asString(cell.changSheng),
+    currentLiuNian: asNumber(cell.currentLiuNian),
+    currentXiaoXian: asNumber(cell.currentXiaoXian),
+    liuNianSeries: asArray(cell.liuNianSeries).slice(0, 12),
+    xiaoXianSeries: asArray(cell.xiaoXianSeries).slice(0, 12),
+    liuNianSeriesText: trimZiweiText(cell.liuNianSeriesText, 240),
+    xiaoXianSeriesText: trimZiweiText(cell.xiaoXianSeriesText, 240),
+    outgoingHuaCount: asNumber(cell.outgoingHuaCount),
+    incomingHuaCount: asNumber(cell.incomingHuaCount)
+  }
+}
+
+function mapHuaTrack(trackValue: unknown): RecordLike {
+  const t = asRecord(trackValue)
+  return {
+    tag: asString(t.tag),
+    star: asString(t.star),
+    sourceBranch: asString(t.sourceBranch),
+    sourceText: asString(t.sourceText),
+    targetBranch: asString(t.targetBranch),
+    targetText: asString(t.targetText)
+  }
+}
+
+function buildCenterData(center: RecordLike): RecordLike {
+  const result: RecordLike = {}
+  const stringFields = [
+    'genderLabel', 'yinYangGenderLabel', 'calendarInputType', 'schoolLabel',
+    'solarText', 'inputClockText', 'lunarText', 'naYinLabel', 'yearGanZhi',
+    'bureauLabel', 'mingBranch', 'mingPalaceName', 'shenBranch', 'shenPalaceName',
+    'ziweiBranch', 'tianfuBranch', 'monthLabel', 'shichenLabel', 'mingZhu',
+    'shenZhu', 'daXianDirectionLabel', 'clockMode', 'clockModeLabel',
+    'timeCorrectionText', 'timezoneOffset', 'xiaoXianRuleLabel', 'liuNianRuleLabel',
+    'currentYearLabel', 'currentYearGanZhiLabel', 'currentAgeLabel',
+    'currentDaXianLabel', 'currentLiuNianPalaceLabel', 'qiYunText', 'school'
+  ]
+  const numFields = new Set([
+    'longitude', 'longitudeCorrectionMinutes', 'equationOfTimeMinutes',
+    'birthYearForAge', 'birthMonthForAge', 'birthDayForAge'
+  ])
+
+  for (const key of stringFields) {
+    result[key] = numFields.has(key) ? asNumber(center[key]) : asString(center[key])
+  }
+  result.shiftedByZiHour = Boolean(center.shiftedByZiHour)
+  result.nonJieqiPillars = asArray(center.nonJieqiPillars).slice(0, 4)
+  result.jieqiPillars = asArray(center.jieqiPillars).slice(0, 4)
+  result.decadeMarks = asArray(center.decadeMarks).slice(0, 8)
+  result.huaSummary = asArray(center.huaSummary).slice(0, 6).map((itemValue) =>
+    asString(asRecord(itemValue).label)
+  )
+  return result
+}
+
+function mapDaXianItem(itemValue: unknown): RecordLike {
+  const item = asRecord(itemValue)
+  return {
+    range: asString(item.range),
+    branch: asString(item.branch),
+    palaceName: asString(item.palaceName)
+  }
+}
+
+function mapLiuNianItem(itemValue: unknown): RecordLike {
+  const item = asRecord(itemValue)
+  return {
+    year: asNumber(item.year),
+    age: asNumber(item.age),
+    ganzhi: asString(item.ganzhi),
+    branch: asString(item.branch),
+    palaceName: asString(item.palaceName)
+  }
+}
+
 export function buildZiweiAiPayload(
   chartValue: unknown,
   options: ZiweiAiPayloadOptions = {}
 ): RecordLike {
   const chart = asRecord(chartValue)
   const center = asRecord(chart.center)
-  const boardCells = asArray(chart.boardCells)
-  const palaces = boardCells.map((cellValue) => {
-    const cell = asRecord(cellValue)
-    const mainStars = asArray(cell.mainStars)
-    const assistStars = asArray(cell.assistStars)
-    const miscStars = asArray(cell.miscStars)
-    const liuNianSeries = asArray(cell.liuNianSeries)
-    const xiaoXianSeries = asArray(cell.xiaoXianSeries)
-
-    return {
-      branch: asString(cell.branch),
-      palaceName: asString(cell.palaceName),
-      area: asString(cell.area),
-      stemBranch: asString(cell.stemBranch),
-      isMing: Boolean(cell.isMing),
-      isShen: Boolean(cell.isShen),
-      mainStars: mainStars.map((star) => mapStar(star, true)),
-      assistStars: assistStars.map((star) => mapStar(star, false)),
-      miscStars: miscStars.map((star) => mapStar(star, false)),
-      mainStarsText: trimZiweiText(cell.mainStarsText, 220),
-      assistStarsText: trimZiweiText(cell.assistStarsText, 220),
-      miscStarsText: trimZiweiText(cell.miscStarsText, 220),
-      daXian: asString(cell.daXian),
-      xiaoXian: asString(cell.xiaoXian),
-      changSheng: asString(cell.changSheng),
-      currentLiuNian: asNumber(cell.currentLiuNian),
-      currentXiaoXian: asNumber(cell.currentXiaoXian),
-      liuNianSeries: liuNianSeries.slice(0, 12),
-      xiaoXianSeries: xiaoXianSeries.slice(0, 12),
-      liuNianSeriesText: trimZiweiText(cell.liuNianSeriesText, 240),
-      xiaoXianSeriesText: trimZiweiText(cell.xiaoXianSeriesText, 240),
-      outgoingHuaCount: asNumber(cell.outgoingHuaCount),
-      incomingHuaCount: asNumber(cell.incomingHuaCount)
-    }
-  })
-
-  const huaTracks = asArray(chart.huaTracks)
-    .slice(0, 96)
-    .map((trackValue) => {
-      const track = asRecord(trackValue)
-      return {
-        tag: asString(track.tag),
-        star: asString(track.star),
-        sourceBranch: asString(track.sourceBranch),
-        sourceText: asString(track.sourceText),
-        targetBranch: asString(track.targetBranch),
-        targetText: asString(track.targetText)
-      }
-    })
 
   return {
     payloadVersion: 'ziwei-ai-v2',
     generatedAt: asNumber(chart.generatedAt) || (options.now ? options.now() : Date.now()),
     profileName: trimZiweiText(options.profileName, 80),
-    center: {
-      genderLabel: asString(center.genderLabel),
-      yinYangGenderLabel: asString(center.yinYangGenderLabel),
-      calendarInputType: asString(center.calendarInputType),
-      schoolLabel: asString(center.schoolLabel),
-      solarText: asString(center.solarText),
-      inputClockText: asString(center.inputClockText),
-      lunarText: asString(center.lunarText),
-      naYinLabel: asString(center.naYinLabel),
-      yearGanZhi: asString(center.yearGanZhi),
-      bureauLabel: asString(center.bureauLabel),
-      mingBranch: asString(center.mingBranch),
-      mingPalaceName: asString(center.mingPalaceName),
-      shenBranch: asString(center.shenBranch),
-      shenPalaceName: asString(center.shenPalaceName),
-      ziweiBranch: asString(center.ziweiBranch),
-      tianfuBranch: asString(center.tianfuBranch),
-      monthLabel: asString(center.monthLabel),
-      shichenLabel: asString(center.shichenLabel),
-      mingZhu: asString(center.mingZhu),
-      shenZhu: asString(center.shenZhu),
-      daXianDirectionLabel: asString(center.daXianDirectionLabel),
-      clockMode: asString(center.clockMode),
-      clockModeLabel: asString(center.clockModeLabel),
-      timeCorrectionText: asString(center.timeCorrectionText),
-      timezoneOffset: asString(center.timezoneOffset),
-      longitude: asNumber(center.longitude),
-      longitudeCorrectionMinutes: asNumber(center.longitudeCorrectionMinutes),
-      equationOfTimeMinutes: asNumber(center.equationOfTimeMinutes),
-      xiaoXianRuleLabel: asString(center.xiaoXianRuleLabel),
-      liuNianRuleLabel: asString(center.liuNianRuleLabel),
-      currentYearLabel: asString(center.currentYearLabel),
-      currentYearGanZhiLabel: asString(center.currentYearGanZhiLabel),
-      currentAgeLabel: asString(center.currentAgeLabel),
-      currentDaXianLabel: asString(center.currentDaXianLabel),
-      currentLiuNianPalaceLabel: asString(center.currentLiuNianPalaceLabel),
-      qiYunText: asString(center.qiYunText),
-      school: asString(center.school),
-      shiftedByZiHour: Boolean(center.shiftedByZiHour),
-      birthYearForAge: asNumber(center.birthYearForAge),
-      birthMonthForAge: asNumber(center.birthMonthForAge),
-      birthDayForAge: asNumber(center.birthDayForAge),
-      nonJieqiPillars: asArray(center.nonJieqiPillars).slice(0, 4),
-      jieqiPillars: asArray(center.jieqiPillars).slice(0, 4),
-      decadeMarks: asArray(center.decadeMarks).slice(0, 8),
-      huaSummary: asArray(center.huaSummary).map((itemValue) => {
-        const item = asRecord(itemValue)
-        return asString(item.label)
-      })
-    },
-    daXianTimeline: asArray(chart.daXianTimeline)
-      .slice(0, 12)
-      .map((itemValue) => {
-        const item = asRecord(itemValue)
-        return {
-          range: asString(item.range),
-          branch: asString(item.branch),
-          palaceName: asString(item.palaceName)
-        }
-      }),
-    liuNianTimeline: asArray(chart.liuNianTimeline)
-      .slice(0, 36)
-      .map((itemValue) => {
-        const item = asRecord(itemValue)
-        return {
-          year: asNumber(item.year),
-          age: asNumber(item.age),
-          ganzhi: asString(item.ganzhi),
-          branch: asString(item.branch),
-          palaceName: asString(item.palaceName)
-        }
-      }),
-    palaces,
-    huaTracks,
+    center: buildCenterData(center),
+    daXianTimeline: asArray(chart.daXianTimeline).slice(0, 12).map(mapDaXianItem),
+    liuNianTimeline: asArray(chart.liuNianTimeline).slice(0, 36).map(mapLiuNianItem),
+    palaces: asArray(chart.boardCells).map(mapPalaceCell),
+    huaTracks: asArray(chart.huaTracks).slice(0, 96).map(mapHuaTrack),
     ruleSummary: asArray(options.ruleSummary).slice(0, 8).map(mapRuleSummary),
     chartText: trimZiweiText(chart.text, 12000)
   }

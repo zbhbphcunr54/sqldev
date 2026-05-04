@@ -13,3 +13,27 @@ verify_jwt = false
 # Access is enforced inside the function by bearer token plus optional
 # ZIWEI_ALLOWED_EMAILS.
 verify_jwt = false
+
+[functions.rules]
+verify_jwt = true
+
+[functions.ziwei-history]
+verify_jwt = true
+
+[functions.operation-logs]
+verify_jwt = true
+
+[functions.cleanup]
+verify_jwt = false
+
+[functions.convert-verify]
+# AI verification with bearer token auth inside function
+verify_jwt = false
+
+[functions.ai-config]
+# AI configuration management - admin CRUD, all users read masked configs
+verify_jwt = false
+
+[functions.app-config]
+# Application config management - admin CRUD, all users read non-encrypted configs
+verify_jwt = false

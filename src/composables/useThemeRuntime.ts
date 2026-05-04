@@ -1,7 +1,8 @@
 import { onBeforeUnmount, watch } from 'vue'
 import { useAppStore, type ResolvedTheme, type ThemeMode } from '@/stores/app'
 
-const STORAGE_KEY = 'sqldev:theme'
+const STORAGE_KEY = 'sqldev:app:theme'
+const STORAGE_KEY_LEGACY = 'sqldev:theme'
 const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
 
 function isThemeMode(value: string | null): value is ThemeMode {
@@ -25,7 +26,15 @@ function applyThemeToDocument(theme: ResolvedTheme): void {
 
 function readStoredTheme(): ThemeMode {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
+    let stored = window.localStorage.getItem(STORAGE_KEY)
+    if (!stored) {
+      // Migrate from legacy key
+      stored = window.localStorage.getItem(STORAGE_KEY_LEGACY)
+      if (isThemeMode(stored)) {
+        window.localStorage.setItem(STORAGE_KEY, stored)
+        window.localStorage.removeItem(STORAGE_KEY_LEGACY)
+      }
+    }
     return isThemeMode(stored) ? stored : 'system'
   } catch (error) {
     console.error('[SQLDev] Failed to read theme preference', error)

@@ -57,37 +57,47 @@
 -- 202604300001_create_user_rules.sql
 create table public.user_rules (
   id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references auth.users(id) on delete cascade,
-  kind        text not null check (kind in ('ddl', 'body')),
+  user_id     uuid references auth.users(id) on delete cascade,
+  kind        int not null check (kind in (1, 2)),
   rules_json  jsonb not null default '{}',
   created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
-  unique(user_id, kind)
+  updated_at  timestamptz not null default now()
 );
 
-comment on table public.user_rules is '用户自定义 SQL 转换规则，每个用户按 kind（ddl/body）各一条';
-comment on column public.user_rules.kind is '规则类型：ddl（DDL 映射规则）或 body（程序块变换规则）';
-comment on column public.user_rules.rules_json is '规则 JSON，结构与 src/legacy/rules.js 中的 _ddlRulesData / _bodyRulesData 一致';
+comment on table public.user_rules is 'SQL 转换规则，系统默认规则 user_id 为 NULL，用户自定义规则绑定 user_id';
+comment on column public.user_rules.user_id is '所属用户 ID，NULL 表示系统默认规则（所有用户可读）';
+comment on column public.user_rules.kind is '规则类型：1 = DDL 类型映射，2 = 程序块变换';
+comment on column public.user_rules.rules_json is '规则 JSON 数组，每项含 source/target（DDL）或 s/t（Body）';
 
 alter table public.user_rules enable row level security;
 
--- 用户只能读写自己的规则
-create policy "user_rules_select_own" on public.user_rules
-  for select to authenticated using (auth.uid() = user_id);
-create policy "user_rules_insert_own" on public.user_rules
-  for insert to authenticated with check (auth.uid() = user_id);
-create policy "user_rules_update_own" on public.user_rules
+-- user_id + kind 唯一约束（仅对非 NULL user_id 生效）
+create unique index idx_user_rules_user_kind
+  on public.user_rules (user_id, kind)
+  where user_id is not null;
+
+-- 系统规则（user_id is null）和自己的规则，登录用户可读
+create policy "user_rules_select" on public.user_rules
+  for select to authenticated
+  using (user_id is null or auth.uid() = user_id);
+
+-- 只能写自己的规则
+create policy "user_rules_insert" on public.user_rules
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+create policy "user_rules_update" on public.user_rules
   for update to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "user_rules_delete_own" on public.user_rules
-  for delete to authenticated using (auth.uid() = user_id);
+create policy "user_rules_delete" on public.user_rules
+  for delete to authenticated
+  using (auth.uid() = user_id);
 
 create trigger user_rules_set_updated_at
   before update on public.user_rules
   for each row execute function public.set_updated_at();
 ```
 
-**迁移**：`ojw_ddlRules` + `ojw_bodyRules` → `user_rules`（kind='ddl' / kind='body'）
+**迁移**：`ojw_ddlRules` + `ojw_bodyRules` → `user_rules`（kind=1 为 DDL，kind=2 为 Body）
 
 ### 3.2 紫微排盘历史表 `ziwei_history`
 
@@ -410,7 +420,23 @@ function truncateResponse(body: unknown): unknown {
   if (!body) return null
   const str = JSON.stringify(body)
   if (str.length <= 2000) return body
-  return JSON.parse(str.slice(0, 2000) + '..."truncated"')
+  // 找到安全的截断点（完整对象/数组边界）
+  let safeLength = 1995
+  while (safeLength > 0 && str[safeLength] !== '}' && str[safeLength] !== ']') {
+    safeLength--
+  }
+  if (safeLength < 100) {
+    // 无法找到安全截断点，返回摘要
+    return { _truncated: true, _original_length: str.length, _preview: str.slice(0, 100) }
+  }
+  try {
+    const truncated = JSON.parse(str.slice(0, safeLength + 1))
+    truncated._truncated = true
+    truncated._original_length = str.length
+    return truncated
+  } catch {
+    return { _truncated: true, _original_length: str.length, _preview: str.slice(0, 100) }
+  }
 }
 ```
 
@@ -634,6 +660,18 @@ export async function fetchOperationLogById(
 
 ## 八、实施步骤（7 个阶段）
 
+> **状态：全部完成** ✅
+>
+> | 阶段 | 状态 | 完成日期 |
+> |------|------|----------|
+> | 阶段 1：数据库 | ✅ 完成 | 2026-04-30 |
+> | 阶段 2：后端 API | ✅ 完成 | 2026-04-30 |
+> | 阶段 3：前端 Store + API 层 | ✅ 完成 | 2026-04-30 |
+> | 阶段 4：前端数据迁移 | ✅ 完成 | 2026-04-30 |
+> | 阶段 5：前端清理 | ✅ 完成 | 2026-05-03 |
+> | 阶段 6：操作日志页面 | ✅ 完成 | 2026-04-30 |
+> | 阶段 7：localStorage key 统一 | ✅ 完成 | 2026-04-30 |
+
 ### 阶段 1：数据库
 
 - 创建 5 张表（user_rules / ziwei_history / convert_cache / ziwei_ai_cache / operation_logs）
@@ -720,26 +758,40 @@ pnpm typecheck
 
 | 方案 | 实现 | 优劣 |
 |------|------|------|
-| A. pg_cron 扩展 | `SELECT cron.schedule('cleanup-caches', '0 3 * * *', 'SELECT public.cleanup_convert_cache(); SELECT public.cleanup_operation_logs();')` | 零额外代码，需 Supabase 支持 pg_cron |
-| B. Edge Function 定时调用 | 新增 `cleanup` 函数，通过外部 cron（GitHub Actions / Supabase Scheduled Functions）触发 | 更可控，不依赖 pg_cron |
+| A. pg_cron 扩展 | `select cron.schedule('cleanup-caches', '0 3 * * *', 'select public.cleanup_convert_cache(); select public.cleanup_operation_logs();')` | 零额外代码，但仅 Supabase Pro+ 计划可用 |
+| B. Supabase Scheduled Functions | 新增 `cleanup` Edge Function，通过 `config.toml` cron 配置定时触发 | 免费计划可用，平台内置，推荐 |
 
-**建议方案 B**：Supabase 免费版不支持 pg_cron，用 GitHub Actions 每天凌晨调用 cleanup 函数。
+**推荐方案 B**：Supabase 免费计划支持 Scheduled Functions，无需外部依赖。
 
-```yaml
-# .github/workflows/cleanup-caches.yml
-name: Cleanup stale caches
-on:
-  schedule:
-    - cron: '0 3 * * *'  # 每天 UTC 03:00
-  workflow_dispatch:
-jobs:
-  cleanup:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Call cleanup function
-        run: |
-          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/cleanup" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+```toml
+# supabase/config.toml
+[functions.cleanup]
+verify_jwt = false
+
+[functions.cleanup.cron]
+schedule = "0 3 * * *"  # 每天凌晨 3 点（UTC+8 为 11 点）
+```
+
+```typescript
+// supabase/functions/cleanup/index.ts
+import { createServiceRoleClient } from '../_shared/supabase.ts'
+
+Deno.serve(async () => {
+  const supabase = createServiceRoleClient()
+
+  const results = await Promise.allSettled([
+    supabase.rpc('cleanup_convert_cache'),
+    supabase.rpc('cleanup_convert_verify_results'),
+    supabase.rpc('cleanup_operation_logs')
+  ])
+
+  const summary = results.map((r, i) => ({
+    task: ['convert_cache', 'verify_results', 'operation_logs'][i],
+    status: r.status
+  }))
+
+  return new Response(JSON.stringify({ ok: true, tasks: summary }))
+})
 ```
 
 ### 10.3 admin_emails 配置
@@ -790,7 +842,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.cleanup]
-verify_jwt = false  # GitHub Actions 调用，用 service_role key 鉴权
+verify_jwt = false  # Supabase Scheduled Functions 调用，无需 JWT
 ```
 
 ### 11.2 CORS 复用策略
@@ -972,7 +1024,7 @@ assert.ok(
 | `ziwei-history` | `true` | Supabase 自动校验 JWT |
 | `ziwei-analysis` | 复用现有 | Bearer token + 白名单 |
 | `operation-logs` | `true` | Supabase 自动校验 JWT，再判断管理员/普通用户 |
-| `cleanup` | `false` | 用 service_role key 鉴权（GitHub Actions） |
+| `cleanup` | `false` | Supabase Scheduled Functions 调用，无需 JWT |
 
 ### 14.2 请求体大小限制
 

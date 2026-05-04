@@ -1,5 +1,5 @@
 // [2026-04-30] 新增：AI 配置 API 层（通过 ai-config Edge Function）
-import { edgeFn } from '@/lib/edge'
+import { edgeFn } from '@/api/http'
 import type { AiProviderConfig, AiConfigPayload, TestResult } from '@/features/ai'
 
 export const aiConfigApi = {

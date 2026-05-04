@@ -60,6 +60,7 @@ create table public.verify_profiles (
 );
 
 comment on table public.verify_profiles is 'AI 校验环境配置，每个用户可保存多套配置（如不同项目）';
+comment on column public.verify_profiles.user_id is '所属用户 ID';
 comment on column public.verify_profiles.ai_identity is 'AI 身份设定，如「资深 Oracle→MySQL 迁移专家，10年经验」';
 comment on column public.verify_profiles.target_db_version is '目标数据库版本，如 MySQL 8.0 / PostgreSQL 16';
 comment on column public.verify_profiles.source_db_version is '源数据库版本，如 Oracle 19c，用于判断兼容性边界';
@@ -170,7 +171,7 @@ create table public.verify_quota (
 
 comment on table public.verify_quota is 'AI 校验每日配额，每用户每类型每天 10 次';
 comment on column public.verify_quota.user_id is '用户 ID';
-comment on column public.verify_quota.kind is '校验类型：ddl / func / proc';
+comment on column public.verify_quota.kind is '校验类型：ddl / func / proc（与 convert_verify_results.kind 一致）';
 comment on column public.verify_quota.used_count is '已使用次数，缓存命中不计数';
 comment on column public.verify_quota.usage_date is '使用日期（UTC+8 自然日）';
 
@@ -232,9 +233,18 @@ export async function incrementQuota(
 }
 
 function getTodayUTC8(): string {
-  const now = new Date()
-  const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000)
-  return utc8.toISOString().split('T')[0]
+  // 使用 Intl API 获取一致的 UTC+8 时区日期
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const parts = formatter.formatToParts(new Date())
+  const year = parts.find(p => p.type === 'year')?.value
+  const month = parts.find(p => p.type === 'month')?.value
+  const day = parts.find(p => p.type === 'day')?.value
+  return `${year}-${month}-${day}`
 }
 ```
 
@@ -379,7 +389,7 @@ alter table public.convert_verify_results enable row level security;
 create policy "verify_results_select_own" on public.convert_verify_results
   for select to authenticated using (auth.uid() = user_id);
 
--- 管理员可查所有
+-- 管理员可查所有（依赖 admin_users 表，需先创建，见 MIGRATION-LOCAL-TO-DB.md §10.3）
 create policy "verify_results_select_admin" on public.convert_verify_results
   for select to authenticated
   using (exists (select 1 from public.admin_users where email = auth.email()));
@@ -387,12 +397,15 @@ create policy "verify_results_select_admin" on public.convert_verify_results
 -- 仅 service_role 可写入
 -- 无 insert/update/delete 策略 = 前端不可写
 
+-- input_sql / output_sql 写入时截断至 100KB，防止恶意大对象
+-- 截断逻辑在 Edge Function saveVerifyResult() 中实现
+
 create index idx_verify_results_user_created
   on public.convert_verify_results (user_id, created_at desc);
 create index idx_verify_results_hashes
   on public.convert_verify_results (input_hash, output_hash);
 
--- 自动清理：保留 30 天
+-- 自动清理：保留 30 天（通过 Supabase Scheduled Functions 定时触发 cleanup Edge Function，见 MIGRATION-LOCAL-TO-DB.md §10.2）
 create or replace function public.cleanup_convert_verify_results()
 returns void language sql as $$
   delete from public.convert_verify_results
@@ -406,9 +419,9 @@ $$;
 
 ```sql
 -- 缓存命中逻辑（在 Edge Function 中实现）
-SELECT * FROM public.convert_verify_results
-WHERE input_hash = $1 AND output_hash = $2
-ORDER BY created_at DESC LIMIT 1;
+select * from public.convert_verify_results
+where input_hash = $1 and output_hash = $2
+order by created_at desc limit 1;
 ```
 
 缓存有效期：30 天（与表清理策略一致）。
@@ -606,6 +619,9 @@ Please verify the converted SQL and output the JSON report.`
 
 ### 6.3 Edge Function 实现骨架
 
+> 以下为伪代码骨架，标注 `// TODO` 的函数需在实际实现中定义。
+> 复用 `_shared/cors.ts`、`_shared/response.ts`、`_shared/rate-limit.ts`、`_shared/operation-logger.ts` 的现有模式。
+
 ```typescript
 // supabase/functions/convert-verify/index.ts
 import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
@@ -613,10 +629,10 @@ import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.t
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { logOperation } from '../_shared/operation-logger.ts'
 import { buildVerifySystemPrompt, buildVerifyUserPrompt } from './prompt-template.ts'
-import { requestAiVerify } from './provider.ts'
-import { computeHash } from './hash.ts'
-import { checkQuota, incrementQuota } from './quota.ts'
-import { loadVerifyProfile } from './profile.ts'
+import { requestAiVerify } from './provider.ts'       // TODO: 复用 ziwei-analysis/provider.ts 模式
+import { computeHash } from './hash.ts'                 // TODO: SHA-256 计算
+import { checkQuota, incrementQuota } from './quota.ts' // 见 §3.3
+import { loadVerifyProfile } from './profile.ts'        // TODO: 从 verify_profiles 表加载
 import { parsePositiveInt } from '../_shared/utils.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
@@ -642,14 +658,17 @@ Deno.serve(async (req) => {
   let user: { id?: string; email?: string } | null = null
 
   try {
-    // 1. 鉴权
-    user = await validateUser(req)
+    // 1. 鉴权（复用 _shared/auth.ts 的 validateUser）
+    user = await validateUser(req)  // TODO: 复用现有鉴权逻辑
 
     // 2. 限流
     const rateLimitResult = await rateLimiter.check(req, user.id)
     if (!rateLimitResult.allowed) {
       return errorResponse(429, 'rate_limited', corsHeaders)
     }
+
+    // supabaseAdmin: 使用 service_role key 创建的客户端（复用 _shared/supabase.ts）
+    const supabaseAdmin = createServiceRoleClient()  // TODO: 复用现有模式
 
     if (req.method === 'GET') {
       // GET ?action=quota → 返回配额信息
@@ -724,19 +743,7 @@ Deno.serve(async (req) => {
   }
 })
 
-// DB snake_case → API camelCase 映射
-function toCamelCase(row: Record<string, unknown>): Record<string, unknown> {
-  return {
-    overallScore: row.overall_score,
-    syntaxIssues: row.syntax_issues,
-    semanticIssues: row.semantic_issues,
-    logicRisks: row.logic_risks,
-    suggestions: row.suggestions,
-    summary: row.summary,
-    aiModel: row.ai_model,
-    durationMs: row.duration_ms
-  }
-}
+// DB snake_case → API camelCase 映射函数见 §6.7
 ```
 
 ### 6.4 config.toml
@@ -753,9 +760,9 @@ verify_jwt = true
 | `CONVERT_VERIFY_MODEL` | AI 模型名称 | `gpt-4o-mini` |
 | `CONVERT_VERIFY_TIMEOUT_MS` | 超时时间 | `30000` |
 | `CONVERT_VERIFY_MAX_TOKENS` | 最大 token | `4000` |
-| `CONVERT_VERIFY_RATE_LIMIT_MAX` | 限流次数 | `10/分钟/用户` |
+| `CONVERT_VERIFY_RATE_LIMIT_MAX` | 限流次数（次/分钟/用户） | `10` |
 | `CONVERT_VERIFY_DAILY_LIMIT` | 每日每类型配额 | `10` |
-| `CONVERT_VERIFY_MAX_SQL_LENGTH` | SQL 最大长度 | `50000` |
+| `CONVERT_VERIFY_MAX_SQL_LENGTH` | SQL 最大长度（字符） | `50000` |
 
 ### 6.6 错误码映射（error-map.ts 新增）
 
@@ -806,6 +813,7 @@ export interface ConvertVerifyRequest {
   toDb: 'oracle' | 'mysql' | 'postgresql'
   inputSql: string
   outputSql: string
+  profileId?: string
 }
 
 export type IssueSeverity = 'error' | 'warning' | 'info'
@@ -931,7 +939,8 @@ async function handleVerify() {
       fromDb: props.fromDb,
       toDb: props.toDb,
       inputSql: props.inputSql,
-      outputSql: props.outputSql
+      outputSql: props.outputSql,
+      profileId: activeProfileId.value  // 当前激活的校验配置 ID
     })
   } catch {
     verifyResult.value = { ok: false, error: 'verify_failed' }
@@ -944,6 +953,48 @@ async function handleVerify() {
 ### 7.5 路由
 
 无需新增路由。校验面板嵌入现有转换结果页面（workbench 的 DDL/函数/存储过程 tab）。
+
+### 7.6 verify-profiles API 封装
+
+```typescript
+// src/api/verify-profiles.ts
+import { invokeEdgeFunction } from '@/api/http'
+
+export interface VerifyProfile {
+  id: string
+  profile_name: string
+  ai_identity: string
+  target_db_version: string
+  source_db_version?: string
+  business_context?: string
+  special_requirements?: string
+  is_default: boolean
+}
+
+export interface SaveVerifyProfileRequest {
+  profileName: string
+  aiIdentity: string
+  targetDbVersion: string
+  sourceDbVersion?: string
+  businessContext?: string
+  specialRequirements?: string
+  isDefault?: boolean
+}
+
+export async function fetchVerifyProfiles(): Promise<VerifyProfile[]> {
+  return invokeEdgeFunction('verify-profiles', { action: 'list' })
+}
+
+export async function saveVerifyProfile(
+  payload: SaveVerifyProfileRequest
+): Promise<VerifyProfile> {
+  return invokeEdgeFunction('verify-profiles', { action: 'save', ...payload })
+}
+
+export async function deleteVerifyProfile(id: string): Promise<void> {
+  return invokeEdgeFunction('verify-profiles', { action: 'delete', id })
+}
+```
 
 ---
 
@@ -966,7 +1017,16 @@ async function handleVerify() {
 | `increment_verify_quota()` | 原子递增配额计数 |
 | `cleanup_convert_verify_results()` | 清理 30 天前的校验结果 |
 
-### 8.3 Edge Function 部署清单
+### 8.3 database.types.ts 重新生成
+
+每次 migration 执行后必须重新生成类型定义：
+
+```powershell
+supabase gen types typescript --local > src/types/database.types.ts
+pnpm typecheck
+```
+
+### 8.4 Edge Function 部署清单
 
 在迁移方案 §二十 中增加：
 
@@ -974,7 +1034,7 @@ async function handleVerify() {
 |------|------|------|------|
 | 9 | `convert-verify` | 新增 | operation-logger |
 
-### 8.4 operation 枚举
+### 8.5 operation 枚举
 
 在迁移方案 §十七 中增加：
 
@@ -984,7 +1044,7 @@ VERIFY_PROFILE_SAVE: 'verify_profile_save',
 VERIFY_PROFILE_DELETE: 'verify_profile_delete'
 ```
 
-### 8.5 部署命令
+### 8.6 部署命令
 
 ```powershell
 supabase functions deploy convert-verify
@@ -1026,7 +1086,7 @@ supabase functions deploy convert-verify
   - `VerifySuggestionCard`（建议卡片）
 - 在现有转换结果面板中嵌入校验按钮和面板
 
-### 9.4 测试
+### 阶段 4：测试
 
 - 新增 `tests/unit/api-convert-verify.test.ts`
 - 新增 `tests/unit/verify-quota.test.ts`

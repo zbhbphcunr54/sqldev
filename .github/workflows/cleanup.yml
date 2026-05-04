@@ -1,0 +1,33 @@
+name: Cleanup Stale Caches and Logs
+
+# 注意：现在主要使用 Supabase pg_cron 进行定时清理（见 supabase/migrations/202605030008_setup_pg_cron_cleanup.sql）
+# 此 GitHub Actions 仅作为备份方案，支持手动触发
+
+# 需要在 GitHub Secrets 中配置:
+# - SUPABASE_URL: Supabase 项目 URL (如 https://xxxxx.supabase.co)
+# - SUPABASE_SERVICE_ROLE_KEY: Service Role Key (用于调用 cleanup Edge Function)
+
+on:
+  workflow_dispatch:  # 支持手动触发
+    inputs:
+      cleanup_type:
+        description: 'Cleanup type'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - convert_cache
+          - operation_logs
+          - convert_verify_results
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup Edge Function
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/cleanup" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"cleanup_type": "${{ inputs.cleanup_type }}"}'

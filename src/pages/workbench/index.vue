@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import LegacyFrameView from '@/components/business/legacy/LegacyFrameView.vue'
+import WorkbenchApp from '@/components/business/workbench/WorkbenchApp.vue'
 import {
   buildWorkbenchPath,
   normalizeWorkbenchSection
@@ -9,8 +9,6 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-
-const hashPath = computed(() => `/workbench/${normalizeWorkbenchSection(route.params.section)}`)
 
 watch(
   () => route.params.section,
@@ -26,5 +24,5 @@ watch(
 </script>
 
 <template>
-  <LegacyFrameView :hash-path="hashPath" />
+  <WorkbenchApp />
 </template>

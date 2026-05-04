@@ -3,6 +3,19 @@ import { defineStore } from 'pinia'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
+async function onUserSignedIn(): Promise<void> {
+  try {
+    const { syncRulesFromServer, migrateRulesToServer } = await import('@/features/rules/sync')
+    const { syncHistoryFromServer, migrateHistoryToServer } = await import('@/features/ziwei/history-sync')
+    // Migrate localStorage → Supabase (one-time, then sync back)
+    await Promise.all([migrateRulesToServer(), migrateHistoryToServer()])
+    // Pull latest from server
+    await Promise.all([syncRulesFromServer(), syncHistoryFromServer()])
+  } catch {
+    // Sync failure doesn't block login
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const user = ref<User | null>(null)
@@ -37,6 +50,9 @@ export const useAuthStore = defineStore('auth', () => {
           const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
             lastEvent.value = event
             applySession(nextSession)
+            if (event === 'SIGNED_IN') {
+              onUserSignedIn()
+            }
           })
           authSubscription = data.subscription
         }

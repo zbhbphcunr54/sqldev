@@ -50,6 +50,14 @@
     "verify": "pnpm typecheck && pnpm lint && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/lint": "^6.9.5",
+    "@codemirror/search": "^6.7.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.41.1",
     "@supabase/supabase-js": "^2.49.8",
     "pinia": "^2.2.6",
     "vue": "^3.5.13",

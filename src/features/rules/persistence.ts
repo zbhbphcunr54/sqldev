@@ -21,8 +21,15 @@ export function saveDdlRulesToStorage(
 ): { ok: boolean; error: string } {
   try {
     storage.setItem(storageKey, JSON.stringify(ddlRulesData))
+    // Async sync to Supabase (fire-and-forget)
+    if (ddlRulesData && typeof ddlRulesData === 'object') {
+      import('./sync').then(({ syncRulesToServer }) =>
+        syncRulesToServer('ddl', ddlRulesData as RecordLike)
+      ).catch((err) => console.error('[rules:persistence] ddl sync failed:', err))
+    }
     return { ok: true, error: '' }
   } catch (error) {
+    console.error('[rules:persistence] saveDdlRules failed:', error)
     return { ok: false, error: String((error as Error)?.message || error || '未知错误') }
   }
 }
@@ -42,8 +49,13 @@ export function saveBodyRulesToStorage(
 
   try {
     storage.setItem(storageKey, JSON.stringify(output))
+    // Async sync to Supabase (fire-and-forget)
+    import('./sync').then(({ syncRulesToServer }) =>
+      syncRulesToServer('body', output)
+    ).catch((err) => console.error('[rules:persistence] body sync failed:', err))
     return { ok: true, error: '' }
   } catch (error) {
+    console.error('[rules:persistence] saveBodyRules failed:', error)
     return { ok: false, error: String((error as Error)?.message || error || '未知错误') }
   }
 }
@@ -72,7 +84,8 @@ export function loadDdlRulesFromStorage(
     if (!text) return null
     const parsed = JSON.parse(text)
     return parsed && typeof parsed === 'object' ? (parsed as RecordLike) : null
-  } catch {
+  } catch (error) {
+    console.error('[rules:persistence] loadDdlRules failed:', error)
     return null
   }
 }
@@ -126,7 +139,8 @@ export function loadBodyRulesFromStorage(
     }
 
     return result
-  } catch {
+  } catch (error) {
+    console.error('[rules:persistence] loadBodyRules failed:', error)
     return null
   }
 }

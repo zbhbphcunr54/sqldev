@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/api/http'
+import { edgeFn } from '@/api/http'
 
 export interface FeedbackRequest {
   category: 'bug' | 'feature' | 'ux' | 'performance' | 'other'
@@ -14,5 +14,5 @@ export interface FeedbackResponse {
 }
 
 export async function submitFeedback(payload: FeedbackRequest): Promise<FeedbackResponse> {
-  return await invokeEdgeFunction<FeedbackRequest, FeedbackResponse>('feedback', payload)
+  return edgeFn.post<FeedbackResponse>('/feedback', payload)
 }

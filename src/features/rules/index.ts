@@ -1,4 +1,3 @@
-export { getBodyRuleCategories, mapParamTypeByRules, transformBodyByRules } from './body-transform'
 export {
   hydrateRulesData,
   loadBodyRulesFromStorage,
@@ -7,3 +6,4 @@ export {
   saveBodyRulesToStorage,
   saveDdlRulesToStorage
 } from './persistence'
+export { migrateRulesToServer, syncRulesFromServer, syncRulesToServer } from './sync'

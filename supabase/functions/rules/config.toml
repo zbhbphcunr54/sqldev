@@ -1,0 +1,2 @@
+[functions.rules]
+verify_jwt = true

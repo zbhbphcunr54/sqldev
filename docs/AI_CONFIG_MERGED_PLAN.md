@@ -306,7 +306,8 @@ export async function encryptApiKey(plaintext: string): Promise<Uint8Array> {
     key,
     new TextEncoder().encode(plaintext)
   );
-  // iv(12) + ciphertext+tag
+  // AES-GCM 输出结构：[IV(12字节) | 密文 | 认证标签(16字节)]
+  // Web Crypto API 自动将认证标签附加到密文末尾
   const result = new Uint8Array(iv.length + enc.byteLength);
   result.set(iv);
   result.set(new Uint8Array(enc), iv.length);

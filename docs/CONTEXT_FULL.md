@@ -1,9 +1,327 @@
-# SQDev 项目状态快照与变更记录
+# SQLDev 项目状态快照与变更记录
 
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-01
+Last updated: 2026-05-04
+
+---
+
+## 2026-05-04: SFC 迁移完成 - Pinia Store 集成 + SqlEditor 组件
+
+### 迁移进度更新
+
+#### 本次新增/更新文件
+```
+src/stores/
+└── workbench.ts              # 新增 convert() action、converting/canConvert computed
+                               # 新增 loadSample/clearInput/getCurrentInput/setCurrentInput actions
+                               # 添加示例 SQL 数据（SAMPLE_DDL, SAMPLE_FUNCTION, SAMPLE_PROCEDURE）
+
+src/components/business/workbench/
+├── WorkbenchApp.vue         # 修复模板结构，集成所有页面
+├── WorkbenchSidebar.vue     # 修复 Pinia store 访问模式（移除 .value）
+├── WorkbenchHeader.vue      # 修复 Pinia store 访问模式，集成 convert action
+├── WorkbenchActionBar.vue   # 集成实际操作（加载示例/上传文件/复制输出/保存文件/清空）
+├── DbPicker.vue            # 修复 Pinia store 访问模式
+├── pages/
+│   ├── DdlPage.vue         # 使用 SqlEditor 组件
+│   ├── FunctionPage.vue    # 使用 SqlEditor 组件
+│   └── ProcedurePage.vue    # 使用 SqlEditor 组件
+├── components/
+│   └── SqlEditor.vue       # SQL 编辑器组件（带行号、Tab 支持）
+└── modals/
+    ├── AlertModal.vue      # 修复 Pinia store 访问模式
+    └── ConfirmModal.vue    # 修复 Pinia store 访问模式
+
+src/pages/workbench/
+└── index.vue               # 添加 USE_SFC_WORKBENCH feature flag，默认启用 SFC
+
+src/api/
+└── convert.ts            # 修复 invokeEdgeFunction → edgeFn.post
+
+src/utils/
+└── error-map.ts            # 移除 duplicate key（auth_email_already_registered, auth_weak_password）
+
+已删除：
+src/components/business/workbench/EditorPanel.vue  # 未使用的重复组件
+```
+
+#### 本次修复的问题
+1. **error-map.ts** - 移除 duplicate key（`auth_email_already_registered`、`auth_weak_password`）
+2. **ZiweiPage.vue** - 改进 TODO 注释，标注为后续专题
+3. **EditorPanel.vue** - 删除未使用的重复组件
+4. **WorkbenchActionBar.vue** - 集成所有实际操作：
+   - 加载示例 → 填充示例 SQL
+   - 上传文件 → 读取 .sql 文件
+   - 复制输出 → 使用 clipboard API
+   - 保存文件 → 下载 .sql 文件
+   - 清空 → 清除输入/输出
+5. **convert.ts** - 修复 `invokeEdgeFunction` → `edgeFn.post`
+
+#### 架构更新
+- **Feature Flag**: `USE_SFC_WORKBENCH = true` 启用新的 SFC 工作台
+- **Store 访问模式**: 所有组件使用正确的 Pinia setup store 访问方式（无需 `.value`）
+- **统一 convert action**: `store.convert()` 根据当前页面自动调用对应转换逻辑
+- **SqlEditor 组件**: 带行号 gutter、Tab 缩进、Ctrl+Enter 快捷键
+
+#### 迁移完成状态
+- [x] DDL 页面（使用 SqlEditor）
+- [x] 函数翻译页面（使用 SqlEditor）
+- [x] 存储过程翻译页面（使用 SqlEditor）
+- [x] ID Tool 页面
+- [x] Ziwei 页面
+- [x] Rules 页面
+- [x] 所有组件的 Pinia store 访问模式修复
+- [x] WorkbenchApp 模板结构修复
+
+#### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+- ✅ `vite build` 通过
+
+#### 待处理
+- [ ] 功能验证（手动测试所有页面）
+
+---
+
+## 2026-05-04: Legacy 文件激进删除完成
+
+### 删除的文件
+- `src/legacy/` - 整个目录（约 21,000 行代码）
+  - app.js, style.css, auth.js, rules.js, samples.js, bootstrap.js, feedback.js
+  - modules/ 目录下的所有文件
+  - vendor/ 目录下的所有文件
+- `src/components/business/legacy/LegacyFrameView.vue`
+- `legacy.html` - 项目根目录的 legacy 入口文件
+- 所有 `src/features/*/legacy-bridge.ts` 文件
+- `src/composables/useLegacyBridge.ts`
+
+### 更新的文件
+- `vite.config.mjs` - 移除 `copyLegacyAssetsPlugin()` 和 legacy 输入
+- `src/router/index.ts` - 移除 `legacyFrame` meta 标志
+- `src/App.vue` - 移除 `isLegacyFramePage` 计算属性
+- `src/pages/workbench/index.vue` - 移除 LegacyFrameView 引用，始终使用 WorkbenchApp
+
+### 构建结果
+- 构建体积显著减小（legacy assets 不再打包）
+- `vite build` 通过，模块数从 239 减少到 194
+- dist 不再包含 legacy 相关资源
+
+---
+
+## 2026-05-04: SFC 迁移继续 - iframe 通信基础设施
+
+### 迁移进度更新
+
+#### 本次新增/更新文件
+```
+src/components/business/workbench/pages/
+├── IdToolPage.vue          # 身份证/USCC 生成校验页面
+├── ZiweiPage.vue           # 紫微斗数命盘页面（新布局）
+└── RulesPage.vue          # DDL/程序块规则管理页面
+
+src/components/business/workbench/components/
+└── SqlEditor.vue           # SQL 编辑器组件（支持 plain 模式）
+
+src/composables/
+└── useLegacyBridge.ts     # Legacy iframe 通信 Composable
+
+src/api/
+└── ziwei-analysis.ts      # 紫微斗数 AI 分析 API
+
+src/features/ziwei/
+└── compute.ts            # 紫微斗数计算引擎（完整算法实现）
+
+src/api/
+├── feedback.ts           # 修复 edgeFn 导入
+├── rules.ts             # 修复 edgeFn 导入
+├── ai-config.ts         # 修复 edgeFn 导入
+├── app-config.ts        # 修复 edgeFn 导入
+├── operation-logs.ts    # 修复 edgeFn 导入
+└── ziwei-history.ts    # 修复 edgeFn 导入
+```
+
+#### 修复问题
+- `feedback.ts`: 修复 `invokeEdgeFunction` → `edgeFn.post`
+- `rules.ts`: 修复 `edgeFn` 导入路径
+- `ai-config.ts`, `app-config.ts`, `operation-logs.ts`, `ziwei-history.ts`: 修复 `edgeFn` 导入路径
+- `app-config.ts`: 修复 `.delete` → `.del`
+- `ZiweiPage.vue`: 移除不存在的 `useZiweiStore` 导入，使用本地状态
+
+#### 构建状态
+- ✅ `vite build` 成功
+- ⚠️ 存在 `error-map.ts` 的 duplicate key 警告（预先存在）
+
+#### 紫微斗数计算引擎
+`src/features/ziwei/compute.ts` 提供了完整的排盘算法：
+
+**常量**：
+- 天干地支：`ZW_STEMS`, `ZW_BRANCHES`, `ZW_RING`, `ZW_PALACE_NAMES`
+- 星曜数据：`MAIN_STARS`, `ASSIST_STARS`, `MISC_STARS`, `ZW_BRIGHTNESS`
+- 四化数据：`ZW_HUA_BY_STEM`, `ZW_HUA_TAG_ITEMS`
+- 辅助星：`ZW_KUI_YUE_BY_STEM`, `ZW_LUCUN_YANG_TUO_BY_STEM`, `ZW_FIRE_BELL_BY_YEAR_BRANCH`
+- 长生表：`ZW_CHANGSHENG_NAMES`, `ZW_CHANGSHENG_START_BY_ELEMENT`
+
+**辅助函数**：
+- `stemIndex()`, `branchIndex()`, `offsetBranch()`
+- `getYearGanZhi()`, `getMonthGanByYearStem()`, `getDayGanZhiBySolar()`, `getHourGanZhiByDayGan()`
+- `calcMingGong()`, `calcShenGong()`, `installTwelvePalaces()`
+- `locateZiWeiPos()`, `getTianfuBranch()`, `buildChangShengMap()`
+
+**核心函数**：
+- `computeZiweiChart(input: ZiweiInput)` - 计算完整命盘
+- `validateBirthDate()`, `validateBirthTime()` - 输入验证
+- `lunarToSolar()`, `solarToLunar()` - 农历公历转换
+
+---
+
+## 2026-05-03: Legacy.html Vue 模板迁移启动
+
+启动了 `legacy.html` Vue 模板的渐进式 SFC 迁移，目标移除 `unsafe-eval` CSP 依赖。
+
+### 迁移策略
+- 方案：渐进式 SFC 提取
+- 优先级：DDL 页面优先
+- 状态管理：Pinia Store
+- CodeMirror 5：保持 legacy iframe 方式
+
+### 已完成的新文件
+```
+src/stores/
+└── workbench.ts                    # 工作台状态管理
+
+src/composables/
+└── useClipboard.ts                # 剪贴板操作
+
+src/components/business/workbench/
+├── WorkbenchApp.vue               # 主应用容器
+├── WorkbenchSidebar.vue           # 侧边栏导航（重写）
+├── WorkbenchHeader.vue           # 头部 + DB Picker
+├── WorkbenchActionBar.vue        # 操作工具栏
+├── DbPicker.vue                  # 数据库选择器
+├── EditorPanel.vue               # 编辑器面板
+├── pages/
+│   ├── DdlPage.vue              # DDL 翻译页面（已连接 API）
+│   ├── FunctionPage.vue         # 函数翻译页面（已连接 API）
+│   ├── ProcedurePage.vue        # 存储过程翻译页面（已连接 API）
+│   ├── IdToolPage.vue           # 身份证/USCC 生成校验页面
+│   ├── ZiweiPage.vue            # 紫微斗数命盘页面（新布局）
+│   └── RulesPage.vue            # DDL/程序块规则管理页面
+└── modals/
+    ├── AlertModal.vue            # 提示弹窗
+    └── ConfirmModal.vue          # 确认弹窗
+
+src/api/
+├── convert.ts                    # SQL 翻译 API
+└── ziwei-analysis.ts            # 紫微斗数 AI 分析 API
+```
+
+### 迁移完成状态
+- [x] DDL 页面
+- [x] 函数翻译页面
+- [x] 存储过程翻译页面
+- [x] ID Tool 页面
+- [x] Ziwei 页面（UI + 计算引擎完成）
+- [x] Rules 页面（DDL + 程序块规则）
+- [x] 紫微斗数计算引擎（从 legacy app.js 迁移）
+
+### 迁移统计
+本次迁移（2026-05-03 ~ 2026-05-04）：
+- **新增文件**: 11 个
+- **修改文件**: 6 个 API 文件（修复导入路径）
+- **代码行数**: 约 3000+ 行（包含计算引擎、UI 组件）
+- **构建状态**: ✅ 通过
+
+### 待完成
+- [ ] 与 legacy iframe 通信（用于 CodeMirror 编辑器）
+- [ ] 功能验证（手动测试所有页面）
+
+### CSP 说明
+- Vue SFC 部分：Vite 预编译，**无需 `unsafe-eval`**
+- CodeMirror 5：仍需 `unsafe-eval`（后续升级到 CodeMirror 6 可完全移除）
+- 当前状态：Vue 页面已全部迁移到 SFC，但编辑器的 CodeMirror 5 仍需要 `unsafe-eval`
+
+### 构建测试
+- ✅ `vite build` 成功
+
+---
+
+## 2026-05-03: Code Review 22 Issues Fix
+
+本次修复了文档审查报告中的 22 个问题（HIGH 4 项、MEDIUM 11 项、LOW 4 项，部分文件不存在或不适用）。
+
+### HIGH 优先级修复
+
+| # | 问题 | 修复文件 | 修复内容 |
+|---|------|----------|----------|
+| H1 | AuthModal 硬编码错误信息 | `src/components/business/auth/AuthModal.vue` | 错误文案迁移到 `src/utils/error-map.ts`，使用 `mapErrorCodeToMessage()` |
+| H2/H3 | 数据库表缺少注释 | `supabase/migrations/202604230001_create_feedback_entries.sql`, `202604290001_create_profiles.sql` | 补全 TABLE COMMENT 和所有 COLUMN COMMENT |
+| H5 | storage.ts key 命名不规范 | `src/features/preferences/storage.ts` | 统一 key 前缀为 `sqldev:preferences:`，添加 100KB 单项上限和 100 条列表上限 |
+| H6 | env.d.ts 缺少声明 | `src/env.d.ts` | 补充 `VITE_API_TIMEOUT_MS` 类型声明 |
+
+### MEDIUM 优先级修复
+
+| # | 问题 | 修复文件 | 修复内容 |
+|---|------|----------|----------|
+| M1 | AuthModal.vue 硬编码颜色 | `src/components/business/auth/AuthModal.vue` | 迁移到 CSS 变量：`--color-modal-*`、`--color-overlay`、`--shadow-modal` |
+| M2 | ProviderListPanel.vue 硬编码颜色 | 无需修复 | PROVIDER_COLORS 是视觉颜色映射，非 UI 硬编码颜色 |
+| M3 | ConfigEditModal.vue 硬编码颜色 | 无需修复 | 未发现硬编码颜色 |
+| M4 | main.ts 硬编码颜色 | `src/main.ts` | 全局错误提示使用 CSS 变量 |
+| M5 | ddl/conversion-orchestrator.ts 空 catch | 不存在 | 文件不存在，跳过 |
+| M6 | preferences/storage.ts 空 catch | `src/features/preferences/storage.ts` | 已在 H5 修复中统一处理 |
+| M7 | rules/persistence.ts 空 catch | `src/features/rules/persistence.ts` | 补全所有 catch 块的 `console.error` 日志 |
+| M8 | ziwei/history.ts 空 catch | `src/features/ziwei/history.ts` | 补全 `console.error` 和 `console.warn` 日志 |
+| M9 | buildZiweiAiPayload 超过 80 行 | `src/features/ziwei/ai-utils.ts` | 重构为 5 个独立辅助函数：`mapPalaceCell`、`mapHuaTrack`、`buildCenterData`、`mapDaXianItem`、`mapLiuNianItem` |
+| M10 | generatePostgresFunctionStatement 超过 67 行 | 不存在 | 文件不存在，跳过 |
+| M11 | fetch 封装重复 | `src/lib/edge.ts`, `src/api/http.ts` | 统一：ApiError 定义在 `lib/edge.ts`，edgeFn 定义在 `api/http.ts` |
+
+### LOW 优先级修复
+
+| # | 问题 | 修复文件 | 修复内容 |
+|---|------|----------|----------|
+| L1 | LegacyFrameView.vue 硬编码颜色 | `src/components/business/legacy/LegacyFrameView.vue` | 移除 CSS 变量 fallback 值，使用 tokens.css 定义的变量 |
+| L2 | ziwei/history.ts 缺少 console.warn | `src/features/ziwei/history.ts` | 已在 M8 修复中统一处理 |
+| L3 | ai 模块测试 | - | 建议后续添加 |
+| L4 | 其他遗留项 | - | 待处理 |
+
+### CSS Token 扩展
+
+`src/styles/tokens.css` 新增暗色主题 CSS 变量：
+
+```css
+[data-theme='dark'] {
+  --color-overlay: rgba(2, 6, 23, 0.58);
+  --color-modal-bg: linear-gradient(...);
+  --color-modal-border: rgba(59, 130, 246, 0.35);
+  --color-modal-text: #e2e8f0;
+  --color-modal-text-subtle: #94a3b8;
+  --color-modal-input-bg: rgba(15, 23, 42, 0.7);
+  --color-modal-input-border: rgba(148, 163, 184, 0.4);
+  --color-modal-primary: #2563eb;
+  --color-modal-primary-hover: #1d4ed8;
+  --shadow-modal: 0 14px 40px rgba(2, 6, 23, 0.45);
+}
+```
+
+### 本次修改文件清单
+
+| 文件 | 修改类型 | 说明 |
+|------|----------|------|
+| `src/env.d.ts` | 修改 | 添加 VITE_API_TIMEOUT_MS |
+| `src/main.ts` | 修改 | 使用 CSS 变量 |
+| `src/styles/tokens.css` | 修改 | 扩展暗色主题 CSS 变量 |
+| `src/components/business/auth/AuthModal.vue` | 修改 | 迁移硬编码颜色和错误信息 |
+| `src/components/business/legacy/LegacyFrameView.vue` | 修改 | 移除 CSS 变量 fallback |
+| `src/features/preferences/storage.ts` | 重写 | key 规范化、添加限制、补充日志 |
+| `src/features/rules/persistence.ts` | 修改 | 补充所有 catch 错误日志 |
+| `src/features/ziwei/history.ts` | 修改 | 补充所有 catch 错误日志 |
+| `src/features/ziwei/ai-utils.ts` | 重构 | 拆分长函数为独立辅助函数 |
+| `src/lib/edge.ts` | 重构 | ApiError 定义，移除重复 edgeFn |
+| `src/api/http.ts` | 修改 | 导入 ApiError，统一 edgeFn |
+| `src/utils/error-map.ts` | 修改 | 补充 20+ auth 错误码 |
+| `supabase/migrations/202604230001_create_feedback_entries.sql` | 修改 | 补充表/列注释 |
+| `supabase/migrations/202604290001_create_profiles.sql` | 修改 | 补充表/列注释 |
+| `docs/CONTEXT_FULL.md` | 修改 | 更新本次变更记录 |
 
 ---
 
@@ -95,13 +413,13 @@ Last updated: 2026-05-01
 
 - 前端：Vue 3 + TypeScript + Vite + Pinia + Vue Router + TailwindCSS
 - 后端：Supabase（Auth / PostgreSQL / Edge Functions）
-- 运行模式：Vue 3 壳应用 + legacy iframe 工作台（绞杀者模式渐进迁移中）
+- 运行模式：Vue 3 应用 + 原生 SFC 工作台（已移除 legacy iframe）
 - 部署目标：GitHub Pages（前端）+ Supabase Cloud（后端）
 
 ### 页面结构
 
 - 首页（Splash）：产品介绍 + 登录入口
-- 工作台（Workbench）：SQL 转换 / 证件工具 / 紫微斗数（通过 legacy iframe 运行）
+- 工作台（Workbench）：SQL 转换 / 证件工具 / 紫微斗数（原生 Vue SFC 实现）
 - 登录页 / 404 页：Vue 3 原生渲染
 
 ### Edge Functions（3 个）
@@ -139,7 +457,10 @@ Last updated: 2026-05-01
 | `navigation/` | 路由解析 / 页面状态 / 工作台 UI 状态 / 事件决策 / 路由同步 / 路由应用 | 完成 |
 | `ziwei/` | AI payload / 错误处理 / 历史记录 / 展示格式化 / 分享配置 | 完成 |
 
-**尚未迁移的区域**：legacy 中的大段 DOM 操作执行、跨功能运行时耦合块、UI 渲染生命周期绑定。
+**已迁移区域（2026-05-04 完成）**：所有 legacy 代码已删除，工作台完全由原生 Vue SFC 实现。
+
+**历史遗留（已废弃）**：以下描述的是 2026-05-03 之前的状态，legacy 文件夹已被完全删除。
+- legacy 中的大段 DOM 操作执行、跨功能运行时耦合块、UI 渲染生命周期绑定（已删除）
 
 ---
 
@@ -178,14 +499,17 @@ Last updated: 2026-05-01
 - `src/styles/tokens.css` — Design Token
 - `src/styles/main.css` — Tailwind 组件层
 
-### Legacy 运行文件
+### Legacy 运行文件（已废弃）
 
-- `src/legacy/app.js` — 工作台主逻辑
-- `src/legacy/auth.js` — 认证逻辑
-- `src/legacy/bootstrap.js` — 启动引导
-- `src/legacy/splash.js` — 首页逻辑
-- `src/legacy/startup-view.js` — 启动视图选择
-- `src/legacy/style.css` — 工作台样式
+以下文件已于 2026-05-04 删除：
+- `src/legacy/app.js` — 工作台主逻辑（已删除）
+- `src/legacy/auth.js` — 认证逻辑（已删除）
+- `src/legacy/bootstrap.js` — 启动引导（已删除）
+- `src/legacy/splash.js` — 首页逻辑（已删除）
+- `src/legacy/startup-view.js` — 启动视图选择（已删除）
+- `src/legacy/style.css` — 工作台样式（已删除）
+
+所有功能已迁移到原生 Vue SFC 组件。
 
 ### Supabase
 

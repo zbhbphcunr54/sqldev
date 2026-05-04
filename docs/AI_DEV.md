@@ -24,8 +24,8 @@
 - TypeScript（strict 模式）
 - Vue Router 4
 - Pinia
-- fetch（统一封装于 `src/api/http.ts`，禁止散写）
-- TailwindCSS + Design Token。新 Vue SFC UI 优先使用 Tailwind/token；全局样式、token 文件、legacy 迁移样式除外
+- fetch（统一封装于 `src/api/http.ts` 或 `src/lib/edge.ts`，禁止散写）
+- TailwindCSS + Design Token。新 Vue SFC UI 优先使用 Tailwind/token；全局样式、token 文件除外
 - ESLint + Prettier
 
 ### Supabase / 后端
@@ -69,43 +69,56 @@
 │   │   ├── _shared/               # 共享工具（auth / cors / rate-limit / response）
 │   │   ├── convert/               # SQL 转换服务
 │   │   ├── feedback/              # 反馈提交服务
+│   │   ├── verify-profiles/       # 校验配置管理
 │   │   └── ziwei-analysis/        # 紫微 AI 分析服务
 │   ├── FUNCTION-AUTH-STRATEGY.md  # 函数鉴权策略说明
 │   ├── SECURITY-CHECKLIST.md      # 安全检查辅助文档
-│   ├── feedback-schema.sql        # 反馈表辅助 SQL
-│   ├── rls-audit.sql              # RLS 审计辅助 SQL
 │   └── config.toml                # Supabase 本地 CLI 配置
 ├── src/
 │   ├── api/                       # Edge Function 请求封装
 │   ├── components/
-│   │   ├── common/                # 基础 UI
+│   │   ├── common/                # 通用 UI 组件（StatePanel 等）
 │   │   ├── business/              # 业务组件
-│   │   └── layout/                # 布局组件
+│   │   │   ├── ai/               # AI 配置管理
+│   │   │   ├── app-config/       # 应用配置管理
+│   │   │   ├── auth/             # 认证相关
+│   │   │   ├── convert-verify/   # 转换校验与配额
+│   │   │   ├── feedback/         # 反馈组件
+│   │   │   ├── operation-logs/   # 操作日志
+│   │   │   └── workbench/        # 工作台
+│   │   │       ├── components/   # 工作台通用组件（SqlEditor 等）
+│   │   │       ├── modals/       # 工作台弹窗
+│   │   │       └── pages/        # 工作台各功能页
+│   │   └── layout/               # 布局组件
 │   ├── composables/               # Vue 组合式函数
 │   ├── features/                  # 功能模块（优先纯逻辑）
-│   │   ├── ddl/                   # DDL 解析与转换
-│   │   ├── routines/              # 函数/过程解析与转换
-│   │   ├── rules/                 # 规则引擎与持久化
-│   │   ├── sql/                   # SQL 文本处理
-│   │   ├── convert/               # 转换错误映射
-│   │   ├── browser/               # 文件下载与剪贴板（当前含少量 DOM，待迁移）
-│   │   ├── id-tools/              # 证件号码工具
-│   │   ├── navigation/            # 路由解析与重定向保护
-│   │   ├── preferences/           # 偏好存储
-│   │   └── ziwei/                 # 紫微 AI / 历史 / 分享
-│   ├── layouts/                   # 全局布局
-│   ├── legacy/                    # 遗留 UI 运行文件（iframe 模式）
-│   ├── lib/                       # 第三方库实例化
+│   │   ├── ai/                    # AI 配置类型与常量
+│   │   ├── app-config/           # 应用配置类型
+│   │   ├── browser/              # 文件下载与剪贴板
+│   │   ├── convert-verify/       # 转换校验（预留）
+│   │   ├── id-tools/             # 证件号码工具
+│   │   ├── navigation/           # 路由解析与状态同步
+│   │   ├── preferences/          # 偏好存储
+│   │   ├── rules/                # 规则引擎与持久化
+│   │   ├── shared/               # 共享类型与工具
+│   │   ├── sql/                  # SQL 文本处理
+│   │   └── ziwei/                # 紫微斗数计算与 AI
+│   ├── layouts/                  # 全局布局
+│   ├── lib/                      # 第三方库实例化
 │   ├── pages/                     # 路由页面
-│   ├── router/                    # 路由配置与守卫
+│   │   ├── auth/login.vue        # 登录页
+│   │   ├── operation-logs/       # 操作日志页
+│   │   ├── splash/               # 首页
+│   │   └── workbench/            # 工作台入口
+│   ├── router/                   # 路由配置与守卫
 │   ├── stores/                    # Pinia 状态管理
 │   ├── styles/                    # CSS Token + Tailwind 组件层
 │   ├── types/                     # TypeScript 类型定义
 │   └── utils/                     # 通用工具函数
 ├── tests/                         # Node .mjs 测试
 ├── scripts/
-│   ├── check-utf8.mjs             # UTF-8 编码校验
-│   └── smoke.mjs                  # Smoke 入口代理
+│   ├── check-utf8.mjs           # UTF-8 编码校验
+│   └── smoke.mjs                 # Smoke 入口代理
 ├── .env.example
 ├── package.json
 ├── tsconfig.json
@@ -367,10 +380,9 @@ export type Result<T, E = string> =
 
 `tests/smoke.mjs` 是集成冒烟测试，必须覆盖：
 
-- 关键入口、路由、legacy bridge 的存在性。
+- 关键入口、路由的存在性。
 - `src/features/*/index.ts` 的 barrel 导出完整性。
-- `src/features/*/legacy-bridge.ts` 的 `window.*` 挂载断言。
-- 安全与架构关键约束（如 CORS env、redirect sanitizer、iframe sandbox）。
+- 安全与架构关键约束（如 CORS env、redirect sanitizer）。
 
 ---
 
@@ -393,7 +405,7 @@ async function callGeminiAPI(config, messages) { ... }
 const TIMEOUT_MS = 30_000
 ```
 
-  - 迁移/重构场景下，legacy bridge 中调用新 typed 函数的位置也应标注迁移批次或日期。
+  - 重构场景下，调用新 typed 函数的位置应标注迁移批次或日期。
 - 提交前至少通过：
   - `pnpm typecheck`
   - `pnpm lint`
@@ -434,8 +446,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ### 15.1 路由与加载
 
-- 非 legacy 包装的路由页面应优先懒加载：`() => import(...)`。
-- legacy 包装页面（仅含 `<LegacyFrameView />`）可保持静态导入。
+- 路由页面应优先懒加载：`() => import(...)`。
 - 第三方库按需引入，禁止全量导入大型库。
 
 ### 15.2 localStorage 管理
@@ -461,34 +472,110 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 16. 绞杀者模式迁移规范
+## 16. 编辑器组件规范
 
-### 16.1 Bridge 编写规则
+### 16.1 SQL 编辑器
 
-- 每个迁移中的 `src/features/<module>/` 可包含 `legacy-bridge.ts`。
-- Bridge 只做 `window.*` 全局挂载和薄适配，不包含业务逻辑。
-- 命名约定：`window.SQLDEV_<MODULE>_UTILS` 或已有命名保持兼容。
-- Bridge 必须在 `legacy.html` 中按依赖顺序引用。
-- 新增 bridge 必须补 smoke 断言。
+SQL 编辑器使用 CodeMirror 6：
 
-### 16.2 Legacy 代码治理
+```vue
+<!-- src/components/business/workbench/components/SqlEditor.vue -->
+```
 
-- `src/legacy/` 中禁止新增大功能，仅允许 bugfix、桥接调用、迁移必要适配。
-- 新功能必须优先在 `src/features/`、`src/composables/`、`src/pages/` 中实现。
-- 迁移完成的函数应由 legacy 调用 typed 版本，后续再删除旧实现。
-- 不允许为了快速实现继续扩大 legacy 文件复杂度。
+**核心特性**：
+- 语法高亮：支持 Oracle/PLSQL、MySQL、PostgreSQL 方言
+- 行号与代码折叠
+- SQL 关键字自动补全（100+ 关键字）
+- 深色/浅色主题自动跟随系统
+- 搜索（Ctrl/Cmd+F）
+- 多选、括号匹配
 
-### 16.3 iframe 路由共存
+**依赖**：
+```bash
+pnpm add @codemirror/state @codemirror/view @codemirror/commands \
+  @codemirror/language @codemirror/autocomplete @codemirror/lang-sql \
+  @codemirror/search @codemirror/lint
+```
 
-- Vue Router 负责主应用 URL。
-- `LegacyFrameView` 负责把 Vue route 映射到 `legacy.html#<hashPath>`。
-- legacy 内部 hash 路由只能作为过渡层，最终目标是被 Vue pages 替代。
+**Props**：
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `modelValue` | `string` | - | 编辑器内容 |
+| `readonly` | `boolean` | `false` | 只读模式 |
+| `language` | `'oracle' \| 'mysql' \| 'postgresql' \| 'sql'` | `'sql'` | SQL 方言 |
 
-### 16.4 Legacy 废弃策略
+**事件**：
+| 事件 | 参数 | 说明 |
+|------|------|------|
+| `update:modelValue` | `value: string` | 内容变化 |
+| `submit` | - | Ctrl/Cmd+Enter 提交 |
 
-- 迁移完成的 legacy 函数标记 `@deprecated` 或从调用链移除。
-- 废弃代码不得新增功能或重构，仅修复阻塞 bug。
-- 删除 legacy 代码前必须有 feature 测试和 smoke 断言确认 typed bridge 接管。
+### 16.2 编辑器主题配置
+
+CodeMirror 6 使用 `EditorView.theme()` 自定义样式：
+
+- 浅色主题：`lightTheme`
+- 深色主题：`darkTheme`
+- 主题通过 `MutationObserver` 监听 `data-theme` 变化自动切换
+
+---
+
+## 17. Workbench 模块结构
+
+### 17.1 目录组织
+
+```
+src/components/business/workbench/
+├── WorkbenchApp.vue          # 工作台根容器
+├── WorkbenchSidebar.vue      # 侧边栏导航
+├── WorkbenchHeader.vue       # 顶部栏
+├── WorkbenchActionBar.vue    # 操作工具栏
+├── DbPicker.vue              # 数据库选择器
+├── components/
+│   └── SqlEditor.vue         # SQL 编辑器
+├── modals/
+│   ├── AlertModal.vue        # 提示弹窗
+│   └── ConfirmModal.vue      # 确认弹窗
+└── pages/
+    ├── DdlPage.vue          # DDL 翻译页
+    ├── FunctionPage.vue     # 函数翻译页
+    ├── ProcedurePage.vue    # 存储过程翻译页
+    ├── IdToolPage.vue       # 证件工具页
+    ├── ZiweiPage.vue        # 紫微斗数页
+    └── RulesPage.vue        # 规则管理页
+```
+
+### 17.2 状态管理
+
+工作台状态统一由 `src/stores/workbench.ts` (Pinia) 管理：
+
+```typescript
+// 当前页面
+activePage: WorkbenchPage
+
+// DDL 状态
+sourceDb, targetDb, inputDdl, outputDdl
+
+// 函数/过程状态
+funcSourceDb, funcTargetDb, funcInput, funcOutput
+procSourceDb, procTargetDb, procInput, procOutput
+
+// ID 工具状态
+idProvinceCode, idCityCode, idCountyCode, idGeneratedNumber
+
+// 紫微斗数状态
+ziweiChart, ziweiAiResult, ziweiAiQuestionInput
+
+// Rules 状态
+ddlRules, bodyRules
+```
+
+### 17.3 页面组件约定
+
+- 页面组件放 `pages/` 目录
+- 每个页面使用 `useWorkbenchStore()` 访问状态
+- 复杂交互逻辑抽取为 `composables/`
+- 可复用 UI 抽取为 `components/`
 
 ---
 
@@ -516,7 +603,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 | 组件名 | PascalCase | `FeedbackWidget` |
 | composable 函数 | camelCase + `use` 前缀 | `useAsyncState()` |
 | Pinia store | `use` + 名称 + `Store` | `useAuthStore()` |
-| CSS class | kebab-case | `legacy-frame-page` |
+| CSS class | kebab-case | `workbench-container` |
 | Error code | snake_case | `rate_limited` |
 | 环境变量 | SCREAMING_SNAKE | `VITE_SUPABASE_URL` |
 
@@ -564,7 +651,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 20. UI/UX 视觉与交互规范
+## 18. UI/UX 视觉与交互规范
 
 > 目标：对齐 2026 年主流 SaaS / AI 产品：简洁、通透、层次清晰、动效克制、信息密度合理。
 
@@ -612,7 +699,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 21. Design Token 执行规则
+## 19. Design Token 执行规则
 
 1. 新增样式优先使用 `src/styles/tokens.css` 中的 token。
 2. 组件模板优先 Tailwind 语义类；CSS 文件优先 `var(--token)`。
@@ -630,7 +717,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 22. 安全检查清单
+## 20. 安全检查清单
 
 涉及接口、认证、AI、上传、数据库变更时必须检查：
 
@@ -646,7 +733,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 23. 任务验收标准
+## 21. 任务验收标准
 
 每次任务完成前必须确认：
 
@@ -661,16 +748,17 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 24. CSP 与安全运维
+## 22. CSP 与安全运维
 
-- `legacy.html` 当前可能因遗留依赖需要较宽 CSP，新增 Vue 页面禁止引入需要 `unsafe-eval` 的依赖。
+- `legacy.html` 已于 2026-05-04 删除。
+- SQL 编辑器使用 CodeMirror 6，无需 `unsafe-eval`。
+- 新增 Vue 页面禁止引入需要 `unsafe-eval` 的依赖。
 - CSP 策略变更必须经过安全评审。
-- 迁移目标：SFC 预编译 + 更现代编辑器方案，逐步收窄 legacy CSP。
 - Supabase 函数部署后必须用真实登录态验证 2xx / 4xx / CORS 行为。
 
 ---
 
-## 25. 工具链强制执行清单
+## 23. 工具链强制执行清单
 
 | 规范条目 | 当前执行方式 | 配置位置 |
 |---------|-------------|---------|
@@ -687,7 +775,7 @@ type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `securit
 
 ---
 
-## 26. 版本演进原则
+## 24. 版本演进原则
 
 - 优先兼容当前项目已安装依赖版本。
 - 不随意引入新库，先复用现有栈。
