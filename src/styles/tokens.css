@@ -1,57 +1,131 @@
+/* [2026-05-05] 设计令牌 - 完全匹配 UI 预览 */
+
+/* === Light Theme (Default) === */
 :root {
+  /* Fonts */
+  --font-body: 'Inter', 'Noto Sans SC', 'PingFang SC', 'SF Pro Text', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Consolas', monospace;
+
+  /* Background */
   --color-bg: #f6f8fc;
   --color-panel: #ffffff;
   --color-panel-2: #f3f6fb;
+  --color-panel-3: #edf1f8;
+
+  /* Text */
   --color-text: #0f172a;
   --color-text-subtle: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* Brand */
   --color-brand-50: #e0ecff;
   --color-brand-100: #c8dcff;
   --color-brand-500: #2f6bff;
   --color-brand-600: #2155d8;
+  --gradient-brand-primary: linear-gradient(135deg, #2563eb, #7c3aed);
+  --shadow-brand-primary: 0 4px 16px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-brand-primary-hover: 0 6px 24px rgba(37, 99, 235, 0.3);
+  --gradient-brand-blue: linear-gradient(135deg, #3b82f6, #6366f1);
+  --gradient-brand-purple: linear-gradient(135deg, #8b5cf6, #a855f7);
+  --gradient-ai-badge: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --shadow-brand-blue: 0 4px 12px rgba(59, 130, 246, 0.25);
+  --shadow-brand-purple: 0 4px 12px rgba(139, 92, 246, 0.25);
+  --color-brand-soft-bg: rgba(37, 99, 235, 0.06);
+  --color-brand-soft-border: rgba(37, 99, 235, 0.12);
+  --shadow-focus-ring: 0 0 0 3px rgba(47, 107, 255, 0.1);
+
+  /* Status */
   --color-success: #15915f;
+  --color-success-bg: rgba(21, 145, 95, 0.1);
   --color-warning: #b7791f;
+  --color-warning-bg: rgba(183, 121, 31, 0.1);
   --color-danger: #d64545;
+  --color-danger-bg: rgba(214, 69, 69, 0.1);
+
+  /* Purple */
+  --color-purple: #8b5cf6;
+  --color-purple-bg: rgba(139, 92, 246, 0.1);
+
+  /* Border */
   --color-border: #dce4f2;
+  --color-border-hover: #cbd5e1;
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --color-modal-bg: #ffffff;
-  --color-modal-border: #dce4f2;
-  --color-modal-text: #0f172a;
-  --color-modal-text-subtle: #64748b;
-  --color-modal-input-bg: #f8fafc;
-  --color-modal-input-border: #cbd5e1;
-  --color-modal-primary: #2f6bff;
-  --color-modal-primary-hover: #2155d8;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: var(--color-border);
+  --scrollbar-thumb-hover: var(--color-border-hover);
+  --scrollbar-size: 6px;
+  --scrollbar-radius: 9px;
+
+  /* Radius */
   --radius-card: 14px;
   --radius-control: 10px;
+
+  /* Shadow */
   --shadow-soft: 0 8px 30px rgba(15, 23, 42, 0.08);
   --shadow-panel: 0 4px 18px rgba(15, 23, 42, 0.08);
   --shadow-modal: 0 14px 40px rgba(15, 23, 42, 0.15);
+  --gradient-sidebar-overlay: linear-gradient(180deg, rgba(47, 107, 255, 0.04), transparent 70%);
+
+  /* Database colors */
+  --oracle: #c74634;
+  --mysql: #00758f;
+  --pg: #336791;
+  --db-oracle: #f44336;
+  --db-mysql: #00758f;
+  --db-pg: #336791;
+  --gradient-db-oracle: linear-gradient(135deg, #c74634, #9a2a1a);
+  --gradient-db-mysql: linear-gradient(135deg, #00758f, #004d5e);
+  --gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);
+  --gradient-logo: linear-gradient(135deg, #4f7df9, #8b5cf6);
+
+  /* Layout */
+  --header-height: 56px;
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 60px;
 }
 
-[data-theme='dark'] {
+/* === Dark Theme === */
+[data-theme="dark"] {
   --color-bg: #0b1020;
   --color-panel: #111830;
   --color-panel-2: #15203f;
+  --color-panel-3: #1a2750;
   --color-text: #e4ecff;
   --color-text-subtle: #9fb0d9;
+  --color-text-muted: #5a6a8a;
   --color-brand-50: #1a2a57;
   --color-brand-100: #1f3570;
   --color-brand-500: #7aa2ff;
   --color-brand-600: #8bb0ff;
+  --gradient-brand-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  --shadow-brand-primary: 0 4px 16px rgba(59, 130, 246, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-brand-primary-hover: 0 8px 26px rgba(59, 130, 246, 0.38);
+  --gradient-brand-blue: linear-gradient(135deg, #60a5fa, #818cf8);
+  --gradient-brand-purple: linear-gradient(135deg, #a78bfa, #c084fc);
+  --gradient-ai-badge: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  --shadow-brand-blue: 0 4px 12px rgba(96, 165, 250, 0.35);
+  --shadow-brand-purple: 0 4px 12px rgba(167, 139, 250, 0.35);
+  --color-brand-soft-bg: rgba(122, 162, 255, 0.12);
+  --color-brand-soft-border: rgba(122, 162, 255, 0.22);
+  --shadow-focus-ring: 0 0 0 3px rgba(122, 162, 255, 0.22);
   --color-success: #31c187;
+  --color-success-bg: rgba(49, 193, 135, 0.1);
   --color-warning: #f0b55b;
+  --color-warning-bg: rgba(240, 181, 91, 0.1);
   --color-danger: #ff7c7c;
+  --color-danger-bg: rgba(255, 124, 124, 0.1);
+  --color-purple: #a78bfa;
+  --color-purple-bg: rgba(167, 139, 250, 0.1);
   --color-border: #243155;
+  --color-border-hover: #2e3d6a;
   --color-overlay: rgba(2, 6, 23, 0.58);
-  --color-modal-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(8, 14, 27, 0.95) 100%);
-  --color-modal-border: rgba(59, 130, 246, 0.35);
-  --color-modal-text: #e2e8f0;
-  --color-modal-text-subtle: #94a3b8;
-  --color-modal-input-bg: rgba(15, 23, 42, 0.7);
-  --color-modal-input-border: rgba(148, 163, 184, 0.4);
-  --color-modal-primary: #2563eb;
-  --color-modal-primary-hover: #1d4ed8;
-  --shadow-soft: 0 12px 36px rgba(2, 8, 23, 0.45);
-  --shadow-panel: 0 8px 24px rgba(2, 8, 23, 0.4);
-  --shadow-modal: 0 14px 40px rgba(2, 6, 23, 0.45);
+  --scrollbar-track: rgba(15, 22, 40, 0.35);
+  --scrollbar-thumb: rgba(137, 180, 250, 0.3);
+  --scrollbar-thumb-hover: rgba(137, 180, 250, 0.5);
+  --scrollbar-size: 8px;
+  --scrollbar-radius: 4px;
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 4px 18px rgba(0, 0, 0, 0.25);
+  --shadow-modal: 0 14px 40px rgba(0, 0, 0, 0.4);
+  --gradient-sidebar-overlay: linear-gradient(180deg, rgba(122, 162, 255, 0.1), transparent 70%);
 }

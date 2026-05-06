@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm check:utf8)",
+      "Bash(pnpm check:css-colors)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test:unit)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm run *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(git tag *)",
+      "Bash(git blame *)",
+      "Bash(git reflog *)",
+      "Bash(git shortlog *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(gh issue *)",
+      "Bash(gh run *)",
+      "Bash(supabase status)",
+      "Bash(supabase db *)",
+      "Bash(node ./tests/*)",
+      "Bash(pnpm typecheck *)"
+    ]
+  }
+}

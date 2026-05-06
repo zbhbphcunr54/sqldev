@@ -136,38 +136,34 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 flex items-center justify-center"
-      style="background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px)"
+      class="modal-overlay"
       @click.self="emit('close')"
     >
-      <div class="bg-panel rounded-[18px] w-[580px] max-h-[92vh] flex flex-col shadow-soft">
+      <div class="modal-panel">
         <!-- Header -->
-        <div
-          class="px-6 py-4 border-b border-border flex items-center justify-between rounded-t-[18px] shrink-0"
-        >
-          <div class="flex items-center gap-3">
+        <div class="modal-header">
+          <div class="modal-header-left">
             <div
               v-if="selectedProvider"
-              class="w-9 h-9 rounded-control flex items-center justify-center font-bold text-[13px] text-white shrink-0"
-              :style="{ background: selectedProvider ? '#4D6BFE' : '#9ca3af' }"
+              class="provider-icon"
             >
               {{ selectedProvider?.slug?.slice(0, 2).toUpperCase() ?? '?' }}
             </div>
-            <div>
-              <h2 class="font-semibold text-[15px]">
+            <div class="modal-header-info">
+              <h2 class="modal-title">
                 {{ isEditMode ? '编辑配置' : '新增配置' }}
-                <span v-if="selectedProvider" class="font-normal text-subtle">
+                <span v-if="selectedProvider" class="modal-title-sub">
                   - {{ selectedProvider.label }}</span
                 >
               </h2>
-              <p v-if="selectedProvider" class="text-[12px] text-subtle">
+              <p v-if="selectedProvider" class="modal-subtitle">
                 {{ REGION_MAP[selectedProvider.region] }}
                 <template v-if="selectedProvider.doc_url">
                   &middot;
                   <a
                     :href="selectedProvider.doc_url"
                     target="_blank"
-                    class="text-brand-500 hover:underline"
+                    class="modal-link"
                     >获取 API Key &rarr;</a
                   >
                 </template>
@@ -175,7 +171,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             </div>
           </div>
           <button
-            class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-panel2 text-subtle transition"
+            class="modal-close"
             @click="emit('close')"
           >
             <svg
@@ -192,22 +188,22 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
         </div>
 
         <!-- Body -->
-        <div class="px-6 py-5 space-y-5 overflow-y-auto flex-1">
+        <div class="modal-body">
           <!-- 配置名称 -->
-          <div>
-            <label class="block text-[13px] font-medium mb-1.5">配置名称</label>
+          <div class="form-group">
+            <label class="form-label">配置名称</label>
             <input
               v-model="formName"
               type="text"
               placeholder="给这个配置起个名字"
-              class="input-control w-full"
+              class="form-input"
             />
           </div>
 
           <!-- 供应商 -->
-          <div>
-            <label class="block text-[13px] font-medium mb-1.5">供应商</label>
-            <select v-model="formProviderId" class="input-control w-full">
+          <div class="form-group">
+            <label class="form-label">供应商</label>
+            <select v-model="formProviderId" class="form-input">
               <optgroup label="国内">
                 <option v-for="p in cnProviders" :key="p.id" :value="p.id">{{ p.label }}</option>
               </optgroup>
@@ -218,57 +214,55 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           </div>
 
           <!-- API Key -->
-          <div>
-            <label class="block text-[13px] font-medium mb-1.5">API Key</label>
+          <div class="form-group">
+            <label class="form-label">API Key</label>
             <input
               v-model="formApiKey"
               type="password"
               :placeholder="isEditMode ? '留空则不修改' : '输入 API Key'"
-              class="input-control w-full font-mono"
+              class="form-input form-input-mono"
             />
-            <p class="text-[11px] text-subtle mt-1.5">
+            <p class="form-hint">
               AES-256 加密存储，服务端解密，前端仅显示掩码
             </p>
           </div>
 
           <!-- API Base URL -->
-          <div>
-            <label class="block text-[13px] font-medium mb-1.5">API Base URL</label>
+          <div class="form-group">
+            <label class="form-label">API Base URL</label>
             <input
               v-model="formBaseUrl"
               type="text"
               placeholder="https://api.example.com/v1"
-              class="input-control w-full font-mono"
+              class="form-input form-input-mono"
             />
           </div>
 
           <!-- Model + Timeout -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-[13px] font-medium mb-1.5">
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label class="form-label">
                 模型
-                <span v-if="availableModels.length" class="text-[11px] font-normal text-subtle">
+                <span v-if="availableModels.length" class="form-label-hint">
                   （共 {{ availableModels.length }} 个可选）
                 </span>
               </label>
-              <select v-model="formModel" class="input-control w-full">
+              <select v-model="formModel" class="form-input">
                 <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
               </select>
             </div>
-            <div>
-              <label class="block text-[13px] font-medium mb-1.5">超时时间</label>
-              <div class="relative">
+            <div class="form-group">
+              <label class="form-label">超时时间</label>
+              <div class="form-input-wrap">
                 <input
                   v-model.number="formTimeout"
                   type="number"
                   :min="MIN_TIMEOUT_MS"
                   :max="MAX_TIMEOUT_MS"
                   :step="5000"
-                  class="input-control w-full font-mono pr-10"
+                  class="form-input form-input-mono form-input-pr"
                 />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-subtle"
-                  >ms</span
-                >
+                <span class="form-input-suffix">ms</span>
               </div>
             </div>
           </div>
@@ -276,60 +270,54 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           <!-- Test result -->
           <div
             v-if="testResult"
-            class="rounded-xl p-4 border-2"
-            :class="
-              testResult.ok ? 'border-success/30 bg-success/5' : 'border-danger/30 bg-danger/5'
-            "
+            class="test-result"
+            :class="testResult.ok ? 'test-result-success' : 'test-result-error'"
           >
-            <div class="flex items-center gap-2 mb-1">
+            <div class="test-result-header">
               <span
-                class="font-semibold text-[13px]"
-                :class="testResult.ok ? 'text-success' : 'text-danger'"
+                class="test-result-title"
+                :class="testResult.ok ? 'test-result-ok' : 'test-result-fail'"
               >
                 {{ testResult.ok ? '连接测试成功' : '连接测试失败' }}
               </span>
             </div>
-            <div class="flex items-center gap-3 text-[12px]">
-              <span
-                class="inline-flex items-center px-2 py-0.5 rounded bg-panel border border-border text-subtle"
-              >
+            <div class="test-result-body">
+              <span class="test-result-badge">
                 {{ testResult.elapsed_ms }}ms
               </span>
-              <span v-if="testResult.error" class="text-danger">{{ testResult.error }}</span>
+              <span v-if="testResult.error" class="test-result-error-msg">{{ testResult.error }}</span>
             </div>
           </div>
 
           <!-- Test error -->
-          <p v-if="testError" class="text-[12px] text-danger">{{ testError }}</p>
+          <p v-if="testError" class="form-error">{{ testError }}</p>
 
           <!-- Save error -->
-          <p v-if="saveError" class="text-[12px] text-danger">{{ saveError }}</p>
+          <p v-if="saveError" class="form-error">{{ saveError }}</p>
         </div>
 
         <!-- Footer -->
-        <div
-          class="px-6 py-4 border-t border-border flex items-center justify-between rounded-b-[18px] shrink-0"
-        >
+        <div class="modal-footer">
           <button
             v-if="isEditMode"
-            class="text-danger text-[13px] font-medium hover:bg-danger/10 px-3 py-1.5 rounded-control transition"
+            class="btn-danger"
             @click="handleRemove"
           >
             删除配置
           </button>
           <span v-else></span>
 
-          <div class="flex items-center gap-2">
+          <div class="modal-footer-actions">
             <button
               v-if="isEditMode"
-              class="btn-secondary px-3 py-1.5 text-[13px]"
+              class="btn btn-secondary"
               :disabled="testing"
               @click="handleTest"
             >
               {{ testing ? '测试中...' : '测试连接' }}
             </button>
             <button
-              class="btn-primary px-4 py-1.5 text-[13px]"
+              class="btn btn-primary"
               :disabled="saving"
               @click="handleSave"
             >
@@ -341,3 +329,326 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.modal-panel {
+  width: 580px;
+  max-width: 92vw;
+  max-height: 92vh;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-modal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  flex-shrink: 0;
+}
+
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.provider-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: white;
+  background: #4D6BFE;
+  flex-shrink: 0;
+}
+
+.modal-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.modal-title-sub {
+  font-weight: 400;
+  color: var(--color-text-subtle);
+}
+
+.modal-subtitle {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  margin: 0;
+}
+
+.modal-link {
+  color: var(--color-brand-500);
+}
+
+.modal-link:hover {
+  text-decoration: underline;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.modal-close:hover {
+  background: var(--color-panel-2);
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.form-label-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-subtle);
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-2);
+  color: var(--color-text);
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+}
+
+.form-input-mono {
+  font-family: var(--font-code);
+}
+
+.form-input-pr {
+  padding-right: 36px;
+}
+
+.form-input-wrap {
+  position: relative;
+}
+
+.form-input-suffix {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  pointer-events: none;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+  margin-top: 6px;
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-error {
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+.test-result {
+  padding: 16px;
+  border-radius: 12px;
+  border: 2px solid;
+}
+
+.test-result-success {
+  border-color: rgba(21, 145, 95, 0.3);
+  background: rgba(21, 145, 95, 0.05);
+}
+
+.test-result-error {
+  border-color: rgba(214, 69, 69, 0.3);
+  background: rgba(214, 69, 69, 0.05);
+}
+
+.test-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.test-result-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.test-result-ok {
+  color: var(--color-success);
+}
+
+.test-result-fail {
+  color: var(--color-danger);
+}
+
+.test-result-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.test-result-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
+}
+
+.test-result-error-msg {
+  color: var(--color-danger);
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  flex-shrink: 0;
+}
+
+.modal-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-danger {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-danger);
+  padding: 6px 12px;
+  border-radius: var(--radius-control);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-danger:hover {
+  background: rgba(214, 69, 69, 0.1);
+}
+
+.btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.btn-secondary:hover {
+  background: var(--color-panel-2);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>
+

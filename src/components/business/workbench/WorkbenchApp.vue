@@ -1,16 +1,15 @@
-<!-- [2026-05-03] 工作台主应用容器 -->
+<!-- [2026-05-05] 更新：工作台主应用容器 - 完全匹配 UI 预览 -->
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import { useWorkbenchStore } from '@/stores/workbench'
 import WorkbenchSidebar from './WorkbenchSidebar.vue'
-import WorkbenchHeader from './WorkbenchHeader.vue'
-import WorkbenchActionBar from './WorkbenchActionBar.vue'
 import DdlPage from './pages/DdlPage.vue'
 import FunctionPage from './pages/FunctionPage.vue'
 import ProcedurePage from './pages/ProcedurePage.vue'
 import IdToolPage from './pages/IdToolPage.vue'
 import ZiweiPage from './pages/ZiweiPage.vue'
 import RulesPage from './pages/RulesPage.vue'
+import AiConfigPage from '@/components/business/ai/AiConfigPage.vue'
 import AlertModal from './modals/AlertModal.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
 
@@ -22,26 +21,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="workbench-root">
+  <div class="wb-layout">
     <!-- Sidebar -->
     <WorkbenchSidebar />
 
     <!-- Main Content -->
-    <div class="workbench-main">
-      <!-- Header -->
-      <WorkbenchHeader />
-
-      <!-- Action Bar -->
-      <WorkbenchActionBar />
-
+    <div class="wb-main">
       <!-- Page Content -->
-      <main class="workbench-content">
+      <main class="wb-content">
         <DdlPage v-if="store.activePage === 'ddl'" />
         <FunctionPage v-else-if="store.activePage === 'func'" />
         <ProcedurePage v-else-if="store.activePage === 'proc'" />
         <IdToolPage v-else-if="store.activePage === 'idTool'" />
         <ZiweiPage v-else-if="store.activePage === 'ziweiTool'" />
-        <RulesPage v-else-if="store.activePage === 'rules' || store.activePage === 'bodyRules'" />
+        <RulesPage v-else-if="store.activePage === 'rules'" />
+        <AiConfigPage v-else-if="store.activePage === 'aiConfig'" />
         <div v-else class="placeholder">选择一个功能开始</div>
       </main>
     </div>
@@ -53,26 +47,26 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.workbench-root {
+.wb-layout {
   display: flex;
-  width: 100%;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
-  background: var(--color-bg);
 }
 
-.workbench-main {
+.wb-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
   overflow: hidden;
+  min-width: 0;
 }
 
-.workbench-content {
+.wb-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .placeholder {
@@ -80,7 +74,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 </style>

@@ -26,15 +26,13 @@ const router = createRouter({
       meta: { layout: 'workbench' }
     },
     {
+      path: '/ai-config',
+      redirect: '/workbench/ai-config'
+    },
+    {
       path: '/operation-logs',
       name: 'operation-logs',
       component: () => import('@/pages/operation-logs/index.vue'),
-      meta: { requiresAuth: true, layout: 'default' }
-    },
-    {
-      path: '/ai-config',
-      name: 'ai-config',
-      component: () => import('@/components/business/ai/AiConfigPage.vue'),
       meta: { requiresAuth: true, layout: 'default' }
     },
     {

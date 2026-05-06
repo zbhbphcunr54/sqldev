@@ -81,6 +81,16 @@ async function getAiProviders(adminClient: ReturnType<typeof createClient>): Pro
   return (data || []) as unknown as AiProviderRow[]
 }
 
+async function getAllAiProviders(adminClient: ReturnType<typeof createClient>): Promise<AiProviderRow[]> {
+  const { data, error } = await adminClient
+    .from('ai_providers')
+    .select('*')
+    .order('sort_order')
+
+  if (error) throw error
+  return (data || []) as unknown as AiProviderRow[]
+}
+
 function buildMaskedResponse(
   config: AiConfigRow,
   provider?: AiProviderRow | null
@@ -483,10 +493,20 @@ Deno.serve(async (req) => {
     // 路由处理
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
-    // path: /functions/v1/ai-config 或 /functions/v1/ai-config/:id
-    const id = pathParts.length > 2 ? pathParts[pathParts.length - 1] : null
+    // path: /functions/v1/ai-config, /functions/v1/ai-config/providers, /functions/v1/ai-config/:id
+    const lastPart = pathParts[pathParts.length - 1]
+    const isProviders = lastPart === 'providers'
+    const id = pathParts.length > 2 && !isProviders ? lastPart : null
     const isAction =
-      pathParts.length > 2 && pathParts[pathParts.length - 1] !== id
+      pathParts.length > 2 && lastPart !== id && !isProviders
+
+    // GET /ai-config/providers
+    if (req.method === 'GET' && isProviders) {
+      const providers = isAdmin
+        ? await getAllAiProviders(adminClient)
+        : await getAiProviders(adminClient)
+      return jsonResponse(200, { ok: true, providers }, corsHeaders)
+    }
 
     // GET /ai-config
     if (req.method === 'GET' && !id) {

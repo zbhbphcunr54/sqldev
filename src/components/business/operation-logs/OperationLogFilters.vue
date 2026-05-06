@@ -1,5 +1,6 @@
+<!-- [2026-05-04] 更新：操作日志筛选器，匹配设计预览 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps<{
   operation?: string
@@ -18,26 +19,20 @@ const localStartDate = ref(props.startDate || '')
 const localEndDate = ref(props.endDate || '')
 
 const OPERATION_OPTIONS = [
-  { value: '', label: '全部操作' },
-  { value: 'convert_ddl', label: 'DDL 转换' },
-  { value: 'convert_func', label: '函数转换' },
-  { value: 'convert_proc', label: '存储过程转换' },
+  { value: '', label: '全部' },
+  { value: 'convert_ddl', label: 'DDL 翻译' },
+  { value: 'convert_func', label: '函数翻译' },
+  { value: 'convert_proc', label: '存储过程翻译' },
+  { value: 'ai_verify', label: 'AI 校验' },
   { value: 'rule_read', label: '读取规则' },
-  { value: 'rule_save', label: '保存规则' },
-  { value: 'rule_reset', label: '重置规则' },
-  { value: 'ziwei_history_list', label: '紫微历史查询' },
-  { value: 'ziwei_history_create', label: '紫微历史创建' },
-  { value: 'ziwei_ai_analysis', label: 'AI 解盘' },
-  { value: 'feedback_submit', label: '反馈提交' }
+  { value: 'ziwei_history_list', label: '紫微历史查询' }
 ]
 
 const API_OPTIONS = [
-  { value: '', label: '全部 API' },
-  { value: 'convert', label: 'convert' },
-  { value: 'rules', label: 'rules' },
-  { value: 'ziwei-history', label: 'ziwei-history' },
-  { value: 'ziwei-analysis', label: 'ziwei-analysis' },
-  { value: 'feedback', label: 'feedback' }
+  { value: '', label: '全部' },
+  { value: 'translate', label: 'translate' },
+  { value: 'ai-verify', label: 'ai-verify' },
+  { value: 'health-check', label: 'health-check' }
 ]
 
 function handleSearch(): void {
@@ -59,62 +54,162 @@ function handleReset(): void {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-end gap-3 rounded-card border border-border bg-panel p-3">
-    <div class="flex min-w-[140px] flex-col gap-1">
-      <label class="text-[12px] text-subtle">操作类型</label>
-      <select
-        v-model="localOperation"
-        class="h-8 rounded-control border border-border bg-panel2 px-2 text-[13px] text-text"
-      >
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="filter-label">操作类型</span>
+      <select v-model="localOperation" class="filter-select">
         <option v-for="opt in OPERATION_OPTIONS" :key="opt.value" :value="opt.value">
           {{ opt.label }}
         </option>
       </select>
     </div>
 
-    <div class="flex min-w-[140px] flex-col gap-1">
-      <label class="text-[12px] text-subtle">API 名称</label>
-      <select
-        v-model="localApiName"
-        class="h-8 rounded-control border border-border bg-panel2 px-2 text-[13px] text-text"
-      >
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">API 名称</span>
+      <select v-model="localApiName" class="filter-select">
         <option v-for="opt in API_OPTIONS" :key="opt.value" :value="opt.value">
           {{ opt.label }}
         </option>
       </select>
     </div>
 
-    <div class="flex min-w-[150px] flex-col gap-1">
-      <label class="text-[12px] text-subtle">开始日期</label>
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">日期范围</span>
       <input
         v-model="localStartDate"
         type="date"
-        class="h-8 rounded-control border border-border bg-panel2 px-2 text-[13px] text-text"
+        class="filter-input"
+        style="width: 140px;"
       />
-    </div>
-
-    <div class="flex min-w-[150px] flex-col gap-1">
-      <label class="text-[12px] text-subtle">结束日期</label>
+      <span class="filter-separator">至</span>
       <input
         v-model="localEndDate"
         type="date"
-        class="h-8 rounded-control border border-border bg-panel2 px-2 text-[13px] text-text"
+        class="filter-input"
+        style="width: 140px;"
       />
     </div>
 
-    <div class="flex gap-2">
-      <button
-        class="h-8 rounded-control bg-brand-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-brand-600"
-        @click="handleSearch"
-      >
-        查询
-      </button>
-      <button
-        class="h-8 rounded-control border border-border bg-panel2 px-4 text-[13px] text-text transition-colors hover:bg-panel"
-        @click="handleReset"
-      >
-        重置
-      </button>
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">状态</span>
+      <select class="filter-select">
+        <option>全部</option>
+        <option>成功</option>
+        <option>失败</option>
+      </select>
+    </div>
+
+    <div class="filter-spacer"></div>
+
+    <div class="filter-actions">
+      <button class="btn" @click="handleReset">重置</button>
+      <button class="btn primary" @click="handleSearch">查询</button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--color-panel-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+}
+
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+}
+
+.filter-input {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+}
+
+.filter-separator {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+}
+
+.filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+}
+
+.filter-spacer {
+  flex: 1;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn:hover {
+  background: var(--color-panel);
+}
+
+.btn.primary {
+  border-color: var(--color-brand-500);
+  background: var(--color-brand-500);
+  color: white;
+}
+
+.btn.primary:hover {
+  background: var(--color-brand-600);
+}
+</style>

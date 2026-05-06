@@ -1,4 +1,4 @@
-<!-- [2026-05-04] 新增：工作台操作工具栏 -->
+<!-- [2026-05-05] 更新：工作台操作工具栏 - 完全匹配 UI 预览 -->
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorkbenchStore } from '@/stores/workbench'
@@ -56,13 +56,13 @@ function downloadOutput(): void {
 
   if (store.activePage === 'ddl') {
     output = store.outputDdl
-    filename = 'output_ddl.sql'
+    filename = 'ddl_translated.sql'
   } else if (store.activePage === 'func') {
     output = store.funcOutput
-    filename = 'output_function.sql'
+    filename = 'function_translated.sql'
   } else if (store.activePage === 'proc') {
     output = store.procOutput
-    filename = 'output_procedure.sql'
+    filename = 'procedure_translated.sql'
   }
 
   if (!output) {
@@ -81,13 +81,26 @@ function downloadOutput(): void {
   URL.revokeObjectURL(url)
 }
 
+function aiVerify(): void {
+  let output = ''
+  if (store.activePage === 'ddl') output = store.outputDdl
+  else if (store.activePage === 'func') output = store.funcOutput
+  else if (store.activePage === 'proc') output = store.procOutput
+
+  if (!output) {
+    store.showAlert('提示', '请先进行翻译后再使用AI校验')
+    return
+  }
+  store.showAlert('AI 校验', 'AI 校验功能开发中...')
+}
+
 function clearAll(): void {
   store.clearInput()
 }
 </script>
 
 <template>
-  <div class="action-bar-wrap" v-if="store.isWorkbenchPage">
+  <div class="wb-toolbar" v-if="store.isWorkbenchPage">
     <!-- Hidden file input -->
     <input
       ref="fileInputRef"
@@ -97,157 +110,159 @@ function clearAll(): void {
       @change="handleFileUpload"
     />
 
-    <button
-      class="action-bar-toggle"
-      @click="store.actionBarCollapsed = !store.actionBarCollapsed"
-      :aria-expanded="!store.actionBarCollapsed"
-      type="button"
-    >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-        <path d="M3 2.5h10v11H3z" stroke="currentColor" stroke-width="1.3" />
-        <path d="M5 5.5h6M5 8h6M5 10.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    <button class="tb-btn" type="button" @click="loadSample" title="加载示例" aria-label="加载示例">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M3.5 4.5h7M3.5 7h5M3.5 9.5h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
       </svg>
-      工具
-      <svg
-        class="action-bar-toggle-chevron"
-        :class="{ expanded: !store.actionBarCollapsed }"
-        width="10"
-        height="10"
-        viewBox="0 0 10 10"
-      >
-        <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-      </svg>
+      <span class="tb-label">示例</span>
     </button>
 
-    <div class="action-bar" role="toolbar" aria-label="工作台操作" v-show="!store.actionBarCollapsed">
-      <button class="action-btn" type="button" @click="loadSample">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M3 2.5h10v11H3z" stroke="currentColor" stroke-width="1.3" />
-          <path d="M5 5.5h6M5 8h6M5 10.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-        </svg>
-        加载示例
-      </button>
+    <button class="tb-btn" type="button" @click="triggerUpload" title="上传文件" aria-label="上传文件">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 10V3M7 3 5 5M7 3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 10.5v1h10v-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="tb-label">上传</span>
+    </button>
 
-      <button class="action-btn" type="button" @click="triggerUpload">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M8 11V3M8 3 5.5 5.5M8 3l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M3 11.5v1h10v-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-        </svg>
-        上传文件
-      </button>
+    <button class="tb-btn" type="button" @click="copyOutput" title="复制输出" aria-label="复制输出">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="4" y="3" width="7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M3 10V5A1 1 0 0 1 4 4H8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="tb-label">复制</span>
+    </button>
 
-      <button class="action-btn" type="button" @click="copyOutput">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <rect x="5" y="3" width="8" height="10" rx="1" stroke="currentColor" stroke-width="1.3" />
-          <path d="M3 11V4.5A1.5 1.5 0 0 1 4.5 3H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-        </svg>
-        复制输出
-      </button>
+    <button class="tb-btn" type="button" @click="downloadOutput" title="下载文件" aria-label="下载文件">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 3h8l2 2v7H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M4 3v2.5h5V3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M4 10h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="tb-label">下载</span>
+    </button>
 
-      <button class="action-btn" type="button" @click="downloadOutput">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M3 2.5h8l2 2v9H3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
-          <path d="M5 2.5v3h5v-3M5 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-        </svg>
-        保存文件
-      </button>
+    <div class="tb-sep"></div>
 
-      <div class="action-divider"></div>
+    <button class="tb-btn tb-btn-ai" type="button" @click="aiVerify" title="AI 语法校验" aria-label="AI 语法校验">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1v2M7 11v2M1 7h2M11 7h2M3 3l1.5 1.5M9.5 9.5 11 11M11 3l-1.5 1.5M4.5 9.5 3 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
+      </svg>
+      <span class="tb-label">AI 校验</span>
+    </button>
 
-      <button class="action-btn action-btn-danger" type="button" @click="clearAll">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M3 4h10M6 2.5h4M5 4v8.5h6V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        清空
-      </button>
-    </div>
+    <div class="tb-spacer"></div>
+
+    <button class="tb-btn danger" type="button" @click="clearAll" title="清空内容" aria-label="清空内容">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2.5 3.5h9M5 2h4M4.5 3.5v7h5v-7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="tb-label">清空</span>
+    </button>
   </div>
 </template>
 
 <style scoped>
-.action-bar-wrap {
+.wb-toolbar {
   display: flex;
   align-items: center;
-  padding: 8px 24px;
-  background: var(--color-panel);
+  gap: 2px;
+  padding: 5px 16px;
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-panel);
+  flex-shrink: 0;
 }
 
 .hidden-input {
   display: none;
 }
 
-.action-bar-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.action-bar-toggle:hover {
-  background: var(--color-panel-2);
-}
-
-.action-bar-toggle-chevron {
-  transition: transform 0.2s;
-}
-
-.action-bar-toggle-chevron.expanded {
-  transform: rotate(180deg);
-}
-
-.action-bar {
+.tb-btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: 12px;
-  padding-left: 12px;
-  border-left: 1px solid var(--color-border);
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text-subtle);
+  padding: 4px 8px;
   font-size: 12px;
+  color: var(--color-text-muted);
+  border-radius: 6px;
+  transition: all 0.15s;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  border: none;
+  background: transparent;
 }
 
-.action-btn:hover {
-  background: var(--color-panel-2);
+.tb-btn:hover {
   color: var(--color-text);
-  border-color: var(--color-border);
+  background: var(--color-panel-2);
 }
 
-.action-btn-danger:hover {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--color-danger);
-  border-color: var(--color-danger);
+.tb-btn:focus-visible {
+  color: var(--color-text);
+  background: var(--color-panel-2);
 }
 
-.action-divider {
+.tb-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.tb-sep {
   width: 1px;
-  height: 20px;
-  margin: 0 4px;
+  height: 14px;
   background: var(--color-border);
+  margin: 0 4px;
 }
 
-/* Mobile */
+.tb-spacer {
+  flex: 1;
+}
+
+.tb-btn.danger:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.tb-btn.danger:focus-visible {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.tb-btn-ai {
+  color: var(--color-brand-500);
+}
+
+.tb-btn-ai:hover {
+  background: var(--color-brand-50);
+}
+
+.tb-btn-ai:focus-visible {
+  background: var(--color-brand-50);
+}
+
 @media (max-width: 768px) {
-  .action-bar {
+  .wb-toolbar {
+    overflow-x: auto;
+    padding: 5px 10px;
+    gap: 4px;
+    scrollbar-width: none;
+  }
+
+  .wb-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tb-btn {
+    padding: 6px;
+    min-width: 28px;
+    justify-content: center;
+  }
+
+  .tb-label,
+  .tb-sep,
+  .tb-spacer {
     display: none;
   }
 }

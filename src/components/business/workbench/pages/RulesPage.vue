@@ -1,6 +1,6 @@
-<!-- [2026-05-03] 新增：DDL 映射规则管理页面 -->
+<!-- [2026-05-05] 更新：DDL 映射规则管理页面 - 完全匹配 UI 预览 -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { fetchUserRules, saveUserRules, resetUserRules } from '@/api/rules'
 
 // DDL Categories
@@ -41,6 +41,8 @@ const modalCategory = ref('')
 const modalIndex = ref(-1)
 const modalSource = ref('')
 const modalTarget = ref('')
+const modalSourceInputRef = ref<HTMLInputElement | null>(null)
+const lastFocusedElement = ref<HTMLElement | null>(null)
 
 // Computed
 const currentRules = computed(() => activeTab.value === 'ddl' ? ddlRules.value : bodyRules.value)
@@ -129,6 +131,7 @@ async function resetRules(): Promise<void> {
 }
 
 function openAddModal(): void {
+  lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
   modalMode.value = 'add'
   modalKind.value = activeTab.value
   modalCategory.value = selectedCategory.value
@@ -136,12 +139,16 @@ function openAddModal(): void {
   modalSource.value = ''
   modalTarget.value = ''
   modalVisible.value = true
+  nextTick(() => {
+    modalSourceInputRef.value?.focus()
+  })
 }
 
 function openEditModal(index: number): void {
   const rules = filteredRules.value
   if (index < 0 || index >= rules.length) return
 
+  lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
   modalMode.value = 'edit'
   modalKind.value = activeTab.value
   modalCategory.value = selectedCategory.value
@@ -149,18 +156,19 @@ function openEditModal(index: number): void {
   modalSource.value = rules[index].source
   modalTarget.value = rules[index].target
   modalVisible.value = true
+  nextTick(() => {
+    modalSourceInputRef.value?.focus()
+  })
 }
 
 function confirmModal(): void {
   const rules = activeTab.value === 'ddl' ? ddlRules.value : bodyRules.value
   const category = modalCategory.value
 
-  // Initialize category if needed
   if (!rules[category]) {
     rules[category] = []
   }
 
-  // If both empty, delete the rule
   if (!modalSource.value.trim() && !modalTarget.value.trim()) {
     if (modalIndex.value >= 0 && modalIndex.value < rules[category].length) {
       rules[category].splice(modalIndex.value, 1)
@@ -177,6 +185,25 @@ function confirmModal(): void {
 
   modalVisible.value = false
   status.value = { type: 'success', text: '规则已' + (modalMode.value === 'add' ? '添加' : '修改') + '，记得点击保存' }
+  restoreFocus()
+}
+
+function closeModal(): void {
+  modalVisible.value = false
+  restoreFocus()
+}
+
+function restoreFocus(): void {
+  nextTick(() => {
+    lastFocusedElement.value?.focus()
+    lastFocusedElement.value = null
+  })
+}
+
+function handleEscape(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  if (!modalVisible.value) return
+  closeModal()
 }
 
 function switchTab(tab: 'ddl' | 'body'): void {
@@ -190,33 +217,38 @@ function switchCategory(key: string): void {
 
 onMounted(() => {
   loadRules()
+  window.addEventListener('keydown', handleEscape)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape)
 })
 </script>
 
 <template>
-  <div class="rules-page">
+  <div class="rules-content">
+    <!-- Header -->
     <div class="rules-header">
-      <h2>{{ activeTab === 'ddl' ? 'DDL 映射规则管理' : '程序块映射规则管理' }}</h2>
+      <h2>映射规则管理</h2>
       <div class="rules-actions">
-        <button class="btn-rule" @click="resetRules" :disabled="loading">
-          重置为默认
-        </button>
-        <button class="btn-rule primary" @click="saveRules" :disabled="saving">
+        <button class="btn" @click="resetRules" :disabled="loading">重置</button>
+        <button class="btn primary" @click="saveRules" :disabled="saving">
           {{ saving ? '保存中...' : '保存修改' }}
         </button>
       </div>
     </div>
 
-    <div class="rules-tabs">
+    <!-- Tabs -->
+    <div class="tabs">
       <button
-        class="rules-tab"
+        class="tab"
         :class="{ active: activeTab === 'ddl' }"
         @click="switchTab('ddl')"
       >
         DDL 规则
       </button>
       <button
-        class="rules-tab"
+        class="tab"
         :class="{ active: activeTab === 'body' }"
         @click="switchTab('body')"
       >
@@ -224,82 +256,73 @@ onMounted(() => {
       </button>
     </div>
 
-    <div class="rules-categories">
+    <!-- Categories -->
+    <div class="category-pills">
       <button
         v-for="cat in categoryOptions"
         :key="cat.key"
-        class="rules-cat-btn"
+        class="category-pill"
         :class="{ active: selectedCategory === cat.key }"
         @click="switchCategory(cat.key)"
       >
         {{ cat.label }}
-        <span class="rules-cat-count">{{ cat.count }}</span>
+        <span class="pill-count">{{ cat.count }}</span>
       </button>
     </div>
 
-    <div class="rules-grid" v-if="!loading">
-      <div class="rules-card">
-        <div class="rules-card-head">
-          <h3>{{ filteredCategory?.label }}</h3>
-          <button class="btn-add" @click="openAddModal">新增</button>
-        </div>
-        <div class="rules-card-body">
-          <div v-if="filteredRules.length === 0" class="rules-empty">
-            暂无规则，点击"新增"添加
-          </div>
-          <button
-            class="rule-row"
-            v-for="(rule, idx) in filteredRules"
-            :key="idx"
-            @click="openEditModal(idx)"
-          >
-            <span class="rule-source">{{ rule.source }}</span>
-            <span class="rule-arrow">→</span>
-            <span class="rule-target">{{ rule.target }}</span>
-          </button>
-        </div>
+    <!-- Rules List -->
+    <div class="rules-list" v-if="!loading">
+      <div class="rules-list-header">
+        <span class="dir-info">{{ filteredCategory?.label }}</span>
+        <button class="btn-add" @click="openAddModal">+ 新增</button>
       </div>
+
+      <div v-if="filteredRules.length === 0" class="empty-state">
+        暂无规则，点击"新增"添加
+      </div>
+
+      <button
+        v-for="(rule, idx) in filteredRules"
+        :key="idx"
+        class="rule-row"
+        type="button"
+        @click="openEditModal(idx)"
+      >
+        <span class="src">{{ rule.source }}</span>
+        <span class="arr">→</span>
+        <span class="tgt">{{ rule.target }}</span>
+      </button>
     </div>
 
-    <div v-if="loading" class="rules-loading">
+    <div v-if="loading" class="loading-state">
       加载中...
     </div>
 
-    <div v-if="status.text" class="rules-status" :class="status.type">
+    <!-- Status -->
+    <div v-if="status.text" class="status-msg" :class="status.type">
       {{ status.text }}
     </div>
 
-    <!-- Rule Edit Modal -->
-    <div class="rule-modal-mask" v-if="modalVisible" @click.self="modalVisible = false">
-      <div class="rule-modal">
-        <div class="rule-modal-head">
-          <h4>{{ modalMode === 'add' ? '新增规则' : '维护规则' }}</h4>
-          <button class="rule-modal-close" @click="modalVisible = false">×</button>
+    <!-- Modal -->
+    <div class="modal-overlay" v-if="modalVisible" @click.self="closeModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rules-modal-title">
+        <div class="modal-header">
+          <h3 id="rules-modal-title">{{ modalMode === 'add' ? '新增规则' : '编辑规则' }}</h3>
+          <button class="modal-close" type="button" aria-label="关闭规则编辑弹窗" @click="closeModal">×</button>
         </div>
-        <div class="rule-modal-body">
-          <div class="rule-modal-field">
-            <label>源语法 / 类型</label>
-            <input
-              v-model="modalSource"
-              placeholder="请输入源语法或类型"
-              @keyup.enter="confirmModal"
-            />
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="rules-source-input">源语法 / 类型</label>
+            <input id="rules-source-input" ref="modalSourceInputRef" v-model="modalSource" placeholder="请输入源语法或类型" />
           </div>
-          <div class="rule-modal-field">
-            <label>目标语法 / 类型</label>
-            <input
-              v-model="modalTarget"
-              placeholder="请输入目标语法或类型"
-              @keyup.enter="confirmModal"
-            />
-          </div>
-          <div class="rule-modal-hint" v-if="modalMode === 'edit'">
-            提示: 两个输入框都清空后点击确定将删除该规则
+          <div class="form-group">
+            <label for="rules-target-input">目标语法 / 类型</label>
+            <input id="rules-target-input" v-model="modalTarget" placeholder="请输入目标语法或类型" />
           </div>
         </div>
-        <div class="rule-modal-foot">
-          <button class="btn-modal" @click="modalVisible = false">取消</button>
-          <button class="btn-modal primary" @click="confirmModal">确定</button>
+        <div class="modal-footer">
+          <button class="btn" type="button" @click="closeModal">取消</button>
+          <button class="btn primary" @click="confirmModal">确定</button>
         </div>
       </div>
     </div>
@@ -307,23 +330,24 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.rules-page {
+.rules-content {
   flex: 1;
-  padding: 24px;
+  padding: 24px 28px;
   overflow-y: auto;
+  background: var(--color-bg);
 }
 
 .rules-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .rules-header h2 {
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text);
 }
 
@@ -332,133 +356,125 @@ onMounted(() => {
   gap: 8px;
 }
 
-.btn-rule {
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-rule:hover:not(:disabled) {
-  background: var(--color-panel-2);
-}
-
-.btn-rule:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-rule.primary {
-  background: var(--color-brand-500);
-  border-color: var(--color-brand-500);
-  color: white;
-}
-
-.btn-rule.primary:hover:not(:disabled) {
-  background: var(--color-brand-600);
-}
-
-.rules-tabs {
+/* Tabs */
+.tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--color-border);
 }
 
-.rules-tab {
-  padding: 8px 16px;
+.tab {
+  padding: 10px 16px;
   border: none;
   border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   background: transparent;
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.rules-tab:hover {
+.tab:hover {
   color: var(--color-text);
 }
 
-.rules-tab.active {
+.tab:focus-visible {
+  color: var(--color-text);
+}
+
+.tab.active {
   color: var(--color-brand-500);
   border-bottom-color: var(--color-brand-500);
 }
 
-.rules-categories {
+/* Category Pills */
+.category-pills {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
-.rules-cat-btn {
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-panel);
-  color: var(--color-text-subtle);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
+.category-pill {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-panel);
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.rules-cat-btn:hover {
-  border-color: var(--color-brand-500);
+.category-pill:hover {
+  border-color: var(--color-border-hover);
   color: var(--color-text);
 }
 
-.rules-cat-btn.active {
-  background: var(--color-brand-500);
+.category-pill:focus-visible {
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
+}
+
+.category-pill.active {
+  background: var(--color-brand-50);
   border-color: var(--color-brand-500);
+  color: var(--color-brand-500);
+}
+
+.pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--color-brand-500);
   color: white;
-}
-
-.rules-cat-count {
   font-size: 10px;
-  opacity: 0.8;
+  font-weight: 600;
 }
 
-.rules-grid {
+/* Rules List */
+.rules-list {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
   max-width: 800px;
 }
 
-.rules-card {
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.rules-card-head {
+.rules-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-panel-2);
 }
 
-.rules-card-head h3 {
-  margin: 0;
-  font-size: 14px;
+.dir-info {
+  font-size: 13px;
   font-weight: 600;
+  color: var(--color-brand-500);
 }
 
 .btn-add {
-  padding: 6px 12px;
+  padding: 5px 12px;
   border: 1px solid var(--color-brand-500);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-brand-500);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -468,218 +484,226 @@ onMounted(() => {
   color: white;
 }
 
-.rules-card-body {
-  padding: 8px;
-}
-
-.rules-empty {
-  padding: 32px;
-  text-align: center;
-  color: var(--color-text-subtle);
-  font-size: 13px;
+.btn-add:focus-visible {
+  background: var(--color-brand-500);
+  color: white;
 }
 
 .rule-row {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-radius: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  border-left: none;
+  border-right: none;
+  border-top: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s;
+  font-family: var(--font-code);
+  font-size: 12px;
 }
 
 .rule-row:hover {
   background: var(--color-panel-2);
 }
 
-.rule-source {
-  flex: 1;
-  font-size: 13px;
-  color: var(--color-text);
-  font-family: 'JetBrains Mono', monospace;
+.rule-row:focus-visible {
+  background: var(--color-panel-2);
 }
 
-.rule-arrow {
+.rule-row:last-child {
+  border-bottom: none;
+}
+
+.src {
+  flex: 1;
+  color: var(--oracle);
+}
+
+.arr {
+  color: var(--color-brand-500);
   margin: 0 12px;
-  color: var(--color-text-subtle);
+  font-size: 12px;
 }
 
-.rule-target {
+.tgt {
   flex: 1;
-  font-size: 13px;
-  color: var(--color-text);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.rules-loading {
-  padding: 48px;
-  text-align: center;
+  text-align: right;
   color: var(--color-text-subtle);
 }
 
-.rules-status {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 13px;
+.empty-state {
+  padding: 40px;
   text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
 }
 
-.rules-status.success {
-  background: rgba(21, 145, 95, 0.1);
+.loading-state {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.status-msg {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-control);
+  font-size: 13px;
+}
+
+.status-msg.success {
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
-.rules-status.error {
-  background: rgba(214, 69, 69, 0.1);
+.status-msg.error {
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
 /* Modal */
-.rule-modal-mask {
+.modal-overlay {
   position: fixed;
   inset: 0;
+  background: var(--color-overlay);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
 }
 
-.rule-modal {
-  width: 400px;
+.modal {
+  width: 420px;
   background: var(--color-panel);
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-modal);
 }
 
-.rule-modal-head {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--color-border);
 }
 
-.rule-modal-head h4 {
+.modal-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.rule-modal-close {
-  width: 24px;
-  height: 24px;
+.modal-close {
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--color-text-subtle);
-  font-size: 18px;
+  color: var(--color-text-muted);
+  font-size: 20px;
   cursor: pointer;
 }
 
-.rule-modal-close:hover {
+.modal-close:hover {
   background: var(--color-panel-2);
-  color: var(--color-text);
 }
 
-.rule-modal-body {
-  padding: 16px;
+.modal-close:focus-visible {
+  background: var(--color-panel-2);
 }
 
-.rule-modal-field {
-  margin-bottom: 16px;
+.modal-body {
+  padding: 20px;
 }
 
-.rule-modal-field:last-child {
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group:last-child {
   margin-bottom: 0;
 }
 
-.rule-modal-field label {
+.form-group label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   font-size: 12px;
+  font-weight: 500;
   color: var(--color-text-subtle);
 }
 
-.rule-modal-field input {
+.form-group input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-panel);
+  border-radius: var(--radius-control);
+  background: var(--color-panel-2);
   color: var(--color-text);
   font-size: 13px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   box-sizing: border-box;
 }
 
-.rule-modal-field input:focus {
+.form-group input:focus {
   outline: none;
   border-color: var(--color-brand-500);
+  box-shadow: var(--shadow-focus-ring);
 }
 
-.rule-modal-hint {
-  margin-top: 8px;
-  font-size: 11px;
-  color: var(--color-text-subtle);
-}
-
-.rule-modal-foot {
+.modal-footer {
   display: flex;
-  gap: 8px;
   justify-content: flex-end;
-  padding: 16px;
+  gap: 8px;
+  padding: 16px 20px;
   border-top: 1px solid var(--color-border);
+  background: var(--color-panel-2);
 }
 
-.btn-modal {
+/* Buttons */
+.btn {
   padding: 8px 16px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-panel);
+  border-radius: var(--radius-control);
+  background: transparent;
   color: var(--color-text);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
-.btn-modal.primary {
-  background: var(--color-brand-500);
-  border-color: var(--color-brand-500);
+.btn:hover:not(:disabled) {
+  background: var(--color-panel-2);
+}
+
+.btn.primary {
+  border: none;
+  background: var(--gradient-brand-primary);
   color: white;
+  box-shadow: var(--shadow-brand-primary);
 }
 
-.btn-modal.primary:hover {
-  background: var(--color-brand-600);
+.btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-brand-primary-hover);
 }
 
-@media (max-width: 768px) {
-  .rules-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
+.btn:focus-visible {
+  background: var(--color-panel-2);
+}
 
-  .rules-actions {
-    width: 100%;
-  }
+.btn.primary:focus-visible {
+  background: var(--gradient-brand-primary);
+}
 
-  .btn-rule {
-    flex: 1;
-  }
-
-  .rules-categories {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 8px;
-  }
-
-  .rules-cat-btn {
-    flex-shrink: 0;
-  }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

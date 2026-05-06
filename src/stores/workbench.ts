@@ -4,10 +4,11 @@ import { defineStore } from 'pinia'
 import { requestConvert } from '@/api/convert'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
-export type WorkbenchPage = 'ddl' | 'func' | 'proc' | 'idTool' | 'ziweiTool' | 'rules' | 'bodyRules'
+export type WorkbenchPage = 'ddl' | 'func' | 'proc' | 'idTool' | 'ziweiTool' | 'rules' | 'aiConfig'
 export type Database = 'oracle' | 'mysql' | 'postgresql'
+export type TranslateStatus = 'idle' | 'loading' | 'success' | 'error'
 
-const NAV_PAGES: WorkbenchPage[] = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'bodyRules']
+const NAV_PAGES: WorkbenchPage[] = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'aiConfig']
 
 const DB_OPTIONS: { value: Database; label: string; abbr: string }[] = [
   { value: 'oracle', label: 'Oracle', abbr: 'ORA' },
@@ -27,8 +28,8 @@ const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = 
   proc: { title: '存储过程翻译', subtitle: 'CREATE PROCEDURE 互转' },
   idTool: { title: '证件工具', subtitle: '身份证 / 统一社会信用代码' },
   ziweiTool: { title: '紫微斗数', subtitle: '命盘排盘与 AI 分析' },
-  rules: { title: 'DDL 映射规则', subtitle: '自定义类型/语法映射' },
-  bodyRules: { title: '程序块映射规则', subtitle: '自定义函数/过程内部映射' }
+  rules: { title: '映射规则', subtitle: '自定义类型/语法/函数映射' },
+  aiConfig: { title: 'AI 助手配置', subtitle: '管理 AI 供应商与密钥' }
 }
 
 export const useWorkbenchStore = defineStore('workbench', () => {
@@ -61,6 +62,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const funcInput = ref('')
   const funcOutput = ref('')
   const funcConverting = ref(false)
+  const funcStatus = ref<TranslateStatus>('idle')
 
   // === Procedure State ===
   const procSourceDb = ref<Database>('oracle')
@@ -68,6 +70,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const procInput = ref('')
   const procOutput = ref('')
   const procConverting = ref(false)
+  const procStatus = ref<TranslateStatus>('idle')
 
   // === Modal State ===
   const alertModal = ref({ visible: false, title: '', message: '' })
@@ -83,6 +86,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   const sourceLabel = computed(() => DB_OPTIONS.find(d => d.value === sourceDb.value)?.label ?? '')
   const targetLabel = computed(() => DB_OPTIONS.find(d => d.value === targetDb.value)?.label ?? '')
+  const sourceAbbr = computed(() => DB_ABBR[sourceDb.value] ?? '')
+  const targetAbbr = computed(() => DB_ABBR[targetDb.value] ?? '')
 
   const funcSourceLabel = computed(() => DB_OPTIONS.find(d => d.value === funcSourceDb.value)?.label ?? '')
   const funcTargetLabel = computed(() => DB_OPTIONS.find(d => d.value === funcTargetDb.value)?.label ?? '')
@@ -147,6 +152,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         return
       }
       funcConverting.value = true
+      funcStatus.value = 'loading'
       try {
         const result = await requestConvert({
           sourceDialect: funcSourceDb.value,
@@ -156,12 +162,15 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         })
         if (result.ok) {
           funcOutput.value = result.outputSql || ''
+          funcStatus.value = 'success'
         } else {
           funcOutput.value = ''
+          funcStatus.value = 'error'
           showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
         }
       } catch (error) {
         funcOutput.value = ''
+        funcStatus.value = 'error'
         showAlert('翻译失败', mapErrorCodeToMessage(String(error)))
       } finally {
         funcConverting.value = false
@@ -172,6 +181,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         return
       }
       procConverting.value = true
+      procStatus.value = 'loading'
       try {
         const result = await requestConvert({
           sourceDialect: procSourceDb.value,
@@ -181,12 +191,15 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         })
         if (result.ok) {
           procOutput.value = result.outputSql || ''
+          procStatus.value = 'success'
         } else {
           procOutput.value = ''
+          procStatus.value = 'error'
           showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
         }
       } catch (error) {
         procOutput.value = ''
+        procStatus.value = 'error'
         showAlert('翻译失败', mapErrorCodeToMessage(String(error)))
       } finally {
         procConverting.value = false
@@ -301,8 +314,10 @@ END add_user;`
       ddlStatusText.value = '已加载示例'
     } else if (activePage.value === 'func') {
       funcInput.value = SAMPLE_FUNCTION
+      funcStatus.value = 'idle'
     } else if (activePage.value === 'proc') {
       procInput.value = SAMPLE_PROCEDURE
+      procStatus.value = 'idle'
     }
   }
 
@@ -314,9 +329,11 @@ END add_user;`
     } else if (activePage.value === 'func') {
       funcInput.value = ''
       funcOutput.value = ''
+      funcStatus.value = 'idle'
     } else if (activePage.value === 'proc') {
       procInput.value = ''
       procOutput.value = ''
+      procStatus.value = 'idle'
     }
   }
 
@@ -329,8 +346,13 @@ END add_user;`
 
   function setCurrentInput(value: string): void {
     if (activePage.value === 'ddl') inputDdl.value = value
-    else if (activePage.value === 'func') funcInput.value = value
-    else if (activePage.value === 'proc') procInput.value = value
+    else if (activePage.value === 'func') {
+      funcInput.value = value
+      funcStatus.value = 'idle'
+    } else if (activePage.value === 'proc') {
+      procInput.value = value
+      procStatus.value = 'idle'
+    }
   }
 
   function toggleSidebarCollapse(): void {
@@ -368,6 +390,7 @@ END add_user;`
     funcInput,
     funcOutput,
     funcConverting,
+    funcStatus,
 
     // Procedure
     procSourceDb,
@@ -375,6 +398,7 @@ END add_user;`
     procInput,
     procOutput,
     procConverting,
+    procStatus,
 
     // Modal
     alertModal,
@@ -387,6 +411,8 @@ END add_user;`
     currentPageSubtitle,
     sourceLabel,
     targetLabel,
+    sourceAbbr,
+    targetAbbr,
     funcSourceLabel,
     funcTargetLabel,
     procSourceLabel,

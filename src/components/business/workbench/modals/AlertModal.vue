@@ -1,8 +1,23 @@
 <!-- [2026-05-03] 新增：提示弹窗 -->
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useWorkbenchStore } from '@/stores/workbench'
 
 const store = useWorkbenchStore()
+
+function handleEscape(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  if (!store.alertModal.visible) return
+  store.hideAlert()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleEscape)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape)
+})
 </script>
 
 <template>
@@ -83,6 +98,10 @@ const store = useWorkbenchStore()
   background: var(--color-panel-2);
 }
 
+.modal-close:focus-visible {
+  background: var(--color-panel-2);
+}
+
 .modal-body {
   padding: 20px;
 }
@@ -118,13 +137,22 @@ const store = useWorkbenchStore()
   background: var(--color-panel-2);
 }
 
+.btn-modal:focus-visible {
+  background: var(--color-panel-2);
+}
+
 .btn-modal.primary {
-  border-color: var(--color-brand-500);
-  background: var(--color-brand-500);
+  border: none;
+  background: var(--gradient-brand-primary);
+  box-shadow: var(--shadow-brand-primary);
   color: white;
 }
 
 .btn-modal.primary:hover {
-  background: var(--color-brand-600);
+  box-shadow: var(--shadow-brand-primary-hover);
+}
+
+.btn-modal.primary:focus-visible {
+  background: var(--gradient-brand-primary);
 }
 </style>

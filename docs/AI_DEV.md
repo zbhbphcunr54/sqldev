@@ -24,8 +24,12 @@
 - TypeScript（strict 模式）
 - Vue Router 4
 - Pinia
-- fetch（统一封装于 `src/api/http.ts` 或 `src/lib/edge.ts`，禁止散写）
-- TailwindCSS + Design Token。新 Vue SFC UI 优先使用 Tailwind/token；全局样式、token 文件除外
+- fetch（统一封装于 `src/api/http.ts`，禁止散写）
+- TailwindCSS + Design Token 混合使用：
+  - **Vue 模板 (`<template>`)**：优先使用 Tailwind 语义类（如 `bg-panel`, `text-brand-500`）
+  - **组件样式 (`<style scoped>` 或 CSS 文件)**：优先使用 CSS 变量（如 `var(--color-border)`）
+  - **全局样式 (`main.css` 的 @layer components)**：使用 Tailwind @apply + CSS 变量混写
+  - **token 文件 (`tokens.css`)**：仅定义 CSS 变量，不使用 Tailwind
 - ESLint + Prettier
 
 ### Supabase / 后端
@@ -42,16 +46,14 @@
 
 ## 2. AI 输出与执行规则（必须执行）
 
-1. 默认使用 `<script setup lang="ts">`。
-2. 禁止使用 Vue 2 Options API（`data` / `methods` / `created`）。
-3. 禁止引入 Vuex（状态管理统一 Pinia）。
-4. 新代码禁止使用裸 `any`。如确需使用，必须添加 `// eslint-disable-next-line @typescript-eslint/no-explicit-any` 并注释原因。
-5. 涉及 Supabase 的功能，必须区分：
+1. 默认使用 `<script setup lang="ts">`，Composition API only。
+2. 涉及 Supabase 的功能，必须区分：
    - 前端可做：用户态查询（受 RLS 限制）
    - 服务端做：管理员权限、敏感写操作、第三方密钥、AI 请求（Edge Function）
-6. 实际执行型任务优先直接改代码并验证；总结时说明变更文件、验证结果、是否需要部署。
-7. 方案型/说明型任务需要包含：实现方案、变更文件、关键代码或完整代码、Supabase 变更、验证步骤、风险。
-8. 前端响应式状态优先使用 `ref`，复杂对象再使用 `reactive`，禁止随意解构导致响应式丢失。
+3. 实际执行型任务优先直接改代码并验证；总结时说明变更文件、验证结果、是否需要部署。
+4. 方案型/说明型任务需要包含：实现方案、变更文件、关键代码或完整代码、Supabase 变更、验证步骤、风险。
+5. 前端响应式状态优先使用 `ref`，复杂对象再使用 `reactive`，禁止随意解构导致响应式丢失。
+6. 其他代码禁止项详见 [§20 禁止项清单](#20-禁止项清单高优先级)。
 
 ---
 
@@ -271,6 +273,13 @@ supabase gen types typescript --local > src/types/database.types.ts
 - 每次 migration 变更后必须重新生成类型并运行 `pnpm typecheck`。
 - 禁止手动修改 `database.types.ts`。
 
+### 7.2 Migration 命名与管理
+
+- 命名格式：`YYYYMMDDHHMMSS_descriptive_name.sql`（由 Supabase CLI 自动生成，禁止手动重命名）。
+- DDL（结构变更）与 DML（数据迁移）应分文件，不要混在同一个 migration 中。
+- 涉及列删除、类型变更等破坏性操作，必须在 migration 中先备份数据或提供回滚说明。
+- 禁止修改已提交的 migration 文件；需要修正时创建新的 migration。
+
 ---
 
 ## 8. 前端数据访问规范
@@ -335,10 +344,30 @@ supabase gen types typescript --local > src/types/database.types.ts
 标准 Result 类型建议：
 
 ```ts
-export type Result<T, E = string> =
+export type Result<T, E = AppError> =
   | { ok: true; data: T }
-  | { ok: false; error: E; code?: string }
+  | { ok: false; error: E }
+
+export interface AppError {
+  code: string
+  message: string
+  cause?: unknown
+}
 ```
+
+错误码分类（`snake_case`）：
+
+| 前缀 | 含义 | 示例 |
+|------|------|------|
+| `auth_*` | 认证/授权 | `auth_token_expired`, `auth_unauthorized` |
+| `rate_*` | 限流/配额 | `rate_limited`, `rate_quota_exceeded` |
+| `convert_*` | SQL 转换 | `convert_parse_failed`, `convert_unsupported_syntax` |
+| `ai_*` | AI 服务 | `ai_provider_error`, `ai_timeout`, `ai_blocked` |
+| `validation_*` | 输入校验 | `validation_invalid_input`, `validation_too_large` |
+| `network_*` | 网络/请求 | `network_timeout`, `network_offline` |
+| `internal_*` | 内部错误 | `internal_unknown` |
+
+> **语义说明**：`code` 字段仅用于程序化错误处理（判断类型、流程分支），**禁止**直接展示给用户。面向用户的错误文案统一使用 `message` 字段，并通过 `error-map.ts` 映射为最终 UI 文案。
 
 ### 11.2 用户侧错误文案
 
@@ -392,20 +421,10 @@ export type Result<T, E = string> =
 - Vue 组件 `<script>` 部分不超过 150 行；超过必须抽取 composable 或无状态子组件。
 - 复杂正则表达式必须提取为命名常量并添加注释说明意图。
 - 可复用逻辑放 `composables` 或 `features`，可复用类型放 `types`。
-- **修改已有代码时必须添加变更注释**：
-  - 在修改处上方添加 `// [YYYY-MM-DD] 变更原因：具体说明` 格式的注释。
-  - 大段重构可在文件头部用块注释说明变更摘要。
-  - 示例：
-
-```ts
-// [2026-04-29] 新增：支持 Gemini 协议的 AI 请求转发
-async function callGeminiAPI(config, messages) { ... }
-
-// [2026-04-29] 修改：超时时间从 15s 调整为 30s，匹配大模型响应特性
-const TIMEOUT_MS = 30_000
-```
-
-  - 重构场景下，调用新 typed 函数的位置应标注迁移批次或日期。
+- **变更注释原则**：日常修改依赖 Git commit message 记录变更原因；仅在以下场景添加代码注释：
+  - 非直觉的技术决策（如超时值选择、算法取舍）。
+  - 大规模重构的迁移批次标记。
+  - 临时 workaround 并标注后续清理计划。
 - 提交前至少通过：
   - `pnpm typecheck`
   - `pnpm lint`
@@ -516,7 +535,7 @@ CodeMirror 6 使用 `EditorView.theme()` 自定义样式：
 
 - 浅色主题：`lightTheme`
 - 深色主题：`darkTheme`
-- 主题通过 `MutationObserver` 监听 `data-theme` 变化自动切换
+- 主题通过 `prefers-color-scheme` 媒体查询自动跟随系统，同时支持手动覆盖
 
 ---
 
@@ -579,7 +598,7 @@ ddlRules, bodyRules
 
 ---
 
-## 17. Vite 与 TypeScript 规范
+## 18. Vite 与 TypeScript 规范
 
 - 环境变量必须通过 `import.meta.env.VITE_*` 访问。
 - `src/env.d.ts` 负责扩展 `ImportMetaEnv`（新增变量时同步更新）。
@@ -592,7 +611,7 @@ ddlRules, bodyRules
 
 ---
 
-## 18. 命名约定
+## 19. 命名约定
 
 | 类型 | 规则 | 示例 |
 |------|------|------|
@@ -609,7 +628,7 @@ ddlRules, bodyRules
 
 ---
 
-## 19. 禁止项清单（高优先级）
+## 20. 禁止项清单（高优先级）
 
 ### 代码层
 
@@ -651,11 +670,11 @@ ddlRules, bodyRules
 
 ---
 
-## 18. UI/UX 视觉与交互规范
+## 21. UI/UX 视觉与交互规范
 
 > 目标：对齐 2026 年主流 SaaS / AI 产品：简洁、通透、层次清晰、动效克制、信息密度合理。
 
-### 20.1 设计关键词
+### 21.1 设计关键词
 
 - 简洁（Simple）
 - 通透（Clean / Airy）
@@ -665,16 +684,16 @@ ddlRules, bodyRules
 - 微动效（Subtle motion）
 - 强可读性（Readable first）
 
-### 20.2 视觉语言基线
+### 21.2 视觉语言基线
 
 - 使用「中性色 + 单一品牌色 + 功能色」体系。
 - 避免大面积高饱和颜色。
 - 支持浅色/深色双主题，跟随系统模式必须监听 `prefers-color-scheme` 变化。
-- 圆角统一：卡片 `12-16px`，按钮 `10-12px`，输入框 `10px`。
+- 圆角统一：卡片 `14px`，按钮/控件 `10px`（对应 `--radius-card: 14px`, `--radius-control: 10px`）。
 - 采用 8pt 栅格系统（4/8/12/16/24/32/48）。
 - 正文优先 `14px/16px`，行高 `1.5~1.7`。
 
-### 20.3 组件风格要求
+### 21.3 组件风格要求
 
 - Button 必须提供 `hover / active / disabled / loading / focus-visible` 状态。
 - Card 固定为 `标题区 + 内容区 + 操作区（可选）`。
@@ -682,7 +701,7 @@ ddlRules, bodyRules
 - Table/List 必须有 loading / empty / error 状态。
 - Modal/Drawer 必须支持 ESC 关闭、焦点回收（危险操作除外）。
 
-### 20.4 交互体验
+### 21.4 交互体验
 
 - 动效时长建议 `150ms ~ 280ms`，缓动使用 `ease-out`。
 - 所有用户操作必须有反馈。
@@ -690,26 +709,30 @@ ddlRules, bodyRules
 - 点击热区不小于 `40x40px`。
 - 键盘可达，焦点样式可见。
 
-### 20.5 可访问性
+### 21.5 可访问性
 
-- 文本与背景对比度满足 WCAG AA。
+- 文本与背景对比度满足 WCAG AA（普通文本 ≥ 4.5:1，大文本 ≥ 3:1）。
 - 所有 icon button 必须有 `aria-label`。
-- 表单元素必须绑定 label。
-- 不仅靠颜色传达状态。
+- 表单元素必须绑定 `<label>`，关联 `for` / `id`。
+- 不仅靠颜色传达状态，必须辅以图标、文字或 `aria-live` 提示。
+- 动态内容变化使用 `aria-live="polite"` 区域通知屏幕阅读器。
+- Modal 打开时焦点必须移入，关闭时焦点必须回收到触发元素。
+- 尊重 `prefers-reduced-motion`：当用户开启减弱动态效果时，禁用或简化过渡动画。
+- Tab 顺序必须符合视觉流，禁止正 `tabindex` 值。
 
 ---
 
-## 19. Design Token 执行规则
+## 22. Design Token 执行规则
 
 1. 新增样式优先使用 `src/styles/tokens.css` 中的 token。
-2. 组件模板优先 Tailwind 语义类；CSS 文件优先 `var(--token)`。
+2. Vue 模板（`<template>`）优先使用 Tailwind 语义类（`bg-panel`, `text-brand-500`, `rounded-control`）；组件样式（`<style>`）优先使用 CSS 变量（`var(--color-border)`）。
 3. 禁止随意新增颜色、圆角、阴影、间距值。
 4. 新组件必须兼容 light/dark。
 5. 所有可交互元素必须有 focus-visible 态。
 6. 页面必须覆盖 loading / empty / error / success 四态。
 7. 高端感优先通过留白、层次、字重、弱边框、克制动效实现。
 
-### 21.1 Canvas / 海报生成例外
+### 22.1 Canvas / 海报生成例外
 
 - Canvas 无法直接可靠使用 CSS 变量时，必须把颜色提取为文件顶部命名常量。
 - 深浅主题必须有对应常量集。
@@ -717,7 +740,7 @@ ddlRules, bodyRules
 
 ---
 
-## 20. 安全检查清单
+## 23. 安全检查清单
 
 涉及接口、认证、AI、上传、数据库变更时必须检查：
 
@@ -733,7 +756,7 @@ ddlRules, bodyRules
 
 ---
 
-## 21. 任务验收标准
+## 24. 任务验收标准
 
 每次任务完成前必须确认：
 
@@ -748,9 +771,8 @@ ddlRules, bodyRules
 
 ---
 
-## 22. CSP 与安全运维
+## 25. CSP 与安全运维
 
-- `legacy.html` 已于 2026-05-04 删除。
 - SQL 编辑器使用 CodeMirror 6，无需 `unsafe-eval`。
 - 新增 Vue 页面禁止引入需要 `unsafe-eval` 的依赖。
 - CSP 策略变更必须经过安全评审。
@@ -758,24 +780,92 @@ ddlRules, bodyRules
 
 ---
 
-## 23. 工具链强制执行清单
+## 26. 工具链强制执行清单
 
-| 规范条目 | 当前执行方式 | 配置位置 |
-|---------|-------------|---------|
-| 禁止裸 `any` | ESLint TypeScript 规则 | `eslint.config.mjs` |
-| TypeScript 严格模式 | `vue-tsc --noEmit` | `tsconfig*.json` |
-| 代码格式 | Prettier / ESLint | `prettier.config.cjs` / `eslint.config.mjs` |
-| UTF-8 编码 | `pnpm check:utf8` | `scripts/check-utf8.mjs` |
-| 完整验证 | `pnpm verify` | `package.json` |
-| 函数 ≤80 行 | 文档约束，待配置 ESLint | 待配置 |
-| Commit message 格式 | 文档约束，建议引入 commitlint | 待配置 |
-| CSS 禁止硬编码颜色 | 文档约束，建议引入 Stylelint | 待配置 |
+| 规范条目 | 当前执行方式 | 配置位置 | 优先级 |
+|---------|-------------|---------|--------|
+| 禁止裸 `any` | ESLint TypeScript 规则 | `eslint.config.mjs` | ✅ 已启用 |
+| TypeScript 严格模式 | `vue-tsc --noEmit` | `tsconfig*.json` | ✅ 已启用 |
+| 代码格式 | Prettier / ESLint | `prettier.config.cjs` / `eslint.config.mjs` | ✅ 已启用 |
+| UTF-8 编码 | `pnpm check:utf8` | `scripts/check-utf8.mjs` | ✅ 已启用 |
+| 完整验证 | `pnpm verify` | `package.json` | ✅ 已启用 |
+| 函数 ≤80 行 | 文档约束，待配置 ESLint `max-lines-per-function` | `eslint.config.mjs` | P1 - 下个迭代 |
+| Commit message 格式 | 文档约束，待引入 commitlint + husky | `commitlint.config.js` | P2 - 择机引入 |
+| CSS 禁止硬编码颜色 | 文档约束，待引入 Stylelint | `.stylelintrc.json` | P2 - 择机引入 |
 
-> 待配置项是后续工程治理目标，当前不得误写为已自动执行。
+> P1 = 下个迭代必须落地；P2 = 工程治理阶段择机引入。当前不得误写为已自动执行。
+
+## 27. CI/CD 流程规范
+
+### 27.1 本地开发验证
+
+每次提交前必须运行完整验证：
+
+```bash
+pnpm typecheck    # TypeScript 类型检查
+pnpm lint         # ESLint 代码风格检查
+pnpm check:utf8   # UTF-8 编码校验
+pnpm test         # 单元测试
+pnpm build        # 构建验证
+```
+
+或使用一键验证：
+
+```bash
+pnpm verify
+```
+
+### 27.2 Git Hooks（待引入）
+
+- **pre-commit**：格式化代码、检查 lint（需引入 husky + lint-staged）
+- **commit-msg**：验证 commit message 格式（需引入 commitlint）
+- **pre-push**：运行测试套件（需引入 husky）
+
+### 27.3 CI 门禁（GitHub Actions / GitLab CI）
+
+CI 流水线应包含以下阶段：
+
+1. **Install & Cache**：安装依赖，利用缓存加速
+2. **Lint**：ESLint + Prettier 检查
+3. **Type Check**：TypeScript 类型检查
+4. **Test**：单元测试与集成测试
+5. **Build**：生产构建验证
+6. **Smoke Test**（可选）：关键路径冒烟测试
+
+```yaml
+# .github/workflows/ci.yml 示例结构
+name: CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+```
+
+### 27.4 CD 部署（Edge Functions）
+
+Supabase Edge Functions 部署：
+
+```bash
+# 部署单个函数
+supabase functions deploy <function-name>
+
+# 部署所有函数
+supabase functions deploy
+
+# 部署并设置 secrets
+supabase secrets set KEY=value --project-ref <project-ref>
+```
+
+> **注意**：前端部署使用 Vercel / Netlify / GitHub Pages；Edge Functions 通过 Supabase CLI 管理。
 
 ---
 
-## 24. 版本演进原则
+## 28. 版本演进原则
 
 - 优先兼容当前项目已安装依赖版本。
 - 不随意引入新库，先复用现有栈。

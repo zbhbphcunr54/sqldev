@@ -1,3 +1,4 @@
+<!-- [2026-05-04] 更新：应用配置页面，匹配设计预览 -->
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
@@ -40,6 +41,11 @@ const configsByCategory = computed(() => {
   }
   return grouped
 })
+
+function getCategoryCount(cat: string): number {
+  if (cat === 'all') return configs.value.length
+  return configs.value.filter(c => c.category === cat).length
+}
 
 async function loadConfigs() {
   loading.value = true
@@ -108,71 +114,56 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <div class="bg-white border-b px-6 py-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">应用配置</h1>
-          <p class="text-sm text-gray-500 mt-1">管理 SQLDev 应用的运行时配置</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button
-            v-if="isAdmin"
-            class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-            @click="handleClearCache"
-          >
-            清除缓存
-          </button>
-          <button
-            v-if="isAdmin"
-            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            @click="handleCreate"
-          >
-            新增配置
-          </button>
-        </div>
+  <div class="appconfig-page">
+    <!-- Page Header -->
+    <header class="page-header">
+      <div class="page-header-left">
+        <h1 class="page-title">应用配置</h1>
+        <p class="page-subtitle">系统参数设置</p>
       </div>
+      <div class="page-header-right">
+        <button v-if="isAdmin" class="btn" @click="handleClearCache">清除缓存</button>
+        <button v-if="isAdmin" class="btn primary" @click="handleCreate">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 14 14">
+            <path d="M7 2v10M2 7h10"/>
+          </svg>
+          新增配置
+        </button>
+      </div>
+    </header>
+
+    <!-- Category Tabs -->
+    <div class="tabs">
+      <button
+        v-for="cat in categories"
+        :key="cat"
+        class="tab"
+        :class="{ active: selectedCategory === cat }"
+        @click="selectedCategory = cat"
+      >
+        {{ cat === 'all' ? '全部' : (CATEGORY_LABELS[cat] || cat) }}
+        <span class="tab-count">{{ getCategoryCount(cat) }}</span>
+      </button>
     </div>
 
     <!-- Content -->
-    <div class="p-6">
-      <!-- Category Tabs -->
-      <div class="flex gap-2 mb-6 flex-wrap">
-        <button
-          v-for="cat in categories"
-          :key="cat"
-          :class="[
-            'px-4 py-2 text-sm rounded-lg transition-colors',
-            selectedCategory === cat
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border'
-          ]"
-          @click="selectedCategory = cat"
-        >
-          {{ cat === 'all' ? '全部' : (CATEGORY_LABELS[cat] || cat) }}
-        </button>
-      </div>
-
+    <div class="page-content">
       <!-- Error -->
-      <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-        {{ error }}
-        <button class="ml-4 underline" @click="error = ''">关闭</button>
+      <div v-if="error" class="error-banner">
+        <span>{{ error }}</span>
+        <button class="error-close" @click="error = ''">关闭</button>
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="text-center py-12">
-        <div class="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
-        <p class="mt-2 text-gray-600">加载中...</p>
+      <div v-if="loading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <span>加载中...</span>
       </div>
 
       <!-- Config List by Category -->
-      <div v-else-if="selectedCategory === 'all'" class="space-y-6">
-        <div v-for="(catConfigs, category) in configsByCategory" :key="category">
-          <h2 class="text-lg font-medium text-gray-900 mb-3">
-            {{ CATEGORY_LABELS[category as string] || category }}
-            <span class="text-gray-400 text-sm font-normal">({{ catConfigs.length }})</span>
-          </h2>
+      <template v-else-if="selectedCategory === 'all'">
+        <div v-for="(catConfigs, category) in configsByCategory" :key="category" class="config-section">
+          <h2 class="section-title">{{ CATEGORY_LABELS[category as string] || category }}</h2>
           <ConfigList
             :configs="catConfigs"
             :is-admin="isAdmin"
@@ -180,7 +171,7 @@ onMounted(() => {
             @delete="handleDelete"
           />
         </div>
-      </div>
+      </template>
 
       <!-- Config List Single Category -->
       <ConfigList
@@ -192,9 +183,13 @@ onMounted(() => {
       />
 
       <!-- Empty -->
-      <div v-if="!loading && configs.length === 0" class="text-center py-12 text-gray-500">
-        <p class="text-lg">暂无配置</p>
-        <p class="text-sm mt-1">点击"新增配置"添加第一个配置项</p>
+      <div v-if="!loading && configs.length === 0" class="empty-state">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <p class="empty-title">暂无配置</p>
+        <p class="empty-desc">点击"新增配置"添加第一个配置项</p>
       </div>
     </div>
 
@@ -208,3 +203,221 @@ onMounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.appconfig-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 12px;
+  color: var(--color-brand-500);
+  margin: 0;
+}
+
+.page-header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 20px;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-subtle);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-panel-2);
+}
+
+.tab.active {
+  background: var(--color-brand-50);
+  border: 1px solid var(--color-brand-500);
+  color: var(--color-brand-500);
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--color-panel-2);
+  color: var(--color-text-subtle);
+}
+
+.tab.active .tab-count {
+  background: var(--color-brand-500);
+  color: white;
+}
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(214, 69, 69, 0.1);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-control);
+  margin-bottom: 16px;
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-text-subtle);
+  font-size: 13px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-brand-500);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.config-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 12px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--color-text-subtle);
+}
+
+.empty-state svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.empty-desc {
+  font-size: 12px;
+  margin: 0;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: var(--color-panel-2);
+}
+
+.btn.primary {
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+}
+
+.btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.3);
+}
+</style>
