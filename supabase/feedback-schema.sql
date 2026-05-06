@@ -20,6 +20,18 @@ create table if not exists public.feedback_entries (
   client_ip text
 );
 
+COMMENT ON TABLE public.feedback_entries IS '用户反馈表，支持匿名提交，仅服务端可读写';
+COMMENT ON COLUMN public.feedback_entries.category IS '反馈类型：feature（功能建议）/ ux（体验优化）/ performance（性能问题）/ bug（缺陷报告）/ other（其他）';
+COMMENT ON COLUMN public.feedback_entries.content IS '反馈内容，6-1200 字符';
+COMMENT ON COLUMN public.feedback_entries.contact IS '用户联系方式（邮箱或手机），可选，用于后续联系';
+COMMENT ON COLUMN public.feedback_entries.source IS '来源渠道，如 web/android/ios';
+COMMENT ON COLUMN public.feedback_entries.scene IS '使用场景描述';
+COMMENT ON COLUMN public.feedback_entries.page IS '提交反馈时所在的页面路径';
+COMMENT ON COLUMN public.feedback_entries.theme IS '用户当前主题设置：light/dark/auto';
+COMMENT ON COLUMN public.feedback_entries.user_agent IS '浏览器 User-Agent 字符串';
+COMMENT ON COLUMN public.feedback_entries.user_id IS '关联 auth.users.id，未登录用户为空';
+COMMENT ON COLUMN public.feedback_entries.client_ip IS '客户端 IP 地址，用于统计分析';
+
 create index if not exists idx_feedback_entries_created_at on public.feedback_entries (created_at desc);
 create index if not exists idx_feedback_entries_user_id on public.feedback_entries (user_id);
 

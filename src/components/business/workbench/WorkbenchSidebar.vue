@@ -66,8 +66,8 @@ const menuGroups = computed<MenuGroup[]>(() => [
     items: [
       { key: 'rules', label: '映射规则', icon: 'document-text', page: 'rules' },
       { key: 'aiConfig', label: 'AI 助手配置', icon: 'sparkles', page: 'aiConfig' },
-      { key: 'app-config', label: '应用配置', icon: 'cog', route: '/app-config' },
-      { key: 'op-logs', label: '操作日志', icon: 'clock-history', route: '/operation-logs' }
+      { key: 'appConfig', label: '应用配置', icon: 'cog', page: 'appConfig' },
+      { key: 'opLogs', label: '操作日志', icon: 'clock-history', page: 'opLogs' }
     ]
   }
 ])
@@ -86,6 +86,8 @@ const activeKey = computed(() => {
     if (section === 'ziwei') return 'ziweiTool'
     if (section === 'rules') return 'rules'
     if (section === 'ai-config') return 'aiConfig'
+    if (section === 'app-config') return 'appConfig'
+    if (section === 'op-logs') return 'opLogs'
     return section
   }
   // 独立路由页面
@@ -139,7 +141,9 @@ function handleItemClick(item: MenuItem): void {
       idTool: '/workbench/id-tool',
       ziweiTool: '/workbench/ziwei',
       rules: '/workbench/rules',
-      aiConfig: '/workbench/ai-config'
+      aiConfig: '/workbench/ai-config',
+      appConfig: '/workbench/app-config',
+      opLogs: '/workbench/op-logs'
     }
     const path = sectionMap[item.page]
     if (path && route.path !== path) {

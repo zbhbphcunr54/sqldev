@@ -16,6 +16,19 @@ CREATE TABLE public.ai_configs (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+COMMENT ON TABLE public.ai_configs IS '全局 AI 配置表，存储各供应商的 API Key（加密），管理员可配置多套';
+COMMENT ON COLUMN public.ai_configs.created_by IS '配置创建者用户 ID';
+COMMENT ON COLUMN public.ai_configs.provider_id IS '关联 ai_providers.id，指定使用哪个供应商';
+COMMENT ON COLUMN public.ai_configs.name IS '配置名称，如「我的 OpenAI」用于管理员识别';
+COMMENT ON COLUMN public.ai_configs.base_url IS 'API 地址，覆盖供应商默认值';
+COMMENT ON COLUMN public.ai_configs.model IS '使用的模型名称，如 gpt-4o / claude-3-5-sonnet';
+COMMENT ON COLUMN public.ai_configs.api_key_enc IS 'API Key（AES-256-GCM 加密存储）';
+COMMENT ON COLUMN public.ai_configs.timeout_ms IS '请求超时时间（毫秒），默认 30000';
+COMMENT ON COLUMN public.ai_configs.is_active IS '是否激活，全站同一时间只能有一条为 true';
+COMMENT ON COLUMN public.ai_configs.last_test_ok IS '最近一次连通性测试是否成功';
+COMMENT ON COLUMN public.ai_configs.last_test_ms IS '最近一次测试耗时（毫秒）';
+COMMENT ON COLUMN public.ai_configs.last_test_at IS '最近一次测试时间';
+
 ALTER TABLE public.ai_configs ENABLE ROW LEVEL SECURITY;
 
 -- 仅管理员可访问原始配置表

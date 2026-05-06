@@ -10,6 +10,8 @@ import IdToolPage from './pages/IdToolPage.vue'
 import ZiweiPage from './pages/ZiweiPage.vue'
 import RulesPage from './pages/RulesPage.vue'
 import AiConfigPage from '@/components/business/ai/AiConfigPage.vue'
+import AppConfigPage from '@/components/business/app-config/AppConfigPage.vue'
+import OperationLogsPage from './pages/OperationLogsPage.vue'
 import AlertModal from './modals/AlertModal.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
 
@@ -36,6 +38,8 @@ onMounted(() => {
         <ZiweiPage v-else-if="store.activePage === 'ziweiTool'" />
         <RulesPage v-else-if="store.activePage === 'rules'" />
         <AiConfigPage v-else-if="store.activePage === 'aiConfig'" />
+        <AppConfigPage v-else-if="store.activePage === 'appConfig'" />
+        <OperationLogsPage v-else-if="store.activePage === 'opLogs'" />
         <div v-else class="placeholder">选择一个功能开始</div>
       </main>
     </div>

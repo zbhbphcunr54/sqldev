@@ -482,10 +482,15 @@ Deno.serve(async (req) => {
       return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
     }
 
+    // 检查是否为管理员（通过查询 auth.users 表，service_role 可直接访问）
     const isAdmin = (await (async () => {
       const adminClient = await getAdminClient()
-      const { data: user } = await adminClient.auth.adminGetUserById(sessionState.userId)
-      return user?.app_metadata?.is_admin === true
+      const { data: user } = await adminClient
+        .from('auth.users')
+        .select('raw_app_meta_data')
+        .eq('id', sessionState.userId)
+        .single()
+      return user?.raw_app_meta_data?.is_admin === true
     })())
 
     const adminClient = await getAdminClient()

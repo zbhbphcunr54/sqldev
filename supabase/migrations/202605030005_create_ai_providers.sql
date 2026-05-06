@@ -16,6 +16,19 @@ CREATE TABLE public.ai_providers (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+COMMENT ON TABLE public.ai_providers IS 'AI 供应商定义表，存储支持的 AI 服务商（如 OpenAI/Anthropic/硅基流动等）';
+COMMENT ON COLUMN public.ai_providers.slug IS '供应商唯一标识，如 openai / anthropic / silicontflow';
+COMMENT ON COLUMN public.ai_providers.label IS '供应商展示名称，如 OpenAI / Anthropic / 硅基流动';
+COMMENT ON COLUMN public.ai_providers.region IS '服务区域：international（中国大陆以外）/ domestic（国内）';
+COMMENT ON COLUMN public.ai_providers.base_url IS 'API 基础地址，OpenAI 兼容格式';
+COMMENT ON COLUMN public.ai_providers.api_format IS 'API 格式：openai_compat（OpenAI 兼容）';
+COMMENT ON COLUMN public.ai_providers.default_model IS '默认使用模型';
+COMMENT ON COLUMN public.ai_providers.models IS '支持模型列表 JSONB，每项含 id/label/max_tokens/price 等';
+COMMENT ON COLUMN public.ai_providers.icon_url IS '供应商图标 URL';
+COMMENT ON COLUMN public.ai_providers.doc_url IS '供应商文档链接';
+COMMENT ON COLUMN public.ai_providers.is_enabled IS '是否启用，禁用后用户不可见';
+COMMENT ON COLUMN public.ai_providers.sort_order IS '展示排序，数字越小越靠前';
+
 ALTER TABLE public.ai_providers ENABLE ROW LEVEL SECURITY;
 
 -- 已登录用户可读启用供应商；仅管理员可写

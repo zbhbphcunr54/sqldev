@@ -4,11 +4,11 @@ import { defineStore } from 'pinia'
 import { requestConvert } from '@/api/convert'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
-export type WorkbenchPage = 'ddl' | 'func' | 'proc' | 'idTool' | 'ziweiTool' | 'rules' | 'aiConfig'
+export type WorkbenchPage = 'ddl' | 'func' | 'proc' | 'idTool' | 'ziweiTool' | 'rules' | 'aiConfig' | 'appConfig' | 'opLogs'
 export type Database = 'oracle' | 'mysql' | 'postgresql'
 export type TranslateStatus = 'idle' | 'loading' | 'success' | 'error'
 
-const NAV_PAGES: WorkbenchPage[] = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'aiConfig']
+const NAV_PAGES: WorkbenchPage[] = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'aiConfig', 'appConfig', 'opLogs']
 
 const DB_OPTIONS: { value: Database; label: string; abbr: string }[] = [
   { value: 'oracle', label: 'Oracle', abbr: 'ORA' },
@@ -29,7 +29,9 @@ const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = 
   idTool: { title: '证件工具', subtitle: '身份证 / 统一社会信用代码' },
   ziweiTool: { title: '紫微斗数', subtitle: '命盘排盘与 AI 分析' },
   rules: { title: '映射规则', subtitle: '自定义类型/语法/函数映射' },
-  aiConfig: { title: 'AI 助手配置', subtitle: '管理 AI 供应商与密钥' }
+  aiConfig: { title: 'AI 助手配置', subtitle: '管理 AI 供应商与密钥' },
+  appConfig: { title: '应用配置', subtitle: '全局配置参数管理' },
+  opLogs: { title: '操作日志', subtitle: 'API 调用记录与审计' }
 }
 
 export const useWorkbenchStore = defineStore('workbench', () => {
