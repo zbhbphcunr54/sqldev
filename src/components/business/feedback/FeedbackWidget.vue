@@ -214,7 +214,7 @@ function closeFeedback(): void {
   width: 38px;
   padding: 0;
   border: none;
-  border-radius: 0;
+  border-radius: 6px 0 0 6px;
   background: transparent;
   cursor: pointer;
   transform: translateY(-50%);
@@ -227,7 +227,7 @@ function closeFeedback(): void {
 .feedback-fab__glow {
   position: absolute;
   inset: -3px;
-  border-radius: 0;
+  border-radius: 8px 0 0 8px;
   background: linear-gradient(135deg, var(--color-brand-500), var(--color-purple));
   opacity: 0;
   filter: blur(8px);
@@ -245,7 +245,7 @@ function closeFeedback(): void {
   gap: 6px;
   width: 38px;
   padding: 12px 7px;
-  border-radius: 0;
+  border-radius: 6px 0 0 6px;
   background: linear-gradient(160deg, var(--color-brand-600), var(--color-brand-500));
   box-shadow:
     0 4px 16px rgba(0, 113, 227, 0.25),
@@ -277,9 +277,9 @@ function closeFeedback(): void {
   text-orientation: mixed;
   color: #fff;
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .feedback-fab--active .feedback-fab__inner {
