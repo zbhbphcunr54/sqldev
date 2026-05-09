@@ -205,7 +205,7 @@ function closeFeedback(): void {
 .feedback-fab {
   position: fixed;
   right: 0;
-  top: 50%;
+  top: 42%;
   z-index: 130;
   display: inline-flex;
   flex-direction: column;
