@@ -87,23 +87,24 @@ function closeFeedback(): void {
     <!-- FAB -->
     <button
       class="feedback-fab"
+      :class="{ 'feedback-fab--active': open }"
       :aria-expanded="open"
       aria-label="打开建议反馈面板"
       @click="open = !open"
     >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <rect
-          x="1.5"
-          y="2.5"
-          width="13"
-          height="11"
-          rx="1.5"
-          stroke="currentColor"
-          stroke-width="1.4"
-        />
-        <path d="M5 8h6M8 5v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-      </svg>
-      <span>反馈</span>
+      <span class="feedback-fab__glow"></span>
+      <span class="feedback-fab__inner">
+        <svg class="feedback-fab__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="feedback-fab__text">反馈</span>
+      </span>
     </button>
 
     <!-- Overlay -->
@@ -208,55 +209,89 @@ function closeFeedback(): void {
   top: 42%;
   z-index: 130;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 30px;
-  padding: 9px 5px;
+  justify-content: center;
+  width: 34px;
+  padding: 0;
   border: none;
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-  background: var(--color-panel);
-  box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
+  border-radius: 20px 0 0 20px;
+  background: transparent;
   cursor: pointer;
   transform: translateY(-50%);
-  transition:
-    box-shadow var(--duration-normal) var(--ease-apple),
-    background var(--duration-normal) var(--ease-apple);
-}
-.feedback-fab svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--color-danger);
-  transition: color var(--duration-normal) var(--ease-apple);
-}
-.feedback-fab span {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  color: var(--color-danger);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  letter-spacing: 0.15em;
-  transition: color var(--duration-normal) var(--ease-apple);
+  overflow: visible;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .feedback-fab:hover {
-  box-shadow:
-    0 4px 18px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
-  background: var(--color-panel-2);
+  transform: translateY(-50%) translateX(-3px);
 }
-body.feedback-open .feedback-fab {
+.feedback-fab__glow {
+  position: absolute;
+  inset: -3px;
+  border-radius: 22px 0 0 22px;
+  background: linear-gradient(135deg, var(--color-brand-500), var(--color-purple));
+  opacity: 0;
+  filter: blur(8px);
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.feedback-fab:hover .feedback-fab__glow {
+  opacity: 0.5;
+}
+.feedback-fab__inner {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 34px;
+  padding: 10px 6px;
+  border-radius: 20px 0 0 20px;
+  background: linear-gradient(160deg, var(--color-brand-600), var(--color-brand-500));
   box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
-  background: var(--color-panel-2);
+    0 4px 16px rgba(0, 113, 227, 0.25),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition:
+    box-shadow 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.3s ease;
+}
+.feedback-fab:hover .feedback-fab__inner {
+  box-shadow:
+    0 8px 28px rgba(0, 113, 227, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: linear-gradient(160deg, var(--color-accent-hover), var(--color-brand-500));
+}
+.feedback-fab__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #fff;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.feedback-fab:hover .feedback-fab__icon {
+  transform: scale(1.12);
+}
+.feedback-fab__text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.feedback-fab--active .feedback-fab__inner {
+  background: linear-gradient(160deg, var(--color-brand-700), var(--color-brand-600));
 }
 .feedback-fab:focus-visible {
   outline: none;
-  box-shadow: var(--shadow-focus-ring);
+}
+.feedback-fab:focus-visible .feedback-fab__inner {
+  box-shadow:
+    0 0 0 3px rgba(0, 113, 227, 0.3),
+    0 4px 16px rgba(0, 113, 227, 0.25);
 }
 
 body.feedback-open {
@@ -282,10 +317,24 @@ body.feedback-open {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-panel);
-  box-shadow: var(--shadow-xl);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   padding: 28px 28px 24px;
   max-height: 90vh;
   overflow-y: auto;
+  animation: feedback-modal-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes feedback-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .feedback-modal-head {
@@ -428,30 +477,47 @@ body.feedback-open {
   margin-top: 16px;
 }
 .feedback-btn {
-  padding: 8px 24px;
+  padding: 9px 22px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   background: var(--color-panel);
   color: var(--color-text);
   font: 600 var(--text-base) var(--font-body, sans-serif);
   cursor: pointer;
   transition:
-    background var(--duration-fast),
-    border-color var(--duration-fast);
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease;
 }
 .feedback-btn:hover {
   background: var(--color-panel-2);
+  transform: translateY(-1px);
+}
+.feedback-btn:active {
+  transform: translateY(0);
 }
 .feedback-btn.primary {
-  border-color: var(--color-text);
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500));
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.3);
   font-weight: 600;
 }
 .feedback-btn.primary:hover {
-  background: var(--color-panel-2);
+  box-shadow: 0 6px 20px rgba(0, 113, 227, 0.4);
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--color-accent-hover), var(--color-brand-500));
+}
+.feedback-btn.primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
 }
 .feedback-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }
 
 /* ── Transition ── */
@@ -482,8 +548,11 @@ body.feedback-open {
     padding: 20px 16px;
   }
   .feedback-fab {
-    width: 32px;
-    padding: 8px 4px;
+    width: 30px;
+  }
+  .feedback-fab__inner {
+    width: 30px;
+    padding: 8px 5px;
   }
 }
 </style>
