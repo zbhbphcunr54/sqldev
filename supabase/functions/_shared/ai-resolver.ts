@@ -1,10 +1,5 @@
-/**
- * [2026-05-03] AI 配置解析器
- * 供其他 Edge Function 使用，获取全局激活的 AI 配置
- * 优先级：数据库激活配置 > 环境变量默认配置
- */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { decryptApiKey } from './crypto.ts'
+import { getAppConfig } from './app-config.ts'
 
 export interface ResolvedAiConfig {
   baseUrl: string
@@ -19,7 +14,7 @@ interface AiConfigRow {
   id: string
   base_url: string
   model: string
-  api_key_enc: number[]
+  api_key: string
   timeout_ms: number
   provider_id: string
 }
@@ -28,6 +23,7 @@ interface AiProviderRow {
   slug: string
 }
 
+// 优先级：数据库激活配置 > 数据库默认配置 > 环境变量默认配置
 export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -48,7 +44,6 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
   if (activeConfig) {
     const config = activeConfig as unknown as AiConfigRow
 
-    // 获取供应商 slug
     const { data: provider } = await adminClient
       .from('ai_providers')
       .select('slug')
@@ -57,8 +52,8 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
 
     const providerData = provider as unknown as AiProviderRow | null
 
-    // 解密 API Key
-    const apiKey = await decryptApiKey(new Uint8Array(config.api_key_enc))
+    // ai_configs.api_key 可为 NULL，转为空字符串避免 Authorization: Bearer null
+    const apiKey = config.api_key ?? ''
 
     return {
       baseUrl: config.base_url,
@@ -70,12 +65,19 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
     }
   }
 
-  // 优先级 2：环境变量默认配置
+  // 优先级 2：从 app_configs 读取默认配置
+  const [baseUrl, model, apiKey, timeoutMs] = await Promise.all([
+    getAppConfig('ai', 'default_base_url', { envVar: 'DEFAULT_AI_BASE_URL', defaultValue: 'https://api.deepseek.com/v1' }),
+    getAppConfig('ai', 'default_model', { envVar: 'DEFAULT_AI_MODEL', defaultValue: 'deepseek-chat' }),
+    getAppConfig('ai', 'default_api_key', { envVar: 'DEFAULT_AI_API_KEY', defaultValue: '' }),
+    getAppConfig<number>('ai', 'default_timeout_ms', { envVar: 'DEFAULT_AI_TIMEOUT_MS', defaultValue: 30000, parse: Number })
+  ])
+
   return {
-    baseUrl: Deno.env.get('DEFAULT_AI_BASE_URL') || 'https://api.deepseek.com/v1',
-    model: Deno.env.get('DEFAULT_AI_MODEL') || 'deepseek-chat',
-    apiKey: Deno.env.get('DEFAULT_AI_API_KEY') || '',
-    timeoutMs: Number(Deno.env.get('DEFAULT_AI_TIMEOUT_MS') || '30000'),
+    baseUrl: baseUrl.value,
+    model: model.value,
+    apiKey: apiKey.value,
+    timeoutMs: timeoutMs.value,
     providerSlug: null,
     source: 'environment'
   }

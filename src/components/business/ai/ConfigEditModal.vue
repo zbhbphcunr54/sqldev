@@ -1,15 +1,15 @@
-<!-- [2026-04-30] 新增：AI 配置编辑/新建弹窗 -->
+<!-- [2026-05-06] AI 配置编辑/新建弹窗 - 新设计 -->
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { AiProviderDef, AiProviderConfig, AiConfigPayload } from '@/features/ai'
-import { REGION_MAP, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, DEFAULT_TIMEOUT_MS } from '@/features/ai'
+import { DEFAULT_TIMEOUT_MS } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
-import { useAiTest } from '@/composables/useAiTest'
 
 const props = defineProps<{
   open: boolean
   config?: AiProviderConfig | null
   providers: AiProviderDef[]
+  defaultProvider?: AiProviderDef | null
 }>()
 
 const emit = defineEmits<{
@@ -23,12 +23,11 @@ const formProviderId = ref('')
 const formModel = ref('')
 const formBaseUrl = ref('')
 const formApiKey = ref('')
-const formTimeout = ref(DEFAULT_TIMEOUT_MS)
+const formIsDefault = ref(false)
 const saving = ref(false)
+const testing = ref(false)
+const testResult = ref<{ ok: boolean; elapsed_ms: number; error?: string } | null>(null)
 const saveError = ref('')
-
-// --- Test ---
-const { testing, testResult, testError, runTest, resetTest } = useAiTest()
 
 // --- Computed ---
 const isEditMode = computed(() => !!props.config)
@@ -38,10 +37,6 @@ const selectedProvider = computed<AiProviderDef | undefined>(() =>
 )
 
 const availableModels = computed<string[]>(() => selectedProvider.value?.models ?? [])
-
-// [2026-04-30] group providers by region for select dropdown
-const cnProviders = computed(() => props.providers.filter((p) => p.region === 'cn'))
-const intlProviders = computed(() => props.providers.filter((p) => p.region === 'international'))
 
 // --- Watchers ---
 watch(
@@ -64,21 +59,29 @@ watch(formProviderId, (newId) => {
 // --- Form helpers ---
 function resetForm(): void {
   saveError.value = ''
-  resetTest()
+  testResult.value = null
   if (props.config) {
     formName.value = props.config.name
     formProviderId.value = props.config.provider_id
     formModel.value = props.config.model
     formBaseUrl.value = props.config.base_url
     formApiKey.value = ''
-    formTimeout.value = props.config.timeout_ms
+    formIsDefault.value = false
+  } else if (props.defaultProvider) {
+    formName.value = ''
+    formProviderId.value = props.defaultProvider.id
+    formModel.value = props.defaultProvider.default_model
+    formBaseUrl.value = props.defaultProvider.base_url
+    formApiKey.value = ''
+    formIsDefault.value = false
   } else {
     formName.value = ''
     formProviderId.value = props.providers[0]?.id ?? ''
-    formModel.value = ''
-    formBaseUrl.value = ''
+    const p = props.providers.find((pr) => pr.id === formProviderId.value)
+    formModel.value = p?.default_model ?? ''
+    formBaseUrl.value = p?.base_url ?? ''
     formApiKey.value = ''
-    formTimeout.value = DEFAULT_TIMEOUT_MS
+    formIsDefault.value = false
   }
 }
 
@@ -93,7 +96,7 @@ async function handleSave(): Promise<void> {
       base_url: formBaseUrl.value || undefined,
       model: formModel.value || undefined,
       api_key: formApiKey.value || undefined,
-      timeout_ms: formTimeout.value
+      timeout_ms: DEFAULT_TIMEOUT_MS
     }
 
     if (isEditMode.value && props.config) {
@@ -112,15 +115,20 @@ async function handleSave(): Promise<void> {
 
 async function handleTest(): Promise<void> {
   if (!isEditMode.value || !props.config) return
-  await runTest(props.config.id)
-}
-
-async function handleRemove(): Promise<void> {
-  if (!isEditMode.value || !props.config) return
-  if (!confirm('确定删除此配置？')) return
-  await aiConfigApi.remove(props.config.id)
-  emit('saved')
-  emit('close')
+  testing.value = true
+  testResult.value = null
+  try {
+    const result = await aiConfigApi.test(props.config.id)
+    testResult.value = result
+  } catch (e: unknown) {
+    testResult.value = {
+      ok: false,
+      elapsed_ms: 0,
+      error: e instanceof Error ? e.message : '测试失败'
+    }
+  } finally {
+    testing.value = false
+  }
 }
 
 // --- ESC key handler ---
@@ -134,53 +142,27 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="modal-overlay"
-      @click.self="emit('close')"
-    >
+    <div v-if="open" class="modal-overlay" @click.self="emit('close')">
       <div class="modal-panel">
         <!-- Header -->
         <div class="modal-header">
-          <div class="modal-header-left">
-            <div
-              v-if="selectedProvider"
-              class="provider-icon"
-            >
-              {{ selectedProvider?.slug?.slice(0, 2).toUpperCase() ?? '?' }}
-            </div>
-            <div class="modal-header-info">
-              <h2 class="modal-title">
-                {{ isEditMode ? '编辑配置' : '新增配置' }}
-                <span v-if="selectedProvider" class="modal-title-sub">
-                  - {{ selectedProvider.label }}</span
-                >
-              </h2>
-              <p v-if="selectedProvider" class="modal-subtitle">
-                {{ REGION_MAP[selectedProvider.region] }}
-                <template v-if="selectedProvider.doc_url">
-                  &middot;
-                  <a
-                    :href="selectedProvider.doc_url"
-                    target="_blank"
-                    class="modal-link"
-                    >获取 API Key &rarr;</a
-                  >
-                </template>
-              </p>
-            </div>
+          <div class="modal-header-content">
+            <h2 class="modal-title">{{ isEditMode ? '编辑配置' : '新增配置' }}</h2>
+            <p class="modal-subtitle">
+              <template v-if="selectedProvider">
+                为 {{ selectedProvider.label }} 添加模型和 API Key
+              </template>
+              <template v-else> 添加 AI 服务商配置 </template>
+            </p>
           </div>
-          <button
-            class="modal-close"
-            @click="emit('close')"
-          >
+          <button class="modal-close" @click="emit('close')">
             <svg
               width="18"
               height="18"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
-              viewBox="0 0 24 24"
             >
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
@@ -195,21 +177,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <input
               v-model="formName"
               type="text"
-              placeholder="给这个配置起个名字"
+              placeholder="例如：生产环境、测试环境"
               class="form-input"
             />
           </div>
 
-          <!-- 供应商 -->
+          <!-- 选择模型 -->
           <div class="form-group">
-            <label class="form-label">供应商</label>
-            <select v-model="formProviderId" class="form-input">
-              <optgroup label="国内">
-                <option v-for="p in cnProviders" :key="p.id" :value="p.id">{{ p.label }}</option>
-              </optgroup>
-              <optgroup label="国际">
-                <option v-for="p in intlProviders" :key="p.id" :value="p.id">{{ p.label }}</option>
-              </optgroup>
+            <label class="form-label">选择模型</label>
+            <select v-model="formModel" class="form-input">
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
 
@@ -219,78 +196,75 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
             <input
               v-model="formApiKey"
               type="password"
-              :placeholder="isEditMode ? '留空则不修改' : '输入 API Key'"
+              :placeholder="isEditMode ? '留空则不修改' : 'sk-...'"
               class="form-input form-input-mono"
             />
-            <p class="form-hint">
-              AES-256 加密存储，服务端解密，前端仅显示掩码
-            </p>
+            <p class="form-hint">Key 将加密存储，仅显示末四位</p>
           </div>
 
-          <!-- API Base URL -->
+          <!-- Base URL -->
           <div class="form-group">
-            <label class="form-label">API Base URL</label>
+            <label class="form-label">
+              Base URL
+              <span class="form-label-optional">(可选)</span>
+            </label>
             <input
               v-model="formBaseUrl"
               type="text"
-              placeholder="https://api.example.com/v1"
+              placeholder="https://api.openai.com/v1"
               class="form-input form-input-mono"
             />
+            <p class="form-hint">使用代理或自定义端点时填写</p>
           </div>
 
-          <!-- Model + Timeout -->
-          <div class="form-row-2col">
-            <div class="form-group">
-              <label class="form-label">
-                模型
-                <span v-if="availableModels.length" class="form-label-hint">
-                  （共 {{ availableModels.length }} 个可选）
-                </span>
-              </label>
-              <select v-model="formModel" class="form-input">
-                <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">超时时间</label>
-              <div class="form-input-wrap">
-                <input
-                  v-model.number="formTimeout"
-                  type="number"
-                  :min="MIN_TIMEOUT_MS"
-                  :max="MAX_TIMEOUT_MS"
-                  :step="5000"
-                  class="form-input form-input-mono form-input-pr"
-                />
-                <span class="form-input-suffix">ms</span>
-              </div>
-            </div>
+          <!-- 设为默认配置 -->
+          <div class="form-group form-group-toggle">
+            <label class="form-label">设为默认配置</label>
+            <button
+              class="toggle-switch"
+              :class="{ active: formIsDefault }"
+              @click="formIsDefault = !formIsDefault"
+            >
+              <span class="toggle-handle"></span>
+            </button>
           </div>
 
           <!-- Test result -->
           <div
             v-if="testResult"
             class="test-result"
-            :class="testResult.ok ? 'test-result-success' : 'test-result-error'"
+            :class="testResult.ok ? 'test-success' : 'test-error'"
           >
-            <div class="test-result-header">
-              <span
-                class="test-result-title"
-                :class="testResult.ok ? 'test-result-ok' : 'test-result-fail'"
+            <div class="test-icon">
+              <svg
+                v-if="testResult.ok"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
               >
-                {{ testResult.ok ? '连接测试成功' : '连接测试失败' }}
-              </span>
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <svg
+                v-else
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
             </div>
-            <div class="test-result-body">
-              <span class="test-result-badge">
-                {{ testResult.elapsed_ms }}ms
-              </span>
-              <span v-if="testResult.error" class="test-result-error-msg">{{ testResult.error }}</span>
+            <div class="test-content">
+              <span class="test-title">{{ testResult.ok ? '连接成功' : '连接失败' }}</span>
+              <span v-if="testResult.ok" class="test-badge">{{ testResult.elapsed_ms }}ms</span>
+              <span v-if="testResult.error" class="test-error-msg">{{ testResult.error }}</span>
             </div>
           </div>
-
-          <!-- Test error -->
-          <p v-if="testError" class="form-error">{{ testError }}</p>
 
           <!-- Save error -->
           <p v-if="saveError" class="form-error">{{ saveError }}</p>
@@ -298,30 +272,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
         <!-- Footer -->
         <div class="modal-footer">
-          <button
-            v-if="isEditMode"
-            class="btn-danger"
-            @click="handleRemove"
-          >
-            删除配置
-          </button>
-          <span v-else></span>
-
-          <div class="modal-footer-actions">
+          <button class="btn btn-cancel" @click="emit('close')">取消</button>
+          <div class="footer-actions">
             <button
               v-if="isEditMode"
-              class="btn btn-secondary"
+              class="btn btn-outline"
               :disabled="testing"
               @click="handleTest"
             >
               {{ testing ? '测试中...' : '测试连接' }}
             </button>
-            <button
-              class="btn btn-primary"
-              :disabled="saving"
-              @click="handleSave"
-            >
-              {{ saving ? '保存中...' : '保存' }}
+            <button class="btn btn-primary" :disabled="saving" @click="handleSave">
+              {{ saving ? '保存中...' : '保存配置' }}
             </button>
           </div>
         </div>
@@ -338,83 +300,71 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
+  background: var(--color-overlay);
+  backdrop-filter: blur(4px);
+  animation: modalFadeIn 0.15s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-panel {
-  width: 580px;
+  width: 520px;
   max-width: 92vw;
-  max-height: 92vh;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-modal);
+  max-height: 90vh;
+  background: var(--color-modal-bg);
+  border: 1px solid var(--color-modal-border);
+  border-radius: var(--radius-modal);
+  box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: var(--font-body);
+  animation: modalScaleIn 0.2s ease-out;
 }
 
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Header */
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--color-border);
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-modal-section-border);
   flex-shrink: 0;
 }
 
-.modal-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.provider-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-control);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
-  color: white;
-  background: #4D6BFE;
-  flex-shrink: 0;
-}
-
-.modal-header-info {
+.modal-header-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .modal-title {
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text);
   margin: 0;
 }
 
-.modal-title-sub {
-  font-weight: 400;
-  color: var(--color-text-subtle);
-}
-
 .modal-subtitle {
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
   color: var(--color-text-subtle);
   margin: 0;
-}
-
-.modal-link {
-  color: var(--color-brand-500);
-}
-
-.modal-link:hover {
-  text-decoration: underline;
 }
 
 .modal-close {
@@ -425,10 +375,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   border: none;
+  flex-shrink: 0;
 }
 
 .modal-close:hover {
@@ -436,214 +387,252 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   color: var(--color-text);
 }
 
+/* Body */
 .modal-body {
-  padding: 20px 24px;
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
+/* Form Groups */
 .form-group {
   display: flex;
   flex-direction: column;
 }
 
+.form-group-toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .form-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text);
-  margin-bottom: 6px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  margin-bottom: 8px;
   display: block;
 }
 
-.form-label-hint {
-  font-size: 11px;
+.form-label-optional {
+  color: var(--color-text-muted);
   font-weight: 400;
-  color: var(--color-text-subtle);
 }
 
 .form-input {
   width: 100%;
-  padding: 8px 12px;
+  height: 42px;
+  padding: 0 16px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: 8px;
   background: var(--color-panel-2);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 14px;
+  font-family: var(--font-body);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: all 0.15s ease;
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focus-ring);
 }
 
 .form-input-mono {
   font-family: var(--font-code);
-}
-
-.form-input-pr {
-  padding-right: 36px;
-}
-
-.form-input-wrap {
-  position: relative;
-}
-
-.form-input-suffix {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  color: var(--color-text-subtle);
-  pointer-events: none;
+  font-size: 13px;
 }
 
 .form-hint {
+  font-family: var(--font-body);
   font-size: 11px;
-  color: var(--color-text-subtle);
-  margin-top: 6px;
-}
-
-.form-row-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  color: var(--color-text-muted);
+  margin: 6px 0 0 0;
 }
 
 .form-error {
+  font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-danger);
+  margin: 0;
 }
 
-.test-result {
-  padding: 16px;
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
   border-radius: 12px;
-  border: 2px solid;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
 }
 
-.test-result-success {
-  border-color: rgba(21, 145, 95, 0.3);
-  background: rgba(21, 145, 95, 0.05);
+.toggle-switch.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
-.test-result-error {
-  border-color: rgba(214, 69, 69, 0.3);
-  background: rgba(214, 69, 69, 0.05);
+.toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-text-subtle);
+  transition: all 0.15s ease;
 }
 
-.test-result-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+.toggle-switch.active .toggle-handle {
+  left: 22px;
+  background: var(--color-btn-primary-text);
 }
 
-.test-result-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.test-result-ok {
-  color: var(--color-success);
-}
-
-.test-result-fail {
-  color: var(--color-danger);
-}
-
-.test-result-body {
+/* Test Result */
+.test-result {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid;
+  font-family: var(--font-body);
 }
 
-.test-result-badge {
-  display: inline-flex;
+.test-success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+}
+
+.test-error {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
+
+.test-icon {
+  display: flex;
   align-items: center;
-  padding: 2px 8px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-subtle);
+  flex-shrink: 0;
 }
 
-.test-result-error-msg {
+.test-success .test-icon {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.test-error .test-icon {
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
+.test-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.test-title {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.test-badge {
+  font-family: var(--font-code);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--color-panel-2);
+  color: var(--color-success);
+}
+
+.test-error-msg {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-danger);
+  width: 100%;
+}
+
+/* Footer */
 .modal-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-top: 1px solid var(--color-border);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  border-top: 1px solid var(--color-modal-section-border);
   flex-shrink: 0;
 }
 
-.modal-footer-actions {
+.footer-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.btn-danger {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-danger);
-  padding: 6px 12px;
-  border-radius: var(--radius-control);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-danger:hover {
-  background: rgba(214, 69, 69, 0.1);
-}
-
 .btn {
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
+  font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
-.btn-secondary {
+.btn-cancel {
   background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
+}
+
+.btn-cancel:hover {
+  background: var(--color-panel-2);
   color: var(--color-text);
 }
 
-.btn-secondary:hover {
-  background: var(--color-panel-2);
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-subtle);
 }
 
-.btn-secondary:disabled {
+.btn-outline:hover:not(:disabled) {
+  background: var(--color-panel-2);
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
+}
+
+.btn-outline:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .btn-primary {
+  background: var(--color-accent);
   border: none;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: white;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+  color: var(--color-btn-primary-text);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.3);
+  background: var(--color-accent-hover);
 }
 
 .btn-primary:disabled {
@@ -651,4 +640,3 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   cursor: not-allowed;
 }
 </style>
-

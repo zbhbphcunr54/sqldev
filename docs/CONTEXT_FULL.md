@@ -3,7 +3,161 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-04
+Last updated: 2026-05-08
+
+---
+
+## 2026-05-08: AI 对话助手（FloatingChat）功能实现
+
+### 概述
+按照「方案 A：轻量快速（Edge-First）」实现了 AI 小助手悬浮对话功能。用户点击右下角悬浮按钮可打开对话框，与 AI 进行数据库相关的技术问答。
+
+### 架构
+
+```
+FloatingChat.vue → useChat.ts → aiChatApi → edgeFn('POST /ai-chat')
+  → ai-chat Edge Function (Deno)
+    → resolveAiConfig() 获取激活的 AI 供应商
+    → AI API (OpenAI-compatible /v1/chat/completions)
+    → 消息持久化到 ai_chat_sessions + ai_chat_messages
+    → 配额原子递增 (ai_chat_quota)
+```
+
+### 新增文件
+
+| 文件 | 说明 |
+|---|---|
+| `supabase/migrations/202605080001_create_ai_chat_tables.sql` | DDL：ai_chat_sessions、ai_chat_messages、ai_chat_quota 三张表 + RLS + 触发器 + 原子递增函数 |
+| `supabase/migrations/202605080002_insert_ai_chat_configs.sql` | DML：app_configs 插入 ai_chat 类别的 system_prompt 和 daily_limit=20 |
+| `supabase/functions/ai-chat/index.ts` | Edge Function：POST 发消息、GET 查会话/消息/配额、DELETE 删会话 |
+| `src/api/ai-chat.ts` | 前端 API 层：aiChatApi（sendMessage / getSessions / getMessages / deleteSession / getQuota） |
+| `src/composables/useChat.ts` | Composable：模块级单例状态（open/sessions/messages/quota/sending/provider/model） |
+| `src/components/business/ai/FloatingChat.vue` | 悬浮按钮 + 对话框 UI（双主题适配 + 移动端响应式） |
+
+### 修改文件
+
+| 文件 | 变更 |
+|---|---|
+| `src/layouts/DefaultLayout.vue` | 引入并挂载 FloatingChat |
+| `src/layouts/WorkbenchLayout.vue` | 同上 |
+| `src/layouts/AuthLayout.vue` | 同上 |
+| `src/utils/error-map.ts` | 新增 ai_chat_quota_exceeded、ai_chat_invalid_message、ai_chat_session_not_found |
+
+### 关键设计
+
+- **AI 供应商解析**：Edge Function 复用 `resolveAiConfig()` 从 `ai_configs` 表获取激活的供应商标识和模型名，对话框 Header 实时显示当前使用的 provider/model
+- **每日配额**：从 `app_configs` 的 `ai_chat.daily_limit` 读取（默认 20），通过 PostgreSQL 原子函数 `increment_ai_chat_quota()` 防并发超限
+- **上下文窗口**：每次发送消息时加载最近 30 条历史消息作为 AI 上下文
+- **会话管理**：首条消息自动创建 session，支持历史列表侧边栏切换和删除
+- **主题适配**：所有颜色使用 CSS 变量，自动跟随 `[data-theme]` 切换
+- **无硬编码**：API 地址、模型、system prompt、每日限额全部从数据库或环境变量读取
+- **RLS 保护**：所有表启用 RLS，用户只能访问自己的数据
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过（零类型错误）
+- ✅ ESLint 通过（零错误）
+
+---
+
+## 2026-05-08: AI 配置界面字体统一修复
+
+### 问题
+AI 配置界面字体不统一，ConfigEditModal.vue 和 AiConfigPage.vue 使用了未在 tokens.css 中定义的 CSS 变量，导致字体和颜色显示异常。
+
+### 修复内容
+
+#### 1. 变量名统一替换
+将所有未定义的变量替换为 tokens.css 中定义的标准变量：
+
+| 错误变量 | 正确变量 |
+|---------|---------|
+| `--font-sans` | `--font-body` |
+| `--text-primary` | `--color-text` |
+| `--text-secondary` | `--color-text-subtle` |
+| `--text-muted` | `--color-text-muted` |
+| `--bg-card` | `--color-panel` |
+| `--bg-elevated` | `--color-panel-2` |
+| `--border` | `--color-border` |
+| `--accent` | `--color-accent` |
+| `--success` | `--color-success` |
+| `--danger` | `--color-danger` |
+| `--warning` | `--color-warning` |
+
+#### 2. 修改的文件
+- `src/components/business/ai/AiConfigPage.vue` - 全面替换所有错误变量
+- `src/components/business/ai/ConfigEditModal.vue` - 全面替换所有错误变量
+
+#### 3. 现在所有 AI 配置组件使用统一的 tokens.css 变量
+- AddKeyModal.vue（原本就正确）
+- ProviderConfigModal.vue（原本就正确）
+- ConfigEditModal.vue（已修复）
+- AiConfigPage.vue（已修复）
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+
+---
+
+## 2026-05-08: AI 配置界面 UI 优化
+
+### 本次修改文件
+
+```
+src/components/business/ai/
+├── AiConfigPage.vue         # 布局、边框、开关、测试延迟、API Key 显示优化
+└── ConfigEditModal.vue      # 字体统一、CSS 变量化、边框对比度增强
+```
+
+### 修改内容
+
+#### 1. 布局修复
+- `section-header` 改为 `flex-direction: row`，标题左对齐，新增按钮右对齐
+- `section-title` 文字对齐从 `center` 改为 `left`
+
+#### 2. 按钮样式优化
+- `.btn-add:hover` 添加 `box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4)` 增强对比度
+- 解决鼠标悬停变色导致文字看不清的问题
+
+#### 3. 表格边框优化
+- 移除单元格右侧竖线分隔（`border-right` 删除）
+- 外边框和分隔线透明度增强：`rgba(255, 255, 255, 0.12)` 和 `rgba(255, 255, 255, 0.08)`
+- 解决浅色/深色模式下边框看不清的问题
+
+#### 4. 状态切换改为开关
+- 状态徽章（启用/禁用）替换为开关组件（Toggle Switch）
+- 开关样式：44x24px，启用时为 `var(--success)` 绿色
+
+#### 5. 操作按钮精简
+- 移除"关闭"按钮（启用/禁用改由开关控制）
+- 保留：测试、删除按钮
+
+#### 6. 测试延迟时间持续显示
+- 添加 `testResults` ref 存储每次测试结果
+- 点击测试后，延迟时间立即显示并持续保留
+- 直至下一次点击测试才更新
+
+#### 7. 表格外边框自适应高度
+- `keys-table-wrapper` 改为 `flex: 0 1 auto`
+- 边框随记录增加自动扩展，不再撑满整个区域
+
+#### 8. API Key 显示优化
+- 显示前 8 位 + 省略号 + 后 8 位明文
+- 原显示前 4 位 + 后 4 位
+
+#### 9. 字体统一
+- 弹窗组件所有文本添加 `font-family: var(--font-sans)`
+- 所有硬编码颜色替换为 CSS 变量：
+  - `#131722` → `var(--bg-card)`
+  - `#f0f6fc` → `var(--text-primary)`
+  - `#8b949e` → `var(--text-secondary)`
+  - `#6e7681` → `var(--text-muted)`
+  - `#f85149` → `var(--danger)`
+  - `#3fb950` → `var(--success)`
+  - `#6366f1` → `var(--accent)`
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+- ✅ 类型检查无错误
 
 ---
 

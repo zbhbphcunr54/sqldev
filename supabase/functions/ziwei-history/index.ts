@@ -1,31 +1,36 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { jsonResponse, errorResponse, logEdgeError } from '../_shared/response.ts'
-import { parsePositiveInt } from '../_shared/utils.ts'
 import { logOperation } from '../_shared/operation-logger.ts'
+import { getAppConfig } from '../_shared/app-config.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
+  allowMethods: 'POST, DELETE, OPTIONS'
 })
+
+await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
-const RATE_LIMIT_WINDOW_MS = parsePositiveInt(Deno.env.get('HISTORY_RATE_LIMIT_WINDOW_MS'), 60_000)
-const RATE_LIMIT_MAX_REQUESTS = parsePositiveInt(Deno.env.get('HISTORY_RATE_LIMIT_MAX_REQUESTS'), 30)
-const RATE_LIMIT_TRACK_MAX = parsePositiveInt(Deno.env.get('HISTORY_RATE_LIMIT_TRACK_MAX'), 2_000)
-const RATE_LIMIT_STORE_MODE = String(Deno.env.get('HISTORY_RATE_LIMIT_STORE') || 'kv').trim().toLowerCase()
 const MAX_HISTORY_PER_USER = 30
 
-const rateLimiter = createRateLimiter({
-  scope: 'ziwei-history',
-  windowMs: RATE_LIMIT_WINDOW_MS,
-  maxRequests: RATE_LIMIT_MAX_REQUESTS,
-  trackMax: RATE_LIMIT_TRACK_MAX,
-  storeMode: RATE_LIMIT_STORE_MODE
-})
+async function loadRateLimitConfig() {
+  const [maxRequests, windowMs, trackMax, storeMode] = await Promise.all([
+    getAppConfig<number>('rate_limit', 'ziwei_requests', { envVar: 'HISTORY_RATE_LIMIT_MAX_REQUESTS', defaultValue: 30, parse: Number }),
+    getAppConfig<number>('rate_limit', 'ziwei_window_ms', { envVar: 'HISTORY_RATE_LIMIT_WINDOW_MS', defaultValue: 60000, parse: Number }),
+    getAppConfig<number>('rate_limit', 'ziwei_track_max', { envVar: 'HISTORY_RATE_LIMIT_TRACK_MAX', defaultValue: 2000, parse: Number }),
+    getAppConfig('rate_limit', 'store_mode', { envVar: 'HISTORY_RATE_LIMIT_STORE', defaultValue: 'kv' })
+  ])
+  return {
+    maxRequests: maxRequests.value,
+    windowMs: windowMs.value,
+    trackMax: trackMax.value,
+    storeMode: String(storeMode.value || 'kv').toLowerCase()
+  }
+}
 
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req)
@@ -55,12 +60,22 @@ Deno.serve(async (req) => {
     }
     const { userId, email } = sessionState
 
+    // 异步加载限流配置
+    const rateLimitConfig = await loadRateLimitConfig()
+    const rateLimiter = createRateLimiter({
+      scope: 'ziwei-history',
+      windowMs: rateLimitConfig.windowMs,
+      maxRequests: rateLimitConfig.maxRequests,
+      trackMax: rateLimitConfig.trackMax,
+      storeMode: rateLimitConfig.storeMode
+    })
+
     let limit
     try {
       limit = await rateLimiter.consume(`${userId}:${clientIp}`)
     } catch (err) {
       logEdgeError('ziwei-history', 'rate_limit_failed', err)
-      limit = { ok: true, remaining: RATE_LIMIT_MAX_REQUESTS }
+      limit = { ok: true, remaining: rateLimitConfig.maxRequests }
     }
     if (!limit.ok) {
       return jsonResponse(429, { error: 'rate_limited' }, corsHeaders, {

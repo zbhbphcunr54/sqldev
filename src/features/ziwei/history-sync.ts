@@ -1,7 +1,7 @@
 // src/features/ziwei/history-sync.ts
 // 紫微排盘历史 Supabase 同步层
 
-import { createZiweiHistory, fetchZiweiHistory, deleteZiweiHistory } from '@/api/ziwei-history'
+import { createZiweiHistory, fetchZiweiHistory } from '@/api/ziwei-history'
 
 const ZW_HISTORY_KEY = 'sqldev_ziwei_history_v1'
 
@@ -15,7 +15,9 @@ export async function syncHistoryFromServer(): Promise<void> {
     if (result.items && result.items.length > 0) {
       try {
         localStorage.setItem(ZW_HISTORY_KEY, JSON.stringify(result.items))
-      } catch { /* quota error ignored */ }
+      } catch {
+        /* quota error ignored */
+      }
     }
   } catch {
     // 网络错误不阻塞

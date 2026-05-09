@@ -1,697 +1,1876 @@
-<!-- [2026-05-06] AI 助手配置页面 - 工作台内嵌版本 -->
+<!-- [2026-05-07] AI 配置页面 - 新设计 -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAiStore } from '@/stores/ai'
-import { useAuthStore } from '@/stores/auth'
+import { getProviderColor, getProviderInitials } from '@/features/ai/provider-constants'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
-import ConfigEditModal from './ConfigEditModal.vue'
+import { aiConfigApi } from '@/api/ai-config'
+import { useConfirm } from '@/composables/useConfirm'
+import ProviderConfigModal from './ProviderConfigModal.vue'
+import AddKeyModal from './AddKeyModal.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
-// --- Stores ---
+
+const { confirm } = useConfirm()
+
+// Stores
 const aiStore = useAiStore()
-const authStore = useAuthStore()
-
 const { providers, configs, loading, error } = storeToRefs(aiStore)
 
-const isAdmin = computed(() => {
-  const meta = authStore.user?.app_metadata as Record<string, unknown> | undefined
-  return meta?.is_admin === true
+// Modal state
+const showProviderModal = ref(false)
+const editingProvider = ref<AiProviderDef | null>(null)
+const showAddKeyModal = ref(false)
+
+// ============ Drag State ============
+const isDragging = ref(false)
+const draggedProvider = ref<AiProviderDef | null>(null)
+const draggedIndex = ref<number>(-1)
+const dropIndex = ref<number>(-1)
+const dragPosition = ref({ x: 0, y: 0 })
+const gridRef = ref<HTMLElement | null>(null)
+
+// Long press detection
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+const LONG_PRESS_DELAY = 150 // ms
+const DRAG_THRESHOLD = 5 // px movement before starting drag
+
+// ============ Drag Handlers (Custom) ============
+function onCardMouseDown(e: MouseEvent, provider: AiProviderDef): void {
+  if ((e.target as HTMLElement).closest('button')) return
+
+  const idx = providers.value.findIndex((p) => p.id === provider.id)
+  if (idx === -1) return
+
+  const startX = e.clientX
+  const startY = e.clientY
+  let hasMoved = false
+
+  longPressTimer = setTimeout(() => {
+    if (!hasMoved) {
+      startDrag(provider, idx, e.clientX, e.clientY)
+    }
+  }, LONG_PRESS_DELAY)
+
+  const handleMove = (moveEvent: MouseEvent) => {
+    const movedX = Math.abs(moveEvent.clientX - startX)
+    const movedY = Math.abs(moveEvent.clientY - startY)
+
+    if (movedX > DRAG_THRESHOLD || movedY > DRAG_THRESHOLD) {
+      hasMoved = true
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+      }
+      startDrag(provider, idx, moveEvent.clientX, moveEvent.clientY)
+    }
+  }
+
+  const handleUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+    }
+    document.removeEventListener('mousemove', handleMove)
+    document.removeEventListener('mouseup', handleUp)
+  }
+
+  document.addEventListener('mousemove', handleMove)
+  document.addEventListener('mouseup', handleUp)
+}
+
+function startDrag(provider: AiProviderDef, idx: number, clientX: number, clientY: number): void {
+  draggedProvider.value = provider
+  draggedIndex.value = idx
+  isDragging.value = true
+
+  // Position clone at mouse location (offset slightly so cursor is visible)
+  dragPosition.value = {
+    x: clientX - 100,
+    y: clientY - 20
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+function onMouseMove(e: MouseEvent): void {
+  if (!isDragging.value) return
+
+  dragPosition.value = {
+    x: e.clientX - 100,
+    y: e.clientY - 20
+  }
+
+  if (gridRef.value) {
+    const cards = gridRef.value.querySelectorAll('.provider-card')
+    cards.forEach((card, idx) => {
+      const rect = card.getBoundingClientRect()
+
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom &&
+        idx !== draggedIndex.value
+      ) {
+        dropIndex.value = idx
+      }
+    })
+  }
+}
+
+function onMouseUp(): void {
+  let orderChanged = false
+  if (dropIndex.value !== -1 && draggedIndex.value !== -1 && dropIndex.value !== draggedIndex.value) {
+    const newProviders = [...providers.value]
+    const [removed] = newProviders.splice(draggedIndex.value, 1)
+    const adjustedTargetIdx = dropIndex.value > draggedIndex.value ? dropIndex.value - 1 : dropIndex.value
+    newProviders.splice(adjustedTargetIdx, 0, removed)
+    providers.value = newProviders
+    orderChanged = true
+  }
+
+  // 保存排序到服务器
+  if (orderChanged) {
+    const orders = providers.value.map((p, idx) => ({
+      provider_id: p.id,
+      sort_order: idx
+    }))
+    aiConfigApi.reorderProviders(orders).catch(async (err: unknown) => {
+      const errorMsg = err instanceof Error ? err.message : '保存排序失败，请刷新重试'
+      await confirm(`排序保存失败: ${errorMsg}\n\n刷新后排序将恢复原状。`, {
+        title: '保存失败',
+        confirmText: '我知道了'
+      })
+    })
+  }
+
+  resetDragState()
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+}
+
+function resetDragState(): void {
+  isDragging.value = false
+  draggedProvider.value = null
+  draggedIndex.value = -1
+  dropIndex.value = -1
+}
+
+// Computed: provider configs grouped
+const providerConfigsMap = computed(() => {
+  const map = new Map<string, AiProviderConfig[]>()
+  configs.value.forEach((c) => {
+    const arr = map.get(c.provider_id) ?? []
+    arr.push(c)
+    map.set(c.provider_id, arr)
+  })
+  return map
 })
 
-// --- Filter state ---
-const providerFilter = ref<'全部' | '国内' | '国际'>('全部')
+function isProviderConfigured(providerId: string): boolean {
+  return (providerConfigsMap.value.get(providerId)?.length ?? 0) > 0
+}
 
-// --- Modal state ---
-const showEditModal = ref(false)
-const editingConfig = ref<AiProviderConfig | null>(null)
-const selectedProvider = ref<AiProviderDef | null>(null)
+// ============ Grouped Configs (merged by provider for display) ============
+interface GroupedConfig {
+  providerId: string
+  providerSlug: string
+  apiKeyMasked: string
+  baseUrl: string
+  configs: AiProviderConfig[]
+}
 
-// --- Lifecycle ---
-onMounted(async () => {
-  await aiStore.init(isAdmin.value)
+const groupedConfigs = computed(() => {
+  const map = new Map<string, GroupedConfig>()
+  for (const c of configs.value) {
+    const p = getProviderById(c.provider_id)
+    const key = `${c.provider_id}::${c.api_key_masked}`
+    if (!map.has(key)) {
+      map.set(key, {
+        providerId: c.provider_id,
+        providerSlug: p?.slug ?? '',
+        apiKeyMasked: c.api_key_masked,
+        baseUrl: c.base_url,
+        configs: []
+      })
+    }
+    map.get(key)!.configs.push(c)
+  }
+  return [...map.values()]
 })
 
-// --- Provider helpers ---
-const PROVIDER_COLORS: Record<string, string> = {
-  openai: '#3fb950',
-  claude: '#a78bfa',
-  gemini: '#58a6ff',
-  qwen: '#f0883e',
-  deepseek: '#58a6ff',
-  ernie: '#3fb950'
+// Total model count and configured provider count
+const totalModelCount = computed(() => configs.value.length)
+const configuredProviderCount = computed(() => providerConfigsMap.value.size)
+
+// Persisted model selection per group key
+const STORAGE_KEY_SELECTED = 'sqldev:ai:selected-models'
+
+function readSelectedFromStorage(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SELECTED)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
 }
 
-function getProviderColor(slug: string): string {
-  return PROVIDER_COLORS[slug] ?? '#8b949e'
+function writeSelectedToStorage(map: Record<string, string>): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_SELECTED, JSON.stringify(map))
+  } catch { /* ignore quota errors */ }
 }
 
-function getProviderInitials(slug: string, label: string): string {
-  if (slug === 'openai') return 'GPT'
-  if (slug === 'claude') return 'CLD'
-  if (slug === 'gemini') return 'GEM'
-  if (slug === 'qwen') return '通义'
-  if (slug === 'deepseek') return 'DS'
-  if (slug === 'ernie') return '文心'
-  return label.slice(0, 2)
+// Track which config is selected per group key
+const selectedConfigId = ref<Record<string, string>>(readSelectedFromStorage())
+
+function getSelectedConfig(group: GroupedConfig): AiProviderConfig | undefined {
+  const id = selectedConfigId.value[groupKey(group)]
+  return group.configs.find((c) => c.id === id) ?? group.configs[0]
 }
 
-// --- Filtered providers ---
-const filteredProviders = computed(() => {
-  if (providerFilter.value === '全部') return providers.value
-  if (providerFilter.value === '国内') return providers.value.filter(p => p.region === 'cn')
-  return providers.value.filter(p => p.region === 'international')
+function groupKey(group: GroupedConfig): string {
+  return `${group.providerId}::${group.apiKeyMasked}`
+}
+
+function ensureSelectedConfig(group: GroupedConfig): void {
+  const key = groupKey(group)
+  const current = selectedConfigId.value[key]
+  // Keep current selection if it still exists in the group
+  if (current && group.configs.some((c) => c.id === current)) return
+  // Prefer the active config
+  const active = group.configs.find((c) => c.is_active)
+  if (active) {
+    selectedConfigId.value[key] = active.id
+    return
+  }
+  // Fall back to the last config
+  selectedConfigId.value[key] = group.configs[group.configs.length - 1]?.id ?? ''
+}
+
+function onModelSelect(group: GroupedConfig, configId: string): void {
+  selectedConfigId.value[groupKey(group)] = configId
+  writeSelectedToStorage(selectedConfigId.value)
+}
+
+function cycleModel(group: GroupedConfig, direction: 1 | -1): void {
+  const configs = group.configs
+  if (configs.length <= 1) return
+  const current = getSelectedConfig(group)
+  const idx = current ? configs.indexOf(current) : 0
+  const next = (idx + direction + configs.length) % configs.length
+  selectedConfigId.value[groupKey(group)] = configs[next].id
+  writeSelectedToStorage(selectedConfigId.value)
+}
+
+// Watch groupedConfigs to auto-select latest model when new ones are added
+watch(groupedConfigs, (groups) => {
+  for (const g of groups) {
+    ensureSelectedConfig(g)
+  }
+}, { immediate: true, deep: true })
+
+function isDraggingCard(provider: AiProviderDef): boolean {
+  return isDragging.value && draggedProvider.value?.id === provider.id
+}
+
+// Helper: check if card should show drop indicator
+function isDropTargetCard(idx: number): boolean {
+  return isDragging.value && dropIndex.value === idx && idx !== draggedIndex.value
+}
+
+function onCardClick(e: MouseEvent, provider: AiProviderDef): void {
+  if (!isDragging.value) {
+    openEditProvider(provider)
+  }
+}
+
+// Helper: get unique card colors based on provider
+function getCardBgStart(provider: AiProviderDef): string {
+  const color = getProviderColor(provider.slug)
+  return `${color}15`
+}
+
+function getCardBgEnd(_provider: AiProviderDef): string {
+  return 'var(--color-panel)'
+}
+
+function getCardBorderColor(provider: AiProviderDef): string {
+  return getProviderColor(provider.slug)
+}
+
+// 判断是国内还是国外模型 - 直接使用 provider.region 字段
+function getRegionLabel(provider: AiProviderDef): { label: string; isDomestic: boolean } {
+  const isDomestic = provider.region === 'cn'
+  return { label: isDomestic ? '国内' : '海外', isDomestic }
+}
+
+// 悬停状态
+const hoveredProvider = ref<AiProviderDef | null>(null)
+const tooltipPosition = ref({ x: 0, y: 0 })
+const showTooltip = ref(false)
+const TOOLTIP_WIDTH = 300
+const TOOLTIP_OFFSET = 12
+
+function updateTooltipPosition(e: MouseEvent): void {
+  let x = e.clientX + TOOLTIP_OFFSET
+  let y = e.clientY + TOOLTIP_OFFSET
+
+  // 检测右边界
+  if (x + TOOLTIP_WIDTH > window.innerWidth - 20) {
+    x = e.clientX - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+  }
+
+  // 检测下边界
+  if (y + 200 > window.innerHeight - 20) {
+    y = window.innerHeight - 220
+  }
+
+  tooltipPosition.value = { x, y }
+}
+
+function onCardHover(e: MouseEvent, provider: AiProviderDef): void {
+  hoveredProvider.value = provider
+  updateTooltipPosition(e)
+  showTooltip.value = true
+}
+
+function onCardLeave(): void {
+  showTooltip.value = false
+  hoveredProvider.value = null
+}
+
+function onTooltipMouseMove(e: MouseEvent): void {
+  updateTooltipPosition(e)
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
 })
 
-function getExtraModelCount(provider: AiProviderDef): number {
-  return Math.max(0, provider.models.length - 1)
+// Add Key modal handlers
+const addKeyPrefill = ref<{ providerId?: string; apiKey?: string }>({})
+
+function openAddKey(): void {
+  addKeyPrefill.value = {}
+  showAddKeyModal.value = true
 }
 
-// --- Config helpers ---
+function openAppendModel(providerId: string, apiKeyMasked: string): void {
+  // 从分组中找到完整的 api_key 用于预填 (masked is OK for prefill)
+  addKeyPrefill.value = { providerId, apiKey: apiKeyMasked }
+  showAddKeyModal.value = true
+}
+
+function closeAddKeyModal(): void {
+  showAddKeyModal.value = false
+  addKeyPrefill.value = {}
+}
+
+async function handleAddKeySaved(payload: {
+  provider_id: string
+  model: string
+  api_key: string
+  base_url?: string
+  name?: string
+}): Promise<void> {
+  await aiStore.addConfig(payload)
+  closeAddKeyModal()
+}
+
+// Provider modal handlers
+function openAddProvider(): void {
+  editingProvider.value = null
+  showProviderModal.value = true
+}
+
+function openEditProvider(provider: AiProviderDef): void {
+  editingProvider.value = provider
+  showProviderModal.value = true
+}
+
+function closeProviderModal(): void {
+  showProviderModal.value = false
+  editingProvider.value = null
+}
+
+async function handleProviderSaved(): Promise<void> {
+  await aiStore.loadProviders(true)
+  closeProviderModal()
+}
+
+// Key actions
+async function handleDeleteModel(config: AiProviderConfig): Promise<void> {
+  const providerLabel = getProviderById(config.provider_id)?.label ?? config.provider_id
+  const ok = await confirm(`确定删除「${providerLabel}」的模型 ${config.model} 吗？`, {
+    title: '删除模型',
+    confirmText: '删除',
+    confirmClass: 'danger'
+  })
+  if (!ok) return
+  await aiStore.removeConfig(config.id)
+  // 清理已删除模型的选中状态
+  delete selectedConfigId.value[`${config.provider_id}::${config.api_key_masked}`]
+}
+
+async function handleDeleteKeyGroup(group: GroupedConfig): Promise<void> {
+  const providerLabel = getProviderById(group.providerId)?.label ?? group.providerId
+  const count = group.configs.length
+  const ok = await confirm(
+    `确定删除「${providerLabel}」下全部 ${count} 个模型配置吗？\n\nAPI Key 将被一并移除。`,
+    { title: '删除 Key', confirmText: '删除', confirmClass: 'danger' }
+  )
+  if (!ok) return
+  for (const c of group.configs) {
+    await aiStore.removeConfig(c.id)
+  }
+  // 清理整组选中状态
+  delete selectedConfigId.value[groupKey(group)]
+}
+
+async function handleToggleActive(config: AiProviderConfig): Promise<void> {
+  try {
+    if (config.is_active) {
+      await aiStore.deactivateConfig(config.id)
+    } else {
+      await aiStore.activateConfig(config.id)
+    }
+  } catch {
+    // 乐观更新失败时 store 已回滚，无需额外处理
+  }
+}
+
+// Test config
+const testingIds = ref<Set<string>>(new Set())
+const testResults = ref<Map<string, { ok: boolean; elapsed_ms: number; error?: string }>>(new Map())
+
+// 冷却状态：同 provider 下所有 config 共享冷却期
+const cooldownEndTimes = ref<Map<string, number>>(new Map())   // provider_id → end timestamp
+const cooldownRemaining = ref<Map<string, number>>(new Map()) // config_id → remaining seconds
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldownTimer(): void {
+  if (cooldownTimer) return
+  cooldownTimer = setInterval(() => {
+    const now = Date.now()
+    let hasActive = false
+    for (const [providerId, endTime] of cooldownEndTimes.value) {
+      if (now < endTime) {
+        hasActive = true
+        const remaining = Math.max(0, Math.ceil((endTime - now) / 1000))
+        configs.value
+          .filter((c) => c.provider_id === providerId)
+          .forEach((c) => cooldownRemaining.value.set(c.id, remaining))
+      } else {
+        cooldownEndTimes.value.delete(providerId)
+        configs.value
+          .filter((c) => c.provider_id === providerId)
+          .forEach((c) => {
+            cooldownRemaining.value.delete(c.id)
+            // 清除冷却错误残留，回退显示 DB 中的 last_test 值
+            const r = testResults.value.get(c.id)
+            if (r && !r.ok && r.error?.includes('请等待')) {
+              testResults.value.delete(c.id)
+            }
+          })
+      }
+    }
+    if (!hasActive && cooldownTimer) {
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+
+function setProviderCooldown(providerId: string, seconds: number): void {
+  cooldownEndTimes.value.set(providerId, Date.now() + seconds * 1000)
+  configs.value
+    .filter((c) => c.provider_id === providerId)
+    .forEach((c) => cooldownRemaining.value.set(c.id, seconds))
+  startCooldownTimer()
+}
+
+function isInCooldown(configId: string): boolean {
+  return cooldownRemaining.value.has(configId)
+}
+
+function getCooldownRemaining(configId: string): number {
+  return cooldownRemaining.value.get(configId) ?? 0
+}
+
+async function handleTest(config: AiProviderConfig): Promise<void> {
+  if (testingIds.value.has(config.id) || isInCooldown(config.id)) return
+  testingIds.value.add(config.id)
+  try {
+    const result = await aiConfigApi.test(config.id)
+    testResults.value.set(config.id, result)
+    if (!result.ok && result.cooldown_remaining) {
+      setProviderCooldown(config.provider_id, result.cooldown_remaining)
+    }
+  } catch (e: unknown) {
+    testResults.value.set(config.id, {
+      ok: false,
+      elapsed_ms: 0,
+      error: e instanceof Error ? e.message : '测试失败'
+    })
+  } finally {
+    testingIds.value.delete(config.id)
+  }
+}
+
+function getTestResult(configId: string): { ok: boolean; elapsed_ms: number; error?: string } | null {
+  return testResults.value.get(configId) || null
+}
+
+function isTesting(configId: string): boolean {
+  return testingIds.value.has(configId) || isInCooldown(configId)
+}
+
+// Provider actions
+async function handleDeleteProvider(provider: AiProviderDef): Promise<void> {
+  const configCount = providerConfigsMap.value.get(provider.id)?.length ?? 0
+  const message = configCount > 0
+    ? `确定删除「${provider.label}」供应商吗？\n\n这将同时删除该供应商下的 ${configCount} 个 API Key 配置。`
+    : `确定删除「${provider.label}」供应商吗？`
+
+  const ok = await confirm(message, {
+    title: '删除供应商',
+    confirmText: '删除',
+    confirmClass: 'danger'
+  })
+  if (!ok) return
+
+  try {
+    await aiConfigApi.deleteProvider(provider.id)
+    // 从本地列表中移除
+    providers.value = providers.value.filter((p) => p.id !== provider.id)
+    // 重新加载配置（级联删除后配置已删除）
+    await aiStore.loadConfigs()
+  } catch (e: unknown) {
+    const errorMsg = e instanceof Error ? e.message : '删除失败'
+    await confirm(errorMsg, { title: '操作失败' })
+  }
+}
+
+// Mask API key - 后端已返回首尾明文掩码，直接显示
 function maskApiKey(key: string | undefined): string {
   if (!key) return '--'
-  if (key.length <= 8) return '****'
-  return key.slice(0, 3) + '······' + key.slice(-4)
+  return key
 }
 
-function formatLastTest(ok: boolean | null | undefined): string {
-  if (ok === true) return '成功'
-  if (ok === false) return '失败'
-  return '--'
+// Get provider by ID
+function getProviderById(id: string): AiProviderDef | undefined {
+  return providers.value.find((p) => p.id === id)
 }
 
-// --- Handlers ---
-function handleConfigure(provider: AiProviderDef): void {
-  selectedProvider.value = provider
-  editingConfig.value = null
-  showEditModal.value = true
-}
-
-function handleEditConfig(config: AiProviderConfig): void {
-  editingConfig.value = config
-  selectedProvider.value = null
-  showEditModal.value = true
-}
-
-function handleCreateConfig(): void {
-  editingConfig.value = null
-  selectedProvider.value = null
-  showEditModal.value = true
-}
-
-async function handleActivate(config: AiProviderConfig): Promise<void> {
-  await aiStore.activateConfig(config.id)
-}
-
-async function handleRemove(config: AiProviderConfig): Promise<void> {
-  if (!confirm('确定删除此配置？')) return
-  await aiStore.removeConfig(config.id)
-}
-
-async function handleSaved(): Promise<void> {
-  await aiStore.loadConfigs()
-}
-
-function handleCloseModal(): void {
-  showEditModal.value = false
-  editingConfig.value = null
-  selectedProvider.value = null
-}
+// Lifecycle
+onMounted(async () => {
+  await aiStore.init(true)
+})
 </script>
 
 <template>
-  <div class="ai-config-page">
-    <!-- Loading -->
-    <div v-if="loading" class="loading-state">
-      <div class="loading-spinner"></div>
-      <span>加载中...</span>
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="error-state">
-      <p class="error-message">{{ error }}</p>
-      <button class="btn-retry" @click="aiStore.init(isAdmin)">重试</button>
-    </div>
-
-    <!-- Content -->
-    <template v-else>
-      <!-- ========== 服务商列表 ========== -->
-      <section class="section-block">
-        <div class="section-header">
-          <h2 class="section-title">服务商列表</h2>
-          <div class="segmented-control">
-            <button
-              v-for="tab in ['全部', '国内', '国际'] as const"
-              :key="tab"
-              class="segment-btn"
-              :class="{ active: providerFilter === tab }"
-              @click="providerFilter = tab"
-            >
-              {{ tab }}
-            </button>
+  <div class="ai-config-page" data-theme="dark">
+    <!-- Upper Section: Provider Cards (42%) -->
+    <section class="providers-section">
+      <div class="section-header">
+        <div class="header-left">
+          <h2 class="section-title">AI 供应商</h2>
+          <p class="section-desc">管理支持的 AI 服务商及其可用模型</p>
+        </div>
+        <button class="btn-add" @click="openAddProvider">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          新增供应商
+        </button>
+      </div>
+      <div class="providers-grid" ref="gridRef">
+        <div
+          v-for="(provider, idx) in providers"
+          :key="provider.id"
+          :data-provider-id="provider.id"
+          class="provider-card"
+          :class="{
+            'is-dragging': isDraggingCard(provider),
+            'is-drop-target': isDropTargetCard(idx)
+          }"
+          :style="{
+            animationDelay: `${idx * 50}ms`,
+            '--card-color': getCardBorderColor(provider),
+            '--card-bg-start': getCardBgStart(provider),
+            '--card-bg-end': getCardBgEnd(provider)
+          }"
+          @mouseenter="(e) => onCardHover(e, provider)"
+          @mousemove="onTooltipMouseMove"
+          @mouseleave="onCardLeave"
+          @mousedown="(e) => onCardMouseDown(e, provider)"
+          @click="(e) => onCardClick(e, provider)"
+        >
+<button
+            class="card-delete-btn"
+            title="删除供应商"
+            @click.stop="handleDeleteProvider(provider)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
+          <div class="card-content">
+            <div class="card-header">
+              <div class="provider-icon" :style="{ background: getProviderColor(provider.slug) }">
+                {{ getProviderInitials(provider.slug, provider.label) }}
+              </div>
+              <div class="provider-info">
+                <div class="provider-name-row">
+                  <span class="provider-name">{{ provider.label }}</span>
+                  <span
+                    class="status-dot"
+                    :class="{ configured: isProviderConfigured(provider.id) }"
+                    :title="isProviderConfigured(provider.id) ? '已配置' : '未配置'"
+                  ></span>
+                </div>
+                <span class="provider-meta">
+                  {{ provider.models.length }} 模型 · {{ getRegionLabel(provider).label }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-provider">服务商</th>
-                <th class="col-region">区域</th>
-                <th class="col-model">模型</th>
-                <th class="col-status">状态</th>
-                <th class="col-action">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="provider in filteredProviders" :key="provider.id">
-                <!-- 服务商 -->
-                <td>
-                  <div class="provider-cell">
-                    <div
-                      class="provider-icon"
-                      :style="{ background: getProviderColor(provider.slug) }"
-                    >
-                      {{ getProviderInitials(provider.slug, provider.label) }}
-                    </div>
-                    <span class="provider-name">{{ provider.label }}</span>
-                  </div>
-                </td>
+      <!-- Dragging clone that follows the mouse -->
+      <Teleport to="body">
+        <div
+          v-if="isDragging && draggedProvider"
+          class="drag-clone"
+          :style="{
+            left: dragPosition.x + 'px',
+            top: dragPosition.y + 'px',
+            '--card-color': getCardBorderColor(draggedProvider),
+            '--card-bg-start': getCardBgStart(draggedProvider),
+            '--card-bg-end': getCardBgEnd(draggedProvider)
+          }"
+        >
+<div class="card-content">
+            <div class="card-header">
+              <div class="provider-icon" :style="{ background: getProviderColor(draggedProvider.slug) }">
+                {{ getProviderInitials(draggedProvider.slug, draggedProvider.label) }}
+              </div>
+              <div class="provider-info">
+                <div class="provider-name-row">
+                  <span class="provider-name">{{ draggedProvider.label }}</span>
+                </div>
+                <span class="provider-meta">
+                  {{ draggedProvider.models.length }} 模型 · {{ getRegionLabel(draggedProvider).label }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Teleport>
 
-                <!-- 区域 -->
-                <td>
-                  <span
-                    class="region-tag"
-                    :class="provider.region === 'cn' ? 'region-cn' : 'region-intl'"
+      <!-- Hover Tooltip -->
+      <Teleport to="body">
+        <div
+          v-if="showTooltip && hoveredProvider"
+          class="provider-tooltip"
+          :style="{ left: tooltipPosition.x + 'px', top: tooltipPosition.y + 'px' }"
+          @mousemove="onTooltipMouseMove"
+        >
+          <div class="tooltip-header">
+            <div class="tooltip-icon" :style="{ background: getProviderColor(hoveredProvider.slug) }">
+              {{ getProviderInitials(hoveredProvider.slug, hoveredProvider.label) }}
+            </div>
+            <div class="tooltip-title">
+              <span class="tooltip-name">{{ hoveredProvider.label }}</span>
+              <span class="tooltip-region" :class="{ domestic: getRegionLabel(hoveredProvider).isDomestic }">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="10" />
+                </svg>
+                {{ getRegionLabel(hoveredProvider).label }}
+              </span>
+            </div>
+          </div>
+          <div class="tooltip-stats">
+            <div class="tooltip-stat">
+              <span class="stat-value">{{ hoveredProvider.models.length }}</span>
+              <span class="stat-label">模型</span>
+            </div>
+            <div class="tooltip-stat">
+              <span class="stat-value">{{ providerConfigsMap.get(hoveredProvider.id)?.length ?? 0 }}</span>
+              <span class="stat-label">已配置</span>
+            </div>
+          </div>
+          <div v-if="hoveredProvider.models.length > 0" class="tooltip-models">
+            <span class="models-title">可用模型</span>
+            <div class="models-list">
+              <span v-for="model in hoveredProvider.models.slice(0, 8)" :key="model" class="model-tag">
+                {{ model }}
+              </span>
+              <span v-if="hoveredProvider.models.length > 8" class="model-more">
+                +{{ hoveredProvider.models.length - 8 }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+
+      <div v-if="providers.length === 0 && !loading" class="empty-providers">
+        <p>暂无供应商配置</p>
+      </div>
+    </section>
+
+    <!-- Lower Section: API Key Management (58%) -->
+    <section class="keys-section">
+      <div class="section-header">
+        <div class="header-left">
+          <h2 class="section-title">API Key 管理</h2>
+          <p class="section-desc">
+            已配置 {{ totalModelCount }} 个模型，覆盖 {{ configuredProviderCount }} 个供应商
+          </p>
+        </div>
+        <button class="btn-add" @click="openAddKey">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          新增 Key
+        </button>
+      </div>
+
+      <!-- Keys Table -->
+      <div class="keys-table-wrapper">
+        <table class="keys-table">
+          <colgroup>
+            <col class="col-provider" />
+            <col class="col-model" />
+            <col class="col-key" />
+            <col class="col-address" />
+            <col class="col-status" />
+            <col class="col-latency" />
+            <col class="col-actions" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>供应商</th>
+              <th>模型</th>
+              <th>API Key</th>
+              <th>接口地址</th>
+              <th>状态</th>
+              <th>延迟</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="group in groupedConfigs" :key="groupKey(group)">
+              <td class="td-left">
+                <div class="td-provider">
+                  <div
+                    class="td-icon"
+                    :style="{ background: getProviderColor(group.providerSlug) }"
                   >
-                    {{ provider.region === 'cn' ? '国内' : '国际' }}
+                    {{ getProviderInitials(group.providerSlug, getProviderById(group.providerId)?.label ?? '') }}
+                  </div>
+                  <span>{{ getProviderById(group.providerId)?.label ?? group.providerId }}</span>
+                </div>
+              </td>
+              <td class="td-left td-model-cell">
+                <div class="model-stepper">
+                  <span class="stepper-label">{{ getSelectedConfig(group)?.model ?? '--' }}</span>
+                  <div class="stepper-arrows">
+                    <button
+                      class="stepper-arrow"
+                      :disabled="group.configs.length <= 1"
+                      @click="cycleModel(group, -1)"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m18 15-6-6-6 6" />
+                      </svg>
+                    </button>
+                    <button
+                      class="stepper-arrow"
+                      :disabled="group.configs.length <= 1"
+                      @click="cycleModel(group, 1)"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+              <td class="td-left">
+                <code class="td-code td-masked">{{ maskApiKey(group.apiKeyMasked) }}</code>
+              </td>
+              <td class="td-left">
+                <code class="td-code td-url">{{ group.baseUrl }}</code>
+              </td>
+              <td>
+                <button
+                  v-if="getSelectedConfig(group)"
+                  class="toggle-switch"
+                  :class="{ active: getSelectedConfig(group)!.is_active }"
+                  @click="handleToggleActive(getSelectedConfig(group)!)"
+                >
+                  <span class="toggle-handle"></span>
+                </button>
+              </td>
+              <td class="td-latency">
+                <template v-if="getSelectedConfig(group)">
+                  <span v-if="isInCooldown(getSelectedConfig(group)!.id)" class="latency-badge cooldown">
+                    冷却 {{ getCooldownRemaining(getSelectedConfig(group)!.id) }}s
                   </span>
-                </td>
-
-                <!-- 模型 -->
-                <td>
-                  <div class="model-cell">
-                    <code class="model-name">{{ provider.default_model }}</code>
-                    <span v-if="getExtraModelCount(provider) > 0" class="model-extra">
-                      +{{ getExtraModelCount(provider) }}
-                    </span>
-                  </div>
-                </td>
-
-                <!-- 状态 -->
-                <td>
-                  <div class="status-cell">
-                    <span
-                      class="status-dot"
-                      :class="provider.is_enabled ? 'status-on' : 'status-off'"
-                    ></span>
-                    <span class="status-text">{{ provider.is_enabled ? '启用中' : '未配置' }}</span>
-                  </div>
-                </td>
-
-                <!-- 操作 -->
-                <td>
-                  <div class="action-cell">
-                    <button class="action-link primary" @click="handleConfigure(provider)">配置</button>
-                    <span v-if="!provider.is_enabled" class="action-sep">·</span>
-                    <button v-if="!provider.is_enabled" class="action-link danger">禁用</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="filteredProviders.length === 0">
-                <td colspan="5" class="empty-cell">暂无服务商</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ========== 已保存配置 ========== -->
-      <section class="section-block">
-        <div class="section-header">
-          <h2 class="section-title">已保存配置</h2>
-          <button v-if="isAdmin" class="btn-add" @click="handleCreateConfig">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 14 14">
-              <path d="M7 2v10M2 7h10"/>
-            </svg>
-            新增配置
-          </button>
-        </div>
-
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-name">名称</th>
-                <th class="col-provider">服务商</th>
-                <th class="col-model">模型</th>
-                <th class="col-apikey">API KEY</th>
-                <th class="col-status">状态</th>
-                <th class="col-test">最后测试</th>
-                <th class="col-action">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="config in configs" :key="config.id">
-                <!-- 名称 -->
-                <td>
-                  <span class="config-name">{{ config.name }}</span>
-                </td>
-
-                <!-- 服务商 -->
-                <td>
-                  <span v-if="config.provider" class="provider-label">{{ config.provider.label }}</span>
-                  <span v-else class="text-muted">--</span>
-                </td>
-
-                <!-- 模型 -->
-                <td>
-                  <code class="model-name">{{ config.model }}</code>
-                </td>
-
-                <!-- API KEY -->
-                <td>
-                  <code class="apikey-masked">{{ maskApiKey(config.api_key) }}</code>
-                </td>
-
-                <!-- 状态 -->
-                <td>
-                  <div class="status-cell">
-                    <span
-                      class="status-dot"
-                      :class="config.is_active ? 'status-on' : 'status-off'"
-                    ></span>
-                    <span class="status-text">{{ config.is_active ? '活跃' : '闲置' }}</span>
-                  </div>
-                </td>
-
-                <!-- 最后测试 -->
-                <td>
-                  <span class="test-result" :class="config.last_test_ok === false ? 'test-fail' : ''">
-                    {{ formatLastTest(config.last_test_ok) }}
+                  <span v-else-if="getTestResult(getSelectedConfig(group)!.id)" class="latency-badge" :class="{ ok: getTestResult(getSelectedConfig(group)!.id)?.ok }">
+                    <template v-if="getTestResult(getSelectedConfig(group)!.id)?.ok">{{ getTestResult(getSelectedConfig(group)!.id)?.elapsed_ms }}ms</template>
+                    <template v-else>{{ getTestResult(getSelectedConfig(group)!.id)?.error ?? '失败' }}</template>
                   </span>
-                </td>
+                  <span v-else-if="getSelectedConfig(group)!.last_test_ms !== null" class="latency-badge" :class="{ ok: getSelectedConfig(group)!.last_test_ok }">
+                    {{ getSelectedConfig(group)!.last_test_ok ? getSelectedConfig(group)!.last_test_ms + 'ms' : '失败' }}
+                  </span>
+                  <span v-else class="latency-none">--</span>
+                </template>
+              </td>
+              <td>
+                <div class="td-actions">
+                  <template v-if="getSelectedConfig(group)">
+                    <button
+                      class="action-btn test"
+                      :class="{ testing: isTesting(getSelectedConfig(group)!.id) }"
+                      :disabled="isTesting(getSelectedConfig(group)!.id)"
+                      @click="handleTest(getSelectedConfig(group)!)"
+                    >
+                      <template v-if="isInCooldown(getSelectedConfig(group)!.id)">冷却 {{ getCooldownRemaining(getSelectedConfig(group)!.id) }}s</template>
+                      <template v-else-if="isTesting(getSelectedConfig(group)!.id)">测试中...</template>
+                      <template v-else>测试</template>
+                    </button>
+                    <button class="action-btn delete" @click="handleDeleteModel(getSelectedConfig(group)!)">删除</button>
+                  </template>
+                  <button class="action-btn add-model" @click="openAppendModel(group.providerId, group.apiKeyMasked)">+ 模型</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-                <!-- 操作 -->
-                <td>
-                  <div class="action-cell">
-                    <button class="action-link primary" @click="handleEditConfig(config)">编辑</button>
-                    <span class="action-sep">·</span>
-                    <button class="action-link primary" @click="handleActivate(config)">激活</button>
-                    <span class="action-sep">·</span>
-                    <button class="action-link danger" @click="handleRemove(config)">删除</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="configs.length === 0">
-                <td colspan="7" class="empty-cell">暂无已保存配置</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="configs.length === 0 && !loading" class="empty-table">
+          <p>暂无 API Key 配置</p>
+          <p class="empty-hint">点击上方「新增 Key」添加</p>
         </div>
-      </section>
-    </template>
+      </div>
+    </section>
 
-    <!-- Modal -->
-    <ConfigEditModal
-      :open="showEditModal"
-      :config="editingConfig"
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Error State -->
+    <div v-if="error" class="error-toast">
+      <span>{{ error }}</span>
+      <button @click="aiStore.init(true)">重试</button>
+    </div>
+
+    <!-- Provider Config Modal -->
+    <ProviderConfigModal
+      :open="showProviderModal"
+      :provider="editingProvider"
       :providers="providers"
-      @close="handleCloseModal"
-      @saved="handleSaved"
+      @close="closeProviderModal"
+      @saved="handleProviderSaved"
     />
+
+    <!-- Add Key Modal -->
+    <AddKeyModal
+      :open="showAddKeyModal"
+      :providers="providers"
+      :existing-configs="configs"
+      :prefill-provider-id="addKeyPrefill.providerId"
+      :prefill-api-key="addKeyPrefill.apiKey"
+      @close="closeAddKeyModal"
+      @save="handleAddKeySaved"
+    />
+
+    <!-- Confirm Dialog -->
+    <ConfirmDialog />
   </div>
 </template>
 
 <style scoped>
+/* ==================== Page Layout ==================== */
 .ai-config-page {
-  padding: 24px 28px;
-  max-width: 1320px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* ==================== Loading & Error ==================== */
-.loading-state,
-.error-state {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 80px 20px;
-  text-align: center;
-  color: #8b949e;
-  font-size: 13px;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--color-border);
-  border-top-color: #58a6ff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-message {
-  color: #f85149;
-  margin: 0;
-}
-
-.btn-retry {
-  padding: 8px 16px;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  background: transparent;
-  color: #c9d1d9;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-retry:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
-}
-
-/* ==================== Section Blocks ==================== */
-.section-block {
-  background: #161b22;
-  border: 1px solid #21262d;
-  border-radius: 12px;
+  height: 100%;
+  background: var(--color-panel);
+  color: var(--color-text);
+  position: relative;
+  font-family: var(--font-body);
   overflow: hidden;
-  margin-bottom: 20px;
+}
+
+/* ==================== Section Base ==================== */
+.providers-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px 8px;
+  border-bottom: 1px solid var(--color-page-border-hover);
+  max-height: 48%;
+  overflow: hidden;
+}
+
+.keys-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 8px 24px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.toggle-switch.active {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-text-subtle);
+  transition: all 0.2s ease;
+}
+
+.toggle-switch.active .toggle-handle {
+  left: 22px;
+  background: var(--color-btn-primary-text);
 }
 
 .section-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #21262d;
+  margin-bottom: 8px;
+  padding: 0 64px 0 24px;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .section-title {
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: 18px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-text);
+  margin: 0;
+  text-align: left;
+}
+
+.section-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text-subtle);
   margin: 0;
 }
 
-/* Segmented Control */
-.segmented-control {
-  display: flex;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.segment-btn {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #8b949e;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.segment-btn:hover {
-  color: #c9d1d9;
-}
-
-.segment-btn.active {
-  background: #58a6ff;
-  color: #ffffff;
-}
-
-/* Add Button */
+/* ==================== Add Button ==================== */
 .btn-add {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  background: #1f6feb;
+  padding: 10px 16px;
+  background: var(--color-accent);
   border: none;
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-add:hover {
-  background: #388bfd;
-}
-
-/* ==================== Table ==================== */
-.table-wrapper {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  padding: 12px 16px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6e7681;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: #0d1117;
-  border-bottom: 1px solid #21262d;
-  white-space: nowrap;
-}
-
-.data-table td {
-  padding: 16px;
-  font-size: 13px;
-  color: #c9d1d9;
-  background: transparent;
-  transition: background 0.15s;
-}
-
-.data-table tbody tr:hover td {
-  background: rgba(88, 166, 255, 0.04);
-}
-
-/* Column widths */
-.col-provider { width: 160px; }
-.col-region { width: 80px; }
-.col-model { min-width: 180px; }
-.col-status { width: 100px; }
-.col-action { width: 140px; text-align: right; }
-.col-name { min-width: 140px; }
-.col-apikey { min-width: 180px; }
-.col-test { width: 90px; }
-
-/* ==================== Provider Cell ==================== */
-.provider-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.provider-icon {
-  width: 32px;
-  height: 32px;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: #ffffff;
+  color: var(--color-btn-primary-text);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
-.provider-name {
-  font-weight: 500;
-  color: #f0f6fc;
+.btn-add:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-brand-hover);
 }
 
-/* ==================== Region Tag ==================== */
-.region-tag {
+/* ==================== Provider Cards Grid ==================== */
+.providers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding-top: 10px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.providers-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.providers-grid::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 3px;
+}
+
+.providers-grid::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.provider-card {
+  position: relative;
+  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
+  border: 1px solid var(--color-page-border-subtle);
+  border-radius: 16px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+  animation: fadeUp 0.3s ease-out both;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.provider-card:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-color: var(--color-page-border-hover);
+}
+
+.provider-card:hover .provider-icon {
+  box-shadow: 0 0 24px var(--card-color);
+}
+
+.provider-card:active {
+  cursor: grabbing;
+}
+
+.provider-card.is-dragging {
+  opacity: 0.3;
+  transform: scale(0.95);
+}
+
+.provider-card.is-drop-target {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent), 0 0 16px rgba(99, 102, 241, 0.3);
+  transform: scale(1.02);
+}
+
+/* Delete button on card */
+.card-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-page-border-subtle);
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  z-index: 10;
+}
+
+.provider-card:hover .card-delete-btn {
+  opacity: 1;
+}
+
+.card-delete-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* Drag clone that follows mouse */
+.drag-clone {
+  position: fixed;
+  width: 200px;
+  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
+  border: 1px solid var(--card-color);
+  border-radius: 16px;
+  padding: 14px 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  pointer-events: none;
+  transform: rotate(3deg) scale(1.05);
+  transition: transform 0.05s ease;
+}
+
+/* ==================== Hover Tooltip ==================== */
+.provider-tooltip {
+  position: fixed;
+  z-index: 9998;
+  min-width: 260px;
+  max-width: 320px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-page-border-hover);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: tooltipFadeIn 0.15s ease-out;
+  font-family: var(--font-body);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tooltip-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-btn-primary-text);
+  flex-shrink: 0;
+}
+
+.tooltip-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tooltip-name {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-region {
   display: inline-flex;
-  padding: 3px 8px;
-  border-radius: 4px;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-body);
   font-size: 11px;
+  color: var(--color-accent);
   font-weight: 500;
 }
 
-.region-tag.region-intl {
-  background: rgba(139, 148, 158, 0.15);
-  color: #8b949e;
+.tooltip-region.domestic {
+  color: var(--color-warning);
 }
 
-.region-tag.region-cn {
-  background: rgba(88, 166, 255, 0.15);
-  color: #58a6ff;
+.tooltip-region svg {
+  opacity: 0.8;
 }
 
-/* ==================== Model Cell ==================== */
-.model-cell {
+.tooltip-stats {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-page-border-subtle);
+  border-bottom: 1px solid var(--color-page-border-subtle);
+  margin-bottom: 10px;
 }
 
-.model-name {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  font-size: 11px;
-  color: #8b949e;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid #21262d;
-}
-
-.model-extra {
-  font-size: 10px;
-  color: #6e7681;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-/* ==================== API Key ==================== */
-.apikey-masked {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  font-size: 11px;
-  color: #8b949e;
-}
-
-/* ==================== Status ==================== */
-.status-cell {
+.tooltip-stat {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-value {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.stat-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--color-text-subtle);
+}
+
+.tooltip-models {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+
+.models-title {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.models-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.model-tag {
+  font-family: var(--font-body);
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--color-panel-2);
+  border-radius: 4px;
+  color: var(--color-text-subtle);
+}
+
+.model-more {
+  font-family: var(--font-body);
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 4px;
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.drag-clone .card-content,
+.drag-clone .card-header,
+.drag-clone .provider-icon,
+.drag-clone .provider-info,
+.drag-clone .provider-name,
+.drag-clone .provider-meta {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+}
+
+.drag-clone .card-content {
+  flex-direction: column;
+  flex: 1;
+}
+
+.drag-clone .card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.drag-clone .provider-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-btn-primary-text);
+  flex-shrink: 0;
+}
+
+.drag-clone .provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.drag-clone .provider-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drag-clone .provider-meta {
+  font-size: 12px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.provider-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-btn-primary-text);
+  flex-shrink: 0;
+  box-shadow: 0 0 16px var(--card-color);
+  transition: box-shadow 0.2s ease;
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background: var(--color-text-muted);
+  transition: background 0.2s ease;
+  flex-shrink: 0;
 }
 
-.status-dot.status-on {
-  background: #3fb950;
-  box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
+.status-dot.configured {
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
 }
 
-.status-dot.status-off {
-  background: #6e7681;
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
 }
 
-.status-text {
-  font-size: 12px;
-  color: #c9d1d9;
-}
-
-/* ==================== Test Result ==================== */
-.test-result {
-  font-size: 12px;
-  color: #8b949e;
-}
-
-.test-result.test-fail {
-  color: #f85149;
-}
-
-/* ==================== Actions ==================== */
-.action-cell {
+.provider-name-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
+  gap: 8px;
 }
 
-.action-link {
-  padding: 4px 8px;
-  border: none;
-  background: transparent;
+.provider-name {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.provider-meta {
+  font-family: var(--font-body);
   font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 4px;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.action-link.primary {
-  color: #58a6ff;
-}
-
-.action-link.primary:hover {
-  background: rgba(88, 166, 255, 0.1);
-}
-
-.action-link.danger {
-  color: #f85149;
-}
-
-.action-link.danger:hover {
-  background: rgba(248, 81, 73, 0.1);
-}
-
-.action-sep {
-  color: #484f58;
-  font-size: 12px;
-  margin: 0 2px;
-}
-
-/* ==================== Provider Label ==================== */
-.provider-label {
+.empty-providers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
   font-size: 13px;
-  color: #c9d1d9;
 }
 
-.config-name {
-  font-weight: 500;
-  color: #f0f6fc;
+/* ==================== Keys Table ==================== */
+.keys-table-wrapper {
+  overflow: auto;
+  max-height: 100%;
+  background: var(--color-panel);
+  border: 1px solid var(--color-page-border-hover);
+  border-radius: 12px;
 }
 
-.text-muted {
-  color: #6e7681;
+.keys-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* ==================== Empty Cell ==================== */
-.empty-cell {
+.keys-table-wrapper::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.keys-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.keys-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: var(--font-body);
+}
+
+.keys-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--color-panel-2);
+  z-index: 1;
+}
+
+.keys-table th {
+  padding: 14px 16px;
   text-align: center;
-  color: #6e7681;
-  padding: 40px 16px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-text-subtle);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--color-page-border-hover);
+  white-space: nowrap;
+}
+
+.keys-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-page-border-light);
+  vertical-align: middle;
+  text-align: center;
+  font-family: var(--font-body);
+}
+
+.keys-table td:last-child {
+  border-right: none;
+}
+
+.keys-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.keys-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.keys-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.td-provider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.td-provider span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.td-left {
+  text-align: center !important;
+}
+
+.td-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-btn-primary-text);
+  flex-shrink: 0;
+}
+
+.td-code {
+  display: inline-block;
+  max-width: 100%;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-text);
+  background: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.td-masked {
+  color: var(--color-text-subtle);
+}
+
+.td-url {
+  display: inline-block;
+  max-width: 100%;
+  color: var(--color-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-panel-2);
+  color: var(--color-text-subtle);
+}
+
+.status-badge.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-success);
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.latency-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--color-success);
+}
+
+.latency-badge.ok {
+  background: rgba(48, 209, 88, 0.2);
+  color: var(--color-success);
+}
+
+.latency-badge.cooldown {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+/* ============ Column Widths ============ */
+.col-provider { width: 15%; }
+.col-model { width: 14%; }
+.col-key { width: 13%; }
+.col-address { width: 28%; }
+.col-status { width: 7%; }
+.col-latency { width: 9%; }
+.col-actions { width: 14%; }
+
+.latency-none {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  vertical-align: middle;
+}
+
+.td-model-cell {
+  min-width: 120px;
+}
+
+/* ============ Model Stepper ============ */
+.model-stepper {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 2px 2px 2px 10px;
+}
+
+.stepper-arrows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.stepper-arrow {
+  width: 22px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.stepper-arrow:hover:not(:disabled) {
+  background: var(--color-panel-hover);
+  color: var(--color-text);
+}
+
+.stepper-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.stepper-label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-text);
+  min-width: 70px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.td-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.action-btn {
+  font-family: var(--font-body);
+  padding: 5px 10px;
+  border: 1px solid var(--color-page-border-hover);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.action-btn:hover {
+  background: var(--color-panel-2);
+  color: var(--color-text);
+}
+
+.action-btn.activate {
+  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.action-btn.activate:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--color-success);
+}
+
+.action-btn.deactivate {
+  color: var(--color-warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.action-btn.deactivate:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--color-warning);
+}
+
+.action-btn.test {
+  color: var(--color-accent);
+  border-color: rgba(99, 102, 241, 0.3);
+  white-space: nowrap;
+}
+
+.action-btn.test:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--color-accent);
+}
+
+.action-btn.test.testing {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn.delete {
+  color: var(--color-danger);
+  border-color: rgba(239, 68, 73, 0.3);
+}
+
+.action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-danger);
+}
+
+.action-btn.add-model {
+  color: var(--color-accent);
+  border-color: rgba(99, 102, 241, 0.25);
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.action-btn.add-model:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--color-accent);
+}
+
+.empty-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  font-family: var(--font-body);
+  color: var(--color-text-subtle);
   font-size: 13px;
 }
 
-/* ==================== Responsive ==================== */
-@media (max-width: 768px) {
-  .ai-config-page {
-    padding: 16px 20px;
-  }
+.empty-hint {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
 
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
+/* ==================== Loading & Error ==================== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 9, 13, 0.8);
+  z-index: 100;
+}
 
-  .data-table th,
-  .data-table td {
-    padding: 12px;
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
+}
+
+.error-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: var(--color-danger);
+  font-size: 13px;
+  z-index: 200;
+}
+
+.error-toast button {
+  padding: 6px 12px;
+  background: var(--color-danger);
+  border: none;
+  border-radius: 4px;
+  color: var(--color-btn-primary-text);
+  font-size: 12px;
+  cursor: pointer;
 }
 </style>

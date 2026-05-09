@@ -1,15 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp, getRequestContentLength } from '../_shared/request.ts'
 import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.ts'
 import { logOperation } from '../_shared/operation-logger.ts'
 import { getAppConfig, getAppConfigsByCategory } from '../_shared/app-config.ts'
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
-})
+const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
+
+await initCorsConfig()
 
 type DdlRuleItem = { source?: string; target?: string }
 type BodyRuleItem = { s?: string; t?: string }
@@ -38,6 +38,7 @@ let convertFunctionFn: ConvertEngineFunction | null = null
 let convertProcedureFn: ConvertEngineFunction | null = null
 let rulesModule: RulesModuleShape | null = null
 let ddlRulesDefaultSnapshot: Record<string, DdlRuleItem[]> | null = null
+let conversionQueue: Promise<void> = Promise.resolve()
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 
@@ -326,6 +327,15 @@ async function computeCacheKey(kind: string, fromDb: string, toDb: string, rules
   return `${kind}|${fromDb}|${toDb}|${rulesVer}|${inputHash}`
 }
 
+async function withConversionLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = conversionQueue.then(fn, fn)
+  conversionQueue = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req)
 
@@ -446,29 +456,42 @@ Deno.serve(async (req) => {
         return errorResponse(503, 'engine_init_failed', corsHeaders)
       }
 
-      let runtimeApplied = false
       try {
-        runtimeApplied = runtimeRules ? applyRuntimeRules(runtimeRules) : false
-      } catch (err) {
-        logEdgeError('convert', 'rules_apply_failed', err)
-        return errorResponse(400, 'invalid_rules', corsHeaders)
-      }
+        output = await withConversionLock(async () => {
+          let runtimeApplied = false
+          try {
+            runtimeApplied = runtimeRules ? applyRuntimeRules(runtimeRules) : false
+          } catch {
+            throw new Error('invalid_rules')
+          }
 
-      try {
-        if (kind === 'ddl') {
-          const fn = convertDDLFn
-          if (typeof fn !== 'function') return jsonResponse(500, { error: 'engine_not_ready' }, corsHeaders)
-          output = fn(input, fromDb, toDb)
-        } else if (kind === 'func') {
-          const fn = convertFunctionFn
-          if (typeof fn !== 'function') return jsonResponse(500, { error: 'engine_not_ready' }, corsHeaders)
-          output = fn(input, fromDb, toDb)
-        } else {
-          const fn = convertProcedureFn
-          if (typeof fn !== 'function') return jsonResponse(500, { error: 'engine_not_ready' }, corsHeaders)
-          output = fn(input, fromDb, toDb)
-        }
+          try {
+            if (kind === 'ddl') {
+              const fn = convertDDLFn
+              if (typeof fn !== 'function') throw new Error('engine_not_ready')
+              return fn(input, fromDb, toDb)
+            }
+            if (kind === 'func') {
+              const fn = convertFunctionFn
+              if (typeof fn !== 'function') throw new Error('engine_not_ready')
+              return fn(input, fromDb, toDb)
+            }
+            const fn = convertProcedureFn
+            if (typeof fn !== 'function') throw new Error('engine_not_ready')
+            return fn(input, fromDb, toDb)
+          } finally {
+            if (runtimeApplied) resetRuntimeRules()
+          }
+        })
       } catch (err) {
+        const code = err instanceof Error ? err.message : 'conversion_failed'
+        if (code === 'invalid_rules') {
+          logEdgeError('convert', 'rules_apply_failed', err)
+          return errorResponse(400, 'invalid_rules', corsHeaders)
+        }
+        if (code === 'engine_not_ready') {
+          return jsonResponse(500, { error: 'engine_not_ready' }, corsHeaders)
+        }
         logEdgeError('convert', 'conversion_failed', err)
         await logOperation({
           userId, userEmail: userEmail || undefined, clientIp,
@@ -478,8 +501,6 @@ Deno.serve(async (req) => {
           errorMessage: err instanceof Error ? err.message : 'conversion_failed'
         })
         return errorResponse(500, 'conversion_failed', corsHeaders)
-      } finally {
-        if (runtimeApplied) resetRuntimeRules()
       }
 
       // --- Cache write ---

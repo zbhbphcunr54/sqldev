@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-
 import { submitFeedback, type FeedbackRequest } from '@/api/feedback'
 import { ApiError } from '@/api/http'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
@@ -9,26 +8,34 @@ const props = withDefaults(
   defineProps<{
     source?: FeedbackRequest['source']
   }>(),
-  {
-    source: 'workbench'
-  }
+  { source: 'workbench' }
 )
 
 const open = ref(false)
 const category = ref<FeedbackRequest['category']>('feature')
 const content = ref('')
+const contact = ref('')
 const loading = ref(false)
 const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({ type: 'idle', text: '' })
 
-const canSubmit = computed(() => content.value.trim().length >= 6)
+const MAX_LENGTH = 1200
+const charCount = computed(() => content.value.length)
+const isOverLimit = computed(() => charCount.value > MAX_LENGTH)
+const canSubmit = computed(() => content.value.trim().length >= 6 && !isOverLimit.value)
+
+const categoryOptions: { label: string; value: FeedbackRequest['category'] }[] = [
+  { label: '新功能建议', value: 'feature' },
+  { label: '体验优化', value: 'ux' },
+  { label: 'Bug 反馈', value: 'bug' },
+  { label: '其他', value: 'other' }
+]
 
 watch(open, (isOpen) => {
-  if (typeof document === 'undefined') return
   document.body.classList.toggle('feedback-open', isOpen)
 })
 
 onUnmounted(() => {
-  if (typeof document !== 'undefined') document.body.classList.remove('feedback-open')
+  document.body.classList.remove('feedback-open')
 })
 
 function getFeedbackErrorMessage(error: unknown): string {
@@ -43,11 +50,7 @@ function getFeedbackErrorMessage(error: unknown): string {
     if (error.status >= 500) return mapErrorCodeToMessage('feedback_service_unavailable')
     return error.message
   }
-
-  if (error instanceof TypeError) {
-    return mapErrorCodeToMessage('feedback_network_failed')
-  }
-
+  if (error instanceof TypeError) return mapErrorCodeToMessage('feedback_network_failed')
   return mapErrorCodeToMessage('feedback_submit_failed')
 }
 
@@ -58,10 +61,13 @@ async function handleSubmit(): Promise<void> {
   try {
     await submitFeedback({
       category: category.value,
-      content: content.value.trim(),
+      content: contact.value
+        ? content.value.trim() + '\n\n联系方式：' + contact.value.trim()
+        : content.value.trim(),
       source: props.source
     })
     content.value = ''
+    contact.value = ''
     status.value = { type: 'success', text: mapErrorCodeToMessage('feedback_success') }
   } catch (error) {
     console.error('[SQLDev] Feedback submit failed', error)
@@ -78,152 +84,187 @@ function closeFeedback(): void {
 
 <template>
   <aside>
+    <!-- FAB -->
     <button
       class="feedback-fab"
       :aria-expanded="open"
       aria-label="打开建议反馈面板"
       @click="open = !open"
     >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M3 3.5h10v6.75H8.4L5.15 13.2v-2.95H3V3.5Z"
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <rect
+          x="1.5"
+          y="2.5"
+          width="13"
+          height="11"
+          rx="1.5"
           stroke="currentColor"
           stroke-width="1.4"
-          stroke-linejoin="round"
         />
+        <path d="M5 8h6M8 5v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
       </svg>
-      <span>提建议</span>
+      <span>反馈</span>
     </button>
 
-    <div
-      v-if="open"
-      class="feedback-modal-mask"
-      role="presentation"
-      @click.self="closeFeedback"
-      @keydown.esc="closeFeedback"
-    >
-      <section
-        class="feedback-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="feedback-title"
+    <!-- Overlay -->
+    <Transition name="feedback-fade">
+      <div
+        v-if="open"
+        class="feedback-overlay"
+        role="presentation"
+        @click.self="closeFeedback"
+        @keydown.esc="closeFeedback"
       >
-        <div class="feedback-modal-head">
-          <h3 id="feedback-title">产品建议</h3>
-          <button class="feedback-close" type="button" aria-label="关闭" @click="closeFeedback">
-            &times;
-          </button>
-        </div>
-        <p class="feedback-modal-desc">欢迎反馈 Bug、体验问题或优化想法。</p>
-
-        <label class="feedback-label" for="feedback-category">分类</label>
-        <select id="feedback-category" v-model="category" class="feedback-select">
-          <option value="bug">Bug 问题</option>
-          <option value="feature">功能建议</option>
-          <option value="ux">界面体验</option>
-          <option value="performance">性能速度</option>
-          <option value="other">其他</option>
-        </select>
-
-        <label class="feedback-label" for="feedback-content">内容</label>
-        <textarea
-          id="feedback-content"
-          v-model="content"
-          rows="5"
-          class="feedback-textarea"
-          placeholder="请输入你的建议（至少 6 个字）"
-        ></textarea>
-
-        <div class="feedback-meta-row">
-          <span class="feedback-hint">提交后会进入在线反馈队列</span>
-          <span class="feedback-count">{{ content.trim().length }}/6</span>
-        </div>
-
-        <p
-          v-if="status.text"
-          class="feedback-status"
-          :class="{ success: status.type === 'success', error: status.type === 'error' }"
+        <section
+          class="feedback-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-title"
         >
-          {{ status.text }}
-        </p>
+          <!-- Header -->
+          <div class="feedback-modal-head">
+            <h3 id="feedback-title">产品建议</h3>
+            <button class="feedback-close" type="button" aria-label="关闭" @click="closeFeedback">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p class="feedback-modal-desc">告诉我们你希望改进的功能、体验或问题，我们会持续优化。</p>
 
-        <div class="feedback-actions">
-          <button class="feedback-btn" type="button" @click="closeFeedback">关闭</button>
-          <button
-            class="feedback-btn primary"
-            type="button"
-            :disabled="!canSubmit || loading"
-            @click="handleSubmit"
+          <!-- Category -->
+          <label class="feedback-label" for="feedback-category">建议类型</label>
+          <select id="feedback-category" v-model="category" class="feedback-select">
+            <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+
+          <!-- Content -->
+          <label class="feedback-label" for="feedback-content">建议内容</label>
+          <textarea
+            id="feedback-content"
+            v-model="content"
+            class="feedback-textarea"
+            placeholder="例如：希望增加批量翻译、结果差异对比、规则模板共享..."
+          ></textarea>
+          <div class="feedback-meta-row">
+            <span class="feedback-hint">请尽量描述场景和期望结果，便于我们快速落地。</span>
+            <span class="feedback-count" :class="{ over: isOverLimit }"
+              >{{ charCount }}/{{ MAX_LENGTH }}</span
+            >
+          </div>
+
+          <!-- Contact -->
+          <label class="feedback-label" for="feedback-contact">联系方式（选填）</label>
+          <input
+            id="feedback-contact"
+            v-model="contact"
+            class="feedback-input"
+            placeholder="邮箱 / 微信 / 其他联系方式"
+          />
+
+          <!-- Status -->
+          <p
+            v-if="status.text"
+            class="feedback-status"
+            :class="{ success: status.type === 'success', error: status.type === 'error' }"
           >
-            {{ loading ? '提交中...' : '提交建议' }}
-          </button>
-        </div>
-      </section>
-    </div>
+            {{ status.text }}
+          </p>
+
+          <!-- Actions -->
+          <div class="feedback-actions">
+            <button class="feedback-btn" type="button" @click="closeFeedback">取消</button>
+            <button
+              class="feedback-btn primary"
+              type="button"
+              :disabled="!canSubmit || loading"
+              @click="handleSubmit"
+            >
+              {{ loading ? '提交中...' : '提交建议' }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </aside>
 </template>
 
 <style>
+/* ── FAB ── */
 .feedback-fab {
   position: fixed;
-  left: 0;
+  right: 0;
   top: 50%;
   z-index: 130;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 6px;
-  border: 1px solid rgba(99, 135, 241, 0.28);
-  border-left: none;
-  border-radius: 0 10px 10px 0;
-  background: linear-gradient(180deg, rgba(18, 27, 50, 0.94), rgba(9, 15, 31, 0.92));
-  color: #cdd9f4;
+  gap: 4px;
+  width: 30px;
+  padding: 9px 5px;
+  border: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--color-panel);
   box-shadow:
-    0 16px 28px rgba(2, 6, 23, 0.34),
-    inset 1px 0 0 rgba(255, 255, 255, 0.05);
-  font: 700 12px/1 var(--font-body, sans-serif);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  letter-spacing: 0.12em;
+    0 2px 12px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transform: translateY(-50%);
   transition:
-    padding 0.18s ease,
-    color 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
-  backdrop-filter: blur(10px);
+    box-shadow var(--duration-normal) var(--ease-apple),
+    background var(--duration-normal) var(--ease-apple);
 }
-
 .feedback-fab svg {
   width: 14px;
   height: 14px;
-  flex: 0 0 auto;
-  transform: rotate(90deg);
+  flex-shrink: 0;
+  color: var(--color-danger);
+  transition: color var(--duration-normal) var(--ease-apple);
 }
-
-.feedback-fab:hover,
-body.feedback-open .feedback-fab {
-  padding-right: 10px;
-  border-color: rgba(125, 163, 255, 0.48);
-  color: #ffffff;
+.feedback-fab span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: var(--color-danger);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  transition: color var(--duration-normal) var(--ease-apple);
+}
+.feedback-fab:hover {
   box-shadow:
-    0 18px 34px rgba(37, 99, 235, 0.24),
-    inset 1px 0 0 rgba(255, 255, 255, 0.08);
+    0 4px 18px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  background: var(--color-panel-2);
 }
-
+body.feedback-open .feedback-fab {
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  background: var(--color-panel-2);
+}
 .feedback-fab:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 3px rgba(79, 125, 249, 0.28),
-    0 18px 34px rgba(37, 99, 235, 0.24);
+  box-shadow: var(--shadow-focus-ring);
 }
 
 body.feedback-open {
   overflow: hidden;
 }
 
-.feedback-modal-mask {
+/* ── Overlay ── */
+.feedback-overlay {
   position: fixed;
   inset: 0;
   z-index: 10030;
@@ -231,228 +272,218 @@ body.feedback-open {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(2, 6, 23, 0.6);
+  background: var(--color-overlay);
   backdrop-filter: blur(4px);
 }
 
+/* ── Modal ── */
 .feedback-modal {
-  width: min(520px, 96vw);
-  border: 1px solid rgba(99, 135, 241, 0.26);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(14, 22, 40, 0.98), rgba(8, 13, 27, 0.96));
-  box-shadow: 0 22px 54px rgba(2, 6, 23, 0.5);
-  padding: 14px 14px 12px;
+  width: min(480px, 96vw);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-xl);
+  padding: 28px 28px 24px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .feedback-modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
-
 .feedback-modal-head h3 {
   margin: 0;
-  color: #e6eefc;
-  font-size: 16px;
+  color: var(--color-text);
+  font-size: var(--text-xl);
+  font-weight: 700;
 }
 
 .feedback-close {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #9fb0cf;
-  font-size: 22px;
-  line-height: 1;
+  color: var(--color-text-muted);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast);
 }
-
 .feedback-close:hover {
-  background: rgba(79, 125, 249, 0.12);
-  color: #f2f7ff;
+  background: var(--color-panel-2);
+  color: var(--color-text);
 }
 
 .feedback-modal-desc {
-  margin: 0 0 12px;
-  color: #93a5c6;
-  font-size: 13px;
+  margin: 0 0 18px;
+  color: var(--color-text-subtle);
+  font-size: var(--text-base);
 }
 
+/* ── Form ── */
 .feedback-label {
   display: block;
-  margin: 12px 0 6px;
-  color: #cbd7ef;
-  font-size: 12px;
+  margin: 14px 0 6px;
+  color: var(--color-text);
+  font-size: var(--text-base);
   font-weight: 600;
+}
+.feedback-label:first-of-type {
+  margin-top: 0;
 }
 
 .feedback-select,
+.feedback-input,
 .feedback-textarea {
   width: 100%;
-  border: 1px solid rgba(99, 135, 241, 0.22);
-  border-radius: 10px;
-  background: rgba(6, 10, 22, 0.72);
-  color: #edf3ff;
-  padding: 9px 10px;
-  font: 500 13px/1.5 var(--font-body, sans-serif);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-text);
+  padding: 9px 12px;
+  font: 500 var(--text-base)/1.5 var(--font-body, sans-serif);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast);
+}
+.feedback-select {
+  height: 40px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+.feedback-input {
+  height: 40px;
 }
 
 .feedback-textarea {
-  min-height: 126px;
+  height: 160px;
   resize: vertical;
+  min-height: 120px;
 }
-
+.feedback-select::placeholder,
+.feedback-input::placeholder,
 .feedback-textarea::placeholder {
-  color: #7284a7;
+  color: var(--color-text-muted);
 }
-
 .feedback-select:focus,
+.feedback-input:focus,
 .feedback-textarea:focus {
-  border-color: rgba(125, 163, 255, 0.55);
+  border-color: var(--color-accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 125, 249, 0.18);
+  box-shadow: var(--shadow-focus-ring);
 }
 
+/* ── Meta row ── */
 .feedback-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
-
 .feedback-hint {
-  color: #8294b7;
-  font-size: 11px;
+  color: var(--color-accent);
+  font-size: var(--text-xs);
 }
-
 .feedback-count {
-  color: #9ab0d4;
-  font: 600 11px var(--font-code, monospace);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.feedback-count.over {
+  color: var(--color-danger);
 }
 
+/* ── Status ── */
 .feedback-status {
   min-height: 18px;
-  margin: 8px 0 0;
-  color: #cbd7ef;
-  font-size: 12px;
+  margin: 10px 0 0;
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
 }
-
 .feedback-status.error {
-  color: #fca5a5;
+  color: var(--color-danger-text);
 }
-
 .feedback-status.success {
-  color: #86efac;
+  color: var(--color-success);
 }
 
+/* ── Actions ── */
 .feedback-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 16px;
 }
-
 .feedback-btn {
-  min-width: 88px;
-  height: 34px;
-  border: 1px solid rgba(99, 135, 241, 0.22);
-  border-radius: 9px;
-  background: rgba(79, 125, 249, 0.08);
-  color: #dbe7ff;
-  font: 600 12px var(--font-body, sans-serif);
+  padding: 8px 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font: 600 var(--text-base) var(--font-body, sans-serif);
   cursor: pointer;
+  transition:
+    background var(--duration-fast),
+    border-color var(--duration-fast);
 }
-
 .feedback-btn:hover {
-  border-color: rgba(125, 163, 255, 0.4);
-  background: rgba(79, 125, 249, 0.12);
+  background: var(--color-panel-2);
 }
-
 .feedback-btn.primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
-  color: #fff;
+  border-color: var(--color-text);
+  font-weight: 600;
 }
-
+.feedback-btn.primary:hover {
+  background: var(--color-panel-2);
+}
 .feedback-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
-[data-theme='light'] .feedback-fab {
-  border-color: rgba(148, 163, 184, 0.36);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.94));
-  color: #475569;
-  box-shadow:
-    0 14px 28px rgba(15, 23, 42, 0.12),
-    inset 1px 0 0 rgba(255, 255, 255, 0.9);
+/* ── Transition ── */
+.feedback-fade-enter-active,
+.feedback-fade-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-apple);
+}
+.feedback-fade-enter-from,
+.feedback-fade-leave-to {
+  opacity: 0;
 }
 
-[data-theme='light'] .feedback-fab:hover,
-[data-theme='light'] body.feedback-open .feedback-fab {
-  border-color: rgba(37, 99, 235, 0.34);
-  color: #1d4ed8;
-  box-shadow:
-    0 16px 32px rgba(37, 99, 235, 0.14),
-    inset 1px 0 0 rgba(255, 255, 255, 0.9);
+/* ── Scrollbar ── */
+.feedback-modal::-webkit-scrollbar {
+  width: 5px;
+}
+.feedback-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+.feedback-modal::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-radius);
 }
 
-[data-theme='light'] .feedback-modal-mask {
-  background: rgba(148, 163, 184, 0.32);
-}
-
-[data-theme='light'] .feedback-modal {
-  border-color: #dbe5f5;
-  background: linear-gradient(180deg, #fff, #f8fafc);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
-}
-
-[data-theme='light'] .feedback-modal-head h3 {
-  color: #0f172a;
-}
-
-[data-theme='light'] .feedback-modal-desc,
-[data-theme='light'] .feedback-close,
-[data-theme='light'] .feedback-hint {
-  color: #64748b;
-}
-
-[data-theme='light'] .feedback-label {
-  color: #1e293b;
-}
-
-[data-theme='light'] .feedback-select,
-[data-theme='light'] .feedback-textarea {
-  border-color: #dbe5f5;
-  background: #fff;
-  color: #0f172a;
-}
-
-[data-theme='light'] .feedback-textarea::placeholder {
-  color: #94a3b8;
-}
-
-[data-theme='light'] .feedback-count {
-  color: #475569;
-}
-
-[data-theme='light'] .feedback-status {
-  color: #334155;
-}
-
-[data-theme='light'] .feedback-btn {
-  border-color: #dbe5f5;
-  background: #fff;
-  color: #334155;
-}
-
-@media (max-width: 639px) {
+/* ── Mobile ── */
+@media (max-width: 480px) {
+  .feedback-modal {
+    padding: 20px 16px;
+  }
   .feedback-fab {
-    padding: 9px 5px;
-    font-size: 11px;
+    width: 32px;
+    padding: 8px 4px;
   }
 }
 </style>

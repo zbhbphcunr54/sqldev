@@ -60,15 +60,30 @@ function localizeAuthError(error: unknown, fallbackCode = 'auth_password_failed'
   if (!msg) return mapErrorCodeToMessage(code)
 
   if (msg.includes('invalid login credentials')) code = AUTH_ERRORS.invalid_credentials
-  else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) code = AUTH_ERRORS.email_not_confirmed
+  else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed'))
+    code = AUTH_ERRORS.email_not_confirmed
   else if (msg.includes('user already registered')) code = AUTH_ERRORS.email_registered
   else if (msg.includes('new password should be different')) code = AUTH_ERRORS.password_same
-  else if (msg.includes('password should contain at least one character')) code = AUTH_ERRORS.password_weak
-  else if (msg.includes('password should be at least') || msg.includes('password is too short')) code = AUTH_ERRORS.password_short
-  else if (msg.includes('invalid email') || msg.includes('email address')) code = AUTH_ERRORS.email_invalid
-  else if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('over_email_send_rate_limit')) code = AUTH_ERRORS.rate_limit
-  else if (msg.includes('invalid otp') || msg.includes('expired') || msg.includes('token')) code = AUTH_ERRORS.otp_invalid
-  else if (msg.includes('networkerror') || msg.includes('failed to fetch') || msg.includes('fetch failed')) code = AUTH_ERRORS.network_error
+  else if (msg.includes('password should contain at least one character'))
+    code = AUTH_ERRORS.password_weak
+  else if (msg.includes('password should be at least') || msg.includes('password is too short'))
+    code = AUTH_ERRORS.password_short
+  else if (msg.includes('invalid email') || msg.includes('email address'))
+    code = AUTH_ERRORS.email_invalid
+  else if (
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('over_email_send_rate_limit')
+  )
+    code = AUTH_ERRORS.rate_limit
+  else if (msg.includes('invalid otp') || msg.includes('expired') || msg.includes('token'))
+    code = AUTH_ERRORS.otp_invalid
+  else if (
+    msg.includes('networkerror') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('fetch failed')
+  )
+    code = AUTH_ERRORS.network_error
 
   return mapErrorCodeToMessage(code)
 }
@@ -568,16 +583,17 @@ watch(open, async (isOpen) => {
   justify-content: center;
   padding: 18px;
   background: var(--color-overlay);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .auth-modal {
-  width: 420px;
+  width: 400px;
   max-width: 96vw;
   background: var(--color-panel);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-modal);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
 }
 
@@ -585,50 +601,58 @@ watch(open, async (isOpen) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 28px 0;
+  padding: 28px 28px 0;
   text-align: center;
+  position: relative;
 }
 
 .auth-modal-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--color-accent);
   display: grid;
   place-items: center;
   font-family: var(--font-code);
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 
 .auth-modal-head h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
 .auth-modal-desc {
-  margin: 3px 0 0;
-  color: var(--color-text-muted);
-  font-size: 12px;
+  margin: 6px 0 0;
+  color: var(--color-text-subtle);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .auth-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 6px;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-md);
   color: var(--color-text-muted);
   background: transparent;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 24px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .auth-close:hover {
@@ -637,23 +661,25 @@ watch(open, async (isOpen) => {
 }
 
 .auth-mode-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-bottom: 1px solid var(--color-border);
-  margin-top: 20px;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  margin: 20px 24px 0;
+  background: var(--color-panel-2);
+  border-radius: var(--radius-lg);
 }
 
 .auth-mode-btn {
-  padding: 13px;
+  flex: 1;
+  padding: 10px;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text-subtle);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .auth-mode-btn:hover {
@@ -661,36 +687,40 @@ watch(open, async (isOpen) => {
 }
 
 .auth-mode-btn.active {
-  color: var(--color-brand-500);
-  border-bottom-color: var(--color-brand-500);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: var(--shadow-xs);
 }
 
 .auth-form {
-  padding: 20px 28px 24px;
+  padding: 24px;
 }
 
 .auth-label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   color: var(--color-text-subtle);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .auth-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 12px 14px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-lg);
   background: var(--color-panel-2);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 15px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all var(--duration-fast) var(--ease-apple);
+  box-sizing: border-box;
 }
 
 .auth-input-password {
-  padding-right: 38px;
+  padding-right: 44px;
 }
 
 .auth-input::placeholder {
@@ -698,8 +728,9 @@ watch(open, async (isOpen) => {
 }
 
 .auth-input:focus {
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-bg);
+  background: var(--color-panel);
 }
 
 .auth-input[type='password']::-ms-reveal,
@@ -714,10 +745,10 @@ watch(open, async (isOpen) => {
 .auth-password-toggle {
   position: absolute;
   top: 50%;
-  right: 10px;
+  right: 12px;
   display: flex;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -726,6 +757,7 @@ watch(open, async (isOpen) => {
   background: transparent;
   cursor: pointer;
   transform: translateY(-50%);
+  transition: color var(--duration-fast) var(--ease-apple);
 }
 
 .auth-password-toggle:hover {
@@ -733,17 +765,17 @@ watch(open, async (isOpen) => {
 }
 
 .auth-password-toggle svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .auth-password-toggle-slash {
   position: absolute;
   width: 14px;
-  height: 1.5px;
+  height: 2px;
   background: currentColor;
   transform: rotate(-35deg) scaleX(0);
-  transition: transform 0.15s ease;
+  transition: transform var(--duration-fast) var(--ease-apple);
 }
 
 .auth-password-toggle.active .auth-password-toggle-slash {
@@ -756,14 +788,14 @@ watch(open, async (isOpen) => {
 }
 
 .auth-input-hint {
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   color: var(--color-text-muted);
   line-height: 1.5;
 }
 
 .auth-status {
   min-height: 18px;
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   color: var(--color-success);
 }
 
@@ -774,7 +806,7 @@ watch(open, async (isOpen) => {
 .auth-actions {
   display: flex;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .auth-btn {
@@ -782,31 +814,32 @@ watch(open, async (isOpen) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-pill);
   color: var(--color-text);
-  background: var(--color-panel);
-  font-size: 13px;
+  background: var(--color-panel-2);
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-normal) var(--ease-apple);
 }
 
 .auth-btn:hover:not(:disabled) {
-  border-color: var(--color-border-hover);
+  background: var(--color-panel-3);
 }
 
 .auth-btn.primary {
   border: none;
-  color: #fff;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  background: var(--color-accent);
+  box-shadow: var(--shadow-button);
 }
 
 .auth-btn.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.3);
+  box-shadow: var(--shadow-button-hover);
 }
 
 .auth-btn:disabled {
@@ -815,27 +848,31 @@ watch(open, async (isOpen) => {
 }
 
 .auth-inline-actions {
-  margin-top: 6px;
+  margin-top: 8px;
   text-align: right;
 }
 
 .auth-text-btn {
   border: 0;
-  color: var(--color-brand-500);
+  color: var(--color-accent);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px;
+  transition: color var(--duration-fast) var(--ease-apple);
 }
 
 .auth-text-btn:hover {
-  color: var(--color-brand-600);
+  color: var(--color-accent-hover);
 }
 
 .auth-footer {
   text-align: center;
-  padding: 10px;
+  padding: 14px;
   font-size: 11px;
   color: var(--color-text-muted);
   border-top: 1px solid var(--color-border);
+  background: var(--color-panel-2);
 }
 </style>

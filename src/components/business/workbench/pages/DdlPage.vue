@@ -14,6 +14,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkbenchStore } from '@/stores/workbench'
 import { requestConvert } from '@/api/convert'
+import { requestConvertVerify } from '@/api/convert-verify'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import { useClipboard } from '@/composables/useClipboard'
 
@@ -23,25 +24,79 @@ const { copyToClipboard } = useClipboard()
 
 // ==================== 示例 DDL ====================
 
-const SAMPLE_DDL = `-- 用户信息表
-CREATE TABLE users (
-  id NUMBER(20) NOT NULL,
-  username VARCHAR2(50) NOT NULL,
-  email VARCHAR2(100) NOT NULL,
-  status NUMBER(1) DEFAULT 1,
-  created_at DATE DEFAULT SYSDATE,
-  updated_at TIMESTAMP,
-  CONSTRAINT pk_users PRIMARY KEY (id)
+const SAMPLE_DDL = `-- 电商订单系统核心表结构
+-- 订单主表
+CREATE TABLE orders (
+  order_id NUMBER(20) NOT NULL,
+  order_no VARCHAR2(32) NOT NULL,
+  customer_id NUMBER(20) NOT NULL,
+  merchant_id NUMBER(20) NOT NULL,
+  order_status NUMBER(2) DEFAULT 0,
+  payment_status NUMBER(2) DEFAULT 0,
+  shipping_status NUMBER(2) DEFAULT 0,
+  order_amount NUMBER(12,2) NOT NULL,
+  discount_amount NUMBER(12,2) DEFAULT 0,
+  coupon_amount NUMBER(12,2) DEFAULT 0,
+  freight_amount NUMBER(10,2) DEFAULT 0,
+  total_amount NUMBER(12,2) NOT NULL,
+  payment_amount NUMBER(12,2),
+  payment_method VARCHAR2(20),
+  payment_time TIMESTAMP,
+  shipping_time TIMESTAMP,
+  receive_time TIMESTAMP,
+  receiver_name VARCHAR2(100),
+  receiver_phone VARCHAR2(20),
+  receiver_province VARCHAR2(50),
+  receiver_city VARCHAR2(50),
+  receiver_district VARCHAR2(50),
+  receiver_address VARCHAR2(500),
+  buyer_remark VARCHAR2(500),
+  seller_remark VARCHAR2(500),
+  create_time TIMESTAMP DEFAULT SYSTIMESTAMP,
+  update_time TIMESTAMP,
+  is_deleted NUMBER(1) DEFAULT 0,
+  version NUMBER(10) DEFAULT 0,
+  CONSTRAINT pk_orders PRIMARY KEY (order_id),
+  CONSTRAINT uk_orders_order_no UNIQUE (order_no)
 );
 
-COMMENT ON TABLE users IS '用户信息表';
-COMMENT ON COLUMN users.username IS '用户名';
-COMMENT ON COLUMN users.email IS '邮箱地址';
+COMMENT ON TABLE orders IS '订单主表';
+COMMENT ON COLUMN orders.order_id IS '订单ID';
+COMMENT ON COLUMN orders.order_no IS '订单编号';
+COMMENT ON COLUMN orders.customer_id IS '客户ID';
+COMMENT ON COLUMN orders.merchant_id IS '商户ID';
+COMMENT ON COLUMN orders.order_status IS '订单状态:0-待付款,1-已付款,2-已发货,3-已收货,4-已完成,5-已取消,6-已退款';
+COMMENT ON COLUMN orders.total_amount IS '订单总金额';
 
--- 索引
-CREATE INDEX idx_username ON users(username);
-CREATE INDEX idx_email ON users(email);
-CREATE INDEX idx_status ON users(status);`
+-- 订单明细表
+CREATE TABLE order_items (
+  item_id NUMBER(20) NOT NULL,
+  order_id NUMBER(20) NOT NULL,
+  product_id NUMBER(20) NOT NULL,
+  sku_id NUMBER(20),
+  product_name VARCHAR2(200) NOT NULL,
+  sku_name VARCHAR2(200),
+  product_image VARCHAR2(500),
+  original_price NUMBER(12,2) NOT NULL,
+  unit_price NUMBER(12,2) NOT NULL,
+  quantity NUMBER(8) NOT NULL DEFAULT 1,
+  discount_amount NUMBER(12,2) DEFAULT 0,
+  item_amount NUMBER(12,2) NOT NULL,
+  is_gift NUMBER(1) DEFAULT 0,
+  create_time TIMESTAMP DEFAULT SYSTIMESTAMP,
+  update_time TIMESTAMP,
+  CONSTRAINT pk_order_items PRIMARY KEY (item_id),
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
+);
+
+-- 创建索引
+CREATE INDEX idx_orders_customer ON orders(customer_id);
+CREATE INDEX idx_orders_merchant ON orders(merchant_id);
+CREATE INDEX idx_orders_status ON orders(order_status);
+CREATE INDEX idx_orders_create_time ON orders(create_time);
+CREATE INDEX idx_orders_payment_status ON orders(payment_status);
+CREATE INDEX idx_order_items_order ON order_items(order_id);
+CREATE INDEX idx_order_items_product ON order_items(product_id);`
 
 // ==================== 状态 ====================
 
@@ -98,6 +153,26 @@ function clearAll(): void {
   translateTime.value = null
 }
 
+/** 上传文件 */
+function handleUploadFile(): void {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.sql,.ddl,.txt'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      store.inputDdl = text
+      store.outputDdl = ''
+      store.ddlStatusText = `已加载文件: ${file.name}`
+    } catch {
+      store.showAlert('错误', '文件读取失败')
+    }
+  }
+  input.click()
+}
+
 /** 复制输出 */
 async function copyOutput(): Promise<void> {
   if (!store.outputDdl) return
@@ -119,12 +194,45 @@ function swapDbs(): void {
 }
 
 /** AI 校验 */
-function aiVerify(): void {
+async function aiVerify(): Promise<void> {
   if (!store.outputDdl) {
     store.showAlert('提示', '请先进行翻译后再使用 AI 校验')
     return
   }
-  store.showAlert('AI 校验', 'AI 校验功能开发中...')
+
+  store.ddlConverting = true
+  store.ddlStatusText = 'AI 校验中...'
+
+  try {
+    const result = await requestConvertVerify({
+      kind: 'ddl',
+      fromDb: store.sourceDb as 'oracle' | 'mysql' | 'postgresql',
+      toDb: store.targetDb as 'oracle' | 'mysql' | 'postgresql',
+      inputSql: store.inputDdl,
+      outputSql: store.outputDdl
+    })
+
+    if (result.ok) {
+      const score = result.overallScore ?? 0
+      const issues = [
+        ...(result.syntaxIssues ?? []),
+        ...(result.semanticIssues ?? []),
+        ...(result.logicRisks ?? [])
+      ]
+      const issueCount = issues.length
+      const summary = result.summary || `综合评分 ${score} 分，发现 ${issueCount} 个问题`
+      store.ddlStatusText = `校验完成 - ${summary}`
+      store.showAlert('AI 校验完成', summary)
+    } else {
+      store.ddlStatusText = '校验失败'
+      store.showAlert('校验失败', mapErrorCodeToMessage(result.error || 'verify_failed'))
+    }
+  } catch (error) {
+    store.ddlStatusText = '校验失败'
+    store.showAlert('校验失败', mapErrorCodeToMessage(String(error)))
+  } finally {
+    store.ddlConverting = false
+  }
 }
 
 /** 开始翻译 */
@@ -269,6 +377,7 @@ const supportedDdl = [
           <select
             :value="store.sourceDb"
             class="db-select"
+            aria-label="选择源数据库"
             @change="store.pickDb('sourceDb', ($event.target as HTMLSelectElement).value as any)"
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
@@ -287,7 +396,12 @@ const supportedDdl = [
         </div>
 
         <!-- 交换按钮 -->
-        <button class="swap-btn" title="交换源和目标数据库" @click="swapDbs">
+        <button
+          class="swap-btn"
+          title="交换源和目标数据库"
+          aria-label="交换源和目标数据库"
+          @click="swapDbs"
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M12 5L14 7L12 9"
@@ -314,6 +428,7 @@ const supportedDdl = [
           <select
             :value="store.targetDb"
             class="db-select"
+            aria-label="选择目标数据库"
             @change="store.pickDb('targetDb', ($event.target as HTMLSelectElement).value as any)"
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
@@ -339,7 +454,7 @@ const supportedDdl = [
           {{ isConverting ? '翻译中...' : '开始翻译' }}
           <span class="shortcut">Ctrl+Enter</span>
         </button>
-        <button class="icon-btn" title="更多选项">
+        <button class="icon-btn" title="更多选项" aria-label="更多选项">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="3" r="1.5" fill="currentColor" />
             <circle cx="8" cy="8" r="1.5" fill="currentColor" />
@@ -376,7 +491,7 @@ const supportedDdl = [
 
         <div class="toolbar-divider"></div>
 
-        <button class="toolbar-btn">
+        <button class="toolbar-btn" @click="handleUploadFile">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M3 2H13V10L9 14H3V2Z"
@@ -477,25 +592,21 @@ const supportedDdl = [
             <span class="db-dot oracle"></span>
             <span>Oracle 输入</span>
           </div>
-          <span class="panel-hint">
-            <span class="hint-tag">支持粘贴 SQL</span>
-            <span class="hint-tag">Ctrl/⌘ + V</span>
-          </span>
           <span class="line-count">{{ store.inputLineCount }} 行</span>
         </div>
 
         <!-- 面板内容 -->
         <div class="panel-content">
           <!-- 空状态 -->
-          <div v-if="!hasInput" class="empty-state">
+          <div v-if="!hasInput" class="empty-state" @click="loadSample">
             <span class="badge-ready">Ready for Source SQL</span>
             <h2 class="empty-title">从 Oracle DDL 开始</h2>
             <p class="empty-desc">
               先贴入建表语句，或直接加载示例。我们会保留字段、索引、注释和分区结构。
             </p>
-            <p class="empty-tip">提示：可直接粘贴 SQL（Ctrl / ⌘ + V）</p>
+            <p class="empty-tip">点击此处加载示例 SQL</p>
             <div class="empty-actions">
-              <button class="btn-success" @click="loadSample">
+              <button class="btn-success" @click.stop="loadSample">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path
                     d="M7 1V7M7 7L4 4M7 7L10 4"
@@ -513,7 +624,7 @@ const supportedDdl = [
                 </svg>
                 加载示例
               </button>
-              <button class="btn-outline">
+              <button class="btn-outline" @click.stop="handleUploadFile">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path
                     d="M2 2H12V10L8 14H2V2Z"
@@ -554,8 +665,8 @@ const supportedDdl = [
           <div class="panel-title">
             <span class="db-dot postgresql"></span>
             <span>PostgreSQL 输出</span>
+            <span v-if="hasOutput" class="ai-verify-badge">AI 校验</span>
           </div>
-          <span class="panel-hint">可直接编辑 · 审阅批注</span>
         </div>
 
         <!-- 面板内容 -->
@@ -656,15 +767,60 @@ const supportedDdl = [
               <!-- 栏标题 -->
               <div class="column-header">
                 <!-- 图标 -->
-                <svg v-if="col.icon === 'hash'" class="column-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 9H20M4 15H20M10 3L8 21M16 3L14 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <svg
+                  v-if="col.icon === 'hash'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M4 9H20M4 15H20M10 3L8 21M16 3L14 21"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
-                <svg v-else-if="col.icon === 'text'" class="column-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 7V4H20V7M9 20H15M12 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg
+                  v-else-if="col.icon === 'text'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path
+                    d="M4 7V4H20V7M9 20H15M12 4V20"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
-                <svg v-else-if="col.icon === 'binary'" class="column-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-                  <path d="M9 9V15M12 9V15M15 9V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <svg
+                  v-else-if="col.icon === 'binary'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M9 9V15M12 9V15M15 9V15"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <span class="column-title">{{ col.title }}</span>
               </div>
@@ -691,7 +847,9 @@ const supportedDdl = [
           <div class="reference-footer">
             <span class="footer-label">支持操作：</span>
             <div class="footer-items">
-              <span v-for="(op, opIndex) in supportedDdl" :key="opIndex" class="footer-item">{{ op }}</span>
+              <span v-for="(op, opIndex) in supportedDdl" :key="opIndex" class="footer-item">{{
+                op
+              }}</span>
             </div>
           </div>
         </div>
@@ -706,13 +864,9 @@ const supportedDdl = [
 <style scoped>
 /* ==================== 全局字体 ==================== */
 .ddl-page {
-  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
 /* ==================== 布局 ==================== */
@@ -720,8 +874,8 @@ code {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #0b1120;
-  color: #e2e8f0;
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
   overflow: hidden;
   position: relative;
 }
@@ -732,9 +886,9 @@ code {
   align-items: center;
   justify-content: space-between;
   height: 56px;
-  padding: 0 20px;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0 24px;
+  background: var(--color-page-bg);
+  border-bottom: 1px solid var(--color-page-border);
   flex-shrink: 0;
 }
 
@@ -747,36 +901,43 @@ code {
 .page-title {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-page-text);
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .page-subtitle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
+  letter-spacing: 0.01em;
 }
 
 .page-subtitle .dot {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .top-bar-center {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .db-selector {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: #111827;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-page-card);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-page-border);
+  transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.db-selector:hover {
+  border-color: var(--color-page-border-hover);
 }
 
 .db-badge {
@@ -785,57 +946,60 @@ code {
   justify-content: center;
   width: 32px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-family: var(--font-code);
+  letter-spacing: -0.01em;
 }
 
 .db-badge.oracle {
-  background: #dc2626;
+  background: var(--oracle);
 }
 
 .db-badge.postgresql {
-  background: #6366f1;
+  background: var(--pg);
 }
 
 .db-select {
   background: transparent;
   border: none;
-  color: #e2e8f0;
+  color: var(--color-page-text);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   outline: none;
   padding-right: 4px;
 }
 
 .db-select option {
-  background: #111827;
-  color: #e2e8f0;
+  background: var(--color-page-card);
+  color: var(--color-page-text);
 }
 
 .select-arrow {
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .swap-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #111827;
-  color: #94a3b8;
+  border: 1px solid var(--color-page-border);
+  background: var(--color-page-card);
+  color: var(--color-page-text-subtle);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .swap-btn:hover {
-  color: #6366f1;
-  border-color: #6366f1;
+  color: var(--color-page-brand);
+  border-color: var(--color-page-brand);
+  transform: rotate(180deg);
 }
 
 .top-bar-right {
@@ -847,33 +1011,41 @@ code {
 .text-link {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--duration-fast) var(--ease-apple);
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
 }
 
 .text-link:hover {
-  color: #fff;
+  color: var(--color-page-text);
+  background: var(--color-page-border-light);
 }
 
 .btn-primary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  background: #6366f1;
+  padding: 8px 18px;
+  background: var(--color-page-brand);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   color: #fff;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-normal) var(--ease-apple);
+  box-shadow: var(--shadow-xs);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5558e3;
+  background: var(--color-page-brand-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:disabled {
@@ -883,29 +1055,29 @@ code {
 
 .shortcut {
   padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-family: var(--font-code);
 }
 
 .icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: var(--color-page-border-light);
+  color: var(--color-page-text);
 }
 
 /* ==================== 工具栏 ==================== */
@@ -913,10 +1085,10 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 20px;
   background: transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-page-border);
   flex-shrink: 0;
 }
 
@@ -924,26 +1096,27 @@ code {
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .toolbar-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: #94a3b8;
+  border-radius: var(--radius-pill);
+  color: var(--color-page-text-subtle);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .toolbar-btn:hover:not(:disabled) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-page-text);
+  background: var(--color-page-border-light);
 }
 
 .toolbar-btn:disabled {
@@ -952,28 +1125,28 @@ code {
 }
 
 .toolbar-btn.danger {
-  color: #ef4444;
+  color: var(--color-page-danger);
 }
 
 .toolbar-btn.danger:hover:not(:disabled) {
-  color: #dc2626;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-page-danger);
+  background: var(--color-danger-bg);
 }
 
 .toolbar-btn.ai {
-  color: #818cf8;
+  color: var(--color-purple);
 }
 
 .toolbar-btn.ai:hover:not(:disabled) {
-  color: #6366f1;
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--color-purple);
+  background: var(--color-purple-bg);
 }
 
 .toolbar-divider {
   width: 1px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  margin: 0 4px;
+  background: var(--color-page-border);
+  margin: 0 6px;
 }
 
 /* ==================== 工作区 ==================== */
@@ -988,32 +1161,33 @@ code {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #111827;
+  background: var(--color-page-card);
   overflow: hidden;
 }
 
 .panel-divider {
   width: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-page-border);
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 36px;
-  padding: 0 16px;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  height: 40px;
+  padding: 0 20px;
+  background: var(--color-page-bg);
+  border-bottom: 1px solid var(--color-page-border);
   flex-shrink: 0;
 }
 
 .panel-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .db-dot {
@@ -1023,11 +1197,22 @@ code {
 }
 
 .db-dot.oracle {
-  background: #dc2626;
+  background: var(--oracle);
 }
 
 .db-dot.postgresql {
-  background: #6366f1;
+  background: var(--pg);
+}
+
+.ai-verify-badge {
+  padding: 3px 10px;
+  background: var(--color-purple);
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  margin-left: 8px;
+  letter-spacing: 0.02em;
 }
 
 .panel-hint {
@@ -1038,17 +1223,18 @@ code {
 }
 
 .hint-tag {
-  padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  padding: 3px 10px;
+  background: var(--color-page-border-light);
+  border-radius: var(--radius-pill);
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .line-count {
   font-size: 12px;
-  color: #94a3b8;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--color-page-text-subtle);
+  font-family: var(--font-code);
+  letter-spacing: -0.01em;
 }
 
 .panel-content {
@@ -1065,7 +1251,7 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 48px 40px;
   text-align: center;
 }
 
@@ -1075,60 +1261,70 @@ code {
 
 .badge-ready {
   display: inline-block;
-  padding: 4px 12px;
-  background: rgba(16, 185, 129, 0.15);
-  border-radius: 20px;
-  color: #10b981;
+  padding: 6px 14px;
+  background: var(--color-success-bg);
+  border-radius: var(--radius-pill);
+  color: var(--color-success);
   font-size: 11px;
-  font-weight: 500;
-  margin-bottom: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 24px;
 }
 
 .badge-preview {
   display: inline-block;
-  padding: 4px 12px;
-  background: rgba(99, 102, 241, 0.15);
-  border-radius: 20px;
-  color: #818cf8;
+  padding: 6px 14px;
+  background: var(--color-accent-bg);
+  border-radius: var(--radius-pill);
+  color: var(--color-accent);
   font-size: 11px;
-  font-weight: 500;
-  margin-bottom: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 24px;
 }
 
 .empty-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-page-text);
+  letter-spacing: -0.03em;
   margin: 0 0 16px;
 }
 
 .empty-title.right {
-  font-size: 24px;
+  font-size: 28px;
 }
 
 .empty-desc {
   max-width: 420px;
   font-size: 14px;
-  color: #94a3b8;
-  line-height: 1.6;
+  color: var(--color-page-text-subtle);
+  line-height: 1.7;
   margin: 0 0 12px;
 }
 
 .empty-tip {
-  font-size: 12px;
-  color: rgba(148, 163, 184, 0.6);
-  margin: 0 0 24px;
+  font-size: 13px;
+  color: var(--color-purple);
+  margin: 0 0 28px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  background: var(--color-purple-bg);
+  border: 1px dashed var(--color-purple);
+  border-radius: var(--radius-md);
 }
 
 .steps {
   display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: 28px;
+  margin-bottom: 28px;
 }
 
 .step {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
+  font-weight: 500;
 }
 
 .empty-actions {
@@ -1141,18 +1337,20 @@ code {
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  background: #10b981;
+  background: var(--color-success);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   color: #fff;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all var(--duration-normal) var(--ease-apple);
 }
 
 .btn-success:hover {
-  background: #0ea472;
+  background: var(--color-success-hover, #2db551);
+  transform: translateY(-1px);
 }
 
 .btn-outline {
@@ -1161,34 +1359,36 @@ code {
   gap: 6px;
   padding: 10px 20px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: #fff;
+  border: 1.5px solid var(--color-page-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-page-text);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .btn-outline:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--color-page-border-hover);
+  background: var(--color-page-border-light);
 }
 
 .btn-primary-outline {
   padding: 10px 20px;
-  background: #6366f1;
+  background: var(--color-page-brand);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   color: #fff;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all var(--duration-normal) var(--ease-apple);
 }
 
 .btn-primary-outline:hover {
-  background: #5558e3;
+  background: var(--color-page-brand-hover);
+  transform: translateY(-1px);
 }
 
 /* ==================== 代码编辑器 ==================== */
@@ -1196,19 +1396,20 @@ code {
   flex: 1;
   width: 100%;
   height: 100%;
-  padding: 16px;
-  background: #111827;
+  padding: 20px;
+  background: var(--color-page-card);
   border: none;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: var(--color-page-text);
+  font-family: var(--font-code);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   resize: none;
   outline: none;
+  letter-spacing: -0.01em;
 }
 
 .code-editor::placeholder {
-  color: rgba(148, 163, 184, 0.5);
+  color: var(--color-page-text-muted);
 }
 
 /* ==================== 状态栏 ==================== */
@@ -1216,104 +1417,105 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 32px;
-  padding: 0 16px;
-  background: #0b1120;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  height: 36px;
+  padding: 0 20px;
+  background: var(--color-page-bg);
+  border-top: 1px solid var(--color-page-border);
   flex-shrink: 0;
 }
 
 .status-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  animation: pulse 2s infinite;
 }
 
 .status-dot.ready {
-  background: #10b981;
+  background: var(--color-page-success);
 }
 
 .status-dot.converting {
-  background: #f59e0b;
+  background: var(--color-page-warning);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .status-dot.success {
-  background: #10b981;
+  background: var(--color-page-success);
 }
 
 .status-dot.error {
-  background: #ef4444;
+  background: var(--color-page-danger);
   animation: none;
 }
 
 @keyframes pulse {
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
     transform: scale(1);
   }
   50% {
     opacity: 0.6;
-    transform: scale(1.1);
+    transform: scale(1.2);
   }
 }
 
 .status-text {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
+  font-weight: 500;
 }
 
 .status-text.success {
-  color: #10b981;
+  color: var(--color-page-success);
 }
 
 .status-text.error {
-  color: #ef4444;
+  color: var(--color-page-danger);
 }
 
 .status-text.converting {
-  color: #f59e0b;
+  color: var(--color-page-warning);
 }
 
 .status-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .meta-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 11px;
 }
 
 .meta-label {
-  color: #64748b;
+  color: var(--color-page-text-muted);
 }
 
 .meta-value {
-  color: #94a3b8;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--color-page-text-subtle);
+  font-family: var(--font-code);
+  letter-spacing: -0.01em;
 }
 
 .meta-divider {
   width: 1px;
   height: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-page-border);
 }
 
 /* ==================== 类型映射参考 ==================== */
 .reference-panel {
-  background: #0d1117;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-page-bg);
+  border-top: 1px solid var(--color-page-border);
   flex-shrink: 0;
 }
 
@@ -1322,10 +1524,10 @@ code {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  height: 40px;
-  padding: 0 16px;
-  background: #161b22;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  height: 44px;
+  padding: 0 20px;
+  background: var(--color-page-elevated);
+  border-bottom: 1px solid var(--color-page-border-subtle);
 }
 
 .reference-header-left {
@@ -1336,39 +1538,42 @@ code {
 
 .reference-title {
   font-size: 13px;
-  font-weight: 500;
-  color: #e6edf3;
+  font-weight: 600;
+  color: var(--color-page-text);
+  letter-spacing: -0.01em;
 }
 
 .reference-tag {
   font-size: 11px;
-  color: #8b949e;
-  padding: 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
+  color: var(--color-page-text-subtle);
+  padding: 4px 10px;
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.02em;
 }
 
 .reference-toggle-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: #8b949e;
+  padding: 6px 14px;
+  background: var(--color-page-border-light);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-page-text-subtle);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .reference-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e6edf3;
+  background: var(--color-page-border);
+  color: var(--color-page-text);
 }
 
 .toggle-arrow {
-  transition: transform 0.2s;
+  transition: transform var(--duration-normal) var(--ease-out);
 }
 
 .toggle-arrow.expanded {
@@ -1376,7 +1581,7 @@ code {
 }
 
 .reference-content {
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--color-page-border-subtle);
 }
 
 /* ==================== 三栏布局 ==================== */
@@ -1384,13 +1589,13 @@ code {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-page-border-subtle);
   margin: 0;
 }
 
 /* 每个分栏 */
 .mapping-column {
-  background: #0d1117;
+  background: var(--color-page-bg);
   padding: 0;
 }
 
@@ -1398,34 +1603,36 @@ code {
 .column-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-page-border-subtle);
 }
 
 .column-icon {
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .column-title {
   font-size: 13px;
   font-weight: 600;
-  color: #58a6ff;
+  color: var(--color-page-link);
+  letter-spacing: -0.01em;
 }
 
 /* 列头（Oracle / MySQL / PostgreSQL） */
 .col-headers {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 10px 20px;
+  background: var(--color-page-border-subtle);
+  border-bottom: 1px solid var(--color-page-border-subtle);
 }
 
 .col-header-item {
   font-size: 11px;
   font-weight: 600;
-  color: #e6edf3;
+  color: var(--color-page-text);
+  letter-spacing: 0.02em;
 }
 
 /* 类型映射行 */
@@ -1436,13 +1643,13 @@ code {
 .mapping-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  padding: 6px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  transition: background 0.15s;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--color-page-border-subtle);
+  transition: background var(--duration-fast) var(--ease-apple);
 }
 
 .mapping-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-page-border-light);
 }
 
 .mapping-row:last-child {
@@ -1451,60 +1658,65 @@ code {
 
 /* 各数据库类型颜色 */
 .type-oracle {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--font-code);
   font-size: 11px;
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
+  letter-spacing: -0.01em;
 }
 
 .type-mysql {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--font-code);
   font-size: 11px;
-  color: #3fb950;
+  color: var(--color-page-success-alt);
+  letter-spacing: -0.01em;
 }
 
 .type-pg {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--font-code);
   font-size: 11px;
-  color: #58a6ff;
+  color: var(--color-page-link);
+  letter-spacing: -0.01em;
 }
 
 /* ==================== 底部注释 ==================== */
 .reference-footer {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.01);
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--color-page-border-subtle);
+  border-top: 1px solid var(--color-page-border-subtle);
 }
 
 .footer-label {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   white-space: nowrap;
-  padding-top: 2px;
+  padding-top: 4px;
+  font-weight: 500;
 }
 
 .footer-items {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .footer-item {
   font-size: 10px;
-  font-family: 'JetBrains Mono', Consolas, monospace;
-  color: #8b949e;
-  padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  font-family: var(--font-code);
+  color: var(--color-page-text-subtle);
+  padding: 4px 10px;
+  background: var(--color-page-border-light);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-pill);
+  letter-spacing: -0.01em;
 }
 
 /* ==================== 折叠动画 ==================== */
 .slide-enter-active,
 .slide-leave-active {
-  transition: all 0.25s ease;
+  transition: all var(--duration-normal) var(--ease-out);
   overflow: hidden;
 }
 
@@ -1524,9 +1736,10 @@ code {
 .version-tag {
   position: absolute;
   bottom: 8px;
-  right: 12px;
+  right: 16px;
   font-size: 10px;
-  color: rgba(148, 163, 184, 0.4);
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--color-page-text-muted);
+  font-family: var(--font-code);
+  letter-spacing: -0.01em;
 }
 </style>

@@ -9,11 +9,12 @@ import {
   validateBirthYmd8,
   randomSequenceByGender,
   validateUscc18,
-  validateLegacy15
+  validateLegacy15,
+  generateLegacyThreeCert
 } from '@/features/id-tools'
 
 const router = useRouter()
-const store = useWorkbenchStore()
+const _store = useWorkbenchStore()
 const { copyToClipboard } = useClipboard()
 
 // ==================== 状态 ====================
@@ -219,15 +220,13 @@ const deptOptions: DeptItem[] = [
   {
     value: 'Y',
     label: '其他',
-    orgTypes: [
-      { value: '1', label: '其他' }
-    ]
+    orgTypes: [{ value: '1', label: '其他' }]
   }
 ]
 
 // 根据选中的登记管理部门获取对应的机构类别选项
 const currentOrgTypes = computed(() => {
-  const dept = deptOptions.find(d => d.value === usccDeptCode.value)
+  const dept = deptOptions.find((d) => d.value === usccDeptCode.value)
   return dept?.orgTypes || []
 })
 
@@ -338,7 +337,9 @@ async function copyIdNumber(): Promise<void> {
   const success = await copyToClipboard(idGeneratedNumber.value)
   if (success) {
     idCopyDone.value = true
-    setTimeout(() => { idCopyDone.value = false }, 2000)
+    setTimeout(() => {
+      idCopyDone.value = false
+    }, 2000)
   }
 }
 
@@ -347,8 +348,9 @@ async function copyIdNumber(): Promise<void> {
 function generateUsccCode(): void {
   if (usccCodeMode.value === 'uscc18') {
     const regionCode = usccCountyCode.value || usccCityCode.value || usccProvinceCode.value
-    const body9 = Array.from({ length: 9 }, () =>
-      '0123456789ABCDEFGHJKLMNPQRTUWXY'[Math.floor(Math.random() * 31)]
+    const body9 = Array.from(
+      { length: 9 },
+      () => '0123456789ABCDEFGHJKLMNPQRTUWXY'[Math.floor(Math.random() * 31)]
     ).join('')
 
     const base17 = usccDeptCode.value + usccOrgTypeCode.value + regionCode + body9
@@ -366,41 +368,27 @@ function generateUsccCode(): void {
     usccGenerateMsgType.value = 'success'
     usccLegacyParsed.value = null
   } else {
-    // 旧版三证
-    const code9 = Array.from({ length: 8 }, () =>
-      '0123456789'[Math.floor(Math.random() * 10)]
-    ).join('')
+    // 旧版三证：工商注册号(15位) + 组织机构代码(9位) + 税务登记号(15位)
+    const region6 = regionCode // 6位行政区划码
+    const result = generateLegacyThreeCert(region6)
 
-    const weights9 = [3, 7, 9, 0, 5, 8, 4, 2]
-    let sum9 = 0
-    for (let i = 0; i < 8; i++) {
-      sum9 += parseInt(code9[i]) * weights9[i]
+    if (result) {
+      // 工商注册号 = 区划码(6位) + 随机(9位)
+      usccGeneratedCode.value = result.businessRegNo
+
+      // 解析三证
+      usccLegacyParsed.value = {
+        bizRegNo: result.businessRegNo,
+        orgCode: result.orgCode,
+        taxCode: result.taxNo
+      }
+
+      usccGenerateMsg.value = '已生成旧版三证号码（工商/组织机构/税务）'
+      usccGenerateMsgType.value = 'success'
+    } else {
+      usccGenerateMsg.value = '生成失败：行政区划码无效'
+      usccGenerateMsgType.value = 'error'
     }
-    const c9 = 10 - (sum9 % 10)
-    const code10 = c9 === 10 ? '0' : String(c9)
-
-    const fullCode9 = code9 + code10
-    let sum10 = 0
-    for (let i = 0; i < 9; i++) {
-      sum10 += parseInt(fullCode9[i]) * weights9[i]
-    }
-    const c10 = 10 - (sum10 % 10)
-    const codeChar = c10 === 10 ? '0' : String(c10)
-
-    usccGeneratedCode.value = fullCode9 + codeChar
-
-    // 解析三证
-    const orgCode = code9.slice(0, 8) + '-' + codeChar
-    const taxCode = usccProvinceCode.value.slice(0, 2) + '00' + usccOrgTypeCode.value + code9.slice(0, 4) + code9.slice(0, 3) + codeChar
-
-    usccLegacyParsed.value = {
-      bizRegNo: usccGeneratedCode.value,
-      orgCode: orgCode,
-      taxCode: taxCode
-    }
-
-    usccGenerateMsg.value = '已生成旧版三证号码（工商/组织机构/税务）'
-    usccGenerateMsgType.value = 'success'
   }
 }
 
@@ -439,7 +427,9 @@ async function copyUsccCode(): Promise<void> {
   const success = await copyToClipboard(usccGeneratedCode.value)
   if (success) {
     usccCopyDone.value = true
-    setTimeout(() => { usccCopyDone.value = false }, 2000)
+    setTimeout(() => {
+      usccCopyDone.value = false
+    }, 2000)
   }
 }
 
@@ -460,19 +450,22 @@ function closeUserMenu(): void {
 // ==================== 级联选择 ====================
 
 // 当登记管理部门变化时，重置机构类别选择
-watch(() => usccDeptCode.value, () => {
-  // 重置为该部门下的第一个选项
-  const dept = deptOptions.find(d => d.value === usccDeptCode.value)
-  if (dept && dept.orgTypes.length > 0) {
-    usccOrgTypeCode.value = dept.orgTypes[0].value
+watch(
+  () => usccDeptCode.value,
+  () => {
+    // 重置为该部门下的第一个选项
+    const dept = deptOptions.find((d) => d.value === usccDeptCode.value)
+    if (dept && dept.orgTypes.length > 0) {
+      usccOrgTypeCode.value = dept.orgTypes[0].value
+    }
   }
-})
+)
 
 // ==================== 生命周期 ====================
 
 onMounted(() => {
   // 初始化机构类别为市场监管下的企业
-  const defaultDept = deptOptions.find(d => d.value === '9')
+  const defaultDept = deptOptions.find((d) => d.value === '9')
   if (defaultDept && defaultDept.orgTypes.length > 0) {
     usccOrgTypeCode.value = defaultDept.orgTypes[0].value
   }
@@ -492,7 +485,13 @@ onMounted(() => {
       <div class="header-right">
         <button class="btn-back" @click="goBack">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M19 12H5M12 5L5 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M19 12H5M12 5L5 12L12 19"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
           <span>返回首页</span>
         </button>
@@ -500,9 +499,9 @@ onMounted(() => {
         <div class="menu-wrapper">
           <button class="btn-menu" @click="toggleUserMenu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+              <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="18" r="1.5" fill="currentColor" />
             </svg>
           </button>
 
@@ -512,8 +511,13 @@ onMounted(() => {
               <div class="user-info">
                 <div class="user-avatar">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
-                    <path d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" />
+                    <path
+                      d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
                   </svg>
                 </div>
                 <div class="user-details">
@@ -524,8 +528,20 @@ onMounted(() => {
               <div class="menu-divider"></div>
               <button class="menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M16 17L21 12L16 7M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M16 17L21 12L16 7M21 12H9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
                 <span>退出登录</span>
               </button>
@@ -552,14 +568,18 @@ onMounted(() => {
                 <label>省份</label>
                 <select v-model="idProvinceCode" :disabled="regionLoading">
                   <option value="">请选择</option>
-                  <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name }} ({{ p.code }})</option>
+                  <option v-for="p in provinces" :key="p.code" :value="p.code">
+                    {{ p.name }} ({{ p.code }})
+                  </option>
                 </select>
               </div>
               <div class="form-field">
                 <label>城市</label>
                 <select v-model="idCityCode" :disabled="regionLoading || !idProvinceCode">
                   <option value="">请选择</option>
-                  <option v-for="c in idCityOptions" :key="c.code" :value="c.code">{{ c.name }} ({{ c.code }})</option>
+                  <option v-for="c in idCityOptions" :key="c.code" :value="c.code">
+                    {{ c.name }} ({{ c.code }})
+                  </option>
                 </select>
               </div>
             </div>
@@ -570,7 +590,9 @@ onMounted(() => {
                 <label>区 / 县</label>
                 <select v-model="idCountyCode" :disabled="regionLoading || !idCityCode">
                   <option value="">请选择</option>
-                  <option v-for="c in idCountyOptions" :key="c.code" :value="c.code">{{ c.name }} ({{ c.code }})</option>
+                  <option v-for="c in idCountyOptions" :key="c.code" :value="c.code">
+                    {{ c.name }} ({{ c.code }})
+                  </option>
                 </select>
               </div>
               <div class="form-field">
@@ -595,12 +617,12 @@ onMounted(() => {
                 <label>性别</label>
                 <div class="radio-group">
                   <label class="radio-item" :class="{ active: idGender === 'male' }">
-                    <input type="radio" v-model="idGender" value="male" />
+                    <input v-model="idGender" type="radio" value="male" />
                     <span class="radio-circle"></span>
                     <span>男</span>
                   </label>
                   <label class="radio-item" :class="{ active: idGender === 'female' }">
-                    <input type="radio" v-model="idGender" value="female" />
+                    <input v-model="idGender" type="radio" value="female" />
                     <span class="radio-circle"></span>
                     <span>女</span>
                   </label>
@@ -610,7 +632,7 @@ onMounted(() => {
           </div>
 
           <!-- 生成按钮 -->
-          <button class="btn-generate" @click="generateIdNumber" :disabled="regionLoading">
+          <button class="btn-generate" :disabled="regionLoading" @click="generateIdNumber">
             <span>生成</span>
           </button>
 
@@ -624,13 +646,32 @@ onMounted(() => {
                 placeholder="生成结果将显示在这里"
                 class="result-input"
               />
-              <button class="btn-copy" @click="copyIdNumber" :disabled="!idGeneratedNumber">
+              <button class="btn-copy" :disabled="!idGeneratedNumber" @click="copyIdNumber">
                 <svg v-if="!idCopyDone" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
-                  <path d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <rect
+                    x="8"
+                    y="8"
+                    width="12"
+                    height="12"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M5 13L9 17L19 7"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -651,8 +692,8 @@ onMounted(() => {
           <div class="verify-form">
             <label class="verify-label">输入身份证号码</label>
             <input
-              type="text"
               v-model="idVerifyInput"
+              type="text"
               placeholder="110101199001015678X"
               maxlength="18"
               class="verify-input"
@@ -694,14 +735,18 @@ onMounted(() => {
                 <label>登记管理部门</label>
                 <select v-model="usccDeptCode" :disabled="regionLoading">
                   <option value="">请选择</option>
-                  <option v-for="d in deptOptions" :key="d.value" :value="d.value">{{ d.label }} ({{ d.value }})</option>
+                  <option v-for="d in deptOptions" :key="d.value" :value="d.value">
+                    {{ d.label }} ({{ d.value }})
+                  </option>
                 </select>
               </div>
               <div class="form-field">
                 <label>机构类别代码</label>
                 <select v-model="usccOrgTypeCode" :disabled="regionLoading">
                   <option value="">请选择</option>
-                  <option v-for="o in currentOrgTypes" :key="o.value" :value="o.value">{{ o.label }} ({{ o.value }})</option>
+                  <option v-for="o in currentOrgTypes" :key="o.value" :value="o.value">
+                    {{ o.label }} ({{ o.value }})
+                  </option>
                 </select>
               </div>
             </div>
@@ -712,14 +757,18 @@ onMounted(() => {
                 <label>省份</label>
                 <select v-model="usccProvinceCode" :disabled="regionLoading">
                   <option value="">请选择</option>
-                  <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name }} ({{ p.code }})</option>
+                  <option v-for="p in provinces" :key="p.code" :value="p.code">
+                    {{ p.name }} ({{ p.code }})
+                  </option>
                 </select>
               </div>
               <div class="form-field">
                 <label>城市</label>
                 <select v-model="usccCityCode" :disabled="regionLoading || !usccProvinceCode">
                   <option value="">请选择</option>
-                  <option v-for="c in usccCityOptions" :key="c.code" :value="c.code">{{ c.name }} ({{ c.code }})</option>
+                  <option v-for="c in usccCityOptions" :key="c.code" :value="c.code">
+                    {{ c.name }} ({{ c.code }})
+                  </option>
                 </select>
               </div>
             </div>
@@ -730,14 +779,16 @@ onMounted(() => {
                 <label>区 / 县</label>
                 <select v-model="usccCountyCode" :disabled="regionLoading || !usccCityCode">
                   <option value="">请选择</option>
-                  <option v-for="c in usccCountyOptions" :key="c.code" :value="c.code">{{ c.name }} ({{ c.code }})</option>
+                  <option v-for="c in usccCountyOptions" :key="c.code" :value="c.code">
+                    {{ c.name }} ({{ c.code }})
+                  </option>
                 </select>
               </div>
             </div>
           </div>
 
           <!-- 生成按钮 -->
-          <button class="btn-generate" @click="generateUsccCode" :disabled="regionLoading">
+          <button class="btn-generate" :disabled="regionLoading" @click="generateUsccCode">
             <span>生成</span>
           </button>
 
@@ -751,13 +802,32 @@ onMounted(() => {
                 placeholder="生成结果将显示在这里"
                 class="result-input"
               />
-              <button class="btn-copy" @click="copyUsccCode" :disabled="!usccGeneratedCode">
+              <button class="btn-copy" :disabled="!usccGeneratedCode" @click="copyUsccCode">
                 <svg v-if="!usccCopyDone" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
-                  <path d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <rect
+                    x="8"
+                    y="8"
+                    width="12"
+                    height="12"
+                    rx="2"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M5 13L9 17L19 7"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -782,7 +852,10 @@ onMounted(() => {
 
             <!-- 成功提示条 -->
             <Transition name="slide-fade">
-              <div v-if="usccGenerateMsg && usccGenerateMsgType === 'success'" class="toast success">
+              <div
+                v-if="usccGenerateMsg && usccGenerateMsgType === 'success'"
+                class="toast success"
+              >
                 {{ usccGenerateMsg }}
               </div>
             </Transition>
@@ -796,8 +869,8 @@ onMounted(() => {
           <div class="verify-form">
             <label class="verify-label">输入代码（支持统一社会信用代码／旧版三证）</label>
             <input
-              type="text"
               v-model="usccVerifyInput"
+              type="text"
               placeholder="91310106MA1FY4BN0X 或 3DWTNK2M-7"
               class="verify-input"
             />
@@ -822,8 +895,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  background: #0d1117;
-  color: #e6edf3;
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
 }
 
 /* ==================== 顶部导航栏 ==================== */
@@ -832,7 +905,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: #161b22;
+  background: var(--color-page-elevated);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -847,12 +920,12 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .header-subtitle {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .header-right {
@@ -867,9 +940,9 @@ onMounted(() => {
   gap: 6px;
   padding: 6px 14px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #c9d1d9;
+  color: var(--color-page-text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -877,7 +950,7 @@ onMounted(() => {
 
 .btn-back:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
+  border-color: var(--color-page-text-subtle);
 }
 
 .btn-menu {
@@ -889,14 +962,14 @@ onMounted(() => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-menu:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #c9d1d9;
+  color: var(--color-page-text);
 }
 
 /* 用户菜单 */
@@ -909,8 +982,8 @@ onMounted(() => {
   top: calc(100% + 8px);
   right: 0;
   width: 240px;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 100;
@@ -932,7 +1005,7 @@ onMounted(() => {
   height: 40px;
   background: rgba(88, 166, 255, 0.15);
   border-radius: 50%;
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .user-details {
@@ -944,17 +1017,17 @@ onMounted(() => {
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .user-email {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .menu-divider {
   height: 1px;
-  background: #30363d;
+  background: var(--color-page-border-subtle);
 }
 
 .menu-item {
@@ -965,7 +1038,7 @@ onMounted(() => {
   padding: 10px 16px;
   background: transparent;
   border: none;
-  color: #c9d1d9;
+  color: var(--color-page-text);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -977,7 +1050,7 @@ onMounted(() => {
 }
 
 .menu-item svg {
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .menu-backdrop {
@@ -1000,8 +1073,8 @@ onMounted(() => {
 .tool-card {
   display: flex;
   flex-direction: column;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -1011,21 +1084,21 @@ onMounted(() => {
 }
 
 .card-section:not(:last-child) {
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--color-page-border-subtle);
 }
 
 .section-title {
   margin: 0 0 16px;
   font-size: 15px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .section-subtitle {
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 500;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 /* ==================== 表单 ==================== */
@@ -1053,20 +1126,20 @@ onMounted(() => {
 
 .form-field label {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .form-field .link-label {
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .form-field select,
 .form-field input {
   padding: 8px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
@@ -1074,7 +1147,7 @@ onMounted(() => {
 
 .form-field select:focus,
 .form-field input:focus {
-  border-color: #58a6ff;
+  border-color: var(--color-page-link);
 }
 
 .form-field select:disabled {
@@ -1083,7 +1156,7 @@ onMounted(() => {
 }
 
 .form-field select option {
-  background: #161b22;
+  background: var(--color-page-elevated);
 }
 
 /* 日期输入组 */
@@ -1112,10 +1185,10 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1128,21 +1201,21 @@ onMounted(() => {
 .radio-item .radio-circle {
   width: 16px;
   height: 16px;
-  border: 2px solid #30363d;
+  border: 2px solid var(--color-page-border-subtle);
   border-radius: 50%;
   transition: all 0.15s;
 }
 
 .radio-item.active {
-  border-color: #7c3aed;
+  border-color: var(--color-purple);
   background: rgba(124, 58, 237, 0.1);
-  color: #a78bfa;
+  color: var(--color-purple);
 }
 
 .radio-item.active .radio-circle {
-  border-color: #7c3aed;
-  background: #7c3aed;
-  box-shadow: inset 0 0 0 3px #0d1117;
+  border-color: var(--color-purple);
+  background: var(--color-purple);
+  box-shadow: inset 0 0 0 3px var(--color-page-bg);
 }
 
 /* ==================== 按钮 ==================== */
@@ -1153,7 +1226,7 @@ onMounted(() => {
   gap: 6px;
   padding: 7px 16px;
   margin-top: 16px;
-  background: #7c3aed;
+  background: var(--color-purple);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -1164,7 +1237,7 @@ onMounted(() => {
 }
 
 .btn-generate:hover:not(:disabled) {
-  background: #6d28d9;
+  background: var(--color-purple);
 }
 
 .btn-generate:disabled {
@@ -1182,27 +1255,27 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
 }
 
 .result-box.active {
-  border-color: #3fb950;
+  border-color: var(--color-page-success-alt);
 }
 
 .result-input {
   flex: 1;
   background: transparent;
   border: none;
-  color: #f0f6fc;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: var(--color-page-text);
+  font-family: var(--font-code);
   font-size: 13px;
   outline: none;
 }
 
 .result-input::placeholder {
-  color: #484f58;
+  color: var(--color-page-link);
 }
 
 .btn-copy {
@@ -1212,17 +1285,17 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-copy:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
-  color: #c9d1d9;
+  border-color: var(--color-page-text-subtle);
+  color: var(--color-page-text);
 }
 
 .btn-copy:disabled {
@@ -1234,8 +1307,8 @@ onMounted(() => {
 .detail-panel {
   margin-top: 8px;
   padding: 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
 }
 
@@ -1254,14 +1327,14 @@ onMounted(() => {
 }
 
 .detail-label {
-  color: #58a6ff;
+  color: var(--color-page-link);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .detail-value {
-  color: #f0f6fc;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: var(--color-page-text);
+  font-family: var(--font-code);
 }
 
 /* ==================== 提示条 ==================== */
@@ -1274,12 +1347,12 @@ onMounted(() => {
 
 .toast.success {
   background: rgba(46, 160, 67, 0.12);
-  color: #3fb950;
+  color: var(--color-page-success-alt);
 }
 
 .toast.error {
   background: rgba(248, 81, 73, 0.12);
-  color: #f85149;
+  color: var(--color-page-danger);
 }
 
 /* ==================== 校验区块 ==================== */
@@ -1291,27 +1364,27 @@ onMounted(() => {
 
 .verify-label {
   font-size: 12px;
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .verify-input {
   padding: 10px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #f0f6fc;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: var(--color-page-text);
+  font-family: var(--font-code);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .verify-input:focus {
-  border-color: #58a6ff;
+  border-color: var(--color-page-link);
 }
 
 .verify-input::placeholder {
-  color: #484f58;
+  color: var(--color-page-link);
 }
 
 .btn-verify {
@@ -1321,7 +1394,7 @@ onMounted(() => {
   align-self: flex-start;
   gap: 6px;
   padding: 7px 16px;
-  background: #7c3aed;
+  background: var(--color-purple);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -1332,13 +1405,15 @@ onMounted(() => {
 }
 
 .btn-verify:hover {
-  background: #6d28d9;
+  background: var(--color-purple);
 }
 
 /* ==================== 过渡动画 ==================== */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .fade-enter-from,

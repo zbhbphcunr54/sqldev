@@ -1,5 +1,14 @@
 type RecordLike = Record<string, unknown>
 
+// AI 分析结果中每颗星的最大化禄标签数量
+const MAX_HUA_TAGS_PER_STAR = 4
+// AI 分析结果中每项规则摘要的最多条目数
+const MAX_RULE_SUMMARY_ITEMS = 3
+// AI 分析结果中文字段的最大长度
+const MAX_RULE_TEXT_LENGTH = 320
+// AI 分析结果中每行的最大长度
+const MAX_LINE_LENGTH = 160
+
 export interface ZiweiAiPayloadOptions {
   profileName?: unknown
   ruleSummary?: unknown
@@ -39,7 +48,7 @@ function mapStar(starValue: unknown, includeBrightness: boolean): RecordLike {
   const star = asRecord(starValue)
   const result: RecordLike = {
     name: asString(star.name),
-    huaTags: asArray(star.huaTags).slice(0, 4)
+    huaTags: asArray(star.huaTags).slice(0, MAX_HUA_TAGS_PER_STAR)
   }
   if (includeBrightness) result.brightness = asString(star.brightness)
   return result
@@ -51,13 +60,13 @@ function mapRuleSummary(ruleValue: unknown): RecordLike {
     key: asString(item.key),
     title: asString(item.title),
     level: asString(item.level),
-    text: trimZiweiText(item.text, 320),
+    text: trimZiweiText(item.text, MAX_RULE_TEXT_LENGTH),
     plain: asArray(item.plain)
-      .slice(0, 3)
-      .map((line) => trimZiweiText(line, 160)),
+      .slice(0, MAX_RULE_SUMMARY_ITEMS)
+      .map((line) => trimZiweiText(line, MAX_LINE_LENGTH)),
     evidence: asArray(item.evidence)
-      .slice(0, 3)
-      .map((line) => trimZiweiText(line, 160))
+      .slice(0, MAX_RULE_SUMMARY_ITEMS)
+      .map((line) => trimZiweiText(line, MAX_LINE_LENGTH))
   }
 }
 
@@ -109,18 +118,48 @@ function mapHuaTrack(trackValue: unknown): RecordLike {
 function buildCenterData(center: RecordLike): RecordLike {
   const result: RecordLike = {}
   const stringFields = [
-    'genderLabel', 'yinYangGenderLabel', 'calendarInputType', 'schoolLabel',
-    'solarText', 'inputClockText', 'lunarText', 'naYinLabel', 'yearGanZhi',
-    'bureauLabel', 'mingBranch', 'mingPalaceName', 'shenBranch', 'shenPalaceName',
-    'ziweiBranch', 'tianfuBranch', 'monthLabel', 'shichenLabel', 'mingZhu',
-    'shenZhu', 'daXianDirectionLabel', 'clockMode', 'clockModeLabel',
-    'timeCorrectionText', 'timezoneOffset', 'xiaoXianRuleLabel', 'liuNianRuleLabel',
-    'currentYearLabel', 'currentYearGanZhiLabel', 'currentAgeLabel',
-    'currentDaXianLabel', 'currentLiuNianPalaceLabel', 'qiYunText', 'school'
+    'genderLabel',
+    'yinYangGenderLabel',
+    'calendarInputType',
+    'schoolLabel',
+    'solarText',
+    'inputClockText',
+    'lunarText',
+    'naYinLabel',
+    'yearGanZhi',
+    'bureauLabel',
+    'mingBranch',
+    'mingPalaceName',
+    'shenBranch',
+    'shenPalaceName',
+    'ziweiBranch',
+    'tianfuBranch',
+    'monthLabel',
+    'shichenLabel',
+    'mingZhu',
+    'shenZhu',
+    'daXianDirectionLabel',
+    'clockMode',
+    'clockModeLabel',
+    'timeCorrectionText',
+    'timezoneOffset',
+    'xiaoXianRuleLabel',
+    'liuNianRuleLabel',
+    'currentYearLabel',
+    'currentYearGanZhiLabel',
+    'currentAgeLabel',
+    'currentDaXianLabel',
+    'currentLiuNianPalaceLabel',
+    'qiYunText',
+    'school'
   ]
   const numFields = new Set([
-    'longitude', 'longitudeCorrectionMinutes', 'equationOfTimeMinutes',
-    'birthYearForAge', 'birthMonthForAge', 'birthDayForAge'
+    'longitude',
+    'longitudeCorrectionMinutes',
+    'equationOfTimeMinutes',
+    'birthYearForAge',
+    'birthMonthForAge',
+    'birthDayForAge'
   ])
 
   for (const key of stringFields) {
@@ -130,9 +169,9 @@ function buildCenterData(center: RecordLike): RecordLike {
   result.nonJieqiPillars = asArray(center.nonJieqiPillars).slice(0, 4)
   result.jieqiPillars = asArray(center.jieqiPillars).slice(0, 4)
   result.decadeMarks = asArray(center.decadeMarks).slice(0, 8)
-  result.huaSummary = asArray(center.huaSummary).slice(0, 6).map((itemValue) =>
-    asString(asRecord(itemValue).label)
-  )
+  result.huaSummary = asArray(center.huaSummary)
+    .slice(0, 6)
+    .map((itemValue) => asString(asRecord(itemValue).label))
   return result
 }
 

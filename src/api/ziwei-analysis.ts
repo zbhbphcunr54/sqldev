@@ -60,8 +60,6 @@ export async function requestZiweiAnalysis(
   return edgeFn.post<ZiweiAnalysisResponse>('/ziwei-analysis', request)
 }
 
-export async function requestZiweiQa(
-  request: ZiweiQaRequest
-): Promise<ZiweiQaResponse> {
+export async function requestZiweiQa(request: ZiweiQaRequest): Promise<ZiweiQaResponse> {
   return edgeFn.post<ZiweiQaResponse>('/ziwei-qa', request)
 }

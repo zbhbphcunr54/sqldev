@@ -22,7 +22,28 @@
       "Bash(supabase db *)",
       "Bash(node ./tests/*)",
       "Bash(pnpm typecheck *)",
-      "Bash(supabase functions *)"
+      "Bash(supabase functions *)",
+      "Bash(pnpm dev *)",
+      "Bash(netstat -ano)",
+      "Bash(pnpm eslint *)",
+      "Bash(node ./scripts/check-css-colors.mjs --update)",
+      "Bash(grep -n \"^:root\\\\|^:root,\\\\|^}\\\\$\" d:/codextest/sqldev/src/styles/tokens.css)",
+      "Bash(curl -s http://localhost:4173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:4173)",
+      "Bash(node test-all-features.js)",
+      "Bash(mv test-all-features.js test-all-features.cjs)",
+      "Bash(node test-all-features.cjs)",
+      "Bash(npx playwright *)",
+      "Bash(node test-fix.cjs)",
+      "Bash(node -e ' *)",
+      "Bash(pnpm test:smoke)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(npx tsc *)",
+      "Bash(pnpm supabase *)",
+      "Bash(where supabase *)",
+      "Bash(npx supabase *)",
+      "Bash(curl -s http://localhost:54321/rest/v1/rpc/create_ai_config_with_vault)"
     ]
   }
 }

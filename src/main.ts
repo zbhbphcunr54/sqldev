@@ -5,6 +5,9 @@ import router from '@/router'
 import { setupRouterGuards } from '@/router/guards'
 import '@/styles/main.css'
 
+// 错误通知显示时长（毫秒）
+const ERROR_NOTICE_DURATION_MS = 6000
+
 function showGlobalErrorNotice(): void {
   const id = 'sqldev-global-error-notice'
   const existing = document.getElementById(id)
@@ -29,7 +32,7 @@ function showGlobalErrorNotice(): void {
     lineHeight: '1.5'
   })
   document.body.appendChild(notice)
-  window.setTimeout(() => notice.remove(), 6000)
+  window.setTimeout(() => notice.remove(), ERROR_NOTICE_DURATION_MS)
 }
 
 const app = createApp(App)

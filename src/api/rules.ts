@@ -1,24 +1,66 @@
 // src/api/rules.ts
 import { edgeFn } from '@/api/http'
 
+export type DbType = 'oracle' | 'mysql' | 'pg'
+export type RuleKind = 'ddl' | 'body'
+
+export interface RuleItem {
+  source: string
+  target: string
+}
+
+export interface BodyRuleItem {
+  s: string
+  t: string
+}
+
 export interface UserRulesResponse {
   ok: boolean
-  kind: 'ddl' | 'body'
-  rules_json: Record<string, unknown>
+  id: number
+  source_db: DbType
+  target_db: DbType
+  kind: RuleKind
+  rules_json: RuleItem[] | BodyRuleItem[]
   updated_at: string | null
 }
 
-export async function fetchUserRules(kind: 'ddl' | 'body'): Promise<UserRulesResponse> {
-  return edgeFn.post<UserRulesResponse>('/rules', { kind })
+export async function fetchUserRules(
+  sourceDb: DbType,
+  targetDb: DbType,
+  kind: RuleKind
+): Promise<UserRulesResponse> {
+  return edgeFn.post<UserRulesResponse>('/rules', {
+    source_db: sourceDb,
+    target_db: targetDb,
+    kind
+  })
 }
 
 export async function saveUserRules(
-  kind: 'ddl' | 'body',
-  rulesJson: Record<string, unknown>
+  sourceDb: DbType,
+  targetDb: DbType,
+  kind: RuleKind,
+  rulesJson: RuleItem[] | BodyRuleItem[]
 ): Promise<UserRulesResponse> {
-  return edgeFn.put<UserRulesResponse>('/rules', { kind, rules_json: rulesJson })
+  return edgeFn.put<UserRulesResponse>('/rules', {
+    source_db: sourceDb,
+    target_db: targetDb,
+    kind,
+    rules_json: rulesJson
+  })
 }
 
-export async function resetUserRules(kind: 'ddl' | 'body'): Promise<{ ok: boolean; kind: string }> {
-  return edgeFn.del(`/rules?kind=${kind}`)
+export async function resetUserRules(
+  sourceDb: DbType,
+  targetDb: DbType,
+  kind: RuleKind
+): Promise<{ ok: boolean; source_db: string; target_db: string; kind: string }> {
+  return edgeFn.post<{ ok: boolean; source_db: string; target_db: string; kind: string }>(
+    '/rules/reset',
+    {
+      source_db: sourceDb,
+      target_db: targetDb,
+      kind
+    }
+  )
 }

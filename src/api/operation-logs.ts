@@ -6,6 +6,7 @@ export interface OperationLogFilters {
   pageSize?: number
   startDate?: string
   endDate?: string
+  status?: 'success' | 'fail'
   operation?: string
   apiName?: string
   userId?: string
@@ -34,14 +35,35 @@ export interface OperationLogResponse {
   page: number
   page_size: number
   is_admin: boolean
+  summary: OperationLogSummary
+  operation_options: OperationLogOption[]
+  api_options: OperationLogOption[]
 }
 
-export async function fetchOperationLogs(filters: OperationLogFilters): Promise<OperationLogResponse> {
+export interface OperationLogSummary {
+  today_requests: number
+  request_change_rate: number | null
+  success_rate: number
+  fail_count: number
+  avg_duration_ms: number
+  p95_duration_ms: number
+  active_users: number
+}
+
+export interface OperationLogOption {
+  value: string
+  label: string
+}
+
+export async function fetchOperationLogs(
+  filters: OperationLogFilters
+): Promise<OperationLogResponse> {
   const params = new URLSearchParams()
   if (filters.page) params.set('page', String(filters.page))
   if (filters.pageSize) params.set('page_size', String(filters.pageSize))
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
+  if (filters.status) params.set('status', filters.status)
   if (filters.operation) params.set('operation', filters.operation)
   if (filters.apiName) params.set('api_name', filters.apiName)
   if (filters.userId) params.set('user_id', filters.userId)

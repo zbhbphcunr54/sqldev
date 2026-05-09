@@ -15,8 +15,13 @@
       <div class="header-actions">
         <button class="btn-icon" title="主题">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.5" />
+            <path
+              d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
         <button class="btn-primary">登录 / 注册</button>
@@ -32,34 +37,94 @@
       <nav class="sidebar-nav">
         <button class="nav-item active">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="2" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="10" y="2" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="2" y="10" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="10" y="10" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            <rect
+              x="2"
+              y="2"
+              width="6"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="10"
+              y="2"
+              width="6"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="2"
+              y="10"
+              width="6"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <rect
+              x="10"
+              y="10"
+              width="6"
+              height="6"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
           </svg>
           <span>DDL 语句</span>
         </button>
         <button class="nav-item">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M3 6h12M3 9h8M3 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M3 6h12M3 9h8M3 12h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           <span>函数</span>
         </button>
         <button class="nav-item">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect
+              x="2"
+              y="3"
+              width="14"
+              height="12"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M6 7h6M6 10h4"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           <span>存储过程</span>
         </button>
         <div class="nav-divider"></div>
         <button class="nav-item nav-parent">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M9 3v12M3 9h12"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           <span>测试工具</span>
           <svg class="caret" width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M3 4.5L6 7.5L9 4.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
         <div class="nav-submenu">
@@ -76,7 +141,12 @@
         <div class="wb-header-left">
           <button class="menu-btn">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path
+                d="M3 5h14M3 10h14M3 15h14"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </button>
           <div>
@@ -88,18 +158,34 @@
           <div class="db-picker">
             <span class="db-badge oracle">Oracle</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 6l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path
+                d="M3 6l5 5 5-5"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </div>
           <button class="swap-btn">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M2 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path
+                d="M2 8h10M9 4l4 4-4 4"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
           </button>
           <div class="db-picker">
             <span class="db-badge mysql">MySQL</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 6l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path
+                d="M3 6l5 5 5-5"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </div>
         </div>
@@ -116,27 +202,55 @@
       <div class="action-bar">
         <button class="action-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           示例
         </button>
         <button class="action-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M2 4h12M2 8h8M2 12h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           格式化
         </button>
         <button class="action-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M6 6h4M6 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect
+              x="2"
+              y="2"
+              width="12"
+              height="12"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M6 6h4M6 10h2"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           复制
         </button>
         <div class="action-spacer"></div>
         <button class="action-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 10v4M14 10v4M4 14h8M8 2v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M2 10v4M14 10v4M4 14h8M8 2v8"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
           下载
         </button>
@@ -165,18 +279,29 @@
               <span>12</span>
             </div>
             <div class="code-content">
-              <span class="keyword">CREATE TABLE</span> <span class="type">users</span> (<br>
-              <span class="tab"></span><span class="field">id</span> <span class="type">NUMBER</span>(18) <span class="keyword">NOT NULL</span>,<br>
-              <span class="tab"></span><span class="field">name</span> <span class="type">VARCHAR2</span>(100),<br>
-              <span class="tab"></span><span class="field">email</span> <span class="type">VARCHAR2</span>(200),<br>
-              <span class="tab"></span><span class="field">created_at</span> <span class="type">DATE</span> <span class="keyword">DEFAULT</span> <span class="func">SYSDATE</span><br>
+              <span class="keyword">CREATE TABLE</span> <span class="type">users</span> (<br />
+              <span class="tab"></span><span class="field">id</span>
+              <span class="type">NUMBER</span>(18) <span class="keyword">NOT NULL</span>,<br />
+              <span class="tab"></span><span class="field">name</span>
+              <span class="type">VARCHAR2</span>(100),<br />
+              <span class="tab"></span><span class="field">email</span>
+              <span class="type">VARCHAR2</span>(200),<br />
+              <span class="tab"></span><span class="field">created_at</span>
+              <span class="type">DATE</span> <span class="keyword">DEFAULT</span>
+              <span class="func">SYSDATE</span><br />
               );
             </div>
           </div>
         </div>
         <button class="swap-vertical">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M10 4v12M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M10 4v12M6 8l4 4 4-4"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </button>
         <div class="editor-panel">
@@ -200,12 +325,17 @@
               <span>12</span>
             </div>
             <div class="code-content">
-              <span class="comment">-- 用户表</span><br>
-              <span class="keyword">CREATE TABLE</span> <span class="type">users</span> (<br>
-              <span class="tab"></span><span class="field">id</span> <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,<br>
-              <span class="tab"></span><span class="field">name</span> <span class="type">VARCHAR</span>(100),<br>
-              <span class="tab"></span><span class="field">email</span> <span class="type">VARCHAR</span>(200),<br>
-              <span class="tab"></span><span class="field">created_at</span> <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span> <span class="func">NOW()</span><br>
+              <span class="comment">-- 用户表</span><br />
+              <span class="keyword">CREATE TABLE</span> <span class="type">users</span> (<br />
+              <span class="tab"></span><span class="field">id</span>
+              <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,<br />
+              <span class="tab"></span><span class="field">name</span>
+              <span class="type">VARCHAR</span>(100),<br />
+              <span class="tab"></span><span class="field">email</span>
+              <span class="type">VARCHAR</span>(200),<br />
+              <span class="tab"></span><span class="field">created_at</span>
+              <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span>
+              <span class="func">NOW()</span><br />
               );
             </div>
           </div>
@@ -223,7 +353,7 @@
   width: 100%;
   height: 100%;
   background: var(--color-bg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Header */
@@ -681,7 +811,7 @@
   padding: 12px 8px;
   background: var(--color-panel-2);
   border-right: 1px solid var(--color-border);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-secondary);
@@ -692,7 +822,7 @@
 .code-content {
   flex: 1;
   padding: 12px 16px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 13px;
   line-height: 1.6;
   color: var(--color-text);
@@ -704,11 +834,21 @@
   width: 24px;
 }
 
-.keyword { color: #6366f1; }
-.type { color: #8b5cf6; }
-.field { color: #22c55e; }
-.func { color: #f59e0b; }
-.comment { color: var(--color-text-secondary); }
+.keyword {
+  color: #6366f1;
+}
+.type {
+  color: #8b5cf6;
+}
+.field {
+  color: #22c55e;
+}
+.func {
+  color: #f59e0b;
+}
+.comment {
+  color: var(--color-text-secondary);
+}
 
 .swap-vertical {
   position: absolute;

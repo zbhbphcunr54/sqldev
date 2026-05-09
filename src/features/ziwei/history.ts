@@ -1,5 +1,8 @@
 type RecordLike = Record<string, unknown>
 
+// 紫微斗数历史记录最大保存条数
+const MAX_HISTORY_ITEMS = 30
+
 export interface ZiweiHistoryStorageLike {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
@@ -37,7 +40,7 @@ function asString(value: unknown): string {
 export function loadZiweiHistoryRecords(
   storage: ZiweiHistoryStorageLike,
   storageKey: string,
-  maxItems = 30
+  maxItems = MAX_HISTORY_ITEMS
 ): RecordLike[] {
   try {
     const raw = storage.getItem(storageKey)

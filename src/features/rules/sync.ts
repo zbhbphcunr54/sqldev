@@ -22,14 +22,18 @@ export async function syncRulesFromServer(): Promise<void> {
     if (ddlResult.rules_json && Object.keys(ddlResult.rules_json).length > 0) {
       try {
         localStorage.setItem(DDL_KEY, JSON.stringify(ddlResult.rules_json))
-      } catch { /* quota error ignored */ }
+      } catch {
+        /* quota error ignored */
+      }
     }
 
     const bodyResult = await fetchUserRules('body')
     if (bodyResult.rules_json && Object.keys(bodyResult.rules_json).length > 0) {
       try {
         localStorage.setItem(BODY_KEY, JSON.stringify(bodyResult.rules_json))
-      } catch { /* quota error ignored */ }
+      } catch {
+        /* quota error ignored */
+      }
     }
   } catch {
     // 网络错误不阻塞，下次再试
@@ -58,7 +62,10 @@ export async function syncRulesToServer(
  * 登录后首次调用，迁移成功后删除 localStorage key。
  */
 export async function migrateRulesToServer(): Promise<void> {
-  for (const [kind, storageKey] of [['ddl', DDL_KEY], ['body', BODY_KEY]] as const) {
+  for (const [kind, storageKey] of [
+    ['ddl', DDL_KEY],
+    ['body', BODY_KEY]
+  ] as const) {
     const localData = localStorage.getItem(storageKey)
     if (!localData) continue
 

@@ -31,16 +31,18 @@ COMMENT ON COLUMN public.ai_providers.sort_order IS '展示排序，数字越小
 
 ALTER TABLE public.ai_providers ENABLE ROW LEVEL SECURITY;
 
--- 已登录用户可读启用供应商；仅管理员可写
+-- 已登录用户可读启用供应商；仅管理员可写（检查 admin_users 表）
 CREATE POLICY "ai_providers_authenticated_read_enabled" ON public.ai_providers
   FOR SELECT USING (auth.uid() IS NOT NULL AND is_enabled = TRUE);
 
+-- 检查用户邮箱是否在 admin_users 白名单中
 CREATE POLICY "ai_providers_admin_write" ON public.ai_providers
   FOR ALL USING (
     EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE auth.users.id = auth.uid()
-      AND (auth.users.raw_app_meta_data->>'is_admin')::boolean = true
+      SELECT 1 FROM public.admin_users
+      WHERE admin_users.email = (
+        SELECT email FROM auth.users WHERE id = auth.uid()
+      )
     )
   );
 

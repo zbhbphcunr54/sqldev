@@ -1,43 +1,29 @@
-<!-- [2026-05-05] 更新：DDL 映射规则管理页面 - 完全匹配 UI 预览 -->
+<!-- [2026-05-07] 映射规则管理页面 - 按数据库方向展示 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { fetchUserRules, saveUserRules, resetUserRules } from '@/api/rules'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { fetchUserRules, saveUserRules, resetUserRules, type DbType, type RuleKind, type RuleItem, type BodyRuleItem } from '@/api/rules'
 
-// DDL Categories
-const DDL_CATS = [
-  { key: 'typeMapping', label: '类型映射' },
-  { key: 'syntaxMapping', label: '语法映射' },
-  { key: 'functionMapping', label: '函数映射' },
-  { key: 'keywordMapping', label: '关键字映射' },
-  { key: 'constraintMapping', label: '约束映射' },
-  { key: 'indexMapping', label: '索引映射' },
-  { key: 'sequenceMapping', label: '序列映射' },
-  { key: 'commentMapping', label: '注释映射' }
-]
-
-// Body Categories
-const BODY_CATS = [
-  { key: 'variableMapping', label: '变量映射' },
-  { key: 'cursorMapping', label: '游标映射' },
-  { key: 'loopMapping', label: '循环映射' },
-  { key: 'exceptionMapping', label: '异常映射' },
-  { key: 'refcursorMapping', label: 'REF CURSOR 映射' }
+// Database options
+const DB_OPTIONS: { value: DbType; label: string }[] = [
+  { value: 'oracle', label: 'Oracle' },
+  { value: 'mysql', label: 'MySQL' },
+  { value: 'pg', label: 'PostgreSQL' }
 ]
 
 // State
-const activeTab = ref<'ddl' | 'body'>('ddl')
-const ddlRules = ref<Record<string, { source: string; target: string }[]>>({})
-const bodyRules = ref<Record<string, { source: string; target: string }[]>>({})
-const selectedCategory = ref('typeMapping')
+const sourceDb = ref<DbType>('oracle')
+const targetDb = ref<DbType>('pg')
+const activeTab = ref<RuleKind>('ddl')
+const rules = ref<(RuleItem | BodyRuleItem)[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const status = ref<{ type: string; text: string }>({ type: '', text: '' })
+const lastSavedAt = ref<string | null>(null)
+const isDefault = ref(false)
 
 // Modal state
 const modalVisible = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
-const modalKind = ref<'ddl' | 'body'>('ddl')
-const modalCategory = ref('')
 const modalIndex = ref(-1)
 const modalSource = ref('')
 const modalTarget = ref('')
@@ -45,23 +31,29 @@ const modalSourceInputRef = ref<HTMLInputElement | null>(null)
 const lastFocusedElement = ref<HTMLElement | null>(null)
 
 // Computed
-const currentRules = computed(() => activeTab.value === 'ddl' ? ddlRules.value : bodyRules.value)
-const currentCats = computed(() => activeTab.value === 'ddl' ? DDL_CATS : BODY_CATS)
+const currentRuleKind = computed((): 'source' | 's' => activeTab.value === 'ddl' ? 'source' : 's')
+const targetKey = computed((): 'target' | 't' => activeTab.value === 'ddl' ? 'target' : 't')
 
-const filteredCategory = computed(() => {
-  return currentCats.value.find(c => c.key === selectedCategory.value) || currentCats.value[0]
+const sourceLabel = computed(() => DB_OPTIONS.find(d => d.value === sourceDb.value)?.label || '')
+const targetLabel = computed(() => DB_OPTIONS.find(d => d.value === targetDb.value)?.label || '')
+
+const ruleCount = computed(() => rules.value.length)
+
+const formattedLastSaved = computed(() => {
+  if (!lastSavedAt.value) return ''
+  const date = new Date(lastSavedAt.value)
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 })
 
-const filteredRules = computed(() => {
-  return currentRules.value[selectedCategory.value] || []
-})
-
-const categoryOptions = computed(() => {
-  return currentCats.value.map(cat => ({
-    ...cat,
-    count: (currentRules.value[cat.key] || []).length
-  }))
-})
+// Get target value safely (avoids template type assertion parsing issue)
+function getRuleTarget(rule: RuleItem | BodyRuleItem): string {
+  return String((rule as Record<string, unknown>)[targetKey.value] ?? '')
+}
 
 // Methods
 async function loadRules(): Promise<void> {
@@ -69,34 +61,38 @@ async function loadRules(): Promise<void> {
   status.value = { type: '', text: '' }
 
   try {
-    const [ddlResult, bodyResult] = await Promise.all([
-      fetchUserRules('ddl'),
-      fetchUserRules('body')
-    ])
+    const result = await fetchUserRules(sourceDb.value, targetDb.value, activeTab.value)
 
-    if (ddlResult.ok) {
-      ddlRules.value = ddlResult.rules_json as Record<string, { source: string; target: string }[]>
-    }
-
-    if (bodyResult.ok) {
-      bodyRules.value = bodyResult.rules_json as Record<string, { source: string; target: string }[]>
+    if (result.ok) {
+      rules.value = result.rules_json as (RuleItem | BodyRuleItem)[]
+      lastSavedAt.value = result.updated_at
+      isDefault.value = result.id === 0
+    } else {
+      status.value = { type: 'error', text: '规则加载失败' }
     }
   } catch (err) {
     status.value = { type: 'error', text: '规则加载失败：' + String(err) }
+    rules.value = []
   } finally {
     loading.value = false
   }
 }
 
 async function saveRules(): Promise<void> {
+  if (rules.value.length === 0) {
+    status.value = { type: 'warning', text: '规则列表为空，无需保存' }
+    return
+  }
+
   saving.value = true
   status.value = { type: '', text: '' }
 
   try {
-    const rules = activeTab.value === 'ddl' ? ddlRules.value : bodyRules.value
-    const result = await saveUserRules(activeTab.value, rules as Record<string, unknown>)
+    const result = await saveUserRules(sourceDb.value, targetDb.value, activeTab.value, rules.value)
 
     if (result.ok) {
+      lastSavedAt.value = result.updated_at
+      isDefault.value = false
       status.value = { type: 'success', text: '规则保存成功' }
     } else {
       status.value = { type: 'error', text: '规则保存失败' }
@@ -109,17 +105,19 @@ async function saveRules(): Promise<void> {
 }
 
 async function resetRules(): Promise<void> {
-  if (!confirm('确定要重置所有规则为默认值吗？')) return
+  if (!confirm(`确定要重置 ${sourceLabel.value} → ${targetLabel.value} 的${activeTab.value === 'ddl' ? 'DDL' : '程序块'}规则为默认值吗？`)) {
+    return
+  }
 
   loading.value = true
   status.value = { type: '', text: '' }
 
   try {
-    const result = await resetUserRules(activeTab.value)
+    const result = await resetUserRules(sourceDb.value, targetDb.value, activeTab.value)
 
     if (result.ok) {
-      status.value = { type: 'success', text: '规则已重置为默认值' }
       await loadRules()
+      status.value = { type: 'success', text: '规则已重置为默认值' }
     } else {
       status.value = { type: 'error', text: '规则重置失败' }
     }
@@ -133,59 +131,58 @@ async function resetRules(): Promise<void> {
 function openAddModal(): void {
   lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
   modalMode.value = 'add'
-  modalKind.value = activeTab.value
-  modalCategory.value = selectedCategory.value
   modalIndex.value = -1
   modalSource.value = ''
   modalTarget.value = ''
   modalVisible.value = true
-  nextTick(() => {
-    modalSourceInputRef.value?.focus()
-  })
+  nextTick(() => modalSourceInputRef.value?.focus())
 }
 
 function openEditModal(index: number): void {
-  const rules = filteredRules.value
-  if (index < 0 || index >= rules.length) return
+  const rule = rules.value[index]
+  if (!rule) return
 
   lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
   modalMode.value = 'edit'
-  modalKind.value = activeTab.value
-  modalCategory.value = selectedCategory.value
   modalIndex.value = index
-  modalSource.value = rules[index].source
-  modalTarget.value = rules[index].target
+  modalSource.value = (rule as RuleItem)[currentRuleKind.value] || ''
+  modalTarget.value = (rule as Record<string, unknown>)[targetKey.value] as string || ''
   modalVisible.value = true
-  nextTick(() => {
-    modalSourceInputRef.value?.focus()
-  })
+  nextTick(() => modalSourceInputRef.value?.focus())
 }
 
 function confirmModal(): void {
-  const rules = activeTab.value === 'ddl' ? ddlRules.value : bodyRules.value
-  const category = modalCategory.value
-
-  if (!rules[category]) {
-    rules[category] = []
-  }
-
   if (!modalSource.value.trim() && !modalTarget.value.trim()) {
-    if (modalIndex.value >= 0 && modalIndex.value < rules[category].length) {
-      rules[category].splice(modalIndex.value, 1)
+    // Both empty - delete the rule if editing
+    if (modalMode.value === 'edit' && modalIndex.value >= 0) {
+      rules.value.splice(modalIndex.value, 1)
     }
   } else {
-    const rule = { source: modalSource.value.trim(), target: modalTarget.value.trim() }
+    const rule = activeTab.value === 'ddl'
+      ? { source: modalSource.value.trim(), target: modalTarget.value.trim() }
+      : { s: modalSource.value.trim(), t: modalTarget.value.trim() }
 
     if (modalMode.value === 'add') {
-      rules[category].push(rule)
-    } else if (modalIndex.value >= 0 && modalIndex.value < rules[category].length) {
-      rules[category][modalIndex.value] = rule
+      rules.value.push(rule as RuleItem | BodyRuleItem)
+    } else if (modalIndex.value >= 0) {
+      rules.value[modalIndex.value] = rule as RuleItem | BodyRuleItem
     }
   }
 
   modalVisible.value = false
-  status.value = { type: 'success', text: '规则已' + (modalMode.value === 'add' ? '添加' : '修改') + '，记得点击保存' }
+  isDefault.value = false
+  status.value = {
+    type: 'success',
+    text: `规则已${modalMode.value === 'add' ? '添加' : '修改'}，记得点击保存`
+  }
   restoreFocus()
+}
+
+function deleteRule(index: number): void {
+  if (!confirm('确定要删除这条规则吗？')) return
+  rules.value.splice(index, 1)
+  isDefault.value = false
+  status.value = { type: 'success', text: '规则已删除，记得点击保存' }
 }
 
 function closeModal(): void {
@@ -200,20 +197,21 @@ function restoreFocus(): void {
   })
 }
 
+function swapDb(): void {
+  const temp = sourceDb.value
+  sourceDb.value = targetDb.value
+  targetDb.value = temp
+}
+
 function handleEscape(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
-  if (!modalVisible.value) return
-  closeModal()
+  if (modalVisible.value) closeModal()
 }
 
-function switchTab(tab: 'ddl' | 'body'): void {
-  activeTab.value = tab
-  selectedCategory.value = tab === 'ddl' ? 'typeMapping' : 'variableMapping'
-}
-
-function switchCategory(key: string): void {
-  selectedCategory.value = key
-}
+// Watch for source/target db or tab changes
+watch([sourceDb, targetDb, activeTab], () => {
+  loadRules()
+})
 
 onMounted(() => {
   loadRules()
@@ -226,343 +224,607 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="rules-content">
+  <div class="rules-page">
     <!-- Header -->
     <div class="rules-header">
-      <h2>映射规则管理</h2>
-      <div class="rules-actions">
-        <button class="btn" @click="resetRules" :disabled="loading">重置</button>
-        <button class="btn primary" @click="saveRules" :disabled="saving">
-          {{ saving ? '保存中...' : '保存修改' }}
+      <h1>映射规则管理</h1>
+      <div class="header-actions">
+        <button class="btn btn-ghost" :disabled="loading" @click="resetRules">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 7a6 6 0 1 0 1.5-3.5M1 1v3.5h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          重置
+        </button>
+        <button class="btn btn-primary" :disabled="saving || loading" @click="saveRules">
+          <svg v-if="!saving" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span v-if="saving" class="spinner"></span>
+          {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>
     </div>
 
+    <!-- Database Direction Selector -->
+    <div class="db-selector">
+      <div class="db-select-group">
+        <label class="db-label">源数据库</label>
+        <select v-model="sourceDb" class="db-select">
+          <option v-for="db in DB_OPTIONS" :key="db.value" :value="db.value">
+            {{ db.label }}
+          </option>
+        </select>
+      </div>
+
+      <button class="swap-btn" title="交换源和目标" @click="swapDb">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M4 10h9M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 10H7M9 14l-4-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="db-select-group">
+        <label class="db-label">目标数据库</label>
+        <select v-model="targetDb" class="db-select">
+          <option v-for="db in DB_OPTIONS" :key="db.value" :value="db.value">
+            {{ db.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="direction-badge">
+        {{ sourceLabel }} → {{ targetLabel }}
+      </div>
+    </div>
+
     <!-- Tabs -->
-    <div class="tabs">
+    <div class="tab-bar">
       <button
-        class="tab"
+        class="tab-btn"
         :class="{ active: activeTab === 'ddl' }"
-        @click="switchTab('ddl')"
+        @click="activeTab = 'ddl'"
       >
         DDL 规则
       </button>
       <button
-        class="tab"
+        class="tab-btn"
         :class="{ active: activeTab === 'body' }"
-        @click="switchTab('body')"
+        @click="activeTab = 'body'"
       >
         程序块规则
       </button>
     </div>
 
-    <!-- Categories -->
-    <div class="category-pills">
-      <button
-        v-for="cat in categoryOptions"
-        :key="cat.key"
-        class="category-pill"
-        :class="{ active: selectedCategory === cat.key }"
-        @click="switchCategory(cat.key)"
-      >
-        {{ cat.label }}
-        <span class="pill-count">{{ cat.count }}</span>
-      </button>
-    </div>
-
-    <!-- Rules List -->
-    <div class="rules-list" v-if="!loading">
-      <div class="rules-list-header">
-        <span class="dir-info">{{ filteredCategory?.label }}</span>
-        <button class="btn-add" @click="openAddModal">+ 新增</button>
+    <!-- Rules Table -->
+    <div class="rules-table-wrapper">
+      <div class="rules-table-header">
+        <div class="rules-table-title">
+          <span class="rule-count">{{ ruleCount }} 条规则</span>
+          <span v-if="isDefault" class="default-badge">系统默认</span>
+        </div>
+        <button class="btn-add" @click="openAddModal">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          新增
+        </button>
       </div>
 
-      <div v-if="filteredRules.length === 0" class="empty-state">
-        暂无规则，点击"新增"添加
+      <!-- Loading -->
+      <div v-if="loading" class="loading-state">
+        <div class="spinner large"></div>
+        <span>加载中...</span>
       </div>
 
-      <button
-        v-for="(rule, idx) in filteredRules"
-        :key="idx"
-        class="rule-row"
-        type="button"
-        @click="openEditModal(idx)"
-      >
-        <span class="src">{{ rule.source }}</span>
-        <span class="arr">→</span>
-        <span class="tgt">{{ rule.target }}</span>
-      </button>
+      <!-- Empty State -->
+      <div v-else-if="rules.length === 0" class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2"/>
+          <path d="M6 18h36M14 26h20M14 32h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p>暂无规则数据</p>
+        <span>点击"新增"添加第一条规则</span>
+      </div>
+
+      <!-- Rules List -->
+      <div v-else class="rules-list">
+        <div v-for="(rule, index) in rules" :key="index" class="rule-item">
+          <div class="rule-content">
+            <span class="rule-source">{{ (rule as RuleItem)[currentRuleKind] || (rule as BodyRuleItem).s }}</span>
+            <span class="rule-arrow">→</span>
+            <span class="rule-target">{{ getRuleTarget(rule) }}</span>
+          </div>
+          <div class="rule-actions">
+            <button class="action-btn edit" title="编辑" @click="openEditModal(index)">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M10 2l2 2-7 7H3v-2l7-7z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="action-btn delete" title="删除" @click="deleteRule(index)">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 4h10M5 4V2h4v2M5 6v5M9 6v5M3 4l1 8h6l1-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      加载中...
+    <!-- Footer -->
+    <div class="rules-footer">
+      <span v-if="formattedLastSaved">上次保存：{{ formattedLastSaved }}</span>
+      <span v-else>尚未保存</span>
     </div>
 
-    <!-- Status -->
-    <div v-if="status.text" class="status-msg" :class="status.type">
-      {{ status.text }}
-    </div>
+    <!-- Status Toast -->
+    <Transition name="toast">
+      <div v-if="status.text" class="status-toast" :class="status.type">
+        {{ status.text }}
+      </div>
+    </Transition>
 
     <!-- Modal -->
-    <div class="modal-overlay" v-if="modalVisible" @click.self="closeModal">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rules-modal-title">
-        <div class="modal-header">
-          <h3 id="rules-modal-title">{{ modalMode === 'add' ? '新增规则' : '编辑规则' }}</h3>
-          <button class="modal-close" type="button" aria-label="关闭规则编辑弹窗" @click="closeModal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="rules-source-input">源语法 / 类型</label>
-            <input id="rules-source-input" ref="modalSourceInputRef" v-model="modalSource" placeholder="请输入源语法或类型" />
+    <Transition name="modal">
+      <div v-if="modalVisible" class="modal-overlay" @click.self="closeModal">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h3>{{ modalMode === 'add' ? '新增规则' : '编辑规则' }}</h3>
+            <button class="modal-close" @click="closeModal">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
           </div>
-          <div class="form-group">
-            <label for="rules-target-input">目标语法 / 类型</label>
-            <input id="rules-target-input" v-model="modalTarget" placeholder="请输入目标语法或类型" />
+          <div class="modal-body">
+            <div class="form-group">
+              <label>源表达式</label>
+              <input
+                ref="modalSourceInputRef"
+                v-model="modalSource"
+                :placeholder="activeTab === 'ddl' ? '例如: VARCHAR2(n)' : '例如: NVL(a, b)'"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label>目标表达式</label>
+              <input
+                v-model="modalTarget"
+                :placeholder="activeTab === 'ddl' ? '例如: VARCHAR(n)' : '例如: IFNULL(a, b)'"
+                class="form-input"
+              />
+            </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" type="button" @click="closeModal">取消</button>
-          <button class="btn primary" @click="confirmModal">确定</button>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" @click="closeModal">取消</button>
+            <button class="btn btn-primary" @click="confirmModal">确定</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
-.rules-content {
-  flex: 1;
-  padding: 24px 28px;
-  overflow-y: auto;
-  background: var(--color-bg);
+.rules-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
+  overflow: hidden;
 }
 
+/* Header */
 .rules-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  padding: 16px 24px;
+  background: var(--color-page-card);
+  border-bottom: 1px solid var(--color-page-border);
+  flex-shrink: 0;
 }
 
-.rules-header h2 {
+.rules-header h1 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-page-text);
+  letter-spacing: -0.02em;
 }
 
-.rules-actions {
+.header-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-/* Tabs */
-.tabs {
+/* Database Selector */
+.db-selector {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: var(--color-page-card);
+  border-bottom: 1px solid var(--color-page-border);
+  flex-shrink: 0;
+}
+
+.db-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.db-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-page-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.db-select {
+  padding: 10px 36px 10px 14px;
+  background: var(--color-page-input);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-page-text);
+  font-size: 14px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%238b949e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  min-width: 150px;
+  transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.db-select:hover {
+  border-color: var(--color-page-border-hover);
+}
+
+.db-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-bg);
+}
+
+.db-select option {
+  background: var(--color-page-card);
+  color: var(--color-page-text);
+}
+
+.swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--color-page-input);
+  border: 1px solid var(--color-page-border);
+  border-radius: 50%;
+  color: var(--color-page-text-subtle);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-apple);
+  flex-shrink: 0;
+}
+
+.swap-btn:hover {
+  background: var(--color-page-elevated);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  transform: rotate(180deg);
+}
+
+.direction-badge {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-accent);
+  letter-spacing: -0.01em;
+}
+
+/* Tab Bar */
+.tab-bar {
   display: flex;
   gap: 4px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+  background: var(--color-page-card);
+  border-bottom: 1px solid var(--color-page-border);
+  flex-shrink: 0;
 }
 
-.tab {
-  padding: 10px 16px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+.tab-btn {
+  padding: 10px 20px;
   background: transparent;
-  color: var(--color-text-muted);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
-.tab:hover {
-  color: var(--color-text);
+.tab-btn:hover {
+  color: var(--color-page-text);
+  background: var(--color-page-border-light);
 }
 
-.tab:focus-visible {
-  color: var(--color-text);
+.tab-btn.active {
+  background: var(--color-accent);
+  color: #ffffff;
 }
 
-.tab.active {
-  color: var(--color-brand-500);
-  border-bottom-color: var(--color-brand-500);
-}
-
-/* Category Pills */
-.category-pills {
+/* Rules Table Wrapper */
+.rules-table-wrapper {
+  flex: 1;
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  margin: 20px 24px;
+  background: var(--color-page-card);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  min-height: 0;
 }
 
-.category-pill {
+.rules-table-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 20px;
-  background: var(--color-panel);
-  color: var(--color-text-subtle);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--color-page-elevated);
+  border-bottom: 1px solid var(--color-page-border);
+  flex-shrink: 0;
 }
 
-.category-pill:hover {
-  border-color: var(--color-border-hover);
-  color: var(--color-text);
+.rules-table-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.category-pill:focus-visible {
-  border-color: var(--color-border-hover);
-  color: var(--color-text);
+.rule-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-page-text);
+  letter-spacing: -0.01em;
 }
 
-.category-pill.active {
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-500);
-  color: var(--color-brand-500);
+.default-badge {
+  padding: 4px 12px;
+  background: var(--color-page-gray-bg);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-page-gray);
+  letter-spacing: 0.02em;
 }
 
-.pill-count {
+.btn-add {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-apple);
+}
+
+.btn-add:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Loading State */
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--color-brand-500);
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
+  gap: 16px;
+  color: var(--color-page-text-subtle);
+  font-size: 13px;
+}
+
+/* Empty State */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-page-text-muted);
+  padding: 48px;
+}
+
+.empty-state svg {
+  color: var(--color-page-text-muted);
+  opacity: 0.4;
+}
+
+.empty-state p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-page-text-subtle);
+  letter-spacing: -0.01em;
+}
+
+.empty-state span {
+  font-size: 13px;
 }
 
 /* Rules List */
 .rules-list {
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  max-width: 800px;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-page-scrollbar-thumb) transparent;
 }
 
-.rules-list-header {
+.rules-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rules-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rules-list::-webkit-scrollbar-thumb {
+  background: var(--color-page-scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.rule-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-panel-2);
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-page-border);
+  transition: background var(--duration-fast) var(--ease-apple);
 }
 
-.dir-info {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-brand-500);
-}
-
-.btn-add {
-  padding: 5px 12px;
-  border: 1px solid var(--color-brand-500);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-brand-500);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-add:hover {
-  background: var(--color-brand-500);
-  color: white;
-}
-
-.btn-add:focus-visible {
-  background: var(--color-brand-500);
-  color: white;
-}
-
-.rule-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border);
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: var(--font-code);
-  font-size: 12px;
-}
-
-.rule-row:hover {
-  background: var(--color-panel-2);
-}
-
-.rule-row:focus-visible {
-  background: var(--color-panel-2);
-}
-
-.rule-row:last-child {
+.rule-item:last-child {
   border-bottom: none;
 }
 
-.src {
-  flex: 1;
-  color: var(--oracle);
+.rule-item:hover {
+  background: var(--color-page-input);
 }
 
-.arr {
-  color: var(--color-brand-500);
-  margin: 0 12px;
+.rule-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-code);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.rule-source {
+  padding: 6px 12px;
+  background: rgba(245, 158, 11, 0.15);
+  border-radius: var(--radius-md);
+  color: #f59e0b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
+.rule-arrow {
+  color: var(--color-accent);
+  flex-shrink: 0;
+  font-weight: 300;
+}
+
+.rule-target {
+  padding: 6px 12px;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: var(--radius-md);
+  color: #22c55e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
+.rule-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 16px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-md);
+  color: var(--color-page-text-subtle);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.action-btn:hover {
+  background: var(--color-page-input);
+  border-color: var(--color-page-border-hover);
+}
+
+.action-btn.edit:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.action-btn.delete:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Footer */
+.rules-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 24px;
+  background: var(--color-page-card);
+  border-top: 1px solid var(--color-page-border);
   font-size: 12px;
+  color: var(--color-page-text-muted);
+  flex-shrink: 0;
 }
 
-.tgt {
-  flex: 1;
-  text-align: right;
-  color: var(--color-text-subtle);
-}
-
-.empty-state {
-  padding: 40px;
-  text-align: center;
-  color: var(--color-text-muted);
+/* Status Toast */
+.status-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: var(--shadow-lg);
 }
 
-.loading-state {
-  padding: 40px;
-  text-align: center;
-  color: var(--color-text-muted);
+.status-toast.success {
+  background: var(--color-page-success-bg);
+  color: var(--color-page-success);
+  border: 1px solid var(--color-page-success);
 }
 
-.status-msg {
-  margin-top: 12px;
-  padding: 10px 16px;
-  border-radius: var(--radius-control);
-  font-size: 13px;
+.status-toast.error {
+  background: var(--color-page-danger-bg);
+  color: var(--color-page-danger);
+  border: 1px solid var(--color-page-danger);
 }
 
-.status-msg.success {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.status-msg.error {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
+.status-toast.warning {
+  background: var(--color-page-gray-bg);
+  color: var(--color-page-warning);
+  border: 1px solid var(--color-page-warning);
 }
 
 /* Modal */
@@ -570,60 +832,63 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   background: var(--color-overlay);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1001;
 }
 
 .modal {
-  width: 420px;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-modal);
+  width: 480px;
+  background: var(--color-page-card);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--color-page-border);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--color-page-text);
+  letter-spacing: -0.01em;
 }
 
 .modal-close {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   background: transparent;
-  color: var(--color-text-muted);
-  font-size: 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-page-text-muted);
   cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
 .modal-close:hover {
-  background: var(--color-panel-2);
-}
-
-.modal-close:focus-visible {
-  background: var(--color-panel-2);
+  background: var(--color-page-input);
+  color: var(--color-page-text);
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 24px;
 }
 
 .form-group {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .form-group:last-child {
@@ -632,78 +897,142 @@ onBeforeUnmount(() => {
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-subtle);
+  font-weight: 600;
+  color: var(--color-page-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.form-group input {
+.form-input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-panel-2);
-  color: var(--color-text);
-  font-size: 13px;
+  padding: 12px 16px;
+  background: var(--color-page-input);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-page-text);
+  font-size: 14px;
   font-family: var(--font-code);
   box-sizing: border-box;
+  transition: all var(--duration-fast) var(--ease-apple);
 }
 
-.form-group input:focus {
+.form-input:hover {
+  border-color: var(--color-page-border-hover);
+}
+
+.form-input:focus {
   outline: none;
-  border-color: var(--color-brand-500);
-  box-shadow: var(--shadow-focus-ring);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-bg);
+}
+
+.form-input::placeholder {
+  color: var(--color-page-text-muted);
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-panel-2);
+  gap: 10px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--color-page-border);
+  background: var(--color-page-elevated);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 /* Buttons */
 .btn {
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-normal) var(--ease-apple);
 }
 
-.btn:hover:not(:disabled) {
-  background: var(--color-panel-2);
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--color-page-border);
+  color: var(--color-page-text);
 }
 
-.btn.primary {
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-page-input);
+  color: var(--color-page-text);
+  border-color: var(--color-page-border-hover);
+}
+
+.btn-primary {
+  background: var(--color-accent);
   border: none;
-  background: var(--gradient-brand-primary);
-  color: white;
-  box-shadow: var(--shadow-brand-primary);
+  color: #ffffff;
 }
 
-.btn.primary:hover:not(:disabled) {
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-brand-primary-hover);
-}
-
-.btn:focus-visible {
-  background: var(--color-panel-2);
-}
-
-.btn.primary:focus-visible {
-  background: var(--gradient-brand-primary);
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Spinner */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.spinner.large {
+  width: 28px;
+  height: 28px;
+  border-width: 2.5px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Transitions */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all var(--duration-normal) var(--ease-spring);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(16px);
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+.modal-enter-active .modal,
+.modal-leave-active .modal {
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal,
+.modal-leave-to .modal {
+  transform: scale(0.95) translateY(8px);
 }
 </style>

@@ -85,7 +85,9 @@ loadQuota()
         <span
           v-if="currentQuota"
           class="text-xs px-2 py-1 rounded"
-          :class="currentQuota.remaining > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+          :class="
+            currentQuota.remaining > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          "
         >
           今日配额：{{ currentQuota.used }}/{{ currentQuota.limit }}
         </span>
@@ -108,7 +110,9 @@ loadQuota()
     <div class="p-4">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+        <div
+          class="animate-spin h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full"
+        ></div>
         <span class="ml-3 text-gray-600">正在分析 SQL...</span>
       </div>
 
@@ -132,10 +136,12 @@ loadQuota()
         <!-- Tabs -->
         <div class="border rounded-lg overflow-hidden">
           <div class="flex border-b bg-gray-50">
-            <button
-              class="px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
-            >
-              全部问题 ({{ (result.syntaxIssues?.length || 0) + (result.semanticIssues?.length || 0) + (result.logicRisks?.length || 0) }})
+            <button class="px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600">
+              全部问题 ({{
+                (result.syntaxIssues?.length || 0) +
+                (result.semanticIssues?.length || 0) +
+                (result.logicRisks?.length || 0)
+              }})
             </button>
           </div>
           <div class="p-4">

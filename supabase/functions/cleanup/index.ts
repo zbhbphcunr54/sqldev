@@ -1,10 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { jsonResponse, errorResponse, logEdgeError } from '../_shared/response.ts'
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
-})
+const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
+
+await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
@@ -16,13 +16,15 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
   if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+  if (req.method !== 'POST') return jsonResponse(405, { error: 'method_not_allowed' }, corsHeaders)
 
   try {
-    // Verify cron secret for scheduled invocations (optional, pg_cron doesn't send auth)
-    const authHeader = req.headers.get('authorization') || ''
-    if (CRON_SECRET && authHeader) {
-      const providedSecret = authHeader.replace('Bearer ', '')
-      if (providedSecret && providedSecret !== CRON_SECRET) {
+    // Verify cron secret for scheduled invocations.
+    if (CRON_SECRET) {
+      const authHeader = req.headers.get('authorization') || ''
+      const match = authHeader.match(/^Bearer\s+(.+)$/i)
+      const providedSecret = match ? match[1].trim() : ''
+      if (!providedSecret || providedSecret !== CRON_SECRET) {
         return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
       }
     }

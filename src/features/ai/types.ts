@@ -53,6 +53,7 @@ export interface TestResult {
   elapsed_ms: number
   status?: number
   error?: string
+  cooldown_remaining?: number
 }
 
 /** 供应商筛选 Tab */

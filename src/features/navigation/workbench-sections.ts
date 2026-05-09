@@ -7,7 +7,9 @@ export const WORKBENCH_SECTIONS = [
   'id-tool',
   'ziwei',
   'rules',
-  'ai-config'
+  'ai-config',
+  'app-config',
+  'op-logs'
 ] as const
 
 export type WorkbenchSection = (typeof WORKBENCH_SECTIONS)[number]
@@ -26,7 +28,9 @@ export const WORKBENCH_SECTION_NAV_ITEMS: readonly WorkbenchSectionNavItem[] = [
   { section: 'id-tool', to: '/workbench/id-tool', label: '证件号码', icon: 'ID' },
   { section: 'ziwei', to: '/workbench/ziwei', label: '紫微斗数', icon: 'ZW' },
   { section: 'rules', to: '/workbench/rules', label: '映射规则', icon: 'RL' },
-  { section: 'ai-config', to: '/workbench/ai-config', label: 'AI 助手配置', icon: 'AI' }
+  { section: 'ai-config', to: '/workbench/ai-config', label: 'AI 助手配置', icon: 'AI' },
+  { section: 'app-config', to: '/workbench/app-config', label: '应用配置', icon: 'APP' },
+  { section: 'op-logs', to: '/workbench/op-logs', label: '操作日志', icon: 'LOG' }
 ]
 
 export function isWorkbenchSection(value: unknown): value is WorkbenchSection {

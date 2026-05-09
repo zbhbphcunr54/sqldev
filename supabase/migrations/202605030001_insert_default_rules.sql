@@ -6,8 +6,8 @@
 -- ============================================================
 
 -- DDL: oracleToMysql (31 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'oracle', 'mysql', 'ddl', '[
   {
     "source": "NUMBER(p,s)",
     "target": "DECIMAL(p,s)"
@@ -135,8 +135,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- DDL: oracleToPg (30 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'oracle', 'pg', 'ddl', '[
   {
     "source": "NUMBER(p,s)",
     "target": "NUMERIC(p,s)"
@@ -260,8 +260,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- DDL: mysqlToOracle (39 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'mysql', 'oracle', 'ddl', '[
   {
     "source": "TINYINT(1)",
     "target": "NUMBER(1)"
@@ -421,8 +421,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- DDL: mysqlToPg (38 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'mysql', 'pg', 'ddl', '[
   {
     "source": "TINYINT(1)",
     "target": "BOOLEAN"
@@ -578,8 +578,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- DDL: pgToOracle (32 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'pg', 'oracle', 'ddl', '[
   {
     "source": "BIGSERIAL",
     "target": "NUMBER(18)"
@@ -711,8 +711,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- DDL: pgToMysql (29 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'ddl', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'pg', 'mysql', 'ddl', '[
   {
     "source": "BIGSERIAL",
     "target": "BIGINT"
@@ -832,8 +832,8 @@ values (NULL, 'ddl', '[
 ]');
 
 -- Body: oracleToPg (61 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'oracle', 'pg', 'body', '[
   {
     "s": "DECODE(expr, v1, r1, ..., def)",
     "t": "CASE expr WHEN v1 THEN r1 ... ELSE def END"
@@ -1081,8 +1081,8 @@ values (NULL, 'body', '[
 ]');
 
 -- Body: pgToOracle (25 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'pg', 'oracle', 'body', '[
   {
     "s": "COALESCE(a, b)",
     "t": "NVL(a, b)"
@@ -1186,8 +1186,8 @@ values (NULL, 'body', '[
 ]');
 
 -- Body: oracleToMysql (76 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'oracle', 'mysql', 'body', '[
   {
     "s": "DECODE(expr, v1, r1, ..., def)",
     "t": "CASE expr WHEN v1 THEN r1 ... ELSE def END"
@@ -1495,8 +1495,8 @@ values (NULL, 'body', '[
 ]');
 
 -- Body: mysqlToOracle (37 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'mysql', 'oracle', 'body', '[
   {
     "s": "IFNULL(a, b)",
     "t": "NVL(a, b)"
@@ -1648,8 +1648,8 @@ values (NULL, 'body', '[
 ]');
 
 -- Body: mysqlToPg (74 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'mysql', 'pg', 'body', '[
   {
     "s": "IFNULL(a, b)",
     "t": "COALESCE(a, b)"
@@ -1949,8 +1949,8 @@ values (NULL, 'body', '[
 ]');
 
 -- Body: pgToMysql (32 条)
-insert into public.user_rules (user_id, kind, rules_json)
-values (NULL, 'body', '[
+insert into public.user_rules (user_id, source_db, target_db, kind, rules_json)
+values (NULL, 'pg', 'mysql', 'body', '[
   {
     "s": "COALESCE(a, b)",
     "t": "IFNULL(a, b)"

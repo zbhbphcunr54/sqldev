@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
-const TOKEN_REFRESH_SKEW_SECONDS = 60
+// Token 刷新提前量（秒）：在过期前 60 秒提前刷新
+export const TOKEN_REFRESH_SKEW_SECONDS = 60
 
 export class ApiError extends Error {
   code: string

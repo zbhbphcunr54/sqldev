@@ -45,7 +45,7 @@ function selectOption(value: Database): void {
 }
 
 function getLabel(value: Database): string {
-  return props.dbOptions.find(d => d.value === value)?.label ?? ''
+  return props.dbOptions.find((d) => d.value === value)?.label ?? ''
 }
 
 function getAbbr(value: Database): string {
@@ -123,11 +123,18 @@ onBeforeUnmount(() => {
       <span class="db-picker-icon" :class="modelValue">{{ getAbbr(modelValue) }}</span>
       <span class="db-picker-name">{{ getLabel(modelValue) }}</span>
       <svg class="db-picker-chevron" width="10" height="10" viewBox="0 0 10 10">
-        <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path
+          d="M2 3.5L5 6.5L8 3.5"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        />
       </svg>
     </button>
 
-    <div :id="dropdownId" class="db-picker-dropdown" v-show="isOpen" role="listbox">
+    <div v-show="isOpen" :id="dropdownId" class="db-picker-dropdown" role="listbox">
       <button
         v-for="(db, index) in dbOptions"
         :key="db.value"
@@ -136,14 +143,27 @@ onBeforeUnmount(() => {
         :class="{ selected: modelValue === db.value }"
         role="option"
         :aria-selected="modelValue === db.value"
+        type="button"
         @click.stop="selectOption(db.value)"
         @keydown="handleOptionKeydown($event, index)"
-        type="button"
       >
         <span class="db-picker-icon" :class="db.value">{{ db.abbr }}</span>
         <span>{{ db.label }}</span>
-        <svg v-if="modelValue === db.value" class="db-picker-check" width="14" height="14" viewBox="0 0 14 14">
-          <path d="M3 7.5L5.5 10L11 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <svg
+          v-if="modelValue === db.value"
+          class="db-picker-check"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+        >
+          <path
+            d="M3 7.5L5.5 10L11 4"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            fill="none"
+          />
         </svg>
       </button>
     </div>
@@ -167,7 +187,9 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .db-picker-trigger:hover {

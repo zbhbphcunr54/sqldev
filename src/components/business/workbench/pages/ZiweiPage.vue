@@ -2,7 +2,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { computeZiweiChart, validateBirthDate, validateBirthTime, type ZiweiChart } from '@/features/ziwei/compute'
+import {
+  computeZiweiChart,
+  validateBirthDate,
+  validateBirthTime,
+  type ZiweiChart
+} from '@/features/ziwei/compute'
 import { requestZiweiAnalysis } from '@/api/ziwei-analysis'
 
 const router = useRouter()
@@ -134,9 +139,16 @@ async function handleGenerate(): Promise<void> {
   status.value = { type: '', text: '' }
 
   try {
-    const dateValidation = calendarType.value === 'solar'
-      ? validateBirthDate(calendarType.value, solarYear.value, solarMonth.value, solarDay.value)
-      : validateBirthDate(calendarType.value, lunarYear.value, lunarMonth.value, lunarDay.value, lunarLeap.value)
+    const dateValidation =
+      calendarType.value === 'solar'
+        ? validateBirthDate(calendarType.value, solarYear.value, solarMonth.value, solarDay.value)
+        : validateBirthDate(
+            calendarType.value,
+            lunarYear.value,
+            lunarMonth.value,
+            lunarDay.value,
+            lunarLeap.value
+          )
 
     if (!dateValidation.valid) {
       status.value = { type: 'error', text: dateValidation.error || '出生日期无效' }
@@ -222,9 +234,18 @@ async function handleAiQuestion(): Promise<void> {
 // ==================== 命盘辅助函数 ====================
 
 const palaceMap: Record<string, string> = {
-  '子': '命宫', '丑': '兄弟', '寅': '夫妻', '卯': '子女',
-  '辰': '财帛', '巳': '疾厄', '午': '迁移', '未': '仆役',
-  '申': '官禄', '酉': '田宅', '戌': '父母', '亥': '福德'
+  子: '命宫',
+  丑: '兄弟',
+  寅: '夫妻',
+  卯: '子女',
+  辰: '财帛',
+  巳: '疾厄',
+  午: '迁移',
+  未: '仆役',
+  申: '官禄',
+  酉: '田宅',
+  戌: '父母',
+  亥: '福德'
 }
 
 function getPalaceName(branch: string): string {
@@ -234,7 +255,22 @@ function getPalaceName(branch: string): string {
 // 星曜类型分类
 function getStarType(starName: string): 'main' | 'luck' | 'power' | 'harm' | 'assist' {
   // 主星（甲级星）
-  const mainStars = ['紫微', '天机', '太阳', '武曲', '天同', '廉贞', '天府', '太阴', '贪狼', '巨门', '天相', '天梁', '七杀', '破军']
+  const mainStars = [
+    '紫微',
+    '天机',
+    '太阳',
+    '武曲',
+    '天同',
+    '廉贞',
+    '天府',
+    '太阴',
+    '贪狼',
+    '巨门',
+    '天相',
+    '天梁',
+    '七杀',
+    '破军'
+  ]
   if (mainStars.includes(starName)) return 'main'
 
   // 吉星
@@ -264,10 +300,10 @@ function getStarClass(starType: string): string {
 
 function getHuaTagClass(hua: string): string {
   const map: Record<string, string> = {
-    '禄': 'tag-lu',
-    '权': 'tag-quan',
-    '科': 'tag-ke',
-    '忌': 'tag-ji'
+    禄: 'tag-lu',
+    权: 'tag-quan',
+    科: 'tag-ke',
+    忌: 'tag-ji'
   }
   return map[hua] || ''
 }
@@ -275,11 +311,11 @@ function getHuaTagClass(hua: string): string {
 // 星曜属性（庙旺利平陷）
 function getPalaceLevelClass(level: string): string {
   const map: Record<string, string> = {
-    '庙': 'level-miao',
-    '旺': 'level-wang',
-    '利': 'level-li',
-    '平': 'level-ping',
-    '陷': 'level-xian'
+    庙: 'level-miao',
+    旺: 'level-wang',
+    利: 'level-li',
+    平: 'level-ping',
+    陷: 'level-xian'
   }
   return map[level] || ''
 }
@@ -291,10 +327,22 @@ function getPalaceLevelClass(level: string): string {
 // 9.亥(福德)   10.[中央]  11.[中央]   12.未(仆役)
 // 13.戌(父母) 14.酉(田宅) 15.申(官禄) 16.丑(兄弟)
 const palaceOrder = [
-  '寅', '卯', '辰', '巳',
-  '子', null, null, '午',
-  '亥', null, null, '未',
-  '戌', '酉', '申', '丑'
+  '寅',
+  '卯',
+  '辰',
+  '巳',
+  '子',
+  null,
+  null,
+  '午',
+  '亥',
+  null,
+  null,
+  '未',
+  '戌',
+  '酉',
+  '申',
+  '丑'
 ]
 
 // 构建命盘网格数据
@@ -303,10 +351,10 @@ const palaceGrid = computed(() => {
 
   const cells = chart.value.boardCells
 
-  return palaceOrder.map(branch => {
+  return palaceOrder.map((branch) => {
     if (!branch) return null
 
-    const cell = cells.find(c => c.branch === branch)
+    const cell = cells.find((c) => c.branch === branch)
     if (!cell) return null
 
     const allStars: Array<{
@@ -317,7 +365,7 @@ const palaceGrid = computed(() => {
     }> = []
 
     // 主星
-    ;(cell.mainStars || []).forEach(s => {
+    ;(cell.mainStars || []).forEach((s) => {
       allStars.push({
         name: s.name,
         type: getStarType(s.name),
@@ -327,7 +375,7 @@ const palaceGrid = computed(() => {
     })
 
     // 辅星
-    ;(cell.assistStars || []).forEach(s => {
+    ;(cell.assistStars || []).forEach((s) => {
       allStars.push({
         name: s.name,
         type: getStarType(s.name)
@@ -335,7 +383,7 @@ const palaceGrid = computed(() => {
     })
 
     // 杂星
-    ;(cell.miscStars || []).forEach(s => {
+    ;(cell.miscStars || []).forEach((s) => {
       allStars.push({
         name: s.name,
         type: getStarType(s.name)
@@ -409,10 +457,18 @@ const liuNianTimeline = computed(() => {
       <div class="header-left">
         <div class="header-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 2C12 2 14 6 14 12C14 18 12 22 12 22" stroke="currentColor" stroke-width="2"/>
-            <path d="M2 12C2 12 6 14 12 14C18 14 22 12 22 12" stroke="currentColor" stroke-width="2"/>
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+            <path
+              d="M12 2C12 2 14 6 14 12C14 18 12 22 12 22"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M2 12C2 12 6 14 12 14C18 14 22 12 22 12"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
           </svg>
         </div>
         <div class="header-title-group">
@@ -424,7 +480,13 @@ const liuNianTimeline = computed(() => {
       <div class="header-right">
         <button class="btn-back" @click="goBack">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M19 12H5M12 5L5 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M19 12H5M12 5L5 12L12 19"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
           <span>返回首页</span>
         </button>
@@ -432,9 +494,9 @@ const liuNianTimeline = computed(() => {
         <div class="menu-wrapper">
           <button class="btn-menu" @click="toggleUserMenu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+              <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="18" r="1.5" fill="currentColor" />
             </svg>
           </button>
 
@@ -443,8 +505,13 @@ const liuNianTimeline = computed(() => {
               <div class="user-info">
                 <div class="user-avatar">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
-                    <path d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" />
+                    <path
+                      d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
                   </svg>
                 </div>
                 <div class="user-details">
@@ -455,8 +522,20 @@ const liuNianTimeline = computed(() => {
               <div class="menu-divider"></div>
               <button class="menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M16 17L21 12L16 7M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M16 17L21 12L16 7M21 12H9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
                 <span>退出登录</span>
               </button>
@@ -473,14 +552,31 @@ const liuNianTimeline = computed(() => {
       <aside class="input-panel">
         <!-- 操作按钮 -->
         <div class="action-buttons">
-          <button class="btn-generate" @click="handleGenerate" :disabled="generating">
-            排盘
-          </button>
+          <button class="btn-generate" :disabled="generating" @click="handleGenerate">排盘</button>
           <button class="btn-share" :disabled="!chart">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect x="8" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2"/>
-              <path d="M16 10V18M16 18L12 14M16 18L20 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M8 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <rect
+                x="8"
+                y="14"
+                width="8"
+                height="8"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M16 10V18M16 18L12 14M16 18L20 14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M8 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V16"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
             </svg>
             分享海报
           </button>
@@ -509,7 +605,7 @@ const liuNianTimeline = computed(() => {
           <!-- 命主名称 -->
           <div class="form-field">
             <label>命主名称（可选）</label>
-            <input type="text" v-model="profileName" placeholder="例如：张明远" />
+            <input v-model="profileName" type="text" placeholder="例如：张明远" />
             <span class="field-hint">用于生成个性化解读</span>
           </div>
 
@@ -538,19 +634,27 @@ const liuNianTimeline = computed(() => {
             <div class="form-field">
               <label>{{ calendarType === 'solar' ? '月份' : '农历月份' }}</label>
               <select v-if="calendarType === 'solar'" v-model="solarMonth">
-                <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}月</option>
+                <option v-for="m in monthOptions" :key="m.value" :value="m.value">
+                  {{ m.label }}月
+                </option>
               </select>
               <select v-else v-model="lunarMonth">
-                <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}月</option>
+                <option v-for="m in monthOptions" :key="m.value" :value="m.value">
+                  {{ m.label }}月
+                </option>
               </select>
             </div>
             <div class="form-field">
               <label>{{ calendarType === 'solar' ? '日期' : '农历日期' }}</label>
               <select v-if="calendarType === 'solar'" v-model="solarDay">
-                <option v-for="d in dayOptions" :key="d.value" :value="d.value">{{ d.label }}日</option>
+                <option v-for="d in dayOptions" :key="d.value" :value="d.value">
+                  {{ d.label }}日
+                </option>
               </select>
               <select v-else v-model="lunarDay">
-                <option v-for="d in dayOptions" :key="d.value" :value="d.value">{{ d.label }}日</option>
+                <option v-for="d in dayOptions" :key="d.value" :value="d.value">
+                  {{ d.label }}日
+                </option>
               </select>
             </div>
           </div>
@@ -560,13 +664,17 @@ const liuNianTimeline = computed(() => {
             <div class="form-field">
               <label>出生小时(24h)</label>
               <select v-model="birthHour">
-                <option v-for="h in hourOptions" :key="h.value" :value="h.value">{{ h.label }}</option>
+                <option v-for="h in hourOptions" :key="h.value" :value="h.value">
+                  {{ h.label }}
+                </option>
               </select>
             </div>
             <div class="form-field">
               <label>出生分钟</label>
               <select v-model="birthMinute">
-                <option v-for="m in minuteOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+                <option v-for="m in minuteOptions" :key="m.value" :value="m.value">
+                  {{ m.label }}
+                </option>
               </select>
             </div>
           </div>
@@ -576,12 +684,12 @@ const liuNianTimeline = computed(() => {
             <label>性别</label>
             <div class="radio-group">
               <label class="radio-item" :class="{ active: gender === 'male' }">
-                <input type="radio" v-model="gender" value="male" />
+                <input v-model="gender" type="radio" value="male" />
                 <span class="radio-circle"></span>
                 <span>男</span>
               </label>
               <label class="radio-item" :class="{ active: gender === 'female' }">
-                <input type="radio" v-model="gender" value="female" />
+                <input v-model="gender" type="radio" value="female" />
                 <span class="radio-circle"></span>
                 <span>女</span>
               </label>
@@ -593,7 +701,9 @@ const liuNianTimeline = computed(() => {
         <div class="history-section">
           <div class="history-row">
             <select v-model="selectedHistory" class="history-select">
-              <option v-for="h in historyExamples" :key="h.value" :value="h.value">{{ h.label }}</option>
+              <option v-for="h in historyExamples" :key="h.value" :value="h.value">
+                {{ h.label }}
+              </option>
             </select>
             <button class="btn-clear" @click="clearForm">清空</button>
           </div>
@@ -612,13 +722,21 @@ const liuNianTimeline = computed(() => {
         <div v-if="!chart" class="empty-state">
           <div class="empty-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M12 2C12 2 14 6 14 12C14 18 12 22 12 22" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M2 12C2 12 6 14 12 14C18 14 22 12 22 12" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" />
+              <path
+                d="M12 2C12 2 14 6 14 12C14 18 12 22 12 22"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
+              <path
+                d="M2 12C2 12 6 14 12 14C18 14 22 12 22 12"
+                stroke="currentColor"
+                stroke-width="1.5"
+              />
             </svg>
           </div>
           <h3>等待排盘</h3>
-          <p>填写出生信息后点击「排盘」按钮<br/>将生成完整紫微斗数方盘</p>
+          <p>填写出生信息后点击「排盘」按钮<br />将生成完整紫微斗数方盘</p>
         </div>
 
         <div v-else class="chart-content">
@@ -641,10 +759,15 @@ const liuNianTimeline = computed(() => {
               <div class="ziwei-board">
                 <template v-for="(cell, index) in palaceGrid" :key="'cell-' + index">
                   <!-- 中央区域 -->
-                  <div v-if="index === 5 || index === 6 || index === 9 || index === 10" class="palace center-area">
+                  <div
+                    v-if="index === 5 || index === 6 || index === 9 || index === 10"
+                    class="palace center-area"
+                  >
                     <div v-if="index === 6 || index === 9" class="center-info">
                       <div v-if="index === 6" class="center-main">
-                        <span class="center-yinyang">{{ centerInfo?.yinYang?.charAt(0) || '阴' }}</span>
+                        <span class="center-yinyang">{{
+                          centerInfo?.yinYang?.charAt(0) || '阴'
+                        }}</span>
                         <span class="center-bureau">{{ centerInfo?.bureau }}</span>
                         <span class="center-gender">{{ centerInfo?.gender }}</span>
                       </div>
@@ -652,7 +775,9 @@ const liuNianTimeline = computed(() => {
                         <p>命主：{{ centerInfo?.mingZhu || '--' }}</p>
                         <p>命宫：{{ centerInfo?.mingBranch || '--' }}宫</p>
                         <p>身宫：{{ centerInfo?.shenBranch || '--' }}宫</p>
-                        <p class="center-year">{{ centerInfo?.currentYear }}年·{{ centerInfo?.age }}岁</p>
+                        <p class="center-year">
+                          {{ centerInfo?.currentYear }}年·{{ centerInfo?.age }}岁
+                        </p>
                       </div>
                       <div v-if="index === 9" class="center-lunar">
                         <p>{{ centerInfo?.lunar || '--' }}</p>
@@ -661,18 +786,36 @@ const liuNianTimeline = computed(() => {
                     </div>
                   </div>
                   <!-- 十二宫格 -->
-                  <div v-else-if="cell" class="palace" :class="{ 'palace-ming': cell.isMing, 'palace-shen': cell.isShen }">
+                  <div
+                    v-else-if="cell"
+                    class="palace"
+                    :class="{ 'palace-ming': cell.isMing, 'palace-shen': cell.isShen }"
+                  >
                     <div class="palace-header">
                       <span class="palace-name">{{ cell.palace }}</span>
                       <span class="palace-ganzhi">{{ cell.ganzhi }}</span>
                     </div>
                     <div class="palace-stars">
-                      <div v-for="(star, sIdx) in cell.stars.slice(0, 5)" :key="'star-' + sIdx" class="star-row">
+                      <div
+                        v-for="(star, sIdx) in cell.stars.slice(0, 5)"
+                        :key="'star-' + sIdx"
+                        class="star-row"
+                      >
                         <span class="star-item" :class="getStarClass(star.type)">
                           <span class="star-name">{{ star.name }}</span>
-                          <span v-if="star.hua" class="star-hua-tag" :class="getHuaTagClass(star.hua)">{{ star.hua }}</span>
+                          <span
+                            v-if="star.hua"
+                            class="star-hua-tag"
+                            :class="getHuaTagClass(star.hua)"
+                            >{{ star.hua }}</span
+                          >
                         </span>
-                        <span v-if="star.level" class="star-level" :class="getPalaceLevelClass(star.level)">{{ star.level }}</span>
+                        <span
+                          v-if="star.level"
+                          class="star-level"
+                          :class="getPalaceLevelClass(star.level)"
+                          >{{ star.level }}</span
+                        >
                       </div>
                     </div>
                     <div class="palace-footer">
@@ -709,7 +852,11 @@ const liuNianTimeline = computed(() => {
             <div class="timeline-row">
               <span class="timeline-label">流年</span>
               <div class="timeline-cells">
-                <div v-for="(item, idx) in liuNianTimeline" :key="'ln-' + idx" class="timeline-cell">
+                <div
+                  v-for="(item, idx) in liuNianTimeline"
+                  :key="'ln-' + idx"
+                  class="timeline-cell"
+                >
                   <span class="cell-year">{{ item.year }}年</span>
                   <span class="cell-ganzhi">{{ item.ganzhi }}</span>
                 </div>
@@ -727,7 +874,7 @@ const liuNianTimeline = computed(() => {
           <h3 class="ai-title">AI 个性化解盘</h3>
           <p class="ai-desc">{{ aiResult ? '已生成' : '基于当前命盘信息生成，未生成' }}</p>
 
-          <button class="btn-ai" @click="handleAiAnalysis" :disabled="!chart || aiLoading">
+          <button class="btn-ai" :disabled="!chart || aiLoading" @click="handleAiAnalysis">
             <span v-if="aiLoading" class="loading-dot"></span>
             {{ aiButtonLabel }}
           </button>
@@ -743,19 +890,31 @@ const liuNianTimeline = computed(() => {
 
           <div class="qa-input-row">
             <input
-              type="text"
               v-model="aiQuestionInput"
+              type="text"
               placeholder="输入你的问题..."
               :disabled="!aiResult"
             />
-            <button class="btn-send" :disabled="!aiResult || !aiQuestionInput.trim()" @click="handleAiQuestion">
+            <button
+              class="btn-send"
+              :disabled="!aiResult || !aiQuestionInput.trim()"
+              @click="handleAiQuestion"
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path
+                  d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
             </button>
           </div>
 
-          <p class="qa-hint">{{ aiResult ? '已生成 AI 解盘，可以开始提问' : '先点击"排盘"，再生成 AI 深度解盘' }}</p>
+          <p class="qa-hint">
+            {{ aiResult ? '已生成 AI 解盘，可以开始提问' : '先点击"排盘"，再生成 AI 深度解盘' }}
+          </p>
 
           <!-- AI 回答 -->
           <div v-if="aiQuestionAnswer" class="ai-answer">
@@ -773,8 +932,8 @@ const liuNianTimeline = computed(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  background: #0d1117;
-  color: #e6edf3;
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
 }
 
 /* ==================== 顶部导航栏 ==================== */
@@ -783,7 +942,7 @@ const liuNianTimeline = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: #161b22;
+  background: var(--color-page-elevated);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -802,7 +961,7 @@ const liuNianTimeline = computed(() => {
   height: 40px;
   background: rgba(88, 166, 255, 0.15);
   border-radius: 10px;
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .header-title-group {
@@ -815,12 +974,12 @@ const liuNianTimeline = computed(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .header-subtitle {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .header-right {
@@ -835,9 +994,9 @@ const liuNianTimeline = computed(() => {
   gap: 6px;
   padding: 6px 14px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #c9d1d9;
+  color: var(--color-page-text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -845,7 +1004,7 @@ const liuNianTimeline = computed(() => {
 
 .btn-back:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
+  border-color: var(--color-page-text-subtle);
 }
 
 .btn-menu {
@@ -857,14 +1016,14 @@ const liuNianTimeline = computed(() => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-menu:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: #c9d1d9;
+  color: var(--color-page-text);
 }
 
 /* 用户菜单 */
@@ -877,8 +1036,8 @@ const liuNianTimeline = computed(() => {
   top: calc(100% + 8px);
   right: 0;
   width: 240px;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 100;
@@ -900,7 +1059,7 @@ const liuNianTimeline = computed(() => {
   height: 40px;
   background: rgba(88, 166, 255, 0.15);
   border-radius: 50%;
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .user-details {
@@ -912,17 +1071,17 @@ const liuNianTimeline = computed(() => {
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .user-email {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .menu-divider {
   height: 1px;
-  background: #30363d;
+  background: var(--color-page-border-subtle);
 }
 
 .menu-item {
@@ -933,7 +1092,7 @@ const liuNianTimeline = computed(() => {
   padding: 10px 16px;
   background: transparent;
   border: none;
-  color: #c9d1d9;
+  color: var(--color-page-text);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
@@ -945,7 +1104,7 @@ const liuNianTimeline = computed(() => {
 }
 
 .menu-item svg {
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .menu-backdrop {
@@ -967,8 +1126,8 @@ const liuNianTimeline = computed(() => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: #161b22;
-  border-right: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border-right: 1px solid var(--color-page-border-subtle);
   overflow-y: auto;
 }
 
@@ -985,7 +1144,7 @@ const liuNianTimeline = computed(() => {
   align-items: center;
   justify-content: center;
   padding: 10px;
-  background: #1f6feb;
+  background: var(--color-page-info);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -996,7 +1155,7 @@ const liuNianTimeline = computed(() => {
 }
 
 .btn-generate:hover:not(:disabled) {
-  background: #388bfd;
+  background: var(--color-page-link);
 }
 
 .btn-generate:disabled {
@@ -1011,9 +1170,9 @@ const liuNianTimeline = computed(() => {
   gap: 6px;
   padding: 8px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1021,8 +1180,8 @@ const liuNianTimeline = computed(() => {
 
 .btn-share:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
-  color: #c9d1d9;
+  border-color: var(--color-page-text-subtle);
+  color: var(--color-page-text);
 }
 
 .btn-share:disabled {
@@ -1036,7 +1195,7 @@ const liuNianTimeline = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  background: #0d1117;
+  background: var(--color-page-bg);
   border-radius: 8px;
   margin-bottom: 16px;
 }
@@ -1054,38 +1213,38 @@ const liuNianTimeline = computed(() => {
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: #30363d;
+  background: var(--color-page-border-subtle);
   border-radius: 50%;
   font-size: 12px;
   font-weight: 600;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   transition: all 0.2s;
 }
 
 .step-item.active .step-num {
-  background: #1f6feb;
+  background: var(--color-page-info);
   color: #fff;
 }
 
 .step-item.completed .step-num {
-  background: #238636;
+  background: var(--color-page-success-alt);
   color: #fff;
 }
 
 .step-text {
   font-size: 10px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   text-align: center;
 }
 
 .step-item.active .step-text {
-  color: #c9d1d9;
+  color: var(--color-page-text);
 }
 
 .step-line {
   flex: 1;
   height: 1px;
-  background: #30363d;
+  background: var(--color-page-border-subtle);
   margin: 0 4px;
   margin-bottom: 16px;
 }
@@ -1106,16 +1265,16 @@ const liuNianTimeline = computed(() => {
 
 .form-field label {
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .form-field input,
 .form-field select {
   padding: 8px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
@@ -1123,20 +1282,20 @@ const liuNianTimeline = computed(() => {
 
 .form-field input:focus,
 .form-field select:focus {
-  border-color: #58a6ff;
+  border-color: var(--color-page-link);
 }
 
 .form-field input::placeholder {
-  color: #484f58;
+  color: var(--color-page-link);
 }
 
 .form-field select option {
-  background: #161b22;
+  background: var(--color-page-elevated);
 }
 
 .field-hint {
   font-size: 10px;
-  color: #6e7681;
+  color: var(--color-page-text-muted);
 }
 
 .form-row {
@@ -1156,10 +1315,10 @@ const liuNianTimeline = computed(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1172,28 +1331,28 @@ const liuNianTimeline = computed(() => {
 .radio-circle {
   width: 16px;
   height: 16px;
-  border: 2px solid #30363d;
+  border: 2px solid var(--color-page-border-subtle);
   border-radius: 50%;
   transition: all 0.15s;
 }
 
 .radio-item.active {
-  border-color: #1f6feb;
+  border-color: var(--color-page-info);
   background: rgba(31, 111, 235, 0.1);
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .radio-item.active .radio-circle {
-  border-color: #1f6feb;
-  background: #1f6feb;
-  box-shadow: inset 0 0 0 3px #0d1117;
+  border-color: var(--color-page-info);
+  background: var(--color-page-info);
+  box-shadow: inset 0 0 0 3px var(--color-page-bg);
 }
 
 /* 历史命例 */
 .history-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #21262d;
+  border-top: 1px solid var(--color-page-border-subtle);
 }
 
 .history-row {
@@ -1204,24 +1363,24 @@ const liuNianTimeline = computed(() => {
 .history-select {
   flex: 1;
   padding: 8px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   font-size: 12px;
   outline: none;
 }
 
 .history-select option {
-  background: #161b22;
+  background: var(--color-page-elevated);
 }
 
 .btn-clear {
   padding: 8px 12px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1229,7 +1388,7 @@ const liuNianTimeline = computed(() => {
 
 .btn-clear:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
+  border-color: var(--color-page-text-subtle);
 }
 
 /* 状态提示 */
@@ -1242,7 +1401,7 @@ const liuNianTimeline = computed(() => {
 
 .status-toast.success {
   background: rgba(46, 160, 67, 0.12);
-  color: #3fb950;
+  color: var(--color-page-success-alt);
 }
 
 /* ==================== 中栏：命盘主区域 ==================== */
@@ -1250,7 +1409,7 @@ const liuNianTimeline = computed(() => {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background: #0d1117;
+  background: var(--color-page-bg);
   overflow-y: auto;
 }
 
@@ -1265,19 +1424,19 @@ const liuNianTimeline = computed(() => {
 }
 
 .empty-icon {
-  color: #30363d;
+  color: var(--color-page-border-subtle);
 }
 
 .empty-state h3 {
   margin: 0;
   font-size: 18px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .empty-state p {
   margin: 0;
   font-size: 14px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   line-height: 1.6;
 }
 
@@ -1297,12 +1456,12 @@ const liuNianTimeline = computed(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .chart-meta {
   font-size: 13px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 /* 命盘区域 */
@@ -1321,7 +1480,7 @@ const liuNianTimeline = computed(() => {
 .compass-label {
   position: absolute;
   font-size: 11px;
-  color: #6e7681;
+  color: var(--color-page-text-muted);
 }
 
 .compass-top {
@@ -1353,8 +1512,8 @@ const liuNianTimeline = computed(() => {
   display: grid;
   grid-template-columns: repeat(4, 110px);
   grid-template-rows: repeat(4, 110px);
-  border: 1px solid #30363d;
-  background: #30363d;
+  border: 1px solid var(--color-page-border-subtle);
+  background: var(--color-page-border-subtle);
   gap: 1px;
 }
 
@@ -1362,12 +1521,12 @@ const liuNianTimeline = computed(() => {
   display: flex;
   flex-direction: column;
   padding: 6px 8px;
-  background: #161b22;
+  background: var(--color-page-elevated);
   font-size: 10px;
 }
 
 .palace.palace-ming {
-  border: 2px solid #1f6feb;
+  border: 2px solid var(--color-page-info);
   z-index: 1;
 }
 
@@ -1379,11 +1538,11 @@ const liuNianTimeline = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1f26;
+  background: var(--color-page-card);
 }
 
 .palace.empty-palace {
-  background: #1a1f26;
+  background: var(--color-page-card);
 }
 
 .palace-header {
@@ -1397,14 +1556,14 @@ const liuNianTimeline = computed(() => {
 
 .palace-name {
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   font-size: 11px;
 }
 
 .palace-ganzhi {
   font-size: 9px;
-  color: #8b949e;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, serif;
+  color: var(--color-page-text-subtle);
+  font-family: var(--font-code);
 }
 
 .palace-stars {
@@ -1428,13 +1587,13 @@ const liuNianTimeline = computed(() => {
 }
 
 .star-name {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, serif;
+  font-family: var(--font-code);
   font-size: 10px;
 }
 
 /* 星曜颜色 */
 .star-main .star-name {
-  color: #f85149;
+  color: var(--color-page-danger);
 }
 
 .star-main .star-name::before {
@@ -1443,19 +1602,19 @@ const liuNianTimeline = computed(() => {
 }
 
 .star-luck .star-name {
-  color: #3fb950;
+  color: var(--color-page-success-alt);
 }
 
 .star-power .star-name {
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
 }
 
 .star-harm .star-name {
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
 }
 
 .star-assist .star-name {
-  color: #58a6ff;
+  color: var(--color-page-link);
   font-size: 9px;
 }
 
@@ -1468,19 +1627,19 @@ const liuNianTimeline = computed(() => {
 }
 
 .tag-lu {
-  background: #3fb950;
+  background: var(--color-page-success-alt);
 }
 
 .tag-quan {
-  background: #f0883e;
+  background: var(--color-page-warning-alt);
 }
 
 .tag-ke {
-  background: #58a6ff;
+  background: var(--color-page-link);
 }
 
 .tag-ji {
-  background: #f85149;
+  background: var(--color-page-danger);
 }
 
 /* 星曜属性标签 */
@@ -1492,34 +1651,34 @@ const liuNianTimeline = computed(() => {
 
 .level-miao {
   background: rgba(63, 185, 80, 0.2);
-  color: #3fb950;
+  color: var(--color-page-success-alt);
 }
 
 .level-wang {
   background: rgba(88, 166, 255, 0.2);
-  color: #58a6ff;
+  color: var(--color-page-link);
 }
 
 .level-li {
   background: rgba(240, 136, 62, 0.2);
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
 }
 
 .level-ping {
   background: rgba(139, 148, 158, 0.2);
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .level-xian {
   background: rgba(248, 81, 73, 0.2);
-  color: #f85149;
+  color: var(--color-page-danger);
 }
 
 .palace-footer {
   display: flex;
   justify-content: space-between;
   font-size: 9px;
-  color: #6e7681;
+  color: var(--color-page-text-muted);
   margin-top: auto;
 }
 
@@ -1538,23 +1697,23 @@ const liuNianTimeline = computed(() => {
 
 .center-yinyang {
   font-size: 18px;
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
 }
 
 .center-bureau {
   font-size: 12px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .center-gender {
   font-size: 10px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .center-details {
   font-size: 9px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   line-height: 1.6;
 }
 
@@ -1565,12 +1724,12 @@ const liuNianTimeline = computed(() => {
 .center-year {
   margin-top: 4px;
   font-size: 10px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .center-lunar {
   font-size: 9px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .center-lunar p {
@@ -1579,7 +1738,7 @@ const liuNianTimeline = computed(() => {
 
 .center-name {
   margin-top: 4px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 /* 功能按钮组 */
@@ -1591,8 +1750,8 @@ const liuNianTimeline = computed(() => {
 
 .nav-btn {
   padding: 6px 12px;
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
@@ -1600,40 +1759,40 @@ const liuNianTimeline = computed(() => {
 }
 
 .nav-btn:hover {
-  background: #21262d;
+  background: var(--color-page-card);
 }
 
 .nav-btn.ming {
-  color: #3fb950;
+  color: var(--color-page-success-alt);
   border-color: rgba(63, 185, 80, 0.3);
 }
 
 .nav-btn.qianyi {
-  color: #f0883e;
+  color: var(--color-page-warning-alt);
   border-color: rgba(240, 136, 62, 0.3);
 }
 
 .nav-btn.ke {
-  color: #58a6ff;
+  color: var(--color-page-link);
   border-color: rgba(88, 166, 255, 0.3);
 }
 
 .nav-btn.jiao {
-  color: #a78bfa;
+  color: var(--color-purple);
   border-color: rgba(167, 139, 250, 0.3);
 }
 
 /* 大限/流年行 */
 .timeline-section {
-  background: #161b22;
-  border: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .timeline-row {
   display: flex;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid var(--color-page-border-subtle);
 }
 
 .timeline-row:last-child {
@@ -1643,10 +1802,10 @@ const liuNianTimeline = computed(() => {
 .timeline-label {
   width: 60px;
   padding: 10px;
-  background: #1a1f26;
+  background: var(--color-page-card);
   font-size: 11px;
   font-weight: 600;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1662,7 +1821,7 @@ const liuNianTimeline = computed(() => {
   flex: 1;
   min-width: 60px;
   padding: 8px;
-  border-left: 1px solid #30363d;
+  border-left: 1px solid var(--color-page-border-subtle);
   text-align: center;
 }
 
@@ -1671,16 +1830,16 @@ const liuNianTimeline = computed(() => {
   display: block;
   font-size: 10px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .cell-branch,
 .cell-ganzhi {
   display: block;
   font-size: 9px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   margin-top: 2px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
 }
 
 /* ==================== 右栏：AI 功能面板 ==================== */
@@ -1688,8 +1847,8 @@ const liuNianTimeline = computed(() => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: #161b22;
-  border-left: 1px solid #30363d;
+  background: var(--color-page-elevated);
+  border-left: 1px solid var(--color-page-border-subtle);
   overflow-y: auto;
 }
 
@@ -1697,7 +1856,7 @@ const liuNianTimeline = computed(() => {
   display: inline-block;
   padding: 4px 10px;
   background: rgba(88, 166, 255, 0.15);
-  color: #58a6ff;
+  color: var(--color-page-link);
   font-size: 10px;
   font-weight: 700;
   border-radius: 4px;
@@ -1716,13 +1875,13 @@ const liuNianTimeline = computed(() => {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .ai-desc {
   margin: 0;
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .btn-ai {
@@ -1732,9 +1891,9 @@ const liuNianTimeline = computed(() => {
   gap: 8px;
   padding: 10px;
   background: transparent;
-  border: 1px solid #30363d;
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #c9d1d9;
+  color: var(--color-page-text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -1742,7 +1901,7 @@ const liuNianTimeline = computed(() => {
 
 .btn-ai:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  border-color: #8b949e;
+  border-color: var(--color-page-text-subtle);
 }
 
 .btn-ai:disabled {
@@ -1753,14 +1912,19 @@ const liuNianTimeline = computed(() => {
 .loading-dot {
   width: 8px;
   height: 8px;
-  background: #58a6ff;
+  background: var(--color-page-link);
   border-radius: 50%;
   animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .ai-disclaimer {
@@ -1770,13 +1934,13 @@ const liuNianTimeline = computed(() => {
   border: 1px solid rgba(88, 166, 255, 0.15);
   border-radius: 6px;
   font-size: 11px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
   line-height: 1.5;
 }
 
 .ai-divider {
   height: 1px;
-  background: #21262d;
+  background: var(--color-page-card);
   margin: 16px 0;
 }
 
@@ -1790,13 +1954,13 @@ const liuNianTimeline = computed(() => {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #f0f6fc;
+  color: var(--color-page-text);
 }
 
 .qa-desc {
   margin: 0;
   font-size: 12px;
-  color: #8b949e;
+  color: var(--color-page-text-subtle);
 }
 
 .qa-input-row {
@@ -1807,21 +1971,21 @@ const liuNianTimeline = computed(() => {
 .qa-input-row input {
   flex: 1;
   padding: 10px 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .qa-input-row input:focus {
-  border-color: #58a6ff;
+  border-color: var(--color-page-link);
 }
 
 .qa-input-row input::placeholder {
-  color: #484f58;
+  color: var(--color-page-link);
 }
 
 .qa-input-row input:disabled {
@@ -1833,7 +1997,7 @@ const liuNianTimeline = computed(() => {
   align-items: center;
   justify-content: center;
   width: 40px;
-  background: #1f6feb;
+  background: var(--color-page-info);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -1842,7 +2006,7 @@ const liuNianTimeline = computed(() => {
 }
 
 .btn-send:hover:not(:disabled) {
-  background: #388bfd;
+  background: var(--color-page-link);
 }
 
 .btn-send:disabled {
@@ -1853,24 +2017,26 @@ const liuNianTimeline = computed(() => {
 .qa-hint {
   margin: 0;
   font-size: 11px;
-  color: #6e7681;
+  color: var(--color-page-text-muted);
 }
 
 .ai-answer {
   margin-top: 12px;
   padding: 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border-subtle);
   border-radius: 6px;
   font-size: 12px;
-  color: #f0f6fc;
+  color: var(--color-page-text);
   line-height: 1.6;
 }
 
 /* ==================== 过渡动画 ==================== */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .fade-enter-from,

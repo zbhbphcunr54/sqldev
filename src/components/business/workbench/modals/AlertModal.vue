@@ -22,17 +22,11 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="store.alertModal.visible"
-      class="modal-mask"
-      @click.self="store.hideAlert()"
-    >
+    <div v-if="store.alertModal.visible" class="modal-mask" @click.self="store.hideAlert()">
       <div class="modal" role="dialog" aria-modal="true" :aria-labelledby="'alert-title'">
         <div class="modal-head">
           <h4 id="alert-title" class="modal-title">{{ store.alertModal.title }}</h4>
-          <button class="modal-close" @click="store.hideAlert()" aria-label="关闭">
-            &times;
-          </button>
+          <button class="modal-close" aria-label="关闭" @click="store.hideAlert()">&times;</button>
         </div>
         <div class="modal-body">
           <p>{{ store.alertModal.message }}</p>

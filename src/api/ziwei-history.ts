@@ -27,7 +27,10 @@ export async function createZiweiHistory(
   inputJson: Record<string, unknown>,
   resultJson?: Record<string, unknown>
 ): Promise<ZiweiHistoryCreateResponse> {
-  return edgeFn.post<ZiweiHistoryCreateResponse>('/ziwei-history', { input_json: inputJson, result_json: resultJson ?? null })
+  return edgeFn.post<ZiweiHistoryCreateResponse>('/ziwei-history', {
+    input_json: inputJson,
+    result_json: resultJson ?? null
+  })
 }
 
 export async function deleteZiweiHistory(id: string): Promise<{ ok: boolean; id: string }> {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { OperationLog } from '@/api/operation-logs'
 
-const props = defineProps<{
+defineProps<{
   log: OperationLog | null
 }>()
 
@@ -62,12 +62,18 @@ function formatTime(iso: string | null): string {
             <span>{{ log.api_name || '-' }}</span>
 
             <span class="text-subtle">状态码</span>
-            <span :class="log.response_status && log.response_status < 400 ? 'text-success' : 'text-danger'">
+            <span
+              :class="
+                log.response_status && log.response_status < 400 ? 'text-success' : 'text-danger'
+              "
+            >
               {{ log.response_status ?? '-' }}
             </span>
 
             <span class="text-subtle">耗时</span>
-            <span class="font-mono">{{ log.duration_ms != null ? `${log.duration_ms}ms` : '-' }}</span>
+            <span class="font-mono">{{
+              log.duration_ms != null ? `${log.duration_ms}ms` : '-'
+            }}</span>
           </div>
 
           <div v-if="log.error_message" class="rounded-control bg-danger/10 p-3 text-danger">
@@ -76,17 +82,23 @@ function formatTime(iso: string | null): string {
 
           <div>
             <div class="mb-1 text-subtle">上送报文</div>
-            <pre class="max-h-40 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{ formatJson(log.request_body) }}</pre>
+            <pre class="max-h-40 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{
+              formatJson(log.request_body)
+            }}</pre>
           </div>
 
           <div>
             <div class="mb-1 text-subtle">返回报文</div>
-            <pre class="max-h-40 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{ formatJson(log.response_body) }}</pre>
+            <pre class="max-h-40 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{
+              formatJson(log.response_body)
+            }}</pre>
           </div>
 
           <div v-if="log.extra">
             <div class="mb-1 text-subtle">扩展字段</div>
-            <pre class="max-h-32 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{ formatJson(log.extra) }}</pre>
+            <pre class="max-h-32 overflow-auto rounded-control bg-panel2 p-3 text-[12px]">{{
+              formatJson(log.extra)
+            }}</pre>
           </div>
         </div>
       </div>

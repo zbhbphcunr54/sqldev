@@ -24,7 +24,15 @@ export interface SemanticIssue {
 }
 
 export interface LogicRisk {
-  category: 'performance' | 'data_precision' | 'charset' | 'identifier' | 'reserved_word' | 'transaction' | 'partition' | 'other'
+  category:
+    | 'performance'
+    | 'data_precision'
+    | 'charset'
+    | 'identifier'
+    | 'reserved_word'
+    | 'transaction'
+    | 'partition'
+    | 'other'
   severity: 'high' | 'medium' | 'low'
   message: string
   impact: string
@@ -73,10 +81,7 @@ export interface QuotaResponse {
 export async function requestConvertVerify(
   payload: ConvertVerifyRequest
 ): Promise<ConvertVerifyResponse> {
-  return invokeEdgeFunction<ConvertVerifyRequest, ConvertVerifyResponse>(
-    'convert-verify',
-    payload
-  )
+  return invokeEdgeFunction<ConvertVerifyRequest, ConvertVerifyResponse>('convert-verify', payload)
 }
 
 export async function fetchVerifyQuota(): Promise<QuotaByKind> {

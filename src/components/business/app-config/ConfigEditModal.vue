@@ -32,7 +32,7 @@ const lastFocusedElement = ref<HTMLElement | null>(null)
 const isEditMode = computed(() => !!props.config)
 
 const categoryOptions = computed(() => {
-  return Object.entries(CONFIG_CATEGORIES).map(([key, value]) => ({
+  return Object.entries(CONFIG_CATEGORIES).map(([_key, value]) => ({
     key: value,
     label: CATEGORY_LABELS[value] || value
   }))
@@ -46,12 +46,16 @@ const valueTypeOptions: { value: ConfigValueType; label: string }[] = [
 ]
 
 // --- Watchers ---
-watch(() => props.open, (val) => {
-  if (val) {
-    resetForm()
-    lastFocusedElement.value = document.activeElement instanceof HTMLElement ? document.activeElement : null
+watch(
+  () => props.open,
+  (val) => {
+    if (val) {
+      resetForm()
+      lastFocusedElement.value =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null
+    }
   }
-})
+)
 
 watch(formCategory, (newCat) => {
   if (!isEditMode.value && newCat) {
@@ -123,7 +127,7 @@ function handleClose(): void {
   emit('close')
 }
 
-function restoreFocus(): void {
+function _restoreFocus(): void {
   lastFocusedElement.value?.focus()
   lastFocusedElement.value = null
 }
@@ -154,8 +158,15 @@ onBeforeUnmount(() => {
             {{ isEditMode ? '编辑配置' : '新增配置' }}
           </h3>
           <button class="modal-close" type="button" aria-label="关闭" @click="handleClose">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path d="M18 6 6 18M6 6l12 12"/>
+            <svg
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -245,15 +256,8 @@ onBeforeUnmount(() => {
 
         <!-- Footer -->
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="handleClose">
-            取消
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="saving"
-            @click="handleSave"
-          >
+          <button type="button" class="btn btn-secondary" @click="handleClose">取消</button>
+          <button type="button" class="btn btn-primary" :disabled="saving" @click="handleSave">
             {{ saving ? '保存中...' : '保存' }}
           </button>
         </div>
@@ -371,7 +375,9 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   font-size: 13px;
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .form-input:focus,

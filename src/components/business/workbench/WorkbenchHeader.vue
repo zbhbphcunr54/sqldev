@@ -60,7 +60,7 @@ function handleSwap(): void {
     </div>
 
     <!-- Center: SQL Type + Database Selectors -->
-    <div class="wb-header-center" v-if="isTranslatePage">
+    <div v-if="isTranslatePage" class="wb-header-center">
       <DbPicker
         v-model="sourceDb"
         dropdown-key="workbench-source"
@@ -69,12 +69,29 @@ function handleSwap(): void {
       />
 
       <!-- Swap Button -->
-      <button class="swap-btn" @click="handleSwap" title="交换源和目标数据库" aria-label="交换源和目标数据库">
+      <button
+        class="swap-btn"
+        title="交换源和目标数据库"
+        aria-label="交换源和目标数据库"
+        @click="handleSwap"
+      >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M10 4L12 6L10 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M12 6H4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-          <path d="M4 10L2 8L4 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2 8H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <path
+            d="M10 4L12 6L10 8"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path d="M12 6H4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          <path
+            d="M4 10L2 8L4 6"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path d="M2 8H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
         </svg>
       </button>
 
@@ -91,8 +108,8 @@ function handleSwap(): void {
       <button
         class="btn primary"
         :disabled="store.converting || !store.canConvert"
-        @click="handleTranslate"
         aria-label="执行 SQL 翻译"
+        @click="handleTranslate"
       >
         {{ store.converting ? '翻译中...' : '翻译' }}
         <kbd>{{ store.primaryShortcutLabel }}</kbd>

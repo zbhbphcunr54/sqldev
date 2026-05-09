@@ -5,8 +5,14 @@ import { supabase } from '@/lib/supabase'
 
 async function onUserSignedIn(): Promise<void> {
   try {
-    const { syncRulesFromServer, migrateRulesToServer } = await import('@/features/rules/sync')
-    const { syncHistoryFromServer, migrateHistoryToServer } = await import('@/features/ziwei/history-sync')
+    const [{ syncRulesFromServer, migrateRulesToServer }, { syncHistoryFromServer, migrateHistoryToServer }, { useAiStore }] =
+      await Promise.all([
+        import('@/features/rules/sync'),
+        import('@/features/ziwei/history-sync'),
+        import('@/stores/ai')
+      ])
+    // AI 预加载与 migration 并行，不要排在后面
+    useAiStore().preload()
     // Migrate localStorage → Supabase (one-time, then sync back)
     await Promise.all([migrateRulesToServer(), migrateHistoryToServer()])
     // Pull latest from server

@@ -30,7 +30,7 @@ onBeforeUnmount(() => {
       <div class="modal" role="dialog" aria-modal="true" :aria-labelledby="'confirm-title'">
         <div class="modal-head">
           <h4 id="confirm-title" class="modal-title">{{ store.confirmModal.title }}</h4>
-          <button class="modal-close" @click="store.resolveConfirm(false)" aria-label="关闭">
+          <button class="modal-close" aria-label="关闭" @click="store.resolveConfirm(false)">
             &times;
           </button>
         </div>

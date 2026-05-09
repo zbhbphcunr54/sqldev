@@ -38,22 +38,18 @@ function formatDuration(ms: number | null): string {
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 160px;">时间</th>
-          <th style="width: 100px;">用户</th>
-          <th style="width: 120px;">IP 地址</th>
-          <th style="width: 120px;">操作类型</th>
-          <th style="width: 100px;">API 名称</th>
-          <th style="width: 80px;">状态码</th>
-          <th style="width: 100px;">耗时</th>
+          <th style="width: 160px">时间</th>
+          <th style="width: 100px">用户</th>
+          <th style="width: 120px">IP 地址</th>
+          <th style="width: 120px">操作类型</th>
+          <th style="width: 100px">API 名称</th>
+          <th style="width: 80px">状态码</th>
+          <th style="width: 100px">耗时</th>
           <th>错误信息</th>
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="item in items"
-          :key="item.id"
-          @click="emit('detail', item)"
-        >
+        <tr v-for="item in items" :key="item.id" @click="emit('detail', item)">
           <td>
             <code class="time-code">{{ formatTime(item.created_at) }}</code>
           </td>
@@ -85,9 +81,16 @@ function formatDuration(ms: number | null): string {
         <tr v-if="items.length === 0">
           <td colspan="8">
             <div class="empty-state">
-              <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path d="M12 6v6l4 2"/>
-                <circle cx="12" cy="12" r="9"/>
+              <svg
+                width="48"
+                height="48"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 6v6l4 2" />
+                <circle cx="12" cy="12" r="9" />
               </svg>
               <p class="empty-title">暂无操作日志</p>
               <p class="empty-desc">没有找到符合条件的记录</p>
@@ -101,8 +104,10 @@ function formatDuration(ms: number | null): string {
 
 <style scoped>
 .table-container {
-  background: var(--color-panel);
-  margin: 0;
+  background: var(--color-page-card);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--color-page-border);
 }
 
 .data-table {
@@ -111,28 +116,30 @@ function formatDuration(ms: number | null): string {
 }
 
 .data-table th {
-  padding: 10px 16px;
+  padding: 14px 20px;
   text-align: left;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-subtle);
-  background: var(--color-panel-2);
-  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-page-text-subtle);
+  background: var(--color-page-elevated);
+  border-bottom: 1px solid var(--color-page-border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .data-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-page-border);
   font-size: 13px;
 }
 
 .data-table tr {
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--duration-fast) var(--ease-apple);
 }
 
 .data-table tr:hover td {
-  background: var(--color-panel-2);
+  background: var(--color-page-border-light);
 }
 
 .data-table tr:last-child td {
@@ -140,78 +147,86 @@ function formatDuration(ms: number | null): string {
 }
 
 .time-code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 12px;
-  color: var(--color-text);
+  color: var(--color-page-text);
+  letter-spacing: -0.01em;
 }
 
 .user-email {
-  color: var(--color-text);
+  color: var(--color-page-text);
+  font-weight: 500;
 }
 
 .ip-code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 12px;
-  color: var(--color-text-subtle);
+  color: var(--color-page-text-subtle);
+  letter-spacing: -0.01em;
 }
 
 .operation-label {
-  color: var(--color-text);
+  color: var(--color-page-text);
+  font-weight: 500;
 }
 
 .api-code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 12px;
-  color: var(--color-text-subtle);
-  background: var(--color-panel-2);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--color-page-text-subtle);
+  background: var(--color-page-input);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  letter-spacing: -0.01em;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
-  font-weight: 500;
-  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-family: var(--font-code);
+  letter-spacing: -0.01em;
 }
 
 .badge.green {
-  background: rgba(21, 145, 95, 0.1);
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .badge.orange {
-  background: rgba(183, 121, 31, 0.1);
+  background: var(--color-warning-bg);
   color: var(--color-warning);
 }
 
 .badge.red {
-  background: rgba(214, 69, 69, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
 .badge.gray {
-  background: var(--color-panel-2);
-  color: var(--color-text-subtle);
+  background: var(--color-page-border-light);
+  color: var(--color-page-text-subtle);
 }
 
 .duration {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-code);
   font-size: 12px;
-  color: var(--color-text-subtle);
+  color: var(--color-page-text-subtle);
+  letter-spacing: -0.01em;
 }
 
 .error-message {
-  color: var(--color-danger);
+  color: var(--color-page-danger);
   font-size: 12px;
+  font-weight: 500;
 }
 
 .no-error {
-  color: var(--color-text-subtle);
+  color: var(--color-page-text-subtle);
 }
 
 .empty-state {
@@ -219,25 +234,26 @@ function formatDuration(ms: number | null): string {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   text-align: center;
-  color: var(--color-text-subtle);
+  color: var(--color-page-text-subtle);
 }
 
 .empty-state svg {
-  margin-bottom: 12px;
-  opacity: 0.5;
+  margin-bottom: 16px;
+  opacity: 0.4;
 }
 
 .empty-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 4px;
+  color: var(--color-page-text);
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
 }
 
 .empty-desc {
-  font-size: 12px;
+  font-size: 13px;
   margin: 0;
 }
 </style>

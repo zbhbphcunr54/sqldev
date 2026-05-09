@@ -1,5 +1,5 @@
 const ERROR_MESSAGE_MAP: Record<string, string> = {
-  // Auth errors
+  // Auth
   unauthorized: '登录已失效，请重新登录。',
   forbidden_user: '当前账号无权限访问该功能。',
   auth_password_failed: '登录失败，请检查邮箱和密码。',
@@ -69,6 +69,14 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   ai_config_save_failed: '保存配置失败，请稍后重试。',
   ai_config_delete_failed: '删除配置失败，请稍后重试。',
   ai_config_activate_failed: '激活配置失败，请稍后重试。',
+  failed_to_reorder_providers: '更新排序失败，权限不足或数据库错误。',
+  orders_required_and_must_be_non_empty: '请求参数缺失，请刷新页面后重试。',
+  invalid_order_format: '排序数据格式错误，请刷新页面后重试。',
+
+  // AI Chat
+  ai_chat_quota_exceeded: '今日 AI 对话次数已用完，明天 00:00 重置。',
+  ai_chat_invalid_message: '消息内容不合法，请重新输入。',
+  ai_chat_session_not_found: '对话不存在或已被删除。',
 
   // Misc
   provider_disabled: '该供应商已被禁用。',

@@ -43,7 +43,7 @@ function writeStoredString(storage: StorageLike, key: string, value: unknown): b
   }
 }
 
-function readStoredList<T>(
+function _readStoredList<T>(
   storage: StorageLike,
   key: string,
   parser: (v: string) => T,
@@ -62,12 +62,7 @@ function readStoredList<T>(
   }
 }
 
-function writeStoredList<T>(
-  storage: StorageLike,
-  key: string,
-  items: T[],
-  serializer: (v: T) => string = JSON.stringify
-): boolean {
+function _writeStoredList<T>(storage: StorageLike, key: string, items: T[]): boolean {
   try {
     const list = items.slice(0, MAX_LIST_ITEMS)
     const str = JSON.stringify(list)
@@ -89,7 +84,11 @@ export function getThemePreference(storage: StorageLike, key = `${PREFIX}theme`)
   return THEME_OPTIONS.includes(value as ThemePreference) ? (value as ThemePreference) : 'system'
 }
 
-export function saveThemePreference(storage: StorageLike, value: unknown, key = `${PREFIX}theme`): boolean {
+export function saveThemePreference(
+  storage: StorageLike,
+  value: unknown,
+  key = `${PREFIX}theme`
+): boolean {
   const normalized = THEME_OPTIONS.includes(String(value) as ThemePreference)
     ? String(value)
     : 'system'
@@ -97,7 +96,10 @@ export function saveThemePreference(storage: StorageLike, value: unknown, key = 
 }
 
 // File encoding
-export function getFileEncodingPreference(storage: StorageLike, key = `${PREFIX}file_encoding`): string {
+export function getFileEncodingPreference(
+  storage: StorageLike,
+  key = `${PREFIX}file_encoding`
+): string {
   return readStoredString(storage, key, 'UTF-8') || 'UTF-8'
 }
 

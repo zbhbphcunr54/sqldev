@@ -1,17 +1,25 @@
 <!-- [2026-05-05] 更新：工作台主应用容器 - 完全匹配 UI 预览 -->
+<!-- [2026-05-07] 修复：添加页面懒加载以提升首屏性能 -->
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { onMounted } from 'vue'
 import { useWorkbenchStore } from '@/stores/workbench'
 import WorkbenchSidebar from './WorkbenchSidebar.vue'
-import DdlPage from './pages/DdlPage.vue'
-import FunctionPage from './pages/FunctionPage.vue'
-import ProcedurePage from './pages/ProcedurePage.vue'
-import IdToolPage from './pages/IdToolPage.vue'
-import ZiweiPage from './pages/ZiweiPage.vue'
-import RulesPage from './pages/RulesPage.vue'
-import AiConfigPage from '@/components/business/ai/AiConfigPage.vue'
-import AppConfigPage from '@/components/business/app-config/AppConfigPage.vue'
-import OperationLogsPage from './pages/OperationLogsPage.vue'
+import WorkbenchHeaderActions from './WorkbenchHeaderActions.vue'
+
+// 懒加载页面组件 - 按需加载，不影响首屏
+const DdlPage = defineAsyncComponent(() => import('./pages/DdlPage.vue'))
+const FunctionPage = defineAsyncComponent(() => import('./pages/FunctionPage.vue'))
+const ProcedurePage = defineAsyncComponent(() => import('./pages/ProcedurePage.vue'))
+const IdToolPage = defineAsyncComponent(() => import('./pages/IdToolPage.vue'))
+const ZiweiPage = defineAsyncComponent(() => import('./pages/ZiweiPage.vue'))
+const RulesPage = defineAsyncComponent(() => import('./pages/RulesPage.vue'))
+const AiConfigPage = defineAsyncComponent(() => import('@/components/business/ai/AiConfigPage.vue'))
+const AppConfigPage = defineAsyncComponent(
+  () => import('@/components/business/app-config/AppConfigPage.vue')
+)
+const OperationLogsPage = defineAsyncComponent(() => import('./pages/OperationLogsPage.vue'))
+
 import AlertModal from './modals/AlertModal.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
 
@@ -24,13 +32,22 @@ onMounted(() => {
 
 <template>
   <div class="wb-layout">
+    <!-- 全局顶部分割线 -->
+    <div class="wb-global-divider"></div>
+
+    <!-- 右上角操作按钮 -->
+    <WorkbenchHeaderActions />
+
     <!-- Sidebar -->
     <WorkbenchSidebar />
 
     <!-- Main Content -->
     <div class="wb-main">
       <!-- Page Content -->
-      <main class="wb-content">
+      <main
+        class="wb-content"
+        :class="{ 'wb-content-no-scroll': store.activePage === 'aiConfig' }"
+      >
         <DdlPage v-if="store.activePage === 'ddl'" />
         <FunctionPage v-else-if="store.activePage === 'func'" />
         <ProcedurePage v-else-if="store.activePage === 'proc'" />
@@ -55,6 +72,18 @@ onMounted(() => {
   display: flex;
   height: 100%;
   overflow: hidden;
+  position: relative;
+}
+
+.wb-global-divider {
+  position: absolute;
+  top: 68px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-page-border);
+  z-index: 50;
+  pointer-events: none;
 }
 
 .wb-main {
@@ -71,6 +100,10 @@ onMounted(() => {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.wb-content-no-scroll {
+  overflow-y: hidden;
 }
 
 .placeholder {

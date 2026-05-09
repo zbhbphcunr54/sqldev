@@ -1,21 +1,35 @@
 // src/stores/rules.ts
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchUserRules, saveUserRules, resetUserRules } from '@/api/rules'
+import {
+  fetchUserRules,
+  saveUserRules,
+  resetUserRules,
+  type DbType,
+  type RuleKind
+} from '@/api/rules'
 
 export const useRulesStore = defineStore('rules', () => {
-  const ddlRules = ref<Record<string, unknown>>({})
-  const bodyRules = ref<Record<string, unknown>>({})
+  const currentRules = ref<unknown[]>([])
+  const sourceDb = ref<DbType>('oracle')
+  const targetDb = ref<DbType>('pg')
+  const kind = ref<RuleKind>('ddl')
   const loading = ref(false)
   const error = ref('')
+  const updatedAt = ref<string | null>(null)
 
-  async function loadRules(kind: 'ddl' | 'body'): Promise<void> {
+  async function loadRules(sDb: DbType, tDb: DbType, k: RuleKind): Promise<void> {
     loading.value = true
     error.value = ''
+    sourceDb.value = sDb
+    targetDb.value = tDb
+    kind.value = k
     try {
-      const result = await fetchUserRules(kind)
-      if (kind === 'ddl') ddlRules.value = result.rules_json
-      else bodyRules.value = result.rules_json
+      const result = await fetchUserRules(sDb, tDb, k)
+      if (result.ok) {
+        currentRules.value = result.rules_json
+        updatedAt.value = result.updated_at
+      }
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '加载规则失败'
     } finally {
@@ -23,13 +37,15 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
-  async function saveRules(kind: 'ddl' | 'body', rulesJson: Record<string, unknown>): Promise<void> {
+  async function saveRules(rules: unknown[]): Promise<void> {
     loading.value = true
     error.value = ''
     try {
-      await saveUserRules(kind, rulesJson)
-      if (kind === 'ddl') ddlRules.value = rulesJson
-      else bodyRules.value = rulesJson
+      const result = await saveUserRules(sourceDb.value, targetDb.value, kind.value, rules as never)
+      if (result.ok) {
+        currentRules.value = rules
+        updatedAt.value = result.updated_at
+      }
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '保存规则失败'
       throw e
@@ -38,13 +54,12 @@ export const useRulesStore = defineStore('rules', () => {
     }
   }
 
-  async function resetRules(kind: 'ddl' | 'body'): Promise<void> {
+  async function resetRules(): Promise<void> {
     loading.value = true
     error.value = ''
     try {
-      await resetUserRules(kind)
-      if (kind === 'ddl') ddlRules.value = {}
-      else bodyRules.value = {}
+      await resetUserRules(sourceDb.value, targetDb.value, kind.value)
+      await loadRules(sourceDb.value, targetDb.value, kind.value)
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : '重置规则失败'
     } finally {
@@ -53,11 +68,23 @@ export const useRulesStore = defineStore('rules', () => {
   }
 
   function $reset(): void {
-    ddlRules.value = {}
-    bodyRules.value = {}
+    currentRules.value = []
     loading.value = false
     error.value = ''
+    updatedAt.value = null
   }
 
-  return { ddlRules, bodyRules, loading, error, loadRules, saveRules, resetRules, $reset }
+  return {
+    currentRules,
+    sourceDb,
+    targetDb,
+    kind,
+    loading,
+    error,
+    updatedAt,
+    loadRules,
+    saveRules,
+    resetRules,
+    $reset
+  }
 })

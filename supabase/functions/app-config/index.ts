@@ -5,14 +5,16 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/response.ts'
 import { encryptValue, decryptValue } from '../_shared/crypto.ts'
 import { clearConfigCache } from '../_shared/app-config.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
+  allowMethods: 'POST, PATCH, DELETE, OPTIONS'
 })
+
+await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 

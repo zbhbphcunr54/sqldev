@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.ts'
@@ -13,9 +13,9 @@ import { computeHash } from './hash.ts'
 import { checkQuota, incrementQuota, getQuotaInfo } from './quota.ts'
 import { loadVerifyProfile } from './profile.ts'
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
-})
+const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
+
+await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -185,21 +185,7 @@ Deno.serve(async (req) => {
       return jsonResponse(405, { error: 'method_not_allowed' }, corsHeaders)
     }
 
-    // Rate limit check
-    let limit
-    try {
-      limit = await rateLimiter.consume(`${clientIp}`)
-    } catch (err) {
-      logEdgeError('convert-verify', 'rate_limit_failed', err)
-      limit = { ok: true, remaining: config.rateLimit.maxRequests }
-    }
-    if (!limit.ok) {
-      return jsonResponse(429, { error: 'rate_limited' }, corsHeaders, {
-        'Retry-After': String(limit.retryAfter)
-      })
-    }
-
-    // Auth check
+    // Auth check (must be before rate limit to include userId)
     const token = extractBearerToken(req.headers.get('authorization'))
     if (!token) return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
 
@@ -212,6 +198,20 @@ Deno.serve(async (req) => {
 
     const userId = sessionState.userId
     const userEmail = sessionState.email
+
+    // Rate limit check (include userId to prevent IP-spoofing bypass and NAT sharing issues)
+    let limit
+    try {
+      limit = await rateLimiter.consume(`${userId}:${clientIp}`)
+    } catch (err) {
+      logEdgeError('convert-verify', 'rate_limit_failed', err)
+      limit = { ok: true, remaining: config.rateLimit.maxRequests }
+    }
+    if (!limit.ok) {
+      return jsonResponse(429, { error: 'rate_limited' }, corsHeaders, {
+        'Retry-After': String(limit.retryAfter)
+      })
+    }
 
     // Parse body
     const body = await req.json().catch(() => null)

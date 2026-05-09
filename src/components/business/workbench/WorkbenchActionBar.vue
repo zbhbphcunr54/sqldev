@@ -100,7 +100,7 @@ function clearAll(): void {
 </script>
 
 <template>
-  <div class="wb-toolbar" v-if="store.isWorkbenchPage">
+  <div v-if="store.isWorkbenchPage" class="wb-toolbar">
     <!-- Hidden file input -->
     <input
       ref="fileInputRef"
@@ -110,54 +110,110 @@ function clearAll(): void {
       @change="handleFileUpload"
     />
 
-    <button class="tb-btn" type="button" @click="loadSample" title="加载示例" aria-label="加载示例">
+    <button class="tb-btn" type="button" title="加载示例" aria-label="加载示例" @click="loadSample">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/>
-        <path d="M3.5 4.5h7M3.5 7h5M3.5 9.5h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2" />
+        <path
+          d="M3.5 4.5h7M3.5 7h5M3.5 9.5h6"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linecap="round"
+        />
       </svg>
       <span class="tb-label">示例</span>
     </button>
 
-    <button class="tb-btn" type="button" @click="triggerUpload" title="上传文件" aria-label="上传文件">
+    <button
+      class="tb-btn"
+      type="button"
+      title="上传文件"
+      aria-label="上传文件"
+      @click="triggerUpload"
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 10V3M7 3 5 5M7 3l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M2 10.5v1h10v-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <path
+          d="M7 10V3M7 3 5 5M7 3l2 2"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path d="M2 10.5v1h10v-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
       </svg>
       <span class="tb-label">上传</span>
     </button>
 
-    <button class="tb-btn" type="button" @click="copyOutput" title="复制输出" aria-label="复制输出">
+    <button class="tb-btn" type="button" title="复制输出" aria-label="复制输出" @click="copyOutput">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="4" y="3" width="7" height="8" rx="1" stroke="currentColor" stroke-width="1.2"/>
-        <path d="M3 10V5A1 1 0 0 1 4 4H8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <rect x="4" y="3" width="7" height="8" rx="1" stroke="currentColor" stroke-width="1.2" />
+        <path
+          d="M3 10V5A1 1 0 0 1 4 4H8.5"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linecap="round"
+        />
       </svg>
       <span class="tb-label">复制</span>
     </button>
 
-    <button class="tb-btn" type="button" @click="downloadOutput" title="下载文件" aria-label="下载文件">
+    <button
+      class="tb-btn"
+      type="button"
+      title="下载文件"
+      aria-label="下载文件"
+      @click="downloadOutput"
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M2 3h8l2 2v7H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-        <path d="M4 3v2.5h5V3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-        <path d="M4 10h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <path
+          d="M2 3h8l2 2v7H2z"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+        <path d="M4 3v2.5h5V3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+        <path d="M4 10h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
       </svg>
       <span class="tb-label">下载</span>
     </button>
 
     <div class="tb-sep"></div>
 
-    <button class="tb-btn tb-btn-ai" type="button" @click="aiVerify" title="AI 语法校验" aria-label="AI 语法校验">
+    <button
+      class="tb-btn tb-btn-ai"
+      type="button"
+      title="AI 语法校验"
+      aria-label="AI 语法校验"
+      @click="aiVerify"
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 1v2M7 11v2M1 7h2M11 7h2M3 3l1.5 1.5M9.5 9.5 11 11M11 3l-1.5 1.5M4.5 9.5 3 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-        <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/>
+        <path
+          d="M7 1v2M7 11v2M1 7h2M11 7h2M3 3l1.5 1.5M9.5 9.5 11 11M11 3l-1.5 1.5M4.5 9.5 3 11"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linecap="round"
+        />
+        <circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2" />
       </svg>
       <span class="tb-label">AI 校验</span>
     </button>
 
     <div class="tb-spacer"></div>
 
-    <button class="tb-btn danger" type="button" @click="clearAll" title="清空内容" aria-label="清空内容">
+    <button
+      class="tb-btn danger"
+      type="button"
+      title="清空内容"
+      aria-label="清空内容"
+      @click="clearAll"
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M2.5 3.5h9M5 2h4M4.5 3.5v7h5v-7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path
+          d="M2.5 3.5h9M5 2h4M4.5 3.5v7h5v-7"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
       <span class="tb-label">清空</span>
     </button>

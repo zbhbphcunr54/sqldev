@@ -23,16 +23,25 @@ const OPERATION_OPTIONS = [
   { value: 'convert_ddl', label: 'DDL 翻译' },
   { value: 'convert_func', label: '函数翻译' },
   { value: 'convert_proc', label: '存储过程翻译' },
-  { value: 'ai_verify', label: 'AI 校验' },
+  { value: 'convert_verify', label: 'AI 校验' },
   { value: 'rule_read', label: '读取规则' },
+  { value: 'rule_save', label: '保存规则' },
+  { value: 'rule_reset', label: '重置规则' },
+  { value: 'ziwei_analysis', label: '紫微分析' },
   { value: 'ziwei_history_list', label: '紫微历史查询' }
 ]
 
 const API_OPTIONS = [
   { value: '', label: '全部' },
-  { value: 'translate', label: 'translate' },
-  { value: 'ai-verify', label: 'ai-verify' },
-  { value: 'health-check', label: 'health-check' }
+  { value: 'convert', label: 'convert' },
+  { value: 'convert-verify', label: 'convert-verify' },
+  { value: 'rules', label: 'rules' },
+  { value: 'ziwei-analysis', label: 'ziwei-analysis' },
+  { value: 'ziwei-history', label: 'ziwei-history' },
+  { value: 'feedback', label: 'feedback' },
+  { value: 'ai-config', label: 'ai-config' },
+  { value: 'app-config', label: 'app-config' },
+  { value: 'operation-logs', label: 'operation-logs' }
 ]
 
 function handleSearch(): void {
@@ -79,30 +88,9 @@ function handleReset(): void {
 
     <div class="filter-group">
       <span class="filter-label">日期范围</span>
-      <input
-        v-model="localStartDate"
-        type="date"
-        class="filter-input"
-        style="width: 140px;"
-      />
+      <input v-model="localStartDate" type="date" class="filter-input" style="width: 140px" />
       <span class="filter-separator">至</span>
-      <input
-        v-model="localEndDate"
-        type="date"
-        class="filter-input"
-        style="width: 140px;"
-      />
-    </div>
-
-    <div class="filter-divider"></div>
-
-    <div class="filter-group">
-      <span class="filter-label">状态</span>
-      <select class="filter-select">
-        <option>全部</option>
-        <option>成功</option>
-        <option>失败</option>
-      </select>
+      <input v-model="localEndDate" type="date" class="filter-input" style="width: 140px" />
     </div>
 
     <div class="filter-spacer"></div>

@@ -1,9 +1,8 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { parsePositiveInt } from '../_shared/utils.ts'
+import { getAppConfig } from '../_shared/app-config.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const DAILY_LIMIT = parsePositiveInt(Deno.env.get('CONVERT_VERIFY_DAILY_LIMIT'), 10)
 
 export interface QuotaInfo {
   allowed: boolean
@@ -29,13 +28,25 @@ function getTodayUTC8(): string {
   return utc8.toISOString().split('T')[0]
 }
 
+// 异步加载每日限制配置
+async function loadDailyLimit(): Promise<number> {
+  const result = await getAppConfig<number>(
+    'convert_verify',
+    'daily_limit',
+    { envVar: 'CONVERT_VERIFY_DAILY_LIMIT', defaultValue: 10, parse: Number }
+  )
+  return result.value
+}
+
 export async function checkQuota(
   userId: string,
   kind: string
 ): Promise<QuotaInfo> {
   const adminClient = getAdminClient()
+  const dailyLimit = await loadDailyLimit()
+
   if (!adminClient) {
-    return { allowed: true, remaining: DAILY_LIMIT, used: 0, limit: DAILY_LIMIT }
+    return { allowed: true, remaining: dailyLimit, used: 0, limit: dailyLimit }
   }
 
   const today = getTodayUTC8()
@@ -51,13 +62,13 @@ export async function checkQuota(
 
     const used = data?.used_count ?? 0
     return {
-      allowed: used < DAILY_LIMIT,
-      remaining: Math.max(0, DAILY_LIMIT - used),
+      allowed: used < dailyLimit,
+      remaining: Math.max(0, dailyLimit - used),
       used,
-      limit: DAILY_LIMIT
+      limit: dailyLimit
     }
   } catch {
-    return { allowed: true, remaining: DAILY_LIMIT, used: 0, limit: DAILY_LIMIT }
+    return { allowed: true, remaining: dailyLimit, used: 0, limit: dailyLimit }
   }
 }
 
@@ -83,7 +94,8 @@ export async function incrementQuota(
 
 export async function getQuotaInfo(userId: string): Promise<QuotaByKind> {
   const adminClient = getAdminClient()
-  const defaultQuota = { used: 0, limit: DAILY_LIMIT, remaining: DAILY_LIMIT }
+  const dailyLimit = await loadDailyLimit()
+  const defaultQuota = { used: 0, limit: dailyLimit, remaining: dailyLimit }
 
   if (!adminClient) {
     return {
@@ -114,8 +126,8 @@ export async function getQuotaInfo(userId: string): Promise<QuotaByKind> {
         const used = row.used_count ?? 0
         result[kind] = {
           used,
-          limit: DAILY_LIMIT,
-          remaining: Math.max(0, DAILY_LIMIT - used)
+          limit: dailyLimit,
+          remaining: Math.max(0, dailyLimit - used)
         }
       }
     }

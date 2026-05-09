@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(npx eslint *)",
+      "Bash(cd d:\\\\\\\\codextest\\\\\\\\sqldev)",
+      "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\preview\\\\ai-chat-preview.html\")",
+      "Bash(start d:\\\\codextest\\\\sqldev\\\\preview-ai-fab-designs.html)",
+      "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\preview-ai-fab-designs.html\")",
+      "Bash(start \"\" \"http://127.0.0.1:4182/\")",
+      "Bash(start \"\" \"d:/codextest/sqldev/docs/按钮.png\")",
+      "Bash(start \"\" \"d:/codextest/sqldev/docs/对话框.png\")"
+    ]
+  }
+}

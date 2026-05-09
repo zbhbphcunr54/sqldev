@@ -13,6 +13,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkbenchStore } from '@/stores/workbench'
 import { requestConvert } from '@/api/convert'
+import { requestConvertVerify } from '@/api/convert-verify'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import { useClipboard } from '@/composables/useClipboard'
 
@@ -22,18 +23,78 @@ const { copyToClipboard } = useClipboard()
 
 // ==================== 示例 SQL ====================
 
-const SAMPLE_FUNC = `-- 获取用户计数函数
-CREATE OR REPLACE FUNCTION get_user_count
-  RETURN NUMBER
-IS
-  v_count NUMBER;
+const SAMPLE_FUNC = `-- 计算订单应付金额函数
+CREATE OR REPLACE FUNCTION calculate_order_amount(
+  p_order_id IN NUMBER,
+  p_use_balance IN BOOLEAN DEFAULT TRUE
+) RETURN NUMBER IS
+  v_order_amount NUMBER(12,2);
+  v_discount_amount NUMBER(12,2) := 0;
+  v_coupon_amount NUMBER(12,2) := 0;
+  v_freight_amount NUMBER(10,2) := 0;
+  v_wallet_balance NUMBER(12,2) := 0;
+  v_customer_level NUMBER(2) := 1;
+  v_points_amount NUMBER(12,2) := 0;
+  v_final_amount NUMBER(12,2);
+  v_discount_rate NUMBER(5,4) := 1.0;
 BEGIN
-  SELECT COUNT(*) INTO v_count FROM users WHERE status = 1;
-  RETURN v_count;
-END get_user_count;`
+  -- 获取订单信息
+  SELECT order_amount, discount_amount, coupon_amount, freight_amount
+  INTO v_order_amount, v_discount_amount, v_coupon_amount, v_freight_amount
+  FROM orders WHERE order_id = p_order_id;
+
+  -- 获取客户等级和钱包余额
+  SELECT NVL(wallet_balance, 0), NVL(customer_level, 1)
+  INTO v_wallet_balance, v_customer_level
+  FROM customers WHERE customer_id = (
+    SELECT customer_id FROM orders WHERE order_id = p_order_id
+  );
+
+  -- 根据客户等级计算折扣
+  CASE v_customer_level
+    WHEN 5 THEN v_discount_rate := 0.85;  -- VIP5 85折
+    WHEN 4 THEN v_discount_rate := 0.90;  -- VIP4 9折
+    WHEN 3 THEN v_discount_rate := 0.95;  -- VIP3 95折
+    WHEN 2 THEN v_discount_rate := 0.98;  -- VIP2 98折
+    ELSE v_discount_rate := 1.0;
+  END CASE;
+
+  -- 计算积分抵扣金额
+  SELECT NVL(SUM(points * 0.01), 0) INTO v_points_amount
+  FROM customer_points
+  WHERE customer_id = (SELECT customer_id FROM orders WHERE order_id = p_order_id)
+    AND points_type = 'ORDER'
+    AND status = 'AVAILABLE'
+    AND expire_time > SYSDATE;
+
+  -- 计算最终金额
+  v_final_amount := v_order_amount * v_discount_rate
+                 - v_discount_amount
+                 - v_coupon_amount
+                 - LEAST(v_points_amount, v_order_amount * 0.1);
+
+  -- 如果使用余额抵扣
+  IF p_use_balance THEN
+    IF v_wallet_balance >= v_final_amount THEN
+      v_final_amount := 0;
+    ELSE
+      v_final_amount := v_final_amount - v_wallet_balance;
+    END IF;
+  END IF;
+
+  -- 最低为0
+  RETURN GREATEST(v_final_amount, 0);
+
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    RETURN NULL;
+  WHEN OTHERS THEN
+    RETURN NULL;
+END calculate_order_amount;`
 
 // ==================== 状态 ====================
 
+const referenceCollapsed = ref(true)
 const isCopying = ref(false)
 const copySuccess = ref(false)
 
@@ -90,6 +151,26 @@ function clearAll(): void {
   store.funcOutput = ''
   store.funcStatus = 'idle'
   translateTime.value = null
+}
+
+/** 上传文件 */
+function handleUploadFile(): void {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.sql,.txt'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      store.funcInput = text
+      store.funcOutput = ''
+      store.funcStatus = 'idle'
+    } catch {
+      store.showAlert('错误', '文件读取失败')
+    }
+  }
+  input.click()
 }
 
 /** 复制输出 */
@@ -150,12 +231,45 @@ async function handleConvert(): Promise<void> {
 }
 
 /** AI 校验 */
-function aiVerify(): void {
+async function aiVerify(): Promise<void> {
   if (!store.funcOutput) {
     store.showAlert('提示', '请先进行翻译后再使用 AI 校验')
     return
   }
-  store.showAlert('AI 校验', 'AI 校验功能开发中...')
+
+  store.funcConverting = true
+  store.funcStatusText = 'AI 校验中...'
+
+  try {
+    const result = await requestConvertVerify({
+      kind: 'func',
+      fromDb: store.funcSourceDb as 'oracle' | 'mysql' | 'postgresql',
+      toDb: store.funcTargetDb as 'oracle' | 'mysql' | 'postgresql',
+      inputSql: store.funcInput,
+      outputSql: store.funcOutput
+    })
+
+    if (result.ok) {
+      const score = result.overallScore ?? 0
+      const issues = [
+        ...(result.syntaxIssues ?? []),
+        ...(result.semanticIssues ?? []),
+        ...(result.logicRisks ?? [])
+      ]
+      const issueCount = issues.length
+      const summary = result.summary || `综合评分 ${score} 分，发现 ${issueCount} 个问题`
+      store.funcStatusText = `校验完成 - ${summary}`
+      store.showAlert('AI 校验完成', summary)
+    } else {
+      store.funcStatusText = '校验失败'
+      store.showAlert('校验失败', mapErrorCodeToMessage(result.error || 'verify_failed'))
+    }
+  } catch (error) {
+    store.funcStatusText = '校验失败'
+    store.showAlert('校验失败', mapErrorCodeToMessage(String(error)))
+  } finally {
+    store.funcConverting = false
+  }
 }
 
 /** 键盘快捷键 */
@@ -166,6 +280,11 @@ function handleKeydown(e: KeyboardEvent): void {
   }
 }
 
+/** 切换类型映射参考 */
+function toggleReference(): void {
+  referenceCollapsed.value = !referenceCollapsed.value
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
 })
@@ -173,6 +292,54 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
+
+// 函数语法映射数据
+const funcSyntaxMappings = [
+  {
+    title: '函数声明与参数',
+    icon: 'func',
+    items: [
+      { oracle: 'CREATE FUNCTION name(p IN type)', mysql: 'CREATE FUNCTION name(p type)', postgresql: 'CREATE FUNCTION name(p type)' },
+      { oracle: 'RETURN type', mysql: 'RETURNS type', postgresql: 'RETURNS type' },
+      { oracle: 'IS / AS', mysql: 'NOT DETERMINISTIC', postgresql: 'AS $$' },
+      { oracle: 'IN / OUT / IN OUT', mysql: 'IN / OUT / INOUT', postgresql: 'IN / OUT / INOUT' },
+      { oracle: 'DEFAULT value', mysql: 'DEFAULT value', postgresql: 'DEFAULT value' }
+    ]
+  },
+  {
+    title: '数据类型与变量',
+    icon: 'var',
+    items: [
+      { oracle: 'v_name NUMBER;', mysql: 'DECLARE v_name INT;', postgresql: 'v_name NUMERIC;' },
+      { oracle: 'v_name VARCHAR2(100);', mysql: 'DECLARE v_name VARCHAR(100)', postgresql: 'v_name VARCHAR(100);' },
+      { oracle: 'v_name DATE;', mysql: 'DECLARE v_name DATETIME', postgresql: 'v_name TIMESTAMP;' },
+      { oracle: 'v_name CONSTANT type := val', mysql: 'DECLARE v_name type DEFAULT val', postgresql: 'v_name CONSTANT type := val' },
+      { oracle: '%TYPE, %ROWTYPE', mysql: '不支持', postgresql: '%TYPE, %ROWTYPE' }
+    ]
+  },
+  {
+    title: '控制流与返回',
+    icon: 'flow',
+    items: [
+      { oracle: 'IF condition THEN ... END IF', mysql: 'IF condition THEN ... END IF', postgresql: 'IF condition THEN ... END IF' },
+      { oracle: 'FOR i IN 1..n LOOP ... END LOOP', mysql: 'WHILE i <= n DO ... END WHILE', postgresql: 'FOR i IN 1..n LOOP ... END LOOP' },
+      { oracle: 'RETURN value', mysql: 'RETURN value', postgresql: 'RETURN value' },
+      { oracle: 'RETURN query SELECT', mysql: '不支持', postgresql: 'RETURN QUERY SELECT' },
+      { oracle: 'EXCEPTION WHEN THEN', mysql: 'DECLARE CONTINUE HANDLER', postgresql: 'EXCEPTION WHEN THEN' }
+    ]
+  }
+]
+
+// 支持的函数操作
+const supportedFuncs = [
+  'CREATE FUNCTION',
+  'DROP FUNCTION',
+  '函数参数模式 (IN/OUT/INOUT)',
+  '局部变量声明',
+  'RETURN 语句',
+  '异常处理',
+  '支持双向转换'
+]
 </script>
 
 <template>
@@ -198,6 +365,7 @@ onUnmounted(() => {
           <select
             :value="store.funcSourceDb"
             class="db-select"
+            aria-label="选择源数据库"
             @change="
               store.pickDb('funcSourceDb', ($event.target as HTMLSelectElement).value as any)
             "
@@ -217,7 +385,12 @@ onUnmounted(() => {
           </svg>
         </div>
 
-        <button class="swap-btn" title="交换源和目标数据库" @click="swapDbs">
+        <button
+          class="swap-btn"
+          title="交换源和目标数据库"
+          aria-label="交换源和目标数据库"
+          @click="swapDbs"
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M12 5L14 7L12 9"
@@ -243,6 +416,7 @@ onUnmounted(() => {
           <select
             :value="store.funcTargetDb"
             class="db-select"
+            aria-label="选择目标数据库"
             @change="
               store.pickDb('funcTargetDb', ($event.target as HTMLSelectElement).value as any)
             "
@@ -306,7 +480,7 @@ onUnmounted(() => {
 
         <div class="toolbar-divider"></div>
 
-        <button class="toolbar-btn">
+        <button class="toolbar-btn" @click="handleUploadFile">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path
               d="M3 2H13V10L9 14H3V2Z"
@@ -405,21 +579,17 @@ onUnmounted(() => {
             <span class="db-dot oracle"></span>
             <span>Oracle 输入</span>
           </div>
-          <span class="panel-hint">
-            <span class="hint-tag">支持粘贴 SQL</span>
-            <span class="hint-tag">Ctrl/⌘ + V</span>
-          </span>
           <span class="line-count">{{ inputLineCount }} 行</span>
         </div>
 
         <div class="panel-content">
-          <div v-if="!hasInput" class="empty-state">
+          <div v-if="!hasInput" class="empty-state" @click="loadSample">
             <span class="badge-ready">Ready for Source SQL</span>
             <h2 class="empty-title">从函数开始</h2>
             <p class="empty-desc">粘贴 CREATE FUNCTION 语句，或加载示例。</p>
-            <p class="empty-tip">提示：可直接粘贴 SQL（Ctrl / ⌘ + V）</p>
+            <p class="empty-tip">点击此处加载示例 SQL</p>
             <div class="empty-actions">
-              <button class="btn-success" @click="loadSample">
+              <button class="btn-success" @click.stop="loadSample">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path
                     d="M7 1V7M7 7L4 4M7 7L10 4"
@@ -437,7 +607,7 @@ onUnmounted(() => {
                 </svg>
                 加载示例
               </button>
-              <button class="btn-outline">上传 SQL</button>
+              <button class="btn-outline" @click.stop="handleUploadFile">上传 SQL</button>
             </div>
           </div>
 
@@ -459,8 +629,8 @@ onUnmounted(() => {
           <div class="panel-title">
             <span class="db-dot postgresql"></span>
             <span>PostgreSQL 输出</span>
+            <span v-if="hasOutput" class="ai-verify-badge">AI 校验</span>
           </div>
-          <span class="panel-hint">可直接编辑 · 审阅批注</span>
         </div>
 
         <div class="panel-content">
@@ -519,19 +689,128 @@ onUnmounted(() => {
         </span>
       </div>
     </div>
+
+    <!-- ==================== 类型映射参考 ==================== -->
+    <div class="reference-panel">
+      <!-- 折叠头部 -->
+      <div class="reference-header">
+        <div class="reference-header-left">
+          <span class="reference-title">函数语法参考</span>
+          <span class="reference-tag">Quick Reference</span>
+        </div>
+        <button class="reference-toggle-btn" @click="toggleReference">
+          <span>{{ referenceCollapsed ? '展开' : '收起' }}</span>
+          <svg
+            class="toggle-arrow"
+            :class="{ expanded: !referenceCollapsed }"
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+          >
+            <path
+              d="M2.5 4.5L6 8L9.5 4.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- 展开内容 -->
+      <Transition name="slide">
+        <div v-if="!referenceCollapsed" class="reference-content">
+          <!-- 三栏布局 -->
+          <div class="mapping-columns">
+            <div v-for="(col, colIndex) in funcSyntaxMappings" :key="colIndex" class="mapping-column">
+              <!-- 栏标题 -->
+              <div class="column-header">
+                <svg
+                  v-if="col.icon === 'func'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <svg
+                  v-else-if="col.icon === 'var'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path d="M4 7V4h16v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M9 20h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg
+                  v-else-if="col.icon === 'flow'"
+                  class="column-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <path d="M9 10l-3 3 3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="column-title">{{ col.title }}</span>
+              </div>
+
+              <!-- 列头 -->
+              <div class="col-headers">
+                <span class="col-header-item">Oracle</span>
+                <span class="col-header-item">MySQL</span>
+                <span class="col-header-item">PostgreSQL</span>
+              </div>
+
+              <!-- 类型映射行 -->
+              <div class="mapping-rows">
+                <div v-for="(item, itemIndex) in col.items" :key="itemIndex" class="mapping-row">
+                  <span class="type-oracle">{{ item.oracle }}</span>
+                  <span class="type-mysql">{{ item.mysql }}</span>
+                  <span class="type-pg">{{ item.postgresql }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部注释 -->
+          <div class="reference-footer">
+            <span class="footer-label">支持操作：</span>
+            <div class="footer-items">
+              <span v-for="(op, opIndex) in supportedFuncs" :key="opIndex" class="footer-item">{{
+                op
+              }}</span>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- ==================== 版本号 ==================== -->
+    <div class="version-tag">Version 2026.04.13 / 95a8f3c</div>
   </div>
 </template>
 
 <style scoped>
 /* ==================== 全局字体 ==================== */
 .func-page {
-  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-family: var(--font-code);
 }
 
 /* ==================== 布局 ==================== */
@@ -539,8 +818,8 @@ code {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #0b1120;
-  color: #e2e8f0;
+  background: var(--color-page-bg);
+  color: var(--color-page-text);
   overflow: hidden;
   position: relative;
 }
@@ -552,7 +831,7 @@ code {
   justify-content: space-between;
   height: 56px;
   padding: 0 20px;
-  background: #0f172a;
+  background: var(--color-page-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -575,7 +854,7 @@ code {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .page-subtitle .dot {
@@ -593,7 +872,7 @@ code {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: #111827;
+  background: var(--color-page-card);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -608,21 +887,21 @@ code {
   font-size: 10px;
   font-weight: 700;
   color: #fff;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-family: var(--font-code);
 }
 
 .db-badge.oracle {
-  background: #dc2626;
+  background: var(--color-page-oracle);
 }
 
 .db-badge.postgresql {
-  background: #6366f1;
+  background: var(--color-page-postgres);
 }
 
 .db-select {
   background: transparent;
   border: none;
-  color: #e2e8f0;
+  color: var(--color-page-text);
   font-size: 13px;
   cursor: pointer;
   outline: none;
@@ -630,12 +909,12 @@ code {
 }
 
 .db-select option {
-  background: #111827;
-  color: #e2e8f0;
+  background: var(--color-page-card);
+  color: var(--color-page-text);
 }
 
 .select-arrow {
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .swap-btn {
@@ -646,15 +925,15 @@ code {
   height: 32px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #111827;
-  color: #94a3b8;
+  background: var(--color-page-card);
+  color: var(--color-page-text-subtle);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .swap-btn:hover {
-  color: #6366f1;
-  border-color: #6366f1;
+  color: var(--color-page-brand);
+  border-color: var(--color-page-brand);
 }
 
 .top-bar-right {
@@ -666,7 +945,7 @@ code {
 .text-link {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   cursor: pointer;
   transition: color 0.15s;
@@ -681,7 +960,7 @@ code {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: #6366f1;
+  background: var(--color-page-brand);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -692,7 +971,7 @@ code {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5558e3;
+  background: var(--color-page-brand-hover);
 }
 
 .btn-primary:disabled {
@@ -705,7 +984,7 @@ code {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-family: var(--font-code);
 }
 
 .icon-btn {
@@ -717,7 +996,7 @@ code {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -754,7 +1033,7 @@ code {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -771,20 +1050,20 @@ code {
 }
 
 .toolbar-btn.danger {
-  color: #ef4444;
+  color: var(--color-page-danger);
 }
 
 .toolbar-btn.danger:hover:not(:disabled) {
-  color: #dc2626;
+  color: var(--color-page-oracle);
   background: rgba(239, 68, 68, 0.1);
 }
 
 .toolbar-btn.ai {
-  color: #818cf8;
+  color: var(--color-purple);
 }
 
 .toolbar-btn.ai:hover:not(:disabled) {
-  color: #6366f1;
+  color: var(--color-page-brand);
   background: rgba(99, 102, 241, 0.1);
 }
 
@@ -807,7 +1086,7 @@ code {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #111827;
+  background: var(--color-page-card);
   overflow: hidden;
 }
 
@@ -822,7 +1101,7 @@ code {
   gap: 12px;
   height: 36px;
   padding: 0 16px;
-  background: #0f172a;
+  background: var(--color-page-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -842,11 +1121,43 @@ code {
 }
 
 .db-dot.oracle {
-  background: #dc2626;
+  background: var(--color-page-oracle);
 }
 
 .db-dot.postgresql {
-  background: #6366f1;
+  background: var(--color-page-brand);
+}
+
+.ai-verify-badge {
+  padding: 2px 8px;
+  background: var(--color-purple);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  margin-left: 8px;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 8px 2px rgba(139, 92, 246, 0.4);
+  }
+}
+
+.empty-tip {
+  font-size: 13px;
+  color: var(--color-purple);
+  margin: 0 0 24px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px dashed var(--color-purple);
+  border-radius: 6px;
 }
 
 .panel-hint {
@@ -861,13 +1172,13 @@ code {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .line-count {
   font-size: 12px;
-  color: #94a3b8;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--color-page-text-subtle);
+  font-family: var(--font-code);
 }
 
 .panel-content {
@@ -893,7 +1204,7 @@ code {
   padding: 4px 12px;
   background: rgba(16, 185, 129, 0.15);
   border-radius: 20px;
-  color: #10b981;
+  color: var(--color-page-success);
   font-size: 11px;
   font-weight: 500;
   margin-bottom: 20px;
@@ -904,7 +1215,7 @@ code {
   padding: 4px 12px;
   background: rgba(99, 102, 241, 0.15);
   border-radius: 20px;
-  color: #818cf8;
+  color: var(--color-purple);
   font-size: 11px;
   font-weight: 500;
   margin-bottom: 20px;
@@ -924,7 +1235,7 @@ code {
 .empty-desc {
   max-width: 420px;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
   line-height: 1.6;
   margin: 0 0 12px;
 }
@@ -943,7 +1254,7 @@ code {
 
 .step {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .empty-actions {
@@ -956,7 +1267,7 @@ code {
   align-items: center;
   gap: 6px;
   padding: 10px 20px;
-  background: #10b981;
+  background: var(--color-page-success);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -967,7 +1278,7 @@ code {
 }
 
 .btn-success:hover {
-  background: #0ea472;
+  background: var(--color-page-success-hover);
 }
 
 .btn-outline {
@@ -992,7 +1303,7 @@ code {
 
 .btn-primary-outline {
   padding: 10px 20px;
-  background: #6366f1;
+  background: var(--color-page-brand);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -1003,7 +1314,7 @@ code {
 }
 
 .btn-primary-outline:hover {
-  background: #5558e3;
+  background: var(--color-page-brand-hover);
 }
 
 /* ==================== 代码编辑器 ==================== */
@@ -1012,10 +1323,10 @@ code {
   width: 100%;
   height: 100%;
   padding: 16px;
-  background: #111827;
+  background: var(--color-page-card);
   border: none;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: var(--color-page-text);
+  font-family: var(--font-code);
   font-size: 13px;
   line-height: 1.6;
   resize: none;
@@ -1033,7 +1344,7 @@ code {
   justify-content: space-between;
   height: 32px;
   padding: 0 16px;
-  background: #0b1120;
+  background: var(--color-page-bg);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -1052,19 +1363,19 @@ code {
 }
 
 .status-dot.ready {
-  background: #10b981;
+  background: var(--color-page-success);
 }
 
 .status-dot.converting {
-  background: #f59e0b;
+  background: var(--color-page-warning);
 }
 
 .status-dot.success {
-  background: #10b981;
+  background: var(--color-page-success);
 }
 
 .status-dot.error {
-  background: #ef4444;
+  background: var(--color-page-danger);
   animation: none;
 }
 
@@ -1082,19 +1393,19 @@ code {
 
 .status-text {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--color-page-text-subtle);
 }
 
 .status-text.success {
-  color: #10b981;
+  color: var(--color-page-success);
 }
 
 .status-text.error {
-  color: #ef4444;
+  color: var(--color-page-danger);
 }
 
 .status-text.converting {
-  color: #f59e0b;
+  color: var(--color-page-warning);
 }
 
 .status-right {
@@ -1111,17 +1422,229 @@ code {
 }
 
 .meta-label {
-  color: #64748b;
+  color: var(--color-page-text-muted);
 }
 
 .meta-value {
-  color: #94a3b8;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  color: var(--color-page-text-subtle);
+  font-family: var(--font-code);
 }
 
 .meta-divider {
   width: 1px;
   height: 12px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== 类型映射参考 ==================== */
+.reference-panel {
+  background: var(--color-page-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.reference-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  padding: 0 16px;
+  background: var(--color-page-elevated);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.reference-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reference-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-page-text);
+}
+
+.reference-tag {
+  font-size: 11px;
+  color: var(--color-page-text-subtle);
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.reference-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--color-page-text-subtle);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reference-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-page-text);
+}
+
+.toggle-arrow {
+  transition: transform 0.2s;
+}
+
+.toggle-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.reference-content {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ==================== 三栏布局 ==================== */
+.mapping-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0;
+}
+
+.mapping-column {
+  background: var(--color-page-bg);
+  padding: 0;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.column-icon {
+  color: var(--color-page-link);
+}
+
+.column-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-page-link);
+}
+
+.col-headers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.col-header-item {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-page-text);
+}
+
+.mapping-rows {
+  padding: 4px 0;
+}
+
+.mapping-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s;
+}
+
+.mapping-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mapping-row:last-child {
+  border-bottom: none;
+}
+
+.type-oracle {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #f59e0b;
+}
+
+.type-mysql {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #10b981;
+}
+
+.type-pg {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #6366f1;
+}
+
+.reference-footer {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.footer-label {
+  font-size: 11px;
+  color: var(--color-page-text-subtle);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.footer-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.footer-item {
+  font-size: 10px;
+  font-family: var(--font-code);
+  color: var(--color-page-text-subtle);
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.slide-enter-to,
+.slide-leave-from {
+  opacity: 1;
+  max-height: 500px;
+}
+
+.version-tag {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: var(--color-page-text-muted);
+  font-family: var(--font-code);
 }
 </style>

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import FeedbackWidget from '@/components/business/feedback/FeedbackWidget.vue'
+import FloatingChat from '@/components/business/ai/FloatingChat.vue'
 
 const route = useRoute()
 
@@ -18,4 +19,5 @@ const feedbackSource = computed<'splash' | 'workbench' | 'ziwei'>(() => {
     </Transition>
   </RouterView>
   <FeedbackWidget :source="feedbackSource" />
+  <FloatingChat />
 </template>

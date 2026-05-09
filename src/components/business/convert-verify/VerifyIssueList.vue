@@ -9,33 +9,45 @@ defineProps<{
 
 function getSeverityIcon(severity: string): string {
   switch (severity) {
-    case 'error': return '❌'
-    case 'warning': return '⚠️'
-    default: return 'ℹ️'
+    case 'error':
+      return '❌'
+    case 'warning':
+      return '⚠️'
+    default:
+      return 'ℹ️'
   }
 }
 
 function getSeverityClass(severity: string): string {
   switch (severity) {
-    case 'error': return 'border-red-200 bg-red-50'
-    case 'warning': return 'border-yellow-200 bg-yellow-50'
-    default: return 'border-blue-200 bg-blue-50'
+    case 'error':
+      return 'border-red-200 bg-red-50'
+    case 'warning':
+      return 'border-yellow-200 bg-yellow-50'
+    default:
+      return 'border-blue-200 bg-blue-50'
   }
 }
 
 function getSeverityTextClass(severity: string): string {
   switch (severity) {
-    case 'error': return 'text-red-600'
-    case 'warning': return 'text-yellow-600'
-    default: return 'text-blue-600'
+    case 'error':
+      return 'text-red-600'
+    case 'warning':
+      return 'text-yellow-600'
+    default:
+      return 'text-blue-600'
   }
 }
 
 function getRiskSeverityClass(severity: string): string {
   switch (severity) {
-    case 'high': return 'bg-red-100 text-red-700'
-    case 'medium': return 'bg-yellow-100 text-yellow-700'
-    default: return 'bg-blue-100 text-blue-700'
+    case 'high':
+      return 'bg-red-100 text-red-700'
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-700'
+    default:
+      return 'bg-blue-100 text-blue-700'
   }
 }
 
@@ -78,7 +90,13 @@ function getRiskCategoryLabel(category: string): string {
                   L{{ issue.line }}
                 </span>
                 <span :class="['text-sm font-medium', getSeverityTextClass(issue.severity)]">
-                  {{ issue.severity === 'error' ? '错误' : issue.severity === 'warning' ? '警告' : '提示' }}
+                  {{
+                    issue.severity === 'error'
+                      ? '错误'
+                      : issue.severity === 'warning'
+                        ? '警告'
+                        : '提示'
+                  }}
                 </span>
               </div>
               <p class="text-sm text-gray-700 mt-1">{{ issue.message }}</p>
@@ -106,7 +124,13 @@ function getRiskCategoryLabel(category: string): string {
             <span class="text-base">{{ getSeverityIcon(issue.severity) }}</span>
             <div class="flex-1">
               <span :class="['text-sm font-medium', getSeverityTextClass(issue.severity)]">
-                {{ issue.severity === 'error' ? '错误' : issue.severity === 'warning' ? '警告' : '提示' }}
+                {{
+                  issue.severity === 'error'
+                    ? '错误'
+                    : issue.severity === 'warning'
+                      ? '警告'
+                      : '提示'
+                }}
               </span>
               <p class="text-sm text-gray-700 mt-1">{{ issue.message }}</p>
               <div v-if="issue.original || issue.converted" class="mt-2 text-xs font-mono">
@@ -139,14 +163,22 @@ function getRiskCategoryLabel(category: string): string {
             <div class="flex-1">
               <div class="flex items-center gap-2">
                 <span
-                  :class="['inline-block px-1.5 py-0.5 text-xs font-medium rounded', getRiskSeverityClass(risk.severity)]"
+                  :class="[
+                    'inline-block px-1.5 py-0.5 text-xs font-medium rounded',
+                    getRiskSeverityClass(risk.severity)
+                  ]"
                 >
                   {{ getRiskCategoryLabel(risk.category) }}
                 </span>
                 <span
-                  :class="['inline-block px-1.5 py-0.5 text-xs font-medium rounded', getRiskSeverityClass(risk.severity)]"
+                  :class="[
+                    'inline-block px-1.5 py-0.5 text-xs font-medium rounded',
+                    getRiskSeverityClass(risk.severity)
+                  ]"
                 >
-                  {{ risk.severity === 'high' ? '高' : risk.severity === 'medium' ? '中' : '低' }}风险
+                  {{
+                    risk.severity === 'high' ? '高' : risk.severity === 'medium' ? '中' : '低'
+                  }}风险
                 </span>
               </div>
               <p class="text-sm text-gray-700 mt-1">{{ risk.message }}</p>

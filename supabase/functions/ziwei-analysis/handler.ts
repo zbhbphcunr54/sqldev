@@ -1,5 +1,5 @@
 import { validateBearerToken } from '../_shared/auth.ts'
-import { createCorsHelpers, DEFAULT_WEB_ORIGIN } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { jsonResponse, logEdgeError } from '../_shared/response.ts'
@@ -15,9 +15,9 @@ import {
 } from './response-parser.ts'
 import { getAppConfig, getAppConfigsByCategory } from '../_shared/app-config.ts'
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
-  defaultOrigin: DEFAULT_WEB_ORIGIN
-})
+const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
+
+await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''

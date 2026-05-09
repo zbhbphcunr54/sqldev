@@ -38,9 +38,7 @@ export async function fetchVerifyProfiles(): Promise<VerifyProfile[]> {
   return result.data || []
 }
 
-export async function saveVerifyProfile(
-  payload: SaveVerifyProfileRequest
-): Promise<VerifyProfile> {
+export async function saveVerifyProfile(payload: SaveVerifyProfileRequest): Promise<VerifyProfile> {
   const result = await invokeEdgeFunction<SaveVerifyProfileRequest, ApiResponse<VerifyProfile>>(
     'verify-profiles',
     { action: 'save', ...payload }
@@ -62,10 +60,10 @@ export async function deleteVerifyProfile(id: string): Promise<void> {
 }
 
 export async function setDefaultVerifyProfile(id: string): Promise<VerifyProfile> {
-  const result = await invokeEdgeFunction<{ action: string; id: string }, ApiResponse<VerifyProfile>>(
-    'verify-profiles',
-    { action: 'set_default', id }
-  )
+  const result = await invokeEdgeFunction<
+    { action: string; id: string },
+    ApiResponse<VerifyProfile>
+  >('verify-profiles', { action: 'set_default', id })
   if (!result.ok || !result.data) {
     throw new Error(result.message || result.error || '设置默认配置失败')
   }

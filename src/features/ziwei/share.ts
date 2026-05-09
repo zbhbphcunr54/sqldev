@@ -40,6 +40,9 @@ const ZIWEI_POSTER_COLORS = {
   glowPurple: 'rgba(139,92,246,.24)'
 } as const
 
+// 海报中分享链接的显示长度限制
+const SHARE_LINK_DISPLAY_MAX_LENGTH = 74
+
 export function buildZiweiShareLink(
   locationLike: ZiweiShareLocationLike | null | undefined
 ): string {
@@ -51,7 +54,10 @@ export function buildZiweiShareLink(
 
 export function createZiweiSharePosterSpec(shareLinkValue: unknown): ZiweiSharePosterSpec {
   const shareLink = String(shareLinkValue || '')
-  const shareLinkDisplay = shareLink.length > 74 ? `${shareLink.slice(0, 74)}...` : shareLink
+  const shareLinkDisplay =
+    shareLink.length > SHARE_LINK_DISPLAY_MAX_LENGTH
+      ? `${shareLink.slice(0, SHARE_LINK_DISPLAY_MAX_LENGTH)}...`
+      : shareLink
 
   return {
     posterWidth: 1200,

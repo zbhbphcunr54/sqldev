@@ -140,10 +140,18 @@
   margin-bottom: 8px;
 }
 
-.nf-skeleton.w80 { width: 80%; }
-.nf-skeleton.w60 { width: 60%; }
-.nf-skeleton.w40 { width: 40%; }
-.nf-skeleton.w90 { width: 90%; }
+.nf-skeleton.w80 {
+  width: 80%;
+}
+.nf-skeleton.w60 {
+  width: 60%;
+}
+.nf-skeleton.w40 {
+  width: 40%;
+}
+.nf-skeleton.w90 {
+  width: 90%;
+}
 
 .nf-chips {
   display: flex;
@@ -178,7 +186,9 @@
 .btn-primary {
   background: linear-gradient(135deg, #2563eb, #7c3aed);
   color: #fff;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 4px 16px rgba(37, 99, 235, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover {

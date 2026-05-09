@@ -2,7 +2,7 @@
 <!-- SQL 编辑器组件，基于 CodeMirror 6 -->
 <script setup lang="ts">
 import { ref, shallowRef, onMounted, onUnmounted, watch } from 'vue'
-import { EditorState, type Extension } from '@codemirror/state'
+import { EditorState, Compartment, type Extension } from '@codemirror/state'
 import {
   EditorView,
   keymap,
@@ -14,20 +14,15 @@ import {
   rectangularSelection,
   crosshairCursor,
   highlightSpecialChars,
-  scrollPastEnd,
+  scrollPastEnd
 } from '@codemirror/view'
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
   bracketMatching,
   foldGutter,
-  indentOnInput,
+  indentOnInput
 } from '@codemirror/language'
 import { autocompletion, completionKeymap, type CompletionContext } from '@codemirror/autocomplete'
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
@@ -44,7 +39,8 @@ const props = withDefaults(
   }>(),
   {
     readonly: false,
-    language: 'sql'
+    language: 'sql',
+    placeholder: ''
   }
 )
 
@@ -58,32 +54,190 @@ const view = shallowRef<EditorView | null>(null)
 const currentTheme = ref<'light' | 'dark'>('light')
 let themeObserver: MutationObserver | null = null
 
+// 主题切换使用 Compartment，避免重建编辑器
+const themeCompartment = new Compartment()
+
 // SQL 关键字补全
 const sqlKeywords = [
-  'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN',
-  'LIKE', 'IS', 'NULL', 'AS', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL', 'CROSS',
-  'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET',
-  'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP',
-  'ALTER', 'INDEX', 'VIEW', 'TRIGGER', 'PROCEDURE', 'FUNCTION', 'BEGIN', 'END',
-  'DECLARE', 'IF', 'THEN', 'ELSE', 'ELSIF', 'CASE', 'WHEN', 'WHILE', 'LOOP',
-  'RETURN', 'RAISE', 'EXCEPTION', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES',
-  'UNIQUE', 'CHECK', 'DEFAULT', 'CONSTRAINT', 'CASCADE', 'RESTRICT',
-  'DISTINCT', 'ALL', 'UNION', 'INTERSECT', 'MINUS', 'ANY', 'SOME',
-  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'ROWID', 'ROWNUM', 'SYSDATE', 'SYSTIMESTAMP',
-  'VARCHAR', 'VARCHAR2', 'CHAR', 'NUMBER', 'INTEGER', 'INT', 'BIGINT', 'SMALLINT',
-  'DECIMAL', 'FLOAT', 'DOUBLE', 'DATE', 'DATETIME', 'TIMESTAMP', 'BLOB', 'CLOB', 'TEXT',
-  'BOOLEAN', 'SERIAL', 'BIGSERIAL', 'UUID', 'JSON', 'JSONB',
-  'CAST', 'COALESCE', 'NVL', 'NVL2', 'DECODE', 'TO_CHAR', 'TO_NUMBER', 'TO_DATE',
-  'TRUNC', 'ROUND', 'MOD', 'POWER', 'SQRT', 'ABS', 'LENGTH', 'SUBSTR', 'SUBSTRING',
-  'TRIM', 'LTRIM', 'RTRIM', 'UPPER', 'LOWER', 'INITCAP', 'INSTR', 'LPAD', 'RPAD',
-  'CONCAT', 'REPLACE', 'TRANSLATE', 'REGEXP', 'REGEXP_LIKE',
-  'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE', 'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'NTILE',
-  'OVER', 'PARTITION', 'RANGE', 'ROWS', 'PRECEDING', 'FOLLOWING', 'UNBOUNDED',
-  'WITH', 'RECURSIVE', 'CTE', 'MATERIALIZED',
-  'GRANT', 'REVOKE', 'COMMIT', 'ROLLBACK', 'SAVEPOINT',
-  'LOCK', 'TABLE', 'SEQUENCE', 'SYNONYM', 'PACKAGE', 'TYPE', 'BODY',
-  'OUT', 'INOUT', 'CURSOR', 'BULK', 'COLLECT', 'FORALL',
-  'EXPLAIN', 'PLAN', 'ANALYZE', 'EXPLAIN PLAN',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'EXISTS',
+  'BETWEEN',
+  'LIKE',
+  'IS',
+  'NULL',
+  'AS',
+  'JOIN',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'OUTER',
+  'FULL',
+  'CROSS',
+  'ON',
+  'GROUP',
+  'BY',
+  'HAVING',
+  'ORDER',
+  'ASC',
+  'DESC',
+  'LIMIT',
+  'OFFSET',
+  'INSERT',
+  'INTO',
+  'VALUES',
+  'UPDATE',
+  'SET',
+  'DELETE',
+  'CREATE',
+  'TABLE',
+  'DROP',
+  'ALTER',
+  'INDEX',
+  'VIEW',
+  'TRIGGER',
+  'PROCEDURE',
+  'FUNCTION',
+  'BEGIN',
+  'END',
+  'DECLARE',
+  'IF',
+  'THEN',
+  'ELSE',
+  'ELSIF',
+  'CASE',
+  'WHEN',
+  'WHILE',
+  'LOOP',
+  'RETURN',
+  'RAISE',
+  'EXCEPTION',
+  'PRIMARY',
+  'KEY',
+  'FOREIGN',
+  'REFERENCES',
+  'UNIQUE',
+  'CHECK',
+  'DEFAULT',
+  'CONSTRAINT',
+  'CASCADE',
+  'RESTRICT',
+  'DISTINCT',
+  'ALL',
+  'UNION',
+  'INTERSECT',
+  'MINUS',
+  'ANY',
+  'SOME',
+  'COUNT',
+  'SUM',
+  'AVG',
+  'MIN',
+  'MAX',
+  'ROWID',
+  'ROWNUM',
+  'SYSDATE',
+  'SYSTIMESTAMP',
+  'VARCHAR',
+  'VARCHAR2',
+  'CHAR',
+  'NUMBER',
+  'INTEGER',
+  'INT',
+  'BIGINT',
+  'SMALLINT',
+  'DECIMAL',
+  'FLOAT',
+  'DOUBLE',
+  'DATE',
+  'DATETIME',
+  'TIMESTAMP',
+  'BLOB',
+  'CLOB',
+  'TEXT',
+  'BOOLEAN',
+  'SERIAL',
+  'BIGSERIAL',
+  'UUID',
+  'JSON',
+  'JSONB',
+  'CAST',
+  'COALESCE',
+  'NVL',
+  'NVL2',
+  'DECODE',
+  'TO_CHAR',
+  'TO_NUMBER',
+  'TO_DATE',
+  'TRUNC',
+  'ROUND',
+  'MOD',
+  'POWER',
+  'SQRT',
+  'ABS',
+  'LENGTH',
+  'SUBSTR',
+  'SUBSTRING',
+  'TRIM',
+  'LTRIM',
+  'RTRIM',
+  'UPPER',
+  'LOWER',
+  'INITCAP',
+  'INSTR',
+  'LPAD',
+  'RPAD',
+  'CONCAT',
+  'REPLACE',
+  'TRANSLATE',
+  'REGEXP',
+  'REGEXP_LIKE',
+  'LEAD',
+  'LAG',
+  'FIRST_VALUE',
+  'LAST_VALUE',
+  'ROW_NUMBER',
+  'RANK',
+  'DENSE_RANK',
+  'NTILE',
+  'OVER',
+  'PARTITION',
+  'RANGE',
+  'ROWS',
+  'PRECEDING',
+  'FOLLOWING',
+  'UNBOUNDED',
+  'WITH',
+  'RECURSIVE',
+  'CTE',
+  'MATERIALIZED',
+  'GRANT',
+  'REVOKE',
+  'COMMIT',
+  'ROLLBACK',
+  'SAVEPOINT',
+  'LOCK',
+  'TABLE',
+  'SEQUENCE',
+  'SYNONYM',
+  'PACKAGE',
+  'TYPE',
+  'BODY',
+  'OUT',
+  'INOUT',
+  'CURSOR',
+  'BULK',
+  'COLLECT',
+  'FORALL',
+  'EXPLAIN',
+  'PLAN',
+  'ANALYZE',
+  'EXPLAIN PLAN'
 ]
 
 function sqlCompletion(context: CompletionContext) {
@@ -95,8 +249,8 @@ function sqlCompletion(context: CompletionContext) {
     options: sqlKeywords.map((kw) => ({
       label: kw,
       type: 'keyword',
-      detail: 'SQL',
-    })),
+      detail: 'SQL'
+    }))
   }
 }
 
@@ -125,160 +279,170 @@ function getCurrentTheme(): 'light' | 'dark' {
 }
 
 // 浅色主题
-const lightTheme = EditorView.theme({
-  '&': {
-    height: '100%',
-    fontSize: '13px',
-    backgroundColor: 'var(--color-panel, #ffffff)',
-    color: 'var(--color-text, #1e293b)',
-  },
-  '.cm-content': {
-    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-    caretColor: 'var(--color-primary, #3b82f6)',
-    padding: '12px 0',
-  },
-  '.cm-cursor': {
-    borderLeftColor: 'var(--color-primary, #3b82f6)',
-  },
-  '.cm-selectionBackground, ::selection': {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(59, 130, 246, 0.04)',
-  },
-  '.cm-gutters': {
-    backgroundColor: 'var(--color-panel-2, #f8fafc)',
-    color: 'var(--color-text-subtle, #94a3b8)',
-    border: 'none',
-    borderRight: '1px solid var(--color-border, #e2e8f0)',
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    color: 'var(--color-text, #1e293b)',
-  },
-  '.cm-foldGutter': {
-    color: 'var(--color-text-subtle, #94a3b8)',
-  },
-  '.cm-lineNumbers .cm-gutterElement': {
-    padding: '0 12px 0 8px',
-    minWidth: '40px',
-  },
-  '.cm-scroller': {
-    overflow: 'auto',
-    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-  },
-  '.cm-tooltip': {
-    border: '1px solid var(--color-border, #e2e8f0)',
-    borderRadius: '6px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'var(--color-panel, #ffffff)',
-  },
-  '.cm-tooltip-autocomplete': {
-    '& > ul': {
-      fontFamily: "'JetBrains Mono', monospace",
-      fontSize: '12px',
+const lightTheme = EditorView.theme(
+  {
+    '&': {
+      height: '100%',
+      fontSize: '13px',
+      backgroundColor: 'var(--color-panel, #ffffff)',
+      color: 'var(--color-text, #1e293b)'
     },
-    '& > ul > li': {
-      padding: '4px 8px',
+    '.cm-content': {
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+      caretColor: 'var(--color-primary, #3b82f6)',
+      padding: '12px 0'
     },
-    '& > ul > li[aria-selected]': {
-      backgroundColor: 'var(--color-primary, #3b82f6)',
-      color: 'white',
+    '.cm-cursor': {
+      borderLeftColor: 'var(--color-primary, #3b82f6)'
     },
+    '.cm-selectionBackground, ::selection': {
+      backgroundColor: 'rgba(59, 130, 246, 0.2)'
+    },
+    '.cm-activeLine': {
+      backgroundColor: 'rgba(59, 130, 246, 0.04)'
+    },
+    '.cm-gutters': {
+      backgroundColor: 'var(--color-panel-2, #f8fafc)',
+      color: 'var(--color-text-subtle, #94a3b8)',
+      border: 'none',
+      borderRight: '1px solid var(--color-border, #e2e8f0)'
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+      color: 'var(--color-text, #1e293b)'
+    },
+    '.cm-foldGutter': {
+      color: 'var(--color-text-subtle, #94a3b8)'
+    },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 12px 0 8px',
+      minWidth: '40px'
+    },
+    '.cm-scroller': {
+      overflow: 'auto',
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace"
+    },
+    '.cm-tooltip': {
+      border: '1px solid var(--color-border, #e2e8f0)',
+      borderRadius: '6px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      backgroundColor: 'var(--color-panel, #ffffff)'
+    },
+    '.cm-tooltip-autocomplete': {
+      '& > ul': {
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '12px'
+      },
+      '& > ul > li': {
+        padding: '4px 8px'
+      },
+      '& > ul > li[aria-selected]': {
+        backgroundColor: 'var(--color-primary, #3b82f6)',
+        color: 'white'
+      }
+    },
+    '.cm-matchingBracket': {
+      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+      outline: '1px solid rgba(59, 130, 246, 0.4)'
+    },
+    '.cm-searchMatch': {
+      backgroundColor: 'rgba(255, 207, 51, 0.4)'
+    },
+    '.cm-searchMatch.cm-searchMatch-selected': {
+      backgroundColor: 'rgba(255, 207, 51, 0.8)'
+    }
   },
-  '.cm-matchingBracket': {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    outline: '1px solid rgba(59, 130, 246, 0.4)',
-  },
-  '.cm-searchMatch': {
-    backgroundColor: 'rgba(255, 207, 51, 0.4)',
-  },
-  '.cm-searchMatch.cm-searchMatch-selected': {
-    backgroundColor: 'rgba(255, 207, 51, 0.8)',
-  },
-}, { dark: false })
+  { dark: false }
+)
 
 // 深色主题
-const darkTheme = EditorView.theme({
-  '&': {
-    height: '100%',
-    fontSize: '13px',
-    backgroundColor: 'var(--color-panel, #1e1e2e)',
-    color: 'var(--color-text, #cdd6f4)',
-  },
-  '.cm-content': {
-    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-    caretColor: 'var(--color-primary, #89b4fa)',
-    padding: '12px 0',
-  },
-  '.cm-cursor': {
-    borderLeftColor: 'var(--color-primary, #89b4fa)',
-  },
-  '.cm-selectionBackground, ::selection': {
-    backgroundColor: 'rgba(137, 180, 250, 0.25)',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(137, 180, 250, 0.06)',
-  },
-  '.cm-gutters': {
-    backgroundColor: 'var(--color-panel-2, #181825)',
-    color: 'var(--color-text-subtle, #6c7086)',
-    border: 'none',
-    borderRight: '1px solid var(--color-border, #313244)',
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'rgba(137, 180, 250, 0.10)',
-    color: 'var(--color-text, #cdd6f4)',
-  },
-  '.cm-foldGutter': {
-    color: 'var(--color-text-subtle, #6c7086)',
-  },
-  '.cm-lineNumbers .cm-gutterElement': {
-    padding: '0 12px 0 8px',
-    minWidth: '40px',
-  },
-  '.cm-scroller': {
-    overflow: 'auto',
-    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-  },
-  '.cm-tooltip': {
-    border: '1px solid var(--color-border, #313244)',
-    borderRadius: '6px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-    backgroundColor: 'var(--color-panel, #1e1e2e)',
-    color: 'var(--color-text, #cdd6f4)',
-  },
-  '.cm-tooltip-autocomplete': {
-    '& > ul': {
-      fontFamily: "'JetBrains Mono', monospace",
-      fontSize: '12px',
+const darkTheme = EditorView.theme(
+  {
+    '&': {
+      height: '100%',
+      fontSize: '13px',
+      backgroundColor: 'var(--color-panel, #1e1e2e)',
+      color: 'var(--color-text, #cdd6f4)'
     },
-    '& > ul > li': {
-      padding: '4px 8px',
+    '.cm-content': {
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+      caretColor: 'var(--color-primary, #89b4fa)',
+      padding: '12px 0'
     },
-    '& > ul > li[aria-selected]': {
-      backgroundColor: 'var(--color-primary, #89b4fa)',
-      color: '#1e1e2e',
+    '.cm-cursor': {
+      borderLeftColor: 'var(--color-primary, #89b4fa)'
     },
+    '.cm-selectionBackground, ::selection': {
+      backgroundColor: 'rgba(137, 180, 250, 0.25)'
+    },
+    '.cm-activeLine': {
+      backgroundColor: 'rgba(137, 180, 250, 0.06)'
+    },
+    '.cm-gutters': {
+      backgroundColor: 'var(--color-panel-2, #181825)',
+      color: 'var(--color-text-subtle, #6c7086)',
+      border: 'none',
+      borderRight: '1px solid var(--color-border, #313244)'
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'rgba(137, 180, 250, 0.10)',
+      color: 'var(--color-text, #cdd6f4)'
+    },
+    '.cm-foldGutter': {
+      color: 'var(--color-text-subtle, #6c7086)'
+    },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 12px 0 8px',
+      minWidth: '40px'
+    },
+    '.cm-scroller': {
+      overflow: 'auto',
+      fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace"
+    },
+    '.cm-tooltip': {
+      border: '1px solid var(--color-border, #313244)',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+      backgroundColor: 'var(--color-panel, #1e1e2e)',
+      color: 'var(--color-text, #cdd6f4)'
+    },
+    '.cm-tooltip-autocomplete': {
+      '& > ul': {
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '12px'
+      },
+      '& > ul > li': {
+        padding: '4px 8px'
+      },
+      '& > ul > li[aria-selected]': {
+        backgroundColor: 'var(--color-primary, #89b4fa)',
+        color: '#1e1e2e'
+      }
+    },
+    '.cm-matchingBracket': {
+      backgroundColor: 'rgba(137, 180, 250, 0.2)',
+      outline: '1px solid rgba(137, 180, 250, 0.5)'
+    },
+    '.cm-searchMatch': {
+      backgroundColor: 'rgba(249, 226, 175, 0.3)'
+    },
+    '.cm-searchMatch.cm-searchMatch-selected': {
+      backgroundColor: 'rgba(249, 226, 175, 0.6)'
+    }
   },
-  '.cm-matchingBracket': {
-    backgroundColor: 'rgba(137, 180, 250, 0.2)',
-    outline: '1px solid rgba(137, 180, 250, 0.5)',
-  },
-  '.cm-searchMatch': {
-    backgroundColor: 'rgba(249, 226, 175, 0.3)',
-  },
-  '.cm-searchMatch.cm-searchMatch-selected': {
-    backgroundColor: 'rgba(249, 226, 175, 0.6)',
-  },
-}, { dark: true })
+  { dark: true }
+)
 
-// 获取当前主题扩展
-function getThemeExtension() {
-  return currentTheme.value === 'dark' ? darkTheme : lightTheme
+// 动态切换主题（使用 Compartment，无需重建编辑器）
+function switchTheme(newTheme: 'light' | 'dark') {
+  if (!view.value) return
+  currentTheme.value = newTheme
+  view.value.dispatch({
+    effects: themeCompartment.reconfigure(newTheme === 'dark' ? darkTheme : lightTheme)
+  })
 }
 
-// 重建编辑器（保留内容）
+// 重建编辑器（保留内容）- 仅用于语言/只读状态变化
 function rebuildEditor() {
   if (!editorRef.value || !view.value) return
 
@@ -289,15 +453,12 @@ function rebuildEditor() {
 
   const state = EditorState.create({
     doc: content,
-    extensions: [
-      ...baseExtensions(),
-      EditorState.readOnly.of(props.readonly),
-    ],
+    extensions: [...baseExtensions(), EditorState.readOnly.of(props.readonly)]
   })
 
   view.value = new EditorView({
     state,
-    parent: editorRef.value,
+    parent: editorRef.value
   })
 
   // 恢复滚动位置
@@ -328,7 +489,7 @@ function baseExtensions(): Extension[] {
     highlightSelectionMatches(),
     autocompletion({
       override: [sqlCompletion],
-      activateOnTyping: true,
+      activateOnTyping: true
     }),
     scrollPastEnd(),
     keymap.of([
@@ -345,23 +506,23 @@ function baseExtensions(): Extension[] {
         run: () => {
           emit('submit')
           return true
-        },
+        }
       },
       {
         key: 'Mod-Enter',
         run: () => {
           emit('submit')
           return true
-        },
-      },
+        }
+      }
     ]),
     sql({ dialect: getDialect() }),
-    getThemeExtension(),
+    themeCompartment.of(currentTheme.value === 'dark' ? darkTheme : lightTheme),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         emit('update:modelValue', update.state.doc.toString())
       }
-    }),
+    })
   ]
 }
 
@@ -374,15 +535,12 @@ onMounted(() => {
 
   const state = EditorState.create({
     doc: props.modelValue,
-    extensions: [
-      ...baseExtensions(),
-      EditorState.readOnly.of(props.readonly),
-    ],
+    extensions: [...baseExtensions(), EditorState.readOnly.of(props.readonly)]
   })
 
   view.value = new EditorView({
     state,
-    parent: editorRef.value,
+    parent: editorRef.value
   })
 
   // 监听主题变化
@@ -391,8 +549,7 @@ onMounted(() => {
       if (mutation.attributeName === 'data-theme') {
         const newTheme = getCurrentTheme()
         if (newTheme !== currentTheme.value) {
-          currentTheme.value = newTheme
-          rebuildEditor()
+          switchTheme(newTheme)
         }
       }
     }
@@ -400,7 +557,7 @@ onMounted(() => {
 
   themeObserver.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-theme'],
+    attributeFilter: ['data-theme']
   })
 
   // 也监听 class 变化（兼容 dark class）
@@ -409,15 +566,14 @@ onMounted(() => {
       if (mutation.attributeName === 'class') {
         const newTheme = getCurrentTheme()
         if (newTheme !== currentTheme.value) {
-          currentTheme.value = newTheme
-          rebuildEditor()
+          switchTheme(newTheme)
         }
       }
     }
   })
   classObserver.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['class'],
+    attributeFilter: ['class']
   })
 })
 
@@ -426,6 +582,7 @@ onUnmounted(() => {
   view.value?.destroy()
   view.value = null
   themeObserver?.disconnect()
+  classObserver?.disconnect()
 })
 
 // 外部值变化时更新编辑器
@@ -436,7 +593,7 @@ watch(
     const current = view.value.state.doc.toString()
     if (newVal !== current) {
       view.value.dispatch({
-        changes: { from: 0, to: view.value.state.doc.length, insert: newVal },
+        changes: { from: 0, to: view.value.state.doc.length, insert: newVal }
       })
     }
   }
@@ -470,7 +627,7 @@ function getContent(): string {
 function setContent(content: string) {
   if (!view.value) return
   view.value.dispatch({
-    changes: { from: 0, to: view.value.state.doc.length, insert: content },
+    changes: { from: 0, to: view.value.state.doc.length, insert: content }
   })
 }
 
@@ -482,7 +639,7 @@ defineExpose({
   focus,
   getContent,
   setContent,
-  getLineCount,
+  getLineCount
 })
 </script>
 

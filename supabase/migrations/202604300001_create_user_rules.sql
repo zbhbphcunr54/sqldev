@@ -12,20 +12,23 @@ $$ language plpgsql;
 create table if not exists public.user_rules (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references auth.users(id) on delete cascade,
+  source_db   text not null check (source_db in ('oracle', 'mysql', 'pg')),
+  target_db   text not null check (target_db in ('oracle', 'mysql', 'pg')),
   kind        text not null check (kind in ('ddl', 'body')),
   rules_json  jsonb not null default '{}',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
--- user_id + kind 唯一约束：同一用户每种规则只有一条，系统规则（NULL）可多条
--- PostgreSQL 中 NULL 不参与唯一约束，所以 unique(user_id, kind) 自然允许多个 NULL user_id
-create unique index idx_user_rules_user_kind
-  on public.user_rules (user_id, kind)
+-- user_id + source_db + target_db + kind 唯一约束：同一用户每种规则每种转换方向只有一条
+create unique index idx_user_rules_user_db_kind
+  on public.user_rules (user_id, source_db, target_db, kind)
   where user_id is not null;
 
 comment on table public.user_rules is 'SQL 转换规则，系统默认规则 user_id 为 NULL，用户自定义规则绑定 user_id';
 comment on column public.user_rules.user_id is '所属用户 ID，NULL 表示系统默认规则（所有用户可读）';
+comment on column public.user_rules.source_db is '源数据库类型：oracle/mysql/pg';
+comment on column public.user_rules.target_db is '目标数据库类型：oracle/mysql/pg';
 comment on column public.user_rules.kind is '规则类型';
 comment on column public.user_rules.rules_json is '规则 JSON 数组，每项含 source/target（DDL）或 s/t（Body）';
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppHeader from '@/components/layout/AppHeader.vue'
+import FloatingChat from '@/components/business/ai/FloatingChat.vue'
 </script>
 
 <template>
@@ -12,5 +13,6 @@ import AppHeader from '@/components/layout/AppHeader.vue'
         </Transition>
       </RouterView>
     </main>
+    <FloatingChat />
   </div>
 </template>

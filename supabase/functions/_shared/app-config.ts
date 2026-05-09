@@ -131,8 +131,20 @@ export async function getAppConfig<T = string>(
 }
 
 /**
- * 批量获取同分类配置
+ * 批量获取多个配置（返回 Map，键为 key）
+ * 优先级：数据库 > 环境变量 > 默认值
  */
+export async function getAppConfigs(
+  configs: Array<{ category: string; key: string; options?: GetConfigOptions }>
+): Promise<Map<string, unknown>> {
+  const result = new Map<string, unknown>()
+  const promises = configs.map(async ({ category, key, options }) => {
+    const resolved = await getAppConfig(category, key, options)
+    result.set(key, resolved.value)
+  })
+  await Promise.all(promises)
+  return result
+}
 export async function getAppConfigsByCategory(
   category: string
 ): Promise<Map<string, unknown>> {

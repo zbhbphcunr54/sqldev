@@ -7,8 +7,6 @@ const SENSITIVE_KEYS = new Set([
   'token', 'access_token', 'password', 'authorization', 'api_key', 'secret', 'apikey'
 ])
 
-const MAX_RESPONSE_CHARS = 2000
-
 export interface OperationLogEntry {
   userId?: string
   userEmail?: string
@@ -34,17 +32,6 @@ function removeSensitiveFields(body: unknown): unknown {
   return cleaned
 }
 
-function truncateResponse(body: unknown): unknown {
-  if (body === null || body === undefined) return null
-  const str = JSON.stringify(body)
-  if (str.length <= MAX_RESPONSE_CHARS) return body
-  try {
-    return JSON.parse(str.slice(0, MAX_RESPONSE_CHARS))
-  } catch {
-    return str.slice(0, MAX_RESPONSE_CHARS)
-  }
-}
-
 function sanitizeLogEntry(entry: OperationLogEntry) {
   return {
     user_id: entry.userId || null,
@@ -53,7 +40,7 @@ function sanitizeLogEntry(entry: OperationLogEntry) {
     operation: entry.operation,
     api_name: entry.apiName,
     request_body: removeSensitiveFields(entry.requestBody),
-    response_body: truncateResponse(entry.responseBody),
+    response_body: entry.responseBody ?? null,
     response_status: entry.responseStatus,
     duration_ms: entry.durationMs,
     error_message: entry.errorMessage || null,

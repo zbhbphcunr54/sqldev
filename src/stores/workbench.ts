@@ -4,11 +4,30 @@ import { defineStore } from 'pinia'
 import { requestConvert } from '@/api/convert'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
-export type WorkbenchPage = 'ddl' | 'func' | 'proc' | 'idTool' | 'ziweiTool' | 'rules' | 'aiConfig' | 'appConfig' | 'opLogs'
+export type WorkbenchPage =
+  | 'ddl'
+  | 'func'
+  | 'proc'
+  | 'idTool'
+  | 'ziweiTool'
+  | 'rules'
+  | 'aiConfig'
+  | 'appConfig'
+  | 'opLogs'
 export type Database = 'oracle' | 'mysql' | 'postgresql'
 export type TranslateStatus = 'idle' | 'loading' | 'success' | 'error'
 
-const NAV_PAGES: WorkbenchPage[] = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'aiConfig', 'appConfig', 'opLogs']
+const NAV_PAGES: WorkbenchPage[] = [
+  'ddl',
+  'func',
+  'proc',
+  'idTool',
+  'ziweiTool',
+  'rules',
+  'aiConfig',
+  'appConfig',
+  'opLogs'
+]
 
 const DB_OPTIONS: { value: Database; label: string; abbr: string }[] = [
   { value: 'oracle', label: 'Oracle', abbr: 'ORA' },
@@ -20,6 +39,14 @@ const DB_ABBR: Record<Database, string> = {
   oracle: 'ORA',
   mysql: 'MY',
   postgresql: 'PG'
+}
+
+// Helper: create a DB label computed property
+function createDbLabelComputed(sourceRef: () => Database, targetRef: () => Database) {
+  return {
+    source: computed(() => DB_OPTIONS.find((d) => d.value === sourceRef())?.label ?? ''),
+    target: computed(() => DB_OPTIONS.find((d) => d.value === targetRef())?.label ?? '')
+  }
 }
 
 const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = {
@@ -76,26 +103,42 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   // === Modal State ===
   const alertModal = ref({ visible: false, title: '', message: '' })
-  const confirmModal = ref({ visible: false, title: '', message: '', _resolve: null as ((value: boolean) => void) | null })
+  const confirmModal = ref({
+    visible: false,
+    title: '',
+    message: '',
+    _resolve: null as ((value: boolean) => void) | null
+  })
 
   // === Computed ===
   const isWorkbenchPage = computed(() => NAV_PAGES.includes(activePage.value))
 
-  const primaryShortcutLabel = computed(() => isMacPlatform.value ? '⌘+Enter' : 'Ctrl+Enter')
+  const primaryShortcutLabel = computed(() => (isMacPlatform.value ? '⌘+Enter' : 'Ctrl+Enter'))
 
   const currentPageTitle = computed(() => PAGE_TITLES[activePage.value]?.title ?? '')
   const currentPageSubtitle = computed(() => PAGE_TITLES[activePage.value]?.subtitle ?? '')
 
-  const sourceLabel = computed(() => DB_OPTIONS.find(d => d.value === sourceDb.value)?.label ?? '')
-  const targetLabel = computed(() => DB_OPTIONS.find(d => d.value === targetDb.value)?.label ?? '')
+  // === DB Label Computeds (using helper) ===
+  const ddlLabels = createDbLabelComputed(
+    () => sourceDb.value,
+    () => targetDb.value
+  )
+  const funcLabels = createDbLabelComputed(
+    () => funcSourceDb.value,
+    () => funcTargetDb.value
+  )
+  const procLabels = createDbLabelComputed(
+    () => procSourceDb.value,
+    () => procTargetDb.value
+  )
+  const sourceLabel = ddlLabels.source
+  const targetLabel = ddlLabels.target
+  const funcSourceLabel = funcLabels.source
+  const funcTargetLabel = funcLabels.target
+  const procSourceLabel = procLabels.source
+  const procTargetLabel = procLabels.target
   const sourceAbbr = computed(() => DB_ABBR[sourceDb.value] ?? '')
   const targetAbbr = computed(() => DB_ABBR[targetDb.value] ?? '')
-
-  const funcSourceLabel = computed(() => DB_OPTIONS.find(d => d.value === funcSourceDb.value)?.label ?? '')
-  const funcTargetLabel = computed(() => DB_OPTIONS.find(d => d.value === funcTargetDb.value)?.label ?? '')
-
-  const procSourceLabel = computed(() => DB_OPTIONS.find(d => d.value === procSourceDb.value)?.label ?? '')
-  const procTargetLabel = computed(() => DB_OPTIONS.find(d => d.value === procTargetDb.value)?.label ?? '')
 
   const inputLineCount = computed(() => {
     const text = inputDdl.value || ''
@@ -224,7 +267,16 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
   }
 
-  function pickDb(field: 'sourceDb' | 'targetDb' | 'funcSourceDb' | 'funcTargetDb' | 'procSourceDb' | 'procTargetDb', value: Database): void {
+  function pickDb(
+    field:
+      | 'sourceDb'
+      | 'targetDb'
+      | 'funcSourceDb'
+      | 'funcTargetDb'
+      | 'procSourceDb'
+      | 'procTargetDb',
+    value: Database
+  ): void {
     if (field === 'sourceDb') sourceDb.value = value
     else if (field === 'targetDb') targetDb.value = value
     else if (field === 'funcSourceDb') funcSourceDb.value = value
@@ -235,21 +287,22 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   }
 
   function swapDbs(): void {
-    const temp = sourceDb.value
-    sourceDb.value = targetDb.value
-    targetDb.value = temp
+    swapRefs(sourceDb, targetDb)
   }
 
   function swapFuncDbs(): void {
-    const temp = funcSourceDb.value
-    funcSourceDb.value = funcTargetDb.value
-    funcTargetDb.value = temp
+    swapRefs(funcSourceDb, funcTargetDb)
   }
 
   function swapProcDbs(): void {
-    const temp = procSourceDb.value
-    procSourceDb.value = procTargetDb.value
-    procTargetDb.value = temp
+    swapRefs(procSourceDb, procTargetDb)
+  }
+
+  // Generic swap helper for two refs
+  function swapRefs<T>(ref1: { value: T }, ref2: { value: T }): void {
+    const temp = ref1.value
+    ref1.value = ref2.value
+    ref2.value = temp
   }
 
   function showAlert(title: string, message: string): void {

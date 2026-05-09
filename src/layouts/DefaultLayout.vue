@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import FeedbackWidget from '@/components/business/feedback/FeedbackWidget.vue'
-
-const route = useRoute()
+import FloatingChat from '@/components/business/ai/FloatingChat.vue'
 
 const feedbackSource = computed<'splash'>(() => 'splash')
 </script>
@@ -20,6 +18,7 @@ const feedbackSource = computed<'splash'>(() => 'splash')
       </RouterView>
     </main>
     <FeedbackWidget :source="feedbackSource" />
+    <FloatingChat />
   </div>
 </template>
 
@@ -27,7 +26,7 @@ const feedbackSource = computed<'splash'>(() => 'splash')
 .layout-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
   background: var(--color-bg);
 }
 
@@ -35,5 +34,6 @@ const feedbackSource = computed<'splash'>(() => 'splash')
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 </style>

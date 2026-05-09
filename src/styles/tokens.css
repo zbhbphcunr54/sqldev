@@ -1,131 +1,341 @@
-/* [2026-05-05] 设计令牌 - 完全匹配 UI 预览 */
+/* ============================================
+   Apple Design Tokens - v2.0
+   Inspired by Apple Human Interface Guidelines
+   ============================================ */
 
 /* === Light Theme (Default) === */
 :root {
-  /* Fonts */
-  --font-body: 'Inter', 'Noto Sans SC', 'PingFang SC', 'SF Pro Text', system-ui, sans-serif;
-  --font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Consolas', monospace;
+  /* Typography - Apple SF Pro */
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  --font-code: 'SF Mono', 'Fira Code', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
-  /* Background */
-  --color-bg: #f6f8fc;
+  /* Apple Color System - Light */
+  --color-bg: #ffffff;
   --color-panel: #ffffff;
-  --color-panel-2: #f3f6fb;
-  --color-panel-3: #edf1f8;
+  --color-panel-2: #f5f5f7;
+  --color-panel-3: #eaeaec;
 
-  /* Text */
-  --color-text: #0f172a;
-  --color-text-subtle: #475569;
-  --color-text-muted: #94a3b8;
+  /* Text - Grayscale */
+  --color-text: #1d1d1f;
+  --color-text-subtle: #6e6e73;
+  --color-text-muted: #aeaeb2;
 
-  /* Brand */
-  --color-brand-50: #e0ecff;
-  --color-brand-100: #c8dcff;
-  --color-brand-500: #2f6bff;
-  --color-brand-600: #2155d8;
-  --gradient-brand-primary: linear-gradient(135deg, #2563eb, #7c3aed);
-  --shadow-brand-primary: 0 4px 16px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --shadow-brand-primary-hover: 0 6px 24px rgba(37, 99, 235, 0.3);
-  --gradient-brand-blue: linear-gradient(135deg, #3b82f6, #6366f1);
-  --gradient-brand-purple: linear-gradient(135deg, #8b5cf6, #a855f7);
-  --gradient-ai-badge: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --shadow-brand-blue: 0 4px 12px rgba(59, 130, 246, 0.25);
-  --shadow-brand-purple: 0 4px 12px rgba(139, 92, 246, 0.25);
-  --color-brand-soft-bg: rgba(37, 99, 235, 0.06);
-  --color-brand-soft-border: rgba(37, 99, 235, 0.12);
-  --shadow-focus-ring: 0 0 0 3px rgba(47, 107, 255, 0.1);
+  /* Apple Blue - Primary Brand */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #0071e3;
+  --color-brand-700: #0056b3;
+  --color-brand-800: #004494;
 
-  /* Status */
-  --color-success: #15915f;
-  --color-success-bg: rgba(21, 145, 95, 0.1);
-  --color-warning: #b7791f;
-  --color-warning-bg: rgba(183, 121, 31, 0.1);
-  --color-danger: #d64545;
-  --color-danger-bg: rgba(214, 69, 69, 0.1);
+  /* Semantic Brand Variables */
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: #007aff;
+  --color-accent-bg: rgba(0, 113, 227, 0.08);
+  --color-accent-border: rgba(0, 113, 227, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500));
+  --shadow-brand: 0 4px 16px rgba(0, 113, 227, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(0, 113, 227, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(0, 113, 227, 0.15);
 
-  /* Purple */
-  --color-purple: #8b5cf6;
-  --color-purple-bg: rgba(139, 92, 246, 0.1);
+  /* Apple Status Colors */
+  --color-success: #34c759;
+  --color-success-bg: rgba(52, 199, 89, 0.12);
+  --color-success-text: #28a745;
+
+  --color-warning: #ff9500;
+  --color-warning-bg: rgba(255, 149, 0, 0.12);
+
+  --color-danger: #ff3b30;
+  --color-danger-hover: #e0352b;
+  --color-danger-bg: rgba(255, 59, 48, 0.12);
+  --color-danger-text: #dc3545;
+
+  --color-purple: #af52de;
+  --color-purple-bg: rgba(175, 82, 222, 0.12);
 
   /* Border */
-  --color-border: #dce4f2;
-  --color-border-hover: #cbd5e1;
-  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-border: #d2d2d7;
+  --color-border-hover: #b0b0b5;
+  --color-overlay: rgba(0, 0, 0, 0.4);
   --scrollbar-track: transparent;
-  --scrollbar-thumb: var(--color-border);
-  --scrollbar-thumb-hover: var(--color-border-hover);
+  --scrollbar-thumb: #c7c7cc;
+  --scrollbar-thumb-hover: #aeaeb2;
   --scrollbar-size: 6px;
-  --scrollbar-radius: 9px;
+  --scrollbar-radius: 3px;
 
-  /* Radius */
-  --radius-card: 14px;
-  --radius-control: 10px;
+  /* Apple Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 9999px;
 
-  /* Shadow */
-  --shadow-soft: 0 8px 30px rgba(15, 23, 42, 0.08);
-  --shadow-panel: 0 4px 18px rgba(15, 23, 42, 0.08);
-  --shadow-modal: 0 14px 40px rgba(15, 23, 42, 0.15);
-  --gradient-sidebar-overlay: linear-gradient(180deg, rgba(47, 107, 255, 0.04), transparent 70%);
+  /* Apple Shadows - Subtle */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
 
-  /* Database colors */
-  --oracle: #c74634;
-  --mysql: #00758f;
-  --pg: #336791;
-  --db-oracle: #f44336;
-  --db-mysql: #00758f;
-  --db-pg: #336791;
-  --gradient-db-oracle: linear-gradient(135deg, #c74634, #9a2a1a);
-  --gradient-db-mysql: linear-gradient(135deg, #00758f, #004d5e);
-  --gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);
-  --gradient-logo: linear-gradient(135deg, #4f7df9, #8b5cf6);
+  /* Card */
+  --radius-card: var(--radius-lg);
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-md);
+
+  /* Button */
+  --radius-button: var(--radius-pill);
+  --shadow-button: var(--shadow-xs);
+  --shadow-button-hover: var(--shadow-sm);
+
+  /* Modal */
+  --color-modal-bg: var(--color-panel);
+  --color-modal-border: var(--color-border);
+  --color-modal-section-border: var(--color-page-border-subtle);
+  --color-btn-primary-text: #ffffff;
+  --radius-modal: var(--radius-xl);
 
   /* Layout */
   --header-height: 56px;
   --sidebar-width: 220px;
-  --sidebar-collapsed: 60px;
+  --sidebar-collapsed: 64px;
+
+  /* Apple Blue Database Colors */
+  --oracle: #ea6a2d;
+  --mysql: #00758f;
+  --pg: #336791;
+  --db-oracle: #ea6a2d;
+  --db-mysql: #00758f;
+  --db-pg: #336791;
+  --gradient-db-oracle: linear-gradient(135deg, #ea6a2d, #d45a20);
+  --gradient-db-mysql: linear-gradient(135deg, #00758f, #00566f);
+  --gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);
+
+  /* Apple Typography Scale */
+  --text-xs: 0.6875rem;    /* 11px */
+  --text-sm: 0.75rem;      /* 12px */
+  --text-base: 0.875rem;   /* 14px */
+  --text-lg: 1rem;         /* 16px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 2rem;        /* 32px */
+  --text-4xl: 2.5rem;      /* 40px */
+
+  /* Letter Spacing - Apple Style */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.03em;
+
+  /* Apple Easing Curves */
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Transitions */
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+
+  /* Page Theme Aliases - Light Mode */
+  --color-page-bg: var(--color-bg);
+  --color-page-panel: var(--color-panel);
+  --color-page-card: var(--color-panel-2);
+  --color-page-input: var(--color-panel-3);
+  --color-page-elevated: var(--color-panel-3);
+  --color-page-border-subtle: rgba(0, 0, 0, 0.06);
+
+  --color-page-text: var(--color-text);
+  --color-page-text-subtle: var(--color-text-subtle);
+  --color-page-text-muted: var(--color-text-muted);
+
+  --color-page-brand: var(--color-brand-500);
+  --color-page-brand-hover: var(--color-brand-600);
+  --color-page-brand-bg: var(--color-accent-bg);
+  --color-page-brand-border: var(--color-accent-border);
+
+  --color-page-success: var(--color-success);
+  --color-page-success-bg: var(--color-success-bg);
+  --color-page-danger: var(--color-danger);
+  --color-page-danger-bg: var(--color-danger-bg);
+  --color-page-gray: var(--color-text-subtle);
+  --color-page-gray-bg: rgba(110, 110, 115, 0.12);
+  --color-page-border: var(--color-border);
+  --color-page-border-light: rgba(0, 0, 0, 0.06);
+  --color-page-border-hover: rgba(0, 0, 0, 0.12);
+  --color-page-border-focus: rgba(0, 113, 227, 0.3);
+
+  --color-page-link: var(--color-brand-500);
+  --color-page-success-alt: #34c759;
+  --color-page-warning-alt: #ff9500;
 }
 
 /* === Dark Theme === */
+:root,
 [data-theme="dark"] {
-  --color-bg: #0b1020;
-  --color-panel: #111830;
-  --color-panel-2: #15203f;
-  --color-panel-3: #1a2750;
-  --color-text: #e4ecff;
-  --color-text-subtle: #9fb0d9;
-  --color-text-muted: #5a6a8a;
-  --color-brand-50: #1a2a57;
-  --color-brand-100: #1f3570;
-  --color-brand-500: #7aa2ff;
-  --color-brand-600: #8bb0ff;
-  --gradient-brand-primary: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  --shadow-brand-primary: 0 4px 16px rgba(59, 130, 246, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --shadow-brand-primary-hover: 0 8px 26px rgba(59, 130, 246, 0.38);
-  --gradient-brand-blue: linear-gradient(135deg, #60a5fa, #818cf8);
-  --gradient-brand-purple: linear-gradient(135deg, #a78bfa, #c084fc);
-  --gradient-ai-badge: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
-  --shadow-brand-blue: 0 4px 12px rgba(96, 165, 250, 0.35);
-  --shadow-brand-purple: 0 4px 12px rgba(167, 139, 250, 0.35);
-  --color-brand-soft-bg: rgba(122, 162, 255, 0.12);
-  --color-brand-soft-border: rgba(122, 162, 255, 0.22);
-  --shadow-focus-ring: 0 0 0 3px rgba(122, 162, 255, 0.22);
-  --color-success: #31c187;
-  --color-success-bg: rgba(49, 193, 135, 0.1);
-  --color-warning: #f0b55b;
-  --color-warning-bg: rgba(240, 181, 91, 0.1);
-  --color-danger: #ff7c7c;
-  --color-danger-bg: rgba(255, 124, 124, 0.1);
-  --color-purple: #a78bfa;
-  --color-purple-bg: rgba(167, 139, 250, 0.1);
-  --color-border: #243155;
-  --color-border-hover: #2e3d6a;
-  --color-overlay: rgba(2, 6, 23, 0.58);
-  --scrollbar-track: rgba(15, 22, 40, 0.35);
-  --scrollbar-thumb: rgba(137, 180, 250, 0.3);
-  --scrollbar-thumb-hover: rgba(137, 180, 250, 0.5);
+  /* Pure Black Background - Apple Dark Mode */
+  --color-bg: #000000;
+  --color-panel: #1c1c1e;
+  --color-panel-2: #2c2c2e;
+  --color-panel-3: #3a3a3c;
+
+  /* Text - Inverted */
+  --color-text: #f5f5f7;
+  --color-text-subtle: #a1a1a6;
+  --color-text-muted: #636366;
+
+  /* Apple Blue Dark */
+  --color-brand-50: #0a1929;
+  --color-brand-100: #0d2137;
+  --color-brand-200: #143352;
+  --color-brand-300: #1a4a70;
+  --color-brand-400: #1e5f8a;
+  --color-brand-500: #0a84ff;
+  --color-brand-600: #0a84ff;
+  --color-brand-700: #409cff;
+  --color-brand-800: #70b8ff;
+
+  /* Semantic Brand - Dark */
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: #409cff;
+  --color-accent-bg: rgba(10, 132, 255, 0.15);
+  --color-accent-border: rgba(10, 132, 255, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, var(--color-brand-500), var(--color-brand-400));
+  --shadow-brand: 0 4px 16px rgba(10, 132, 255, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(10, 132, 255, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.25);
+
+  /* Status Colors - Dark */
+  --color-success: #30d158;
+  --color-success-bg: rgba(48, 209, 88, 0.15);
+  --color-success-text: #30d158;
+
+  --color-warning: #ffd60a;
+  --color-warning-bg: rgba(255, 214, 10, 0.15);
+
+  --color-danger: #ff453a;
+  --color-danger-hover: #e03e34;
+  --color-danger-bg: rgba(255, 69, 58, 0.15);
+  --color-danger-text: #ff453a;
+
+  --color-purple: #bf5af2;
+  --color-purple-bg: rgba(191, 90, 242, 0.15);
+
+  /* Border - Dark */
+  --color-border: rgba(120, 120, 128, 0.4);
+  --color-border-hover: rgba(148, 148, 156, 0.6);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(120, 120, 128, 0.4);
+  --scrollbar-thumb-hover: rgba(120, 120, 128, 0.6);
   --scrollbar-size: 8px;
   --scrollbar-radius: 4px;
-  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.3);
-  --shadow-panel: 0 4px 18px rgba(0, 0, 0, 0.25);
-  --shadow-modal: 0 14px 40px rgba(0, 0, 0, 0.4);
-  --gradient-sidebar-overlay: linear-gradient(180deg, rgba(122, 162, 255, 0.1), transparent 70%);
+
+  /* Shadows - Dark Mode (subtler) */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  /* Modal - Dark */
+  --color-modal-bg: var(--color-panel);
+  --color-modal-border: var(--color-border);
+  --color-modal-section-border: var(--color-page-border-subtle);
+  --color-btn-primary-text: #ffffff;
+  --radius-modal: var(--radius-xl);
+
+  /* Card Shadow - Dark */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+
+  /* Database Colors - Dark */
+  --oracle: #ff6b35;
+  --mysql: #00d4ff;
+  --pg: #5a9fd4;
+  --db-oracle: #ff6b35;
+  --db-mysql: #00d4ff;
+  --db-pg: #5a9fd4;
+  --gradient-db-oracle: linear-gradient(135deg, #ff6b35, #ff4500);
+  --gradient-db-mysql: linear-gradient(135deg, #00d4ff, #00b4d8);
+  --gradient-db-postgresql: linear-gradient(135deg, #5a9fd4, #4a8fc4);
+
+  /* Page Theme Aliases (for specialized dark pages like DdlPage) */
+  --color-page-bg: var(--color-bg);
+  --color-page-panel: var(--color-panel);
+  --color-page-card: var(--color-panel-2);
+  --color-page-input: var(--color-panel-3);
+  --color-page-elevated: var(--color-panel-3);
+  --color-page-border-subtle: rgba(255, 255, 255, 0.1);
+
+  --color-page-text: var(--color-text);
+  --color-page-text-subtle: var(--color-text-subtle);
+  --color-page-text-muted: var(--color-text-muted);
+
+  --color-page-brand: var(--color-brand-500);
+  --color-page-brand-hover: var(--color-brand-600);
+  --color-page-brand-bg: var(--color-accent-bg);
+  --color-page-brand-border: var(--color-accent-border);
+
+  --color-page-success: var(--color-success);
+  --color-page-success-bg: var(--color-success-bg);
+  --color-page-danger: var(--color-danger);
+  --color-page-danger-bg: var(--color-danger-bg);
+  --color-page-gray: var(--color-text-subtle);
+  --color-page-gray-bg: rgba(161, 161, 166, 0.12);
+  --color-page-border: var(--color-border);
+  --color-page-border-light: rgba(255, 255, 255, 0.12);
+  --color-page-border-hover: rgba(255, 255, 255, 0.2);
+  --color-page-border-focus: rgba(10, 132, 255, 0.5);
+
+  --color-page-link: var(--color-brand-500);
+  --color-page-success-alt: #34c759;
+  --color-page-warning-alt: #ffd60a;
+}
+
+/* ============================================
+   Utility Classes - Apple Style
+   ============================================ */
+
+/* Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+[data-theme="dark"] .glass {
+  background: rgba(29, 29, 31, 0.72);
+}
+
+/* Apple Typography */
+.font-headline {
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+.font-title {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.font-body {
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+}
+
+.font-caption {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-subtle);
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
 }
