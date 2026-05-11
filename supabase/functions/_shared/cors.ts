@@ -25,10 +25,12 @@ let configInitialized = false
 async function loadCorsFromDb(): Promise<Partial<CorsConfig>> {
   try {
     console.log('[CORS] Loading from database...')
-    const [primaryOrigin, allowedOrigins, allowLocalhost] = await Promise.all([
+    const [primaryOrigin, allowedOrigins, allowLocalhost, allowHeaders, allowMethods] = await Promise.all([
       getAppConfig('cors', 'primary_origin', { envVar: 'CORS_PRIMARY_ORIGIN' }),
       getAppConfig('cors', 'allowed_origins', { envVar: 'CORS_ALLOWED_ORIGINS' }),
-      getAppConfig<boolean>('cors', 'allow_localhost', { envVar: 'ALLOW_LOCALHOST_ORIGIN', parse: (v) => v === 'true' })
+      getAppConfig<boolean>('cors', 'allow_localhost', { envVar: 'ALLOW_LOCALHOST_ORIGIN', parse: (v) => v === 'true' }),
+      getAppConfig('cors', 'allow_headers', { envVar: 'CORS_ALLOW_HEADERS' }),
+      getAppConfig('cors', 'allow_methods', { envVar: 'CORS_ALLOW_METHODS' })
     ])
 
     console.log('[CORS] primaryOrigin:', primaryOrigin, 'source:', primaryOrigin.source)
@@ -40,7 +42,9 @@ async function loadCorsFromDb(): Promise<Partial<CorsConfig>> {
       allowedOrigins: allowedOrigins.value
         ? allowedOrigins.value.split(',').map(s => s.trim()).filter(Boolean)
         : [],
-      allowLocalhost: allowLocalhost.value
+      allowLocalhost: allowLocalhost.value,
+      allowHeaders: allowHeaders.value || undefined,
+      allowMethods: allowMethods.value || undefined
     }
   } catch (e) {
     console.error('[CORS] loadCorsFromDb failed:', e)
@@ -57,8 +61,8 @@ export async function initCorsConfig(): Promise<void> {
     primaryOrigin: dbConfig.primaryOrigin || '',
     allowedOrigins: dbConfig.allowedOrigins || [],
     allowLocalhost: dbConfig.allowLocalhost ?? true,
-    allowHeaders: 'authorization, x-client-info, apikey, content-type',
-    allowMethods: 'POST, OPTIONS'
+    allowHeaders: dbConfig.allowHeaders || 'authorization, x-client-info, apikey, content-type',
+    allowMethods: dbConfig.allowMethods || 'GET, POST, PATCH, DELETE, OPTIONS'
   }
 
   configInitialized = true
@@ -69,7 +73,7 @@ export function createCorsHelpers(options: CorsOptions) {
   const allowedOriginsEnvKey = options.allowedOriginsEnvKey || 'CORS_ALLOWED_ORIGINS'
   const allowLocalhostEnvKey = options.allowLocalhostEnvKey || 'ALLOW_LOCALHOST_ORIGIN'
   const allowHeaders = options.allowHeaders || 'authorization, x-client-info, apikey, content-type'
-  const allowMethods = options.allowMethods || 'POST, OPTIONS'
+  const allowMethods = options.allowMethods || 'GET, POST, PATCH, DELETE, OPTIONS'
 
   // 优先使用 runtimeConfig（从 DB 加载），env vars 作为回退
   const _primaryOrigin = configInitialized && runtimeConfig

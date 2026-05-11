@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { aiConfigApi } from '@/api/ai-config'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
+import { getJson, setJson, removeJson } from '@/utils/storage'
 
 const CACHE_KEY = 'ai_config_cache'
 const CACHE_TTL = 30 * 60 * 1000 // 30 分钟缓存，AI 配置不常变
@@ -14,33 +15,21 @@ interface CacheData {
 }
 
 function getCache(): CacheData | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const data: CacheData = JSON.parse(raw)
-    if (Date.now() - data.timestamp > CACHE_TTL) {
-      localStorage.removeItem(CACHE_KEY)
-      return null
-    }
-    return data
-  } catch {
+  const data = getJson<CacheData | null>(CACHE_KEY, null)
+  if (!data) return null
+  if (Date.now() - data.timestamp > CACHE_TTL) {
+    removeJson(CACHE_KEY)
     return null
   }
+  return data
 }
 
 function setCache(providers: AiProviderDef[], configs: AiProviderConfig[]): void {
-  try {
-    localStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify({ providers, configs, timestamp: Date.now() })
-    )
-  } catch {
-    // 忽略存储错误
-  }
+  setJson(CACHE_KEY, { providers, configs, timestamp: Date.now() })
 }
 
 function clearCache(): void {
-  localStorage.removeItem(CACHE_KEY)
+  removeJson(CACHE_KEY)
 }
 
 export const useAiStore = defineStore('ai', () => {
@@ -68,8 +57,8 @@ export const useAiStore = defineStore('ai', () => {
       providers.value = provs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
       configs.value = cfgs
       setCache(providers.value, cfgs)
-    } catch {
-      // 预加载失败不影响后续流程
+    } catch (err) {
+      console.error('[AiStore] Preload failed:', err)
     }
   }
 
@@ -126,8 +115,8 @@ export const useAiStore = defineStore('ai', () => {
     try {
       await aiConfigApi.activate(id)
       clearCache()
-    } catch {
-      // 失败时回滚
+    } catch (err) {
+      console.error('[AiStore] Activate config failed:', err)
       configs.value = oldConfigs
       throw new Error('激活失败')
     }
@@ -142,8 +131,8 @@ export const useAiStore = defineStore('ai', () => {
     try {
       await aiConfigApi.deactivate(id)
       clearCache()
-    } catch {
-      // 失败时回滚
+    } catch (err) {
+      console.error('[AiStore] Deactivate config failed:', err)
       configs.value = oldConfigs
       throw new Error('取消激活失败')
     }

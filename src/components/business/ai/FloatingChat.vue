@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch, onUnmounted } from 'vue'
 import { useChat } from '@/composables/useChat'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const {
   open,
@@ -13,6 +16,7 @@ const {
   quota,
   provider,
   model,
+  maxMessageLength,
   hasMessages,
   canSend,
   toggleOpen,
@@ -49,32 +53,37 @@ function providerLabel(): string {
   return ''
 }
 
+function onEscKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && open.value) {
+    close()
+  }
+}
+
 watch(open, (isOpen) => {
   if (isOpen) {
-    document.body.classList.add('chat-open')
+    document.addEventListener('keydown', onEscKeydown)
     nextTick(() => {
       inputEl.value?.focus()
     })
   } else {
-    document.body.classList.remove('chat-open')
+    document.removeEventListener('keydown', onEscKeydown)
     showHistory.value = false
   }
 })
 
 onUnmounted(() => {
-  document.body.classList.remove('chat-open')
+  document.removeEventListener('keydown', onEscKeydown)
 })
 
 watch(
-  messages,
+  () => messages.value.length,
   () => {
     nextTick(() => {
       if (messagesEl.value) {
         messagesEl.value.scrollTop = messagesEl.value.scrollHeight
       }
     })
-  },
-  { deep: false }
+  }
 )
 
 function autoResize(): void {
@@ -89,7 +98,12 @@ async function handleSend(): Promise<void> {
   if (!text || !canSend.value) return
   inputText.value = ''
   autoResize()
+  error.value = ''
   await sendMessage(text)
+  if (error.value) {
+    inputText.value = text
+    autoResize()
+  }
 }
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -116,11 +130,19 @@ async function handleNewChat(): Promise<void> {
 }
 
 async function handleDeleteSession(sid: string): Promise<void> {
+  const ok = await confirm('确定删除该对话？', {
+    title: '删除会话',
+    confirmText: '删除',
+    confirmClass: 'danger'
+  })
+  if (!ok) return
   await deleteSession(sid)
 }
 
 function formatTime(iso: string): string {
+  if (!iso) return '--'
   const d = new Date(iso)
+  if (isNaN(d.getTime())) return '--'
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   const ss = String(d.getSeconds()).padStart(2, '0')
@@ -184,7 +206,6 @@ function onMaskClick(e: MouseEvent): void {
         class="chat-overlay"
         role="presentation"
         @click="onMaskClick"
-        @keydown.esc="close"
       >
         <div class="chat-panel" role="dialog" aria-modal="true" aria-label="AI 小助手" @click.stop>
           <!-- Header -->
@@ -308,7 +329,7 @@ function onMaskClick(e: MouseEvent): void {
             </Transition>
 
             <!-- Messages area -->
-            <div ref="messagesEl" class="chat-messages">
+            <div ref="messagesEl" class="chat-messages" role="log" aria-live="polite">
               <!-- Loading -->
               <div v-if="loading" class="chat-status">
                 <span class="chat-spinner"></span>
@@ -412,6 +433,7 @@ function onMaskClick(e: MouseEvent): void {
                 class="chat-input"
                 rows="1"
                 placeholder="输入你的问题..."
+                :maxlength="maxMessageLength"
                 :disabled="sending"
                 @keydown="handleKeydown"
                 @input="autoResize"
@@ -459,18 +481,18 @@ function onMaskClick(e: MouseEvent): void {
   width: 52px;
   height: 52px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid rgba(139, 92, 246, 0.32);
-  background: rgba(139, 92, 246, 0.14);
+  border: 1.5px solid rgba(var(--color-chat-accent-rgb),0.32);
+  background: rgba(var(--color-chat-accent-rgb),0.14);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  color: #c084fc;
+  color: var(--color-chat-accent-light);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow:
-    0 8px 32px rgba(139, 92, 246, 0.22),
-    0 2px 8px rgba(139, 92, 246, 0.12),
+    0 8px 32px rgba(var(--color-chat-accent-rgb),0.22),
+    0 2px 8px rgba(var(--color-chat-accent-rgb),0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition:
     transform var(--duration-normal) var(--ease-spring),
@@ -480,11 +502,11 @@ function onMaskClick(e: MouseEvent): void {
 }
 .chat-fab:hover {
   transform: scale(1.1);
-  border-color: rgba(139, 92, 246, 0.55);
-  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(var(--color-chat-accent-rgb),0.55);
+  background: rgba(var(--color-chat-accent-rgb),0.2);
   box-shadow:
-    0 12px 40px rgba(139, 92, 246, 0.32),
-    0 0 0 8px rgba(139, 92, 246, 0.06),
+    0 12px 40px rgba(var(--color-chat-accent-rgb),0.32),
+    0 0 0 8px rgba(var(--color-chat-accent-rgb),0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .chat-fab:active {
@@ -504,29 +526,29 @@ function onMaskClick(e: MouseEvent): void {
 }
 
 .fab-icon-magic {
-  filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.5));
+  filter: drop-shadow(0 0 6px rgba(var(--color-chat-glow-rgb),0.5));
   transition: filter var(--duration-normal) var(--ease-apple);
 }
 .chat-fab:hover .fab-icon-magic {
-  filter: drop-shadow(0 0 10px rgba(192, 132, 252, 0.7));
+  filter: drop-shadow(0 0 10px rgba(var(--color-chat-glow-rgb),0.7));
 }
 
 /* ── Light theme FAB ── */
 [data-theme='light'] .chat-fab {
-  border-color: rgba(139, 92, 246, 0.25);
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
+  border-color: rgba(var(--color-chat-accent-rgb),0.25);
+  background: rgba(var(--color-chat-accent-rgb),0.1);
+  color: var(--color-chat-accent);
   box-shadow:
-    0 6px 24px rgba(139, 92, 246, 0.15),
-    0 1px 4px rgba(139, 92, 246, 0.08),
+    0 6px 24px rgba(var(--color-chat-accent-rgb),0.15),
+    0 1px 4px rgba(var(--color-chat-accent-rgb),0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 [data-theme='light'] .chat-fab:hover {
-  border-color: rgba(139, 92, 246, 0.4);
-  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(var(--color-chat-accent-rgb),0.4);
+  background: rgba(var(--color-chat-accent-rgb),0.15);
   box-shadow:
-    0 10px 32px rgba(139, 92, 246, 0.22),
-    0 0 0 8px rgba(139, 92, 246, 0.04),
+    0 10px 32px rgba(var(--color-chat-accent-rgb),0.22),
+    0 0 0 8px rgba(var(--color-chat-accent-rgb),0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 [data-theme='light'] .chat-fab.active {
@@ -534,10 +556,10 @@ function onMaskClick(e: MouseEvent): void {
   box-shadow: var(--shadow-lg);
 }
 [data-theme='light'] .fab-icon-magic {
-  filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.35));
+  filter: drop-shadow(0 0 5px rgba(var(--color-chat-accent-rgb),0.35));
 }
 [data-theme='light'] .chat-fab:hover .fab-icon-magic {
-  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+  filter: drop-shadow(0 0 8px rgba(var(--color-chat-accent-rgb),0.5));
 }
 
 /* ── Overlay ── */
@@ -587,11 +609,11 @@ function onMaskClick(e: MouseEvent): void {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--color-btn-primary-text);
   flex-shrink: 0;
 }
 .chat-header-info {
@@ -619,7 +641,7 @@ function onMaskClick(e: MouseEvent): void {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #34c759;
+  background: var(--color-success);
   flex-shrink: 0;
 }
 .chat-header-actions {
@@ -766,12 +788,12 @@ function onMaskClick(e: MouseEvent): void {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
-  color: #fff;
+  color: var(--color-btn-primary-text);
 }
 .chat-welcome-title {
   color: var(--color-text);
@@ -817,7 +839,7 @@ function onMaskClick(e: MouseEvent): void {
   display: flex;
   gap: 8px;
   max-width: 88%;
-  animation: chatMsgIn 0.24s var(--ease-out);
+  animation: chatMsgIn var(--duration-normal) var(--ease-out);
 }
 @keyframes chatMsgIn {
   from {
@@ -847,8 +869,8 @@ function onMaskClick(e: MouseEvent): void {
   justify-content: center;
 }
 .chat-msg.assistant .chat-msg-avatar {
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
+  color: var(--color-btn-primary-text);
 }
 .chat-msg.user .chat-msg-avatar {
   background: var(--color-panel-3);
@@ -869,8 +891,8 @@ function onMaskClick(e: MouseEvent): void {
   border-bottom-left-radius: var(--radius-sm);
 }
 .chat-msg.user .chat-msg-bubble {
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
+  color: var(--color-btn-primary-text);
   border-bottom-right-radius: var(--radius-sm);
 }
 .chat-msg-time {
@@ -1002,8 +1024,8 @@ function onMaskClick(e: MouseEvent): void {
   height: 34px;
   border: none;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4f7df9, #8b5cf6);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
+  color: var(--color-btn-primary-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1016,7 +1038,7 @@ function onMaskClick(e: MouseEvent): void {
 }
 .chat-send-btn:hover {
   transform: scale(1.07);
-  box-shadow: 0 4px 14px rgba(79, 125, 249, 0.36);
+  box-shadow: 0 4px 14px rgba(var(--color-chat-gradient-start-rgb), 0.36);
 }
 .chat-send-btn:active {
   transform: scale(0.94);

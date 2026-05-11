@@ -145,19 +145,19 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: 8px;
-  background: var(--color-page-panel, rgba(255, 255, 255, 0.05));
-  color: var(--color-page-text-subtle, rgba(200, 205, 213, 0.8));
+  border: 1px solid var(--color-page-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-page-text-subtle);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
   backdrop-filter: blur(8px);
 }
 
 .wb-header-trigger:hover {
-  background: var(--color-page-elevated, rgba(255, 255, 255, 0.1));
-  color: var(--color-page-text, rgba(200, 205, 213, 1));
-  border-color: var(--color-page-border-hover, rgba(255, 255, 255, 0.2));
+  background: var(--color-panel-2);
+  color: var(--color-page-text);
+  border-color: var(--color-page-border-hover);
 }
 
 .wb-dropdown {
@@ -165,10 +165,10 @@ onBeforeUnmount(() => {
   right: 0;
   top: calc(100% + 8px);
   min-width: 200px;
-  background: var(--color-page-panel, #1e293b);
-  border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  background: var(--color-panel);
+  border: 1px solid var(--color-page-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
   padding: 8px;
 }
 
@@ -183,8 +183,8 @@ onBeforeUnmount(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-brand-500, #6366f1);
-  color: white;
+  background: var(--color-page-brand);
+  color: var(--color-btn-primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
 .wb-dropdown-email {
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-page-text, #e2e8f0);
+  color: var(--color-page-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
 .wb-dropdown-section {
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-page-text-muted, rgba(200, 205, 213, 0.5));
+  color: var(--color-page-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 8px 12px 4px;
@@ -228,29 +228,29 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 4px;
   padding: 8px 4px;
-  border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: 8px;
+  border: 1px solid var(--color-page-border-subtle);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-page-text-muted, rgba(200, 205, 213, 0.6));
+  color: var(--color-page-text-muted);
   font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .wb-theme-btn:hover {
-  border-color: var(--color-brand-500, #6366f1);
-  color: var(--color-brand-400, #818cf8);
+  border-color: var(--color-page-brand);
+  color: var(--color-page-brand-hover);
 }
 
 .wb-theme-btn.active {
-  border-color: var(--color-brand-500, #6366f1);
-  background: var(--color-brand-50, rgba(99, 102, 241, 0.15));
-  color: var(--color-brand-400, #818cf8);
+  border-color: var(--color-page-brand);
+  background: var(--color-page-brand-bg);
+  color: var(--color-page-brand-hover);
 }
 
 .wb-dropdown-divider {
   height: 1px;
-  background: var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));
+  background: var(--color-page-border-subtle);
   margin: 4px 0;
 }
 
@@ -261,26 +261,26 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 8px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-page-text, #c8cdd5);
+  color: var(--color-page-text);
   font-size: 13px;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .wb-dropdown-item:hover {
-  background: var(--color-page-elevated, rgba(255, 255, 255, 0.08));
+  background: var(--color-page-elevated);
 }
 
 .wb-dropdown-item.danger {
-  color: var(--color-danger, #f87171);
+  color: var(--color-page-danger);
 }
 
 .wb-dropdown-item.danger:hover {
-  background: rgba(248, 113, 113, 0.15);
+  background: var(--color-page-danger-bg);
 }
 
 .wb-login-btn {
@@ -289,25 +289,25 @@ onBeforeUnmount(() => {
   right: 16px;
   z-index: 100;
   padding: 8px 14px;
-  border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.15));
-  border-radius: 8px;
-  background: var(--color-page-panel, rgba(255, 255, 255, 0.05));
-  color: var(--color-page-text, #c8cdd5);
+  border: 1px solid var(--color-page-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  color: var(--color-page-text);
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
   backdrop-filter: blur(8px);
 }
 
 .wb-login-btn:hover {
-  background: var(--color-page-elevated, rgba(255, 255, 255, 0.1));
-  border-color: var(--color-page-border-hover, rgba(255, 255, 255, 0.25));
+  background: var(--color-panel-2);
+  border-color: var(--color-page-border-hover);
 }
 
 /* 动画 */
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 
 .dropdown-enter-from,

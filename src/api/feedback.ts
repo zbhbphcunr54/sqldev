@@ -4,7 +4,6 @@ export interface FeedbackRequest {
   category: 'bug' | 'feature' | 'ux' | 'performance' | 'other'
   content: string
   source: 'splash' | 'workbench' | 'ziwei'
-  scene?: string
 }
 
 export interface FeedbackResponse {
@@ -14,5 +13,5 @@ export interface FeedbackResponse {
 }
 
 export async function submitFeedback(payload: FeedbackRequest): Promise<FeedbackResponse> {
-  return edgeFn.post<FeedbackResponse>('/feedback', payload)
+  return edgeFn.post<FeedbackResponse>('/feedback', payload, { skipRetry: true })
 }

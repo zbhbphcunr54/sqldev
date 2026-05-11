@@ -47,6 +47,8 @@ export interface QuotaResponse {
   quota: ChatQuota
   provider: string | null
   model: string | null
+  maxMessageLength: number
+  maxSessions: number
 }
 
 export const aiChatApi = {
@@ -59,7 +61,7 @@ export const aiChatApi = {
     edgeFn.get<SessionsResponse>('/ai-chat/sessions', { skipRetry: true }),
 
   getMessages: (sessionId: string): Promise<MessagesResponse> =>
-    edgeFn.get<MessagesResponse>(`/ai-chat/messages?sessionId=${encodeURIComponent(sessionId)}`),
+    edgeFn.get<MessagesResponse>(`/ai-chat/messages?sessionId=${encodeURIComponent(sessionId)}`, { skipRetry: true }),
 
   deleteSession: (sessionId: string): Promise<{ ok: boolean }> =>
     edgeFn.del<{ ok: boolean }>(`/ai-chat/sessions/${sessionId}`),

@@ -1,13 +1,21 @@
 <!-- [2026-05-07] 通用确认弹窗组件 -->
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { visible, title, message, confirmText, cancelText, confirmClass, handleConfirm, handleCancel } = useConfirm()
 
+const confirmPanel = ref<HTMLElement | null>(null)
+
 function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') handleCancel()
 }
+
+watch(visible, (val) => {
+  if (val) {
+    nextTick(() => confirmPanel.value?.focus())
+  }
+})
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
@@ -16,10 +24,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 <template>
   <Teleport to="body">
     <div v-if="visible" class="confirm-overlay" @click.self="handleCancel">
-      <div class="confirm-panel">
+      <div ref="confirmPanel" class="confirm-panel" tabindex="-1">
         <div class="confirm-header">
           <h3 class="confirm-title">{{ title }}</h3>
-          <button class="confirm-close" @click="handleCancel">
+          <button class="confirm-close" aria-label="关闭对话框" @click="handleCancel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
@@ -60,7 +68,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .confirm-panel {
   width: 420px;
   max-width: 92vw;
-  background: var(--color-modal-bg);
+  background: var(--color-panel);
   border: 1px solid var(--color-modal-border);
   border-radius: var(--radius-modal);
   box-shadow: var(--shadow-xl);

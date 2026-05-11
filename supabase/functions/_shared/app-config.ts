@@ -22,11 +22,15 @@ interface DbConfig {
   is_active: boolean
 }
 
+let _adminClient: ReturnType<typeof createClient> | null = null
+
 function getAdminClient() {
+  if (_adminClient) return _adminClient
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     throw new Error('Supabase not configured')
   }
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  _adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  return _adminClient
 }
 
 function parseValue<T>(

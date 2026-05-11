@@ -6,7 +6,7 @@ import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 const BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
 // 请求超时时间（毫秒）
-const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 30_000
+const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 60_000
 // 重试次数
 const MAX_RETRIES = 2
 // 重试延迟基础值（毫秒）
@@ -64,8 +64,16 @@ async function getAccessToken(): Promise<string | null> {
 // 请求去重：防止用户快速点击发送重复请求
 const pendingRequests = new Map<string, Promise<unknown>>()
 
+function stableStringify(value: unknown): string {
+  if (value == null) return 'null'
+  if (typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  const keys = Object.keys(value).sort()
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`).join(',')}}`
+}
+
 function getRequestKey(method: string, path: string, body?: unknown): string {
-  return `${method}:${path}:${body ? JSON.stringify(body) : ''}`
+  return `${method}:${path}:${body ? stableStringify(body) : ''}`
 }
 
 interface RequestOptions {

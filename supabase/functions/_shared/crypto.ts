@@ -1,7 +1,11 @@
 /**
  * [2026-05-03] AES-256-GCM 加密工具
  * 用于加密/解密 AI 配置中的 API Key
+ *
+ * 密钥来源优先级：环境变量 AI_CONFIG_ENCRYPT_KEY > app_configs 表 system.encrypt_key
  */
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
 const ALGO = { name: 'AES-GCM', length: 256 }
 const IV_LENGTH = 12
 const TAG_LENGTH = 16
@@ -11,9 +15,35 @@ let cachedKey: CryptoKey | null = null
 async function getKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey
 
-  const encryptKey = Deno.env.get('AI_CONFIG_ENCRYPT_KEY')
+  let encryptKey = Deno.env.get('AI_CONFIG_ENCRYPT_KEY')
+
+  // 环境变量未设置时，从 app_configs 表读取
   if (!encryptKey) {
-    throw new Error('AI_CONFIG_ENCRYPT_KEY environment variable is not set')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const adminClient = createClient(supabaseUrl, serviceRoleKey)
+        const { data } = await adminClient
+          .from('app_configs')
+          .select('value')
+          .eq('category', 'system')
+          .eq('key', 'encrypt_key')
+          .eq('is_active', true)
+          .single()
+        if (data) {
+          encryptKey = (data as { value: string }).value
+        }
+      } catch {
+        // 数据库读取失败，继续抛错
+      }
+    }
+  }
+
+  if (!encryptKey) {
+    throw new Error(
+      'AI_CONFIG_ENCRYPT_KEY not configured. Set it via Supabase Secret or app_configs table (system.encrypt_key).'
+    )
   }
 
   const raw = Uint8Array.from(atob(encryptKey), (c) => c.charCodeAt(0))
@@ -67,7 +97,7 @@ export async function maskApiKey(encrypted: Uint8Array): Promise<string> {
 }
 
 // ============================================================
-// [2026-05-03] 新增：数据库存储用的加密/解密函数（Base64 编码）
+// 数据库存储用的加密/解密函数（Base64 编码）
 // ============================================================
 
 /**

@@ -1,9 +1,10 @@
 <!-- [2026-05-06] AI 配置编辑/新建弹窗 - 新设计 -->
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { AiProviderDef, AiProviderConfig, AiConfigPayload } from '@/features/ai'
 import { DEFAULT_TIMEOUT_MS } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 
 const props = defineProps<{
   open: boolean
@@ -131,13 +132,7 @@ async function handleTest(): Promise<void> {
   }
 }
 
-// --- ESC key handler ---
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(() => emit('close'))
 </script>
 
 <template>

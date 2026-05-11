@@ -1,7 +1,8 @@
 <!-- [2026-05-07] 新增 Key / 追加模型弹窗 -->
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import FormSelect from '@/components/common/FormSelect.vue'
 
 const props = defineProps<{
@@ -37,7 +38,7 @@ const note = ref('')
 const submitting = ref(false)
 
 // Append mode
-const isAppendMode = computed(() => !!(props.prefillProviderId && props.prefillApiKey))
+const isAppendMode = computed(() => !!props.prefillProviderId)
 
 // Computed
 const selectedProvider = computed(() =>
@@ -86,7 +87,7 @@ watch(
 function resetForm(): void {
   if (isAppendMode.value) {
     selectedProviderId.value = props.prefillProviderId ?? ''
-    apiKey.value = props.prefillApiKey ?? ''
+    apiKey.value = ''
     const p = props.providers.find((pr) => pr.id === selectedProviderId.value)
     baseUrl.value = p?.base_url ?? ''
     selectedModel.value = availableModels.value[0] ?? ''
@@ -100,31 +101,30 @@ function resetForm(): void {
   submitting.value = false
 }
 
-// ESC key handler
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(() => emit('close'))
 
 // Submit
 function handleSubmit(): void {
-  if (!selectedProviderId.value || !selectedModel.value || !apiKey.value) return
+  if (!selectedProviderId.value || !selectedModel.value) return
+  if (!isAppendMode.value && !apiKey.value) return
   submitting.value = true
-  emit('save', {
-    provider_id: selectedProviderId.value,
-    model: selectedModel.value,
-    api_key: apiKey.value,
-    base_url: baseUrl.value || undefined,
-    name: note.value || undefined
-  })
+  try {
+    emit('save', {
+      provider_id: selectedProviderId.value,
+      model: selectedModel.value,
+      api_key: apiKey.value,
+      base_url: baseUrl.value || undefined,
+      name: note.value || undefined
+    })
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-overlay" data-theme="dark" @click.self="emit('close')">
+    <div v-if="open" class="modal-overlay" @click.self="emit('close')">
       <div class="modal-panel">
         <!-- Header -->
         <div class="modal-header">
@@ -170,8 +170,8 @@ function handleSubmit(): void {
             </div>
           </div>
 
-          <!-- API Key -->
-          <div class="form-group">
+          <!-- API Key (追加模式自动复用同供应商已有 key) -->
+          <div v-if="!isAppendMode" class="form-group">
             <label class="form-label">API Key</label>
             <input
               v-model="apiKey"
@@ -179,6 +179,10 @@ function handleSubmit(): void {
               placeholder="sk-..."
               class="form-input form-input-full"
             />
+          </div>
+          <div v-else class="form-group">
+            <label class="form-label">API Key</label>
+            <p class="form-hint">自动复用该供应商已有 Key</p>
           </div>
 
           <!-- Base URL -->
@@ -209,7 +213,7 @@ function handleSubmit(): void {
           <button class="btn btn-cancel" @click="emit('close')">取消</button>
           <button
             class="btn btn-primary"
-            :disabled="submitting || !apiKey || !selectedModel || availableModels.length === 0"
+            :disabled="submitting || (!isAppendMode && !apiKey) || !selectedModel || availableModels.length === 0"
             @click="handleSubmit"
           >
             {{ submitting ? (isAppendMode ? '添加中...' : '添加中...') : (isAppendMode ? '添加模型' : '添加 Key') }}
@@ -242,7 +246,7 @@ function handleSubmit(): void {
   width: 480px;
   max-width: 92vw;
   max-height: 90vh;
-  background: var(--color-modal-bg);
+  background: var(--color-panel);
   border: 1px solid var(--color-modal-border);
   border-radius: var(--radius-modal);
   box-shadow: var(--shadow-xl);
@@ -390,6 +394,13 @@ function handleSubmit(): void {
 .form-input-full {
   width: 100%;
   box-sizing: border-box;
+}
+
+.form-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: 8px 0;
 }
 
 .form-input[type='password'] {

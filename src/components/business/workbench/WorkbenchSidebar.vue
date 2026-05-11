@@ -30,6 +30,7 @@ interface MenuItem {
 }
 
 interface MenuGroup {
+  key: string
   title: string | null
   collapsible: boolean
   items: MenuItem[]
@@ -37,12 +38,12 @@ interface MenuGroup {
 
 // ==================== 菜单数据 ====================
 
-const testToolsCollapsed = ref(false)
-const settingsCollapsed = ref(false)
+const collapsedGroups = ref<Record<string, boolean>>({})
 
 const menuGroups = computed<MenuGroup[]>(() => [
   // 第一组：SQL 工具（不可折叠）
   {
+    key: 'sqlTools',
     title: null,
     collapsible: false,
     items: [
@@ -53,6 +54,7 @@ const menuGroups = computed<MenuGroup[]>(() => [
   },
   // 第二组：测试工具（可折叠）
   {
+    key: 'testTools',
     title: '测试工具',
     collapsible: true,
     items: [
@@ -62,6 +64,7 @@ const menuGroups = computed<MenuGroup[]>(() => [
   },
   // 第三组：设置（可折叠）
   {
+    key: 'settings',
     title: '设置',
     collapsible: true,
     items: [
@@ -114,23 +117,17 @@ watch(
 
 function isGroupCollapsed(group: MenuGroup): boolean {
   if (!group.collapsible) return false
-  if (group.title === '测试工具') return testToolsCollapsed.value
-  if (group.title === '设置') return settingsCollapsed.value
-  return false
+  return collapsedGroups.value[group.key] ?? false
 }
 
 function toggleGroup(group: MenuGroup): void {
   if (!group.collapsible) return
-  if (group.title === '测试工具') testToolsCollapsed.value = !testToolsCollapsed.value
-  else if (group.title === '设置') settingsCollapsed.value = !settingsCollapsed.value
+  collapsedGroups.value[group.key] = !collapsedGroups.value[group.key]
 }
 
 // ==================== 点击处理 ====================
 
 function handleItemClick(item: MenuItem): void {
-  if (item.page) {
-    store.setPage(item.page)
-  }
   if (item.route) {
     router.push(item.route)
   } else if (item.page) {
@@ -161,12 +158,13 @@ function isActive(key: string): boolean {
 <template>
   <aside
     class="h-screen flex flex-col flex-shrink-0"
-    style="width: 240px; background: var(--color-page-panel); border-right: 1px solid var(--color-page-border)"
+    style="width: var(--sidebar-width); background: var(--color-page-panel); border-right: 1px solid var(--color-page-border)"
+    aria-label="主导航"
   >
     <!-- 顶部 Logo 区域 -->
-    <div class="flex items-center gap-3 px-5 pt-5 pb-3">
+    <div class="flex items-center gap-3 px-5 py-4">
       <div
-        class="flex items-center justify-center rounded-lg font-bold text-white"
+        class="flex items-center justify-center rounded-lg font-bold"
         style="
           width: 36px;
           height: 36px;
@@ -174,24 +172,27 @@ function isActive(key: string): boolean {
           font-size: 12px;
           font-family: var(--font-code);
           letter-spacing: -0.02em;
+          color: var(--color-btn-primary-text);
         "
       >
         Dev
       </div>
-      <span class="text-white font-semibold" style="font-size: 15px; letter-spacing: -0.01em">
+      <span class="font-semibold" style="font-size: 15px; letter-spacing: -0.01em; color: var(--color-page-text);">
         Dev Studio
       </span>
     </div>
 
     <!-- 菜单列表 -->
-    <nav class="flex-1 overflow-y-auto py-4 px-3">
-      <template v-for="(group, groupIndex) in menuGroups" :key="groupIndex">
+    <nav class="flex-1 overflow-y-auto py-4 px-3" aria-label="功能菜单">
+      <template v-for="(group, groupIndex) in menuGroups" :key="group.key">
         <!-- 分组标题 -->
         <button
           v-if="group.title"
           class="w-full flex items-center justify-between px-3 py-2 cursor-pointer select-none"
+          :aria-expanded="!isGroupCollapsed(group)"
+          :aria-controls="`group-${group.key}`"
           style="
-            color: rgba(160, 160, 165, 0.6);
+            color: var(--color-page-text-muted);
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.05em;
@@ -221,7 +222,7 @@ function isActive(key: string): boolean {
         </button>
 
         <!-- 菜单项列表（带折叠动画） -->
-        <Transition name="collapse">
+        <Transition name="sidebar-collapse">
           <div v-show="!isGroupCollapsed(group)">
             <button
               v-for="item in group.items"
@@ -264,20 +265,28 @@ function isActive(key: string): boolean {
 }
 
 .inactive-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-page-elevated);
   color: var(--color-page-text);
 }
 
-/* 折叠动画 */
-.collapse-enter-active,
-.collapse-leave-active {
-  transition: all var(--duration-normal) var(--ease-out);
+/* 侧边栏折叠动画 — 使用 sidebar-collapse-* 避免与 main.css 中的 collapse-* 冲突 */
+.sidebar-collapse-enter-active,
+.sidebar-collapse-leave-active {
+  transition:
+    max-height var(--duration-normal) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
   overflow: hidden;
 }
 
-.collapse-enter-from,
-.collapse-leave-to {
+.sidebar-collapse-enter-from,
+.sidebar-collapse-leave-to {
+  max-height: 0;
   opacity: 0;
-  transform: translateY(-8px);
+}
+
+.sidebar-collapse-enter-to,
+.sidebar-collapse-leave-from {
+  max-height: 600px;
+  opacity: 1;
 }
 </style>

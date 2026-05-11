@@ -28,7 +28,12 @@ const OPERATION_OPTIONS = [
   { value: 'rule_save', label: '保存规则' },
   { value: 'rule_reset', label: '重置规则' },
   { value: 'ziwei_analysis', label: '紫微分析' },
-  { value: 'ziwei_history_list', label: '紫微历史查询' }
+  { value: 'ziwei_history_list', label: '紫微历史查询' },
+  { value: 'ai_config_create', label: '创建AI配置' },
+  { value: 'ai_provider_create', label: '新增供应商' },
+  { value: 'feedback_submit', label: '提交建议' },
+  { value: 'ai_chat_message', label: 'AI 对话' },
+  { value: 'ai_chat_delete_session', label: '删除AI会话' }
 ]
 
 const API_OPTIONS = [
@@ -40,6 +45,7 @@ const API_OPTIONS = [
   { value: 'ziwei-history', label: 'ziwei-history' },
   { value: 'feedback', label: 'feedback' },
   { value: 'ai-config', label: 'ai-config' },
+  { value: 'ai-chat', label: 'ai-chat' },
   { value: 'app-config', label: 'app-config' },
   { value: 'operation-logs', label: 'operation-logs' }
 ]

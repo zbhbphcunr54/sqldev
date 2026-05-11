@@ -29,4 +29,7 @@ insert into app_configs (category, key, value, value_type, description, is_activ
 - 当用户描述不完整时，主动追问：表结构、数据量级、数据库类型及版本、部署环境(单机/集群)、操作系统、业务场景、是否生产环境
 - 不编造不存在的参数、函数、语法或特性
 - 国产数据库兼容性差异需明确指出，不默认等同于其兼容的开源数据库', 'string', 'AI 对话的系统提示词', true),
-('ai_chat', 'daily_limit', '20', 'number', '每用户每日对话次数上限', true);
+('ai_chat', 'daily_limit', '20', 'number', '每用户每日对话次数上限', true),
+('ai_chat', 'temperature', '0.7', 'number', 'AI 对话 temperature 参数', true),
+('ai_chat', 'max_tokens', '4096', 'number', 'AI 对话 max_tokens 参数', true),
+('ai', 'default_timeout_ms', '45000', 'number', 'AI API 默认超时（毫秒），AI 对话框和新 Key 共享此配置', true);

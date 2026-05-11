@@ -12,10 +12,6 @@ export const useAppStore = defineStore('app', () => {
     themeMode.value = mode
   }
 
-  function hydrateTheme(mode: ThemeMode): void {
-    themeMode.value = mode
-  }
-
   function setResolvedTheme(theme: ResolvedTheme): void {
     resolvedTheme.value = theme
   }
@@ -24,7 +20,6 @@ export const useAppStore = defineStore('app', () => {
     themeMode,
     resolvedTheme,
     setTheme,
-    hydrateTheme,
     setResolvedTheme
   }
 })

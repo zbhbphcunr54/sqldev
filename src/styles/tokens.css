@@ -9,11 +9,11 @@
   --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
   --font-code: 'SF Mono', 'Fira Code', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
-  /* Apple Color System - Light */
-  --color-bg: #ffffff;
+  /* Apple Color System - Light (极简纯白) */
+  --color-bg: #fafafa;
   --color-panel: #ffffff;
-  --color-panel-2: #f5f5f7;
-  --color-panel-3: #eaeaec;
+  --color-panel-2: #f4f4f6;
+  --color-panel-3: #fafafa;
 
   /* Text - Grayscale */
   --color-text: #1d1d1f;
@@ -102,8 +102,20 @@
 
   /* Layout */
   --header-height: 56px;
-  --sidebar-width: 220px;
+  --sidebar-width: 240px;
   --sidebar-collapsed: 64px;
+  --content-max-width: 1400px;
+
+  /* AI Chat accent (purple family, distinct from --color-purple) */
+  --color-chat-accent: #8b5cf6;
+  --color-chat-accent-rgb: 139, 92, 246;
+  --color-chat-accent-light: #c084fc;
+  --color-chat-glow-rgb: 192, 132, 252;
+  --color-chat-gradient-start: #4f7df9;
+  --color-chat-gradient-start-rgb: 79, 125, 249;
+  --gradient-chat-avatar: linear-gradient(135deg, var(--color-chat-gradient-start), var(--color-chat-accent));
+  --color-chat-glow: rgba(192, 132, 252, 0.5);
+  --color-chat-glow-hover: rgba(192, 132, 252, 0.7);
 
   /* Apple Blue Database Colors */
   --oracle: #ea6a2d;
@@ -176,13 +188,12 @@
 }
 
 /* === Dark Theme === */
-:root,
 [data-theme="dark"] {
-  /* Pure Black Background - Apple Dark Mode */
+  /* Onyx Minimal — 极简曜石深色模式 */
   --color-bg: #000000;
-  --color-panel: #1c1c1e;
-  --color-panel-2: #2c2c2e;
-  --color-panel-3: #3a3a3c;
+  --color-panel: #000000;
+  --color-panel-2: #0a0a0a;
+  --color-panel-3: #161616;
 
   /* Text - Inverted */
   --color-text: #f5f5f7;
@@ -303,14 +314,19 @@
    ============================================ */
 
 /* Glass Effect */
-.glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-blur: saturate(180%) blur(20px);
 }
 
-[data-theme="dark"] .glass {
-  background: rgba(29, 29, 31, 0.72);
+[data-theme="dark"] {
+  --glass-bg: rgba(29, 29, 31, 0.72);
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* Apple Typography */

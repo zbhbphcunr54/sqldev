@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getAppConfig } from './app-config.ts'
+import { decryptValue } from './crypto.ts'
+import type { AiConfigRow, AiProviderRow } from './ai-types.ts'
 
 export interface ResolvedAiConfig {
   baseUrl: string
@@ -8,19 +10,6 @@ export interface ResolvedAiConfig {
   timeoutMs: number
   providerSlug: string | null
   source: 'database' | 'environment'
-}
-
-interface AiConfigRow {
-  id: string
-  base_url: string
-  model: string
-  api_key: string
-  timeout_ms: number
-  provider_id: string
-}
-
-interface AiProviderRow {
-  slug: string
 }
 
 // 优先级：数据库激活配置 > 数据库默认配置 > 环境变量默认配置
@@ -52,8 +41,11 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
 
     const providerData = provider as unknown as AiProviderRow | null
 
-    // ai_configs.api_key 可为 NULL，转为空字符串避免 Authorization: Bearer null
-    const apiKey = config.api_key ?? ''
+    // 解密 API Key（如果 is_encrypted）
+    let apiKey = config.api_key ?? ''
+    if (config.is_encrypted && apiKey) {
+      apiKey = await decryptValue(apiKey)
+    }
 
     return {
       baseUrl: config.base_url,
@@ -70,7 +62,7 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
     getAppConfig('ai', 'default_base_url', { envVar: 'DEFAULT_AI_BASE_URL', defaultValue: 'https://api.deepseek.com/v1' }),
     getAppConfig('ai', 'default_model', { envVar: 'DEFAULT_AI_MODEL', defaultValue: 'deepseek-chat' }),
     getAppConfig('ai', 'default_api_key', { envVar: 'DEFAULT_AI_API_KEY', defaultValue: '' }),
-    getAppConfig<number>('ai', 'default_timeout_ms', { envVar: 'DEFAULT_AI_TIMEOUT_MS', defaultValue: 30000, parse: Number })
+    getAppConfig<number>('ai', 'default_timeout_ms', { envVar: 'DEFAULT_AI_TIMEOUT_MS', defaultValue: 45000, parse: Number })
   ])
 
   return {

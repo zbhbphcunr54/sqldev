@@ -4,6 +4,10 @@ import { submitFeedback, type FeedbackRequest } from '@/api/feedback'
 import { ApiError } from '@/api/http'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
+const SUCCESS_MESSAGES: Record<string, string> = {
+  feedback_success: '建议已提交，感谢你的反馈。'
+}
+
 const props = withDefaults(
   defineProps<{
     source?: FeedbackRequest['source']
@@ -30,8 +34,20 @@ const categoryOptions: { label: string; value: FeedbackRequest['category'] }[] =
   { label: '其他', value: 'other' }
 ]
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+
 watch(open, (isOpen) => {
   document.body.classList.toggle('feedback-open', isOpen)
+  if (isOpen) {
+    status.value = { type: 'idle', text: '' }
+    // 预热 Edge Function，用户填表单期间完成冷启动
+    if (supabaseUrl) {
+      // Warm Edge Function to overlap user typing with cold start
+      fetch(`${supabaseUrl}/functions/v1/feedback`, { method: 'OPTIONS' }).catch(() => {
+        // Warmup failure is non-critical — user may still submit successfully
+      })
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -68,7 +84,7 @@ async function handleSubmit(): Promise<void> {
     })
     content.value = ''
     contact.value = ''
-    status.value = { type: 'success', text: mapErrorCodeToMessage('feedback_success') }
+    status.value = { type: 'success', text: SUCCESS_MESSAGES.feedback_success }
   } catch (error) {
     console.error('[SQLDev] Feedback submit failed', error)
     status.value = { type: 'error', text: getFeedbackErrorMessage(error) }
@@ -179,6 +195,8 @@ function closeFeedback(): void {
             v-if="status.text"
             class="feedback-status"
             :class="{ success: status.type === 'success', error: status.type === 'error' }"
+            role="alert"
+            aria-live="assertive"
           >
             {{ status.text }}
           </p>
@@ -402,7 +420,7 @@ body.feedback-open {
   width: 100%;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-panel);
+  background: var(--color-panel-2);
   color: var(--color-text);
   padding: 9px 12px;
   font: 500 var(--text-base)/1.5 var(--font-body, sans-serif);

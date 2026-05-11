@@ -1,4 +1,5 @@
 // AI 服务商常量定义
+// 品牌标识色保留 hex 值：这些是各厂商的品牌色，需精确匹配，不适合泛化为语义 token
 export const PROVIDER_COLORS: Record<string, string> = {
   // OpenAI 系列
   openai: '#10b981',
@@ -56,7 +57,7 @@ export const PROVIDER_INITIALS: Record<string, string> = {
   'nvidia-nim': 'NVD',
   cohere: 'COH',
   cloudflare: 'CF',
-  githubmodels: 'GH',
+  'github-models': 'GH',
   xai: 'xAI',
   douyin: '豆',
   minimax: 'MINI',

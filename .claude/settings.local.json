@@ -10,7 +10,13 @@
       "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\preview-ai-fab-designs.html\")",
       "Bash(start \"\" \"http://127.0.0.1:4182/\")",
       "Bash(start \"\" \"d:/codextest/sqldev/docs/按钮.png\")",
-      "Bash(start \"\" \"d:/codextest/sqldev/docs/对话框.png\")"
+      "Bash(start \"\" \"d:/codextest/sqldev/docs/对话框.png\")",
+      "Bash(ls \"C:\\\\Users\\\\zhengpeng\\\\.claude\\\\projects\\\\d--codextest-sqldev\\\\memory\\\\\" 2>/dev/null || echo \"Directory does not exist\")",
+      "Read(//c/Users/zhengpeng/.claude/projects/d--codextest-sqldev/memory\" 2>/dev/**)",
+      "Read(//c/Users/zhengpeng/.claude/projects/d--codextest-sqldev/memory//**)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\docs\\\\ai-config-theme-preview.html\")",
+      "Bash(pnpm build *)"
     ]
   }
 }

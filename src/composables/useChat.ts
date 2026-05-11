@@ -14,7 +14,19 @@ export interface ChatState {
   quota: ChatQuota | null
 }
 
-// Module-level reactive state — singleton shared across all component instances
+function getChatErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    return err.message
+  }
+  if (err instanceof TypeError) {
+    return mapErrorCodeToMessage('network_error')
+  }
+  return mapErrorCodeToMessage('unknown_error')
+}
+
+// Module-level reactive state — singleton shared across all component instances.
+// Kept as composable (not Pinia store) because AI chat UI has DOM coupling
+// (scroll-to-bottom, auto-resize) that doesn't fit Pinia's SSR/decoupled model.
 const open = ref(false)
 const sessionId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
@@ -25,51 +37,43 @@ const error = ref('')
 const quota = ref<ChatQuota | null>(null)
 const provider = ref('')
 const model = ref('')
+const maxMessageLength = ref(4000)
+const maxSessions = ref(50)
 
 export function useChat() {
   const hasMessages = computed(() => messages.value.length > 0)
   const canSend = computed(() => !sending.value)
 
-  function getErrorMessage(err: unknown): string {
-    if (err instanceof ApiError) {
-      return err.message
-    }
-    if (err instanceof TypeError) {
-      return mapErrorCodeToMessage('network_error')
-    }
-    return mapErrorCodeToMessage('unknown_error')
-  }
-
-  let loadingSessions = false
-  let loadingQuota = false
+  const loadingSessions = ref(false)
+  const loadingQuota = ref(false)
 
   async function loadSessions(): Promise<void> {
-    if (loadingSessions) return
-    loadingSessions = true
+    if (loadingSessions.value) return
+    loadingSessions.value = true
     try {
       const res = await aiChatApi.getSessions()
       sessions.value = res.sessions
-    } catch {
-      // 静默失败，不影响聊天功能
+    } catch (err) {
+      if (import.meta.env.DEV) console.error('[useChat] Failed to load sessions:', err)
     } finally {
-      loadingSessions = false
+      loadingSessions.value = false
     }
   }
 
   async function loadQuota(): Promise<void> {
-    if (loadingQuota) return
-    loadingQuota = true
+    if (loadingQuota.value) return
+    loadingQuota.value = true
     try {
       const res = await aiChatApi.getQuota()
-      console.log('[useChat] loadQuota response:', res)
       quota.value = res.quota
       if (res.provider) provider.value = res.provider
       if (res.model) model.value = res.model
-      console.log('[useChat] quota set to:', quota.value)
+      if (res.maxMessageLength) maxMessageLength.value = res.maxMessageLength
+      if (res.maxSessions) maxSessions.value = res.maxSessions
     } catch (err) {
-      console.error('[useChat] loadQuota failed:', err)
+      if (import.meta.env.DEV) console.error('[useChat] loadQuota failed:', err)
     } finally {
-      loadingQuota = false
+      loadingQuota.value = false
     }
   }
 
@@ -80,7 +84,7 @@ export function useChat() {
       const res = await aiChatApi.getMessages(sid)
       messages.value = res.messages
     } catch (err) {
-      error.value = getErrorMessage(err)
+      error.value = getChatErrorMessage(err)
     } finally {
       loading.value = false
     }
@@ -114,7 +118,7 @@ export function useChat() {
     } catch (err) {
       // 失败时移除本地消息
       messages.value = messages.value.filter((m) => !m.id.startsWith('local-'))
-      error.value = getErrorMessage(err)
+      error.value = getChatErrorMessage(err)
     } finally {
       sending.value = false
     }
@@ -156,7 +160,7 @@ export function useChat() {
         model.value = ''
       }
     } catch (err) {
-      error.value = getErrorMessage(err)
+      error.value = getChatErrorMessage(err)
     }
   }
 
@@ -171,6 +175,8 @@ export function useChat() {
     quota,
     provider,
     model,
+    maxMessageLength,
+    maxSessions,
     hasMessages,
     canSend,
     toggleOpen,

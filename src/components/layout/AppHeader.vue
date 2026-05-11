@@ -107,6 +107,8 @@ onBeforeUnmount(() => {
           <button
             class="user-menu-trigger"
             title="用户菜单"
+            aria-haspopup="true"
+            :aria-expanded="showUserMenu"
             @click.stop="showUserMenu = !showUserMenu"
           >
             <!-- 三个点图标 -->
@@ -282,18 +284,18 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 100;
   height: var(--header-height, 56px);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--color-border);
 }
 
 [data-theme='dark'] .app-header {
-  background: rgba(28, 28, 30, 0.8);
+  background: var(--glass-bg);
 }
 
 .app-header-inner {
-  max-width: 1400px;
+  max-width: var(--content-max-width);
   height: 100%;
   margin: 0 auto;
   padding: 0 24px;
@@ -352,11 +354,6 @@ onBeforeUnmount(() => {
 .nav-link.active {
   background: var(--color-accent-bg);
   color: var(--color-accent);
-}
-
-[data-theme='dark'] .nav-link.active {
-  background: var(--color-accent-bg);
-  color: var(--color-brand-500);
 }
 
 .header-actions {

@@ -29,3 +29,8 @@ INSERT INTO app_configs (category, key, value, value_type, is_active) VALUES
 ('cors', 'allowed_origins', 'http://127.0.0.1:4173,http://localhost:5173,https://zbhbphcunr54.github.io', 'string', true),
 ('cors', 'allow_localhost', 'true', 'boolean', true);
 
+-- 加密主密钥（AES-256-GCM，32字节 Base64）。部署前替换 PLACEHOLDER 为实际值
+-- 生成命令: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+insert into app_configs (category, key, value, value_type, description, is_active) values
+('system', 'encrypt_key', 'PLACEHOLDER_CHANGE_ME', 'string', 'AES-256-GCM 加密主密钥，用于加解密 ai_configs.api_key 等敏感字段', true);
+

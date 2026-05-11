@@ -3,7 +3,402 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-08
+Last updated: 2026-05-11
+
+---
+
+## 2026-05-11: 可配置化改造 + CSS 硬编码消除（A1—A7）
+
+### 概述
+按照 CODE_REVIEW_FIX_LIST.md 第四章补充建议，将 7 类硬编码阈值/颜色全部改为从 `app_configs` 或 `tokens.css` 读取，实现"不改代码即可调整配置"的目标。
+
+### A1 — 三套限流统一为全局限流
+
+**问题**：ai-chat `(10, 60s)`、ai-config `(30, 60s)`、feedback `(10, 60s)` 各自硬编码，ai-config 测试接口另有独立 `(6, 60s)`。
+
+**修复**：三个 Edge Function 的 `createRateLimiter` 全部改为惰性初始化 `getRateLimiter()`，从 `rate_limit.max_requests`（默认 10）/ `rate_limit.window_ms`（默认 60000）读取；ai-config 测试接口的独立 `testRateLimitMap` 已移除，由全局限流 + 冷却机制覆盖。
+
+### A2 — AI 消息长度 / 会话数可配置
+
+**修复**：`ai-chat/index.ts` 的 `loadChatConfig()` 新增 `maxMessageLength`（默认 4000）/ `maxSessions`（默认 50）；配额 API 响应返回这两个值；前端 `useChat.ts` 暴露 `maxMessageLength`/`maxSessions` ref；`FloatingChat.vue` 文本框绑定 `:maxlength="maxMessageLength"`。
+
+### A3 — AI 配置全局数量上限可配置
+
+**修复**：`ai-config/index.ts` 新增 `getMaxConfigsGlobal()` 从 `ai_config.max_configs_global` 读取（默认 20）；错误响应体附带 `limit` 字段供前端提示。
+
+### A4 — 测试冷却时间（已配置化）
+
+**确认**：`handleTest` 已通过 `getAppConfig('ai', 'test_cooldown_seconds', { defaultValue: 10 })` 读取，无需代码改动。新增迁移种子 `ai.test_cooldown_seconds = 10`。
+
+### A5 — 反馈内容长度接入配置
+
+**修复**：`feedback/index.ts` 新增 `loadFeedbackConfig()` 从 `feedback.max_content_length` / `max_contact_length` / `min_content_length` 读取；所有 `MAX_CONTENT_LENGTH` / `MAX_CONTACT_LENGTH` 常量替换为配置值。
+
+### A6 — 全站硬编码 CSS 值统一走 tokens.css
+
+**tokens.css 新增**：`--sidebar-width: 240px`、`--content-max-width: 1400px`、AI Chat 紫色系列 token（`--color-chat-accent` / `--color-chat-accent-rgb` / `--color-chat-gradient-start` / `--color-chat-glow-rgb` / `--gradient-chat-avatar`）。
+
+**组件修改**（8 个文件）：
+
+| 文件 | 变更 |
+|------|------|
+| `AiConfigPage.vue` | 25+ 处 indigo/green/amber/red `rgba()` → `var(--color-*-bg/border)`；3 处黑色阴影 → `var(--shadow-lg/xl)`；8 处动画时长 → `var(--duration-fast/normal/slow)`；`getCardBgStart` → `var(--color-accent-bg)` |
+| `FloatingChat.vue` | `#4f7df9`/`#8b5cf6`/`#c084fc` → chat accent token；`#34c759` → `var(--color-success)`；`#fff`/`#ffffff` → `var(--color-btn-primary-text)`；FAB rgba → `rgba(var(--color-chat-*-rgb),...)` |
+| `WorkbenchHeaderActions.vue` | 15+ 处 var() 暗色 fallback 值全部移除 → 语义变量；`0.15s` → `var(--duration-fast)`；`0 10px 40px rgba(0,0,0,0.3)` → `var(--shadow-xl)` |
+| `WorkbenchSidebar.vue` | `width: 240px` → `var(--sidebar-width)`；`#ffffff` → `var(--color-btn-primary-text)`；分组标题 → `var(--color-page-text-muted)` |
+| `WorkbenchApp.vue` | divider `top: 68px` → `calc(var(--header-height, 56px) + 12px)` |
+| `AppHeader.vue` | `max-width: 1400px` → `var(--content-max-width)` |
+| `provider-constants.ts` | 添加注释说明品牌色保留 hex 的原因 |
+
+### A7 — CORS allowHeaders / allowMethods 可配置
+
+**修复**：`cors.ts` 的 `loadCorsFromDb()` 新增读取 `cors.allow_headers` / `cors.allow_methods`；`initCorsConfig()` 使用 DB 值，仅在其缺失时回退硬编码默认值。
+
+### 新增迁移
+
+`supabase/migrations/202605110010_unified_rate_limit_configs.sql` — 12 条配置种子，使用 `ON CONFLICT (category, key) DO NOTHING` 防重复。
+
+### 修改文件清单
+
+| 文件 | 修改类型 |
+|------|----------|
+| `supabase/functions/ai-chat/index.ts` | A1: 限流器延迟初始化；A2: maxMessageLength/maxSessions 配置化 |
+| `supabase/functions/ai-config/index.ts` | A1: 限流器延迟初始化，移除测试限流器；A3: maxConfigsGlobal 配置化 |
+| `supabase/functions/feedback/index.ts` | A1: 限流器延迟初始化；A5: 内容长度配置化 |
+| `supabase/functions/_shared/cors.ts` | A7: allowHeaders/allowMethods 从 app_configs 读取 |
+| `supabase/migrations/202605110010_unified_rate_limit_configs.sql` | 新增 12 条配置种子 |
+| `src/api/ai-chat.ts` | QuotaResponse 新增 maxMessageLength/maxSessions |
+| `src/composables/useChat.ts` | 暴露 maxMessageLength/maxSessions ref |
+| `src/components/business/ai/FloatingChat.vue` | A2: maxlength 校验；A6: 硬编码颜色→token |
+| `src/components/business/ai/AiConfigPage.vue` | A6: 硬编码颜色/阴影/时长→token |
+| `src/components/business/workbench/WorkbenchHeaderActions.vue` | A6: fallback 值清理+token 化 |
+| `src/components/business/workbench/WorkbenchSidebar.vue` | A6: 宽度/颜色→token |
+| `src/components/business/workbench/WorkbenchApp.vue` | A6: divider top→calc() |
+| `src/components/layout/AppHeader.vue` | A6: max-width→token |
+| `src/styles/tokens.css` | A6: 新增 10+ CSS 变量 |
+| `src/features/ai/provider-constants.ts` | A6: 品牌色注释 |
+
+### 部署
+
+```bash
+supabase db push
+supabase functions deploy ai-chat
+supabase functions deploy ai-config
+supabase functions deploy feedback
+pnpm typecheck && pnpm build
+```
+
+---
+
+## 2026-05-11: LOW 技术债务批量修复（23 项）
+
+### 后端（7 项）
+- **ai-chat messages 分页**：添加 `.limit(100)` 防止超长对话撑爆响应
+- **去重 key 稳定性**：`http.ts` 改为递归 key 排序后序列化，解决 JSON 属性顺序问题
+- **getMessages skipRetry**：补充 `{ skipRetry: true }` 避免重复请求
+- **共享 AI 类型**：新建 `_shared/ai-types.ts`，消除 ai-resolver / ai-config 的接口重复定义
+- **getAdminClient 统一**：ai-chat 改为 throw（与 ai-config 一致），移除死代码 null 检查
+- **handleTest HTTP 码**：cooldown→429，config_not_found→404，provider_not_found→400
+- **reorder 批量更新**：N 次 UPDATE 改为单次 `rpc('reorder_providers')` + UNNEST（新增 migration `202605110011`）
+
+### 前端（16 项）
+- **useChat.ts**：`getChatErrorMessage` 提升到模块顶层、console.log 仅 DEV 输出、deleteSession 引用修复
+- **useThemeRuntime.ts**：添加 `initialized` 防重复调用保护
+- **feedback.ts**：移除未使用的 `scene` 字段
+- **FeedbackWidget.vue**：成功消息用独立常量、空 catch 加注释、状态消息加 `role="alert"`、移除未使用的 `hasSupabaseUrl`
+- **WorkbenchSidebar.vue**：ARIA 属性补充、移除重复 `setPage`、折叠动画改名 `sidebar-collapse-*`
+- **AppHeader.vue**：三点按钮加 ARIA、玻璃效果改用 CSS 变量
+- **ConfirmDialog.vue**：关闭按钮加 `aria-label`
+- **WorkbenchApp.vue**：placeholder 加 `role="status" aria-live"`
+- **AiConfigPage.vue**：rgba typo 修复、onMounted 加 `.catch`、移除未使用的 `handleDeleteKeyGroup`
+- **tokens.css**：新增 `--glass-bg` / `--glass-blur` CSS 变量
+
+---
+
+## 2026-05-11: Code Review 16 Issue Fix（安全 / 空catch / Bug）
+
+### 修复内容
+
+| # | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| 1 | AI 上游错误信息泄露 | `supabase/functions/ai-chat/index.ts` | `ai_upstream_error` 只返回状态码，原始响应正文仅记录服务端日志 |
+| 2 | ai-config CRUD 无频率限制 | `supabase/functions/ai-config/index.ts` | 引入模块级 `createRateLimiter`，POST/PATCH/DELETE 统一限流 |
+| 3 | feedback 限流器每次请求重建 | `supabase/functions/feedback/index.ts` | `createRateLimiter` 移至模块顶层 |
+| 4 | provider 更新失败导致 configs 永久丢失 | `supabase/functions/ai-config/index.ts` | 先更新 provider，成功后再删除孤儿 configs |
+| 5 | api_key 明文存储 | `supabase/migrations/20260511_add_is_encrypted_to_ai_configs.sql`、`ai-config/index.ts`、`_shared/ai-resolver.ts` | 新增 `is_encrypted` 列；创建/更新时 `encryptValue()`，读取/测试时 `decryptValue()` |
+| 6 | CORS 初始化顺序 bug | `supabase/functions/ai-chat/index.ts` | `await initCorsConfig()` 移到 `createCorsHelpers({})` 之前 |
+| 7 | loadSessions 空 catch | `src/composables/useChat.ts` | `console.error('[useChat] Failed to load sessions:', err)` |
+| 8 | read/writeSelected 空 catch | `src/components/business/ai/AiConfigPage.vue` | `console.warn('[AiConfig] Failed to read/write model selection:', e)` |
+| 9 | handleToggleActive 空 catch | `src/components/business/ai/AiConfigPage.vue` | `console.error('[AiConfig] Toggle active failed:', e)` |
+| 10 | preload/activate/deactivate 空 catch | `src/stores/ai.ts` | 三处均添加 `console.error('[AiStore] ...:', err)` |
+| 11 | checkQuota 空 catch（DB 故障时绕过配额） | `supabase/functions/ai-chat/index.ts` | DB 故障时返回 `allowed: false`，拒绝放行 |
+| 12 | 连续 confirm() 第一次 Promise 挂起 | `src/composables/useConfirm.ts` | 连续调用时自动 reject 上一个 Promise + `console.warn` |
+| 13 | loadingSessions/loadingQuota 异常死锁 | `src/composables/useChat.ts` | 改为 `ref(false)`，`finally` 确保重置 |
+| 14 | AddKeyModal submitting 永久锁定 | `src/components/business/ai/AddKeyModal.vue` | `handleSubmit` 用 `try/finally` 包裹 |
+| 15 | 死代码 @mousemove 在 pointer-events:none | `src/components/business/ai/AiConfigPage.vue` | 移除 tooltip 元素上的 `@mousemove` |
+| 16 | @keydown.esc 在不可聚焦 div 上无效 | `src/components/business/ai/FloatingChat.vue` | 改为文档级 `keydown` 事件监听（与 ConfirmDialog 一致） |
+
+### 修改文件清单
+
+| 文件 | 修改类型 |
+|------|----------|
+| `supabase/functions/ai-chat/index.ts` | 修复 CORS 顺序、错误泄露、空 catch |
+| `supabase/functions/ai-config/index.ts` | 修复限流、更新顺序、api_key 加密 |
+| `supabase/functions/feedback/index.ts` | 修复限流器创建时机 |
+| `supabase/functions/_shared/ai-resolver.ts` | 修复 api_key 解密读取 |
+| `supabase/migrations/20260511_add_is_encrypted_to_ai_configs.sql` | 新增 is_encrypted 列 |
+| `src/composables/useChat.ts` | 修复空 catch、loading 死锁 |
+| `src/composables/useConfirm.ts` | 修复连续 confirm 挂起 |
+| `src/stores/ai.ts` | 修复空 catch |
+| `src/components/business/ai/AiConfigPage.vue` | 修复空 catch、死代码 |
+| `src/components/business/ai/AddKeyModal.vue` | 修复 submitting 锁定 |
+| `src/components/business/ai/FloatingChat.vue` | 修复 keydown.esc |
+
+### 部署
+
+```bash
+# 部署修改的 Edge Functions
+supabase functions deploy ai-chat --project-ref <ref>
+supabase functions deploy ai-config --project-ref <ref>
+supabase functions deploy feedback --project-ref <ref>
+
+# 执行新迁移
+supabase db push
+
+# 构建前端
+pnpm build
+pnpm verify
+```
+
+---
+
+## 2026-05-11: Code Review 28 MEDIUM Issue Fix
+
+### 概述
+修复 CODE_REVIEW_FIX_LIST.md 中 28 个 MEDIUM 问题，涵盖前端 UX/Bug、可维护性、死代码、性能和后端安全。
+
+### 前端修复
+
+| # | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| 23 | 删除会话无确认 | `FloatingChat.vue` | `handleDeleteSession` 内调用 `useConfirm()` 确认后再执行 |
+| 24 | formatTime 对无效日期崩溃 | `FloatingChat.vue` | 函数开头加 `if (!iso) return '--'` 和 `isNaN` 检查 |
+| 25 | 发送失败输入丢失 | `FloatingChat.vue` | `handleSend` 发送前保存 text，失败时恢复 `inputText.value = text` |
+| 26 | status 跨开关周期残留 | `FeedbackWidget.vue` | `watch(open)` 打开时调用 `status.value = { type: 'idle', text: '' }` |
+| 27 | VITE_SUPABASE_URL 未设时得到 "undefined" | `FeedbackWidget.vue` | 改为 `typeof supabaseUrl === 'string' && supabaseUrl !== 'undefined'` 校验 |
+| 28 | maskApiKey 是空操作 | `AiConfigPage.vue` | 删除 `maskApiKey` 函数，模板直接 `group.apiKeyMasked` |
+| 29 | getSelectedConfig 每行重复调用 15+ 次 | `AiConfigPage.vue` | 新增 `tableRows` computed 预计算 selected，模板遍历 `row.selected` |
+| 30 | 删除按钮仅 hover 可见 | `AiConfigPage.vue` | 添加 `.provider-card:focus-within .card-delete-btn { opacity: 1 }` + `tabindex="0"` |
+| 32 | 亮色模式 hover 不可见 | `WorkbenchSidebar.vue` | `background: var(--color-page-elevated)` 替代 `rgba(255,255,255,0.06)` |
+| 33 | 折叠状态按标题字符串匹配 | `WorkbenchSidebar.vue` | `MenuGroup` 添加 `key: string`，`collapsedGroups` 用 key 映射替代独立 ref |
+| 34 | 异步组件无 fallback | `WorkbenchApp.vue` | `defineAsyncComponent` 添加 `loadingComponent` + `errorComponent` + `delay: 200` |
+| 35 | collapse 动效跳变 | `WorkbenchSidebar.vue` | 过渡改用 `max-height` + `opacity`，补充 enter-to/leave-from |
+| 37 | hydrateTheme 与 setTheme 完全相同 | `app.ts`, `useThemeRuntime.ts` | 删除 `hydrateTheme`，调用处改为 `setTheme` |
+| 38 | ESC 处理三处重复 | `ProviderConfigModal.vue`, `AddKeyModal.vue`, `ConfigEditModal.vue` | 新建 `composables/useEscapeKey.ts`，三处替换 |
+| 39 | chat-open class 无对应 CSS | `FloatingChat.vue` | 删除 `document.body.classList.add('chat-open')` 及相关代码 |
+| 40 | 消息容器无 aria-live | `FloatingChat.vue` | 添加 `role="log" aria-live="polite"` |
+| 41 | deep watcher 过于昂贵 | `FloatingChat.vue` | 改为 `watch(() => messages.value.length, ...)` |
+| 42 | ConfirmDialog 打开时不管理焦点 | `ConfirmDialog.vue` | `watch(visible)` 打开时 `nextTick(() => confirmPanel.value?.focus())`，面板加 `tabindex="-1"` |
+| 45 | githubmodels 键名不匹配 | `provider-constants.ts` | `PROVIDER_INITIALS` 中 `githubmodels` → `'github-models'` |
+| 46 | 暗色覆盖与原有值重复 | `AppHeader.vue` | 删除 `[data-theme='dark'] .nav-link.active` 覆盖块 |
+
+### 后端修复
+
+| # | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| 47 | temperature/max_tokens 硬编码+自动重试 | `ai-chat/index.ts` | `loadChatConfig()` 新增 temperature/maxTokens；删除 retry loop；新增迁移 insert 初始值 |
+| 48 | handleActivate 全量停用+单点激活无事务保护 | `ai-config/index.ts` | 先 `select('id').eq('id', id).single()` 确认存在，再执行全量停用+激活 |
+| 49 | DELETE 不存在的资源返回 ok | `ai-config/index.ts` | 改用 `delete().eq('id', id).select('id').single()`，`!data` 返回 404 |
+| 50 | getClientIp 重复实现 | `ai-config/index.ts` | 删除本地实现，改为 `import { getClientIp } from '../_shared/request.ts'` |
+| 51 | sanitizeError 泄露内部结构 | `ai-config/index.ts` | 返回固定 `'An internal error occurred'`，原始 error 仅 `console.error` |
+| 52 | 配额检查与递增分离存在竞态 | `ai-chat/index.ts`, migration | 改造 `increment_ai_chat_quota` RPC 接受 `p_limit`，原子判断+递增；新增 `consumeQuota()` |
+| 53 | 缺少 user_id 索引 | migration | 新增 `CREATE INDEX idx_ai_chat_sessions_user ON ai_chat_sessions(user_id, updated_at DESC)` |
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/composables/useEscapeKey.ts` | ESC 键统一处理 composable |
+| `supabase/migrations/202605110001_fix_ai_chat_quota_race.sql` | 原子配额 RPC + ai_chat_sessions 索引 |
+
+### 修改文件清单
+
+| 文件 | 修改类型 |
+|------|----------|
+| `src/components/business/ai/FloatingChat.vue` | UX 修复：删除确认/输入恢复/formatTime/animation/aria-live/watcher |
+| `src/components/business/ai/AiConfigPage.vue` | 性能：tableRows computed + maskApiKey 移除 + focus-within |
+| `src/components/business/feedback/FeedbackWidget.vue` | Bug 修复：status 重置 + env var 校验 |
+| `src/components/common/ConfirmDialog.vue` | 可访问性：打开时焦点管理 |
+| `src/stores/app.ts` | 重构：删除 hydrateTheme |
+| `src/composables/useThemeRuntime.ts` | 重构：hydrateTheme → setTheme |
+| `src/features/ai/provider-constants.ts` | Bug 修复：githubmodels key 对齐 |
+| `src/components/layout/AppHeader.vue` | 重构：删除冗余 dark 覆盖 |
+| `src/components/business/workbench/WorkbenchSidebar.vue` | UX：亮色 hover/key 折叠/max-height 动效 |
+| `src/components/business/workbench/WorkbenchApp.vue` | UX：异步组件 loading/error fallback |
+| `src/components/business/ai/ProviderConfigModal.vue` | 重构：useEscapeKey |
+| `src/components/business/ai/AddKeyModal.vue` | 重构：useEscapeKey |
+| `src/components/business/ai/ConfigEditModal.vue` | 重构：useEscapeKey |
+| `supabase/functions/ai-chat/index.ts` | 后端：温度/token 可配置+去重试+原子配额 |
+| `supabase/functions/ai-config/index.ts` | 后端：存在性检查+共用 getClientIp+错误脱敏 |
+| `supabase/migrations/202605080002_insert_ai_chat_configs.sql` | 新增 temperature、max_tokens 初始值 |
+| `supabase/migrations/202605110001_fix_ai_chat_quota_race.sql` | 新增：原子配额 RPC + 索引 |
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+- ✅ `pnpm lint` 通过（零 error）
+
+### 跳过的问题（7 项）
+
+| # | 问题 | 原因 |
+|---|---|---|
+| 22 | AiConfigPage.vue script 575 行拆分为 composables | 大规模重构，风险高，需单独专题 |
+| 31 | 移动端导航直接隐藏，无汉堡按钮 | 新功能开发，需设计确认 |
+| 36 | AppHeader/WorkbenchHeaderActions 主题切换 UI 重复 | 跨组件抽取风险高，暂保留 |
+| 43 | ConfigEditModal.vue 疑似死代码 | 实际被 AppConfigPage.vue 引用，非死代码 |
+| 54-57 | 后端函数过长（400/214/133/147 行） | 重构风险高，需在充分测试后单独处理 |
+
+### 部署
+
+```bash
+# 部署修改的 Edge Functions
+supabase functions deploy ai-chat --project-ref <ref>
+supabase functions deploy ai-config --project-ref <ref>
+
+# 执行新迁移
+supabase db push
+
+# 构建前端
+pnpm build
+pnpm verify
+```
+
+---
+
+## 2026-05-11: AI 配置界面多项修复
+
+### 修复内容
+
+| # | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| 1 | 追加模型时 API Key 显示 `***`掩码 | `AiConfigPage.vue`、`AddKeyModal.vue` | `openAppendModel` 不再传递 masked key；`isAppendMode` 仅判断 providerId |
+| 2 | 新增 Key 默认超时 30s vs AI 对话框 45s | `supabase/functions/ai-config/index.ts` | `getDefaultTimeout()` 从 `app_configs` 读取 `ai.default_timeout_ms`，与 `ai-resolver.ts` 同源，默认 45000 |
+| 3 | 亮色模式侧边栏 Dev Studio 文字看不见 | `WorkbenchSidebar.vue` | `text-white` → `color: var(--color-page-text)`；Dev 图标保留白色 |
+| 4 | 亮色模式弹窗仍为黑色 | `AddKeyModal.vue`、`ProviderConfigModal.vue` | 删除模板中硬编码的 `data-theme="dark"`，弹窗跟随全局主题 |
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+
+### 部署
+```bash
+supabase functions deploy ai-config --project-ref <ref>
+pnpm build
+```
+
+---
+
+## 2026-05-10: AI 对话助手 Bug 修复（CORS / 超时 / 截断）
+
+### 问题概述
+三个线上 Bug 导致 AI 小助手无法正常使用：
+1. 历史会话删除按钮无反应
+2. AI 对话报 "AI 响应超时，请稍后重试"
+3. AI 回复消息被截断
+
+### 修复文件
+
+| 文件 | 修改类型 | 说明 |
+|---|---|---|
+| `supabase/functions/_shared/cors.ts` | 修复 | `allowMethods` 从 `POST, OPTIONS` 扩展为 `GET, POST, PATCH, DELETE, OPTIONS`（两处），DELETE/GET 请求的 CORS 预检不再被拦截 |
+| `supabase/functions/_shared/ai-resolver.ts` | 修复 | AI 调用默认超时 30000 → 45000，匹配前端 60s 超时窗口 |
+| `src/api/http.ts` | 修复 | 前端 fetch 默认超时 30_000 → 60_000，与 .env.example 推荐值一致 |
+| `supabase/functions/ai-chat/index.ts` | 修复 | `max_tokens` 2048 → 4096，解决复杂 SQL 回复被截断 |
+| `.env.example` | 文档 | 同步更新超时注释 |
+
+### 根因分析
+
+**Bug 1 — 删除无反应**: CORS 预检响应头 `Access-Control-Allow-Methods` 只包含 `POST, OPTIONS`，不包含 `DELETE`。浏览器发送 DELETE 预检时被拒绝，真实请求从未发出。
+
+**Bug 2 — 响应超时**: 超时链路不匹配。Edge Function 内 AI 调用默认 30s 超时，但 AI 供应商（DeepSeek 等）实际可能 >30s。前端虽配置 60s，但 EF 层先超时返回 504。
+
+**Bug 3 — 消息截断**: AI 调用硬编码 `max_tokens: 2048`，输出空间不足以承载复杂 SQL + 详细解释。
+
+### 部署步骤
+
+```bash
+# 重新部署所有引用 cors.ts 的 Edge Function
+supabase functions deploy ai-chat --project-ref <ref>
+supabase functions deploy convert --project-ref <ref>
+supabase functions deploy feedback --project-ref <ref>
+supabase functions deploy ziwei-analysis --project-ref <ref>
+
+# 重新构建前端
+pnpm build
+pnpm verify
+```
+
+> 注意：如果数据库 `ai_configs.timeout_ms` 有自定义值且 < 45000，需同步更新。
+
+---
+
+## 2026-05-10: 全站深色模式升级 — 方案 B · 极简曜石（Onyx Minimal）
+
+### 概述
+将全站深色模式升级为「方案 B · Onyx Minimal」纯黑极简风格。所有背景色通过 CSS 变量（tokens.css）统一管理，消除硬编码。
+
+### 核心变更：tokens.css
+
+**深色模式** `[data-theme="dark"]`：
+
+| 变量 | 旧值 | 新值 | 用途 |
+|---|---|---|---|
+| `--color-panel` | `#1c1c1e` | `#000000` | 页面、弹窗面板、下拉菜单、侧边栏 |
+| `--color-panel-2` | `#2c2c2e` | `#0a0a0a` | 输入框、表格、消息气泡（凹入层） |
+| `--color-panel-3` | `#3a3a3c` | `#161616` | 供应商卡片、表头、提示卡片（浮起层） |
+
+**浅色模式** `:root`：
+
+| 变量 | 旧值 | 新值 | 用途 |
+|---|---|---|---|
+| `--color-bg` | `#ffffff` | `#fafafa` | 页面底色微暖 |
+| `--color-panel` | `#ffffff` | `#ffffff` | 页面、弹窗面板、下拉菜单 |
+| `--color-panel-2` | `#f5f5f7` | `#f4f4f6` | 输入框、表格、消息气泡（凹入层） |
+| `--color-panel-3` | `#eaeaec` | `#fafafa` | 卡片、表头、提示（浮起层） |
+
+`--color-page-panel`、`--color-modal-bg` 等别名自动继承，无需额外修改。
+
+### 组件修改
+
+所有 9 个组件仅修正 `background` 属性引用，从硬编码值恢复为 CSS 变量引用：
+
+| 文件 | 变更 |
+|---|---|
+| `src/components/business/ai/AiConfigPage.vue` | 移除 `data-theme="dark"` 硬编码；`getCardBgEnd()` → `var(--color-panel-3)` |
+| `src/components/business/ai/ProviderConfigModal.vue` | `.modal-panel` → `var(--color-panel)`；`.form-input`、`.models-grid` → `var(--color-panel-2)` |
+| `src/components/business/ai/AddKeyModal.vue` | 同上 |
+| `src/components/common/ConfirmDialog.vue` | `.confirm-panel` → `var(--color-panel)` |
+| `src/components/business/feedback/FeedbackWidget.vue` | `.feedback-modal` → `var(--color-panel)`；输入框 → `var(--color-panel-2)` |
+| `src/components/business/ai/FloatingChat.vue` | `.chat-panel` → `var(--color-panel)`；气泡/输入区 → `var(--color-panel-2)` |
+| `src/components/business/workbench/WorkbenchSidebar.vue` | `aside` → `var(--color-page-panel)` |
+| `src/components/layout/AppHeader.vue` | `.user-dropdown` → `var(--color-panel)` |
+| `src/components/business/workbench/WorkbenchHeaderActions.vue` | `.wb-dropdown`、trigger、login-btn → `var(--color-panel)` / `var(--color-panel-2)` |
+
+### 深度层级
+`var(--color-panel)` = `#000000` (页面/弹窗/侧边栏) < `var(--color-panel-2)` = `#0a0a0a` (输入框/表格/气泡) < `var(--color-panel-3)` = `#161616` (卡片/表头/提示)
+
+### 主题切换
+点击三点菜单的「深色」按钮，`useThemeRuntime` 设置 `data-theme="dark"` 到 `document.documentElement`，全站自动应用此方案。浅色模式不受影响。
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+- ✅ 零硬编码残留
+
+### 部署
+```bash
+pnpm build && pnpm verify
+```
+
+### 预览文件
+- `docs/ai-config-theme-preview.html` — 四个方案并排对比（浅色 + 方案 A/B/C）
 
 ---
 
@@ -576,20 +971,26 @@ src/api/
 - 工作台（Workbench）：SQL 转换 / 证件工具 / 紫微斗数（原生 Vue SFC 实现）
 - 登录页 / 404 页：Vue 3 原生渲染
 
-### Edge Functions（3 个）
+### Edge Functions（11 个）
 
 | 函数 | 用途 | Auth 策略 | Rate Limit |
 |------|------|----------|------------|
 | `convert` | SQL DDL/函数/过程转换 | Bearer token → `/auth/v1/user` | userId+IP, 20 req/60s |
 | `feedback` | 用户反馈提交 | Bearer token → `/auth/v1/user` | userId+IP, 默认配置 |
 | `ziwei-analysis` | 紫微 AI 深度解盘 | Bearer token → `/auth/v1/user` + 邮箱白名单 | userId+IP, 6 req/60s |
+| `ai-chat` | AI 对话助手 | Bearer token → `/auth/v1/user` | userId+IP, 统一全局限流 |
+| `ai-config` | AI 配置管理（管理员） | Bearer token → `/auth/v1/user` + admin | userId+IP, 统一全局限流（写操作） |
+| `feedback` | 用户反馈提交 | Bearer token → `/auth/v1/user` | userId+IP, 统一全局限流 |
+| `app-config` | 应用配置管理（管理员） | Bearer token → `/auth/v1/user` + admin | userId+IP |
+| `operation-logs` | 操作日志查询 | Bearer token → `/auth/v1/user` | userId+IP |
+| 其他 4 个 | 辅助/工具型函数 | Bearer token → `/auth/v1/user` | userId+IP |
 
 > 三个函数均设置 `verify_jwt = false`，在函数内部通过 Supabase Auth API 校验 token。
 
 ### 安全配置
 
-- CORS：环境变量配置（`CORS_PRIMARY_ORIGIN` / `CORS_ALLOWED_ORIGINS` / `ALLOW_LOCALHOST_ORIGIN`）
-- Rate Limit：Deno KV 持久化（可降级为内存）
+- CORS：`app_configs` 表管理（`cors.primary_origin` / `allowed_origins` / `allow_localhost` / `allow_headers` / `allow_methods`），环境变量为回退
+- Rate Limit：统一全局限流（`rate_limit.max_requests` / `window_ms`，默认 10 req/60s），Deno KV 持久化（可降级为内存）
 - Convert 保护：Content-Length / JSON 深度 / 请求体大小 / rules 体积限制
 - Ziwei AI 保护：邮箱白名单（`ZIWEI_ALLOWED_EMAILS`）+ payload 截断
 - 错误脱敏：三个函数均不向客户端泄露内部错误详情

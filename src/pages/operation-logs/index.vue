@@ -35,7 +35,12 @@ const OPERATION_MAP: Record<string, string> = {
   rule_save: '保存规则',
   rule_reset: '重置规则',
   ziwei_analysis: '紫微分析',
-  ziwei_history_list: '紫微历史查询'
+  ziwei_history_list: '紫微历史查询',
+  ai_config_create: '创建AI配置',
+  ai_provider_create: '新增供应商',
+  feedback_submit: '提交建议',
+  ai_chat_message: 'AI 对话',
+  ai_chat_delete_session: '删除AI会话'
 }
 
 const OPERATION_OPTIONS = [

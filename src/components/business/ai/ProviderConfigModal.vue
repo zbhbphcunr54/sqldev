@@ -1,6 +1,7 @@
 <!-- [2026-05-07] 供应商配置弹窗 -->
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import type { AiProviderDef } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
 
@@ -141,18 +142,12 @@ async function handleSave(): Promise<void> {
   }
 }
 
-// ESC key handler
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(() => emit('close'))
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-overlay" data-theme="dark" @click.self="emit('close')">
+    <div v-if="open" class="modal-overlay" @click.self="emit('close')">
       <div class="modal-panel">
         <!-- Header -->
         <div class="modal-header">
@@ -320,7 +315,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   width: 520px;
   max-width: 92vw;
   max-height: 90vh;
-  background: var(--color-modal-bg);
+  background: var(--color-panel);
   border: 1px solid var(--color-modal-border);
   border-radius: var(--radius-modal);
   box-shadow: var(--shadow-xl);

@@ -10,6 +10,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import ProviderConfigModal from './ProviderConfigModal.vue'
 import AddKeyModal from './AddKeyModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { getJson, setJson } from '@/utils/storage'
 
 
 const { confirm } = useConfirm()
@@ -17,6 +18,10 @@ const { confirm } = useConfirm()
 // Stores
 const aiStore = useAiStore()
 const { providers, configs, loading, error } = storeToRefs(aiStore)
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : '发生未知错误，请稍后重试。'
+}
 
 // Modal state
 const showProviderModal = ref(false)
@@ -210,18 +215,11 @@ const configuredProviderCount = computed(() => providerConfigsMap.value.size)
 const STORAGE_KEY_SELECTED = 'sqldev:ai:selected-models'
 
 function readSelectedFromStorage(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_SELECTED)
-    return raw ? JSON.parse(raw) : {}
-  } catch {
-    return {}
-  }
+  return getJson<Record<string, string>>(STORAGE_KEY_SELECTED, {})
 }
 
 function writeSelectedToStorage(map: Record<string, string>): void {
-  try {
-    localStorage.setItem(STORAGE_KEY_SELECTED, JSON.stringify(map))
-  } catch { /* ignore quota errors */ }
+  setJson(STORAGE_KEY_SELECTED, map)
 }
 
 // Track which config is selected per group key
@@ -231,6 +229,11 @@ function getSelectedConfig(group: GroupedConfig): AiProviderConfig | undefined {
   const id = selectedConfigId.value[groupKey(group)]
   return group.configs.find((c) => c.id === id) ?? group.configs[0]
 }
+
+const tableRows = computed(() => groupedConfigs.value.map((g) => ({
+  group: g,
+  selected: getSelectedConfig(g)
+})))
 
 function groupKey(group: GroupedConfig): string {
   return `${group.providerId}::${group.apiKeyMasked}`
@@ -249,11 +252,6 @@ function ensureSelectedConfig(group: GroupedConfig): void {
   }
   // Fall back to the last config
   selectedConfigId.value[key] = group.configs[group.configs.length - 1]?.id ?? ''
-}
-
-function onModelSelect(group: GroupedConfig, configId: string): void {
-  selectedConfigId.value[groupKey(group)] = configId
-  writeSelectedToStorage(selectedConfigId.value)
 }
 
 function cycleModel(group: GroupedConfig, direction: 1 | -1): void {
@@ -289,13 +287,12 @@ function onCardClick(e: MouseEvent, provider: AiProviderDef): void {
 }
 
 // Helper: get unique card colors based on provider
-function getCardBgStart(provider: AiProviderDef): string {
-  const color = getProviderColor(provider.slug)
-  return `${color}15`
+function getCardBgStart(_provider: AiProviderDef): string {
+  return 'var(--color-accent-bg)'
 }
 
 function getCardBgEnd(_provider: AiProviderDef): string {
-  return 'var(--color-panel)'
+  return 'var(--color-panel-3)'
 }
 
 function getCardBorderColor(provider: AiProviderDef): string {
@@ -364,9 +361,8 @@ function openAddKey(): void {
   showAddKeyModal.value = true
 }
 
-function openAppendModel(providerId: string, apiKeyMasked: string): void {
-  // 从分组中找到完整的 api_key 用于预填 (masked is OK for prefill)
-  addKeyPrefill.value = { providerId, apiKey: apiKeyMasked }
+function openAppendModel(providerId: string, _apiKeyMasked: string): void {
+  addKeyPrefill.value = { providerId }
   showAddKeyModal.value = true
 }
 
@@ -421,21 +417,6 @@ async function handleDeleteModel(config: AiProviderConfig): Promise<void> {
   delete selectedConfigId.value[`${config.provider_id}::${config.api_key_masked}`]
 }
 
-async function handleDeleteKeyGroup(group: GroupedConfig): Promise<void> {
-  const providerLabel = getProviderById(group.providerId)?.label ?? group.providerId
-  const count = group.configs.length
-  const ok = await confirm(
-    `确定删除「${providerLabel}」下全部 ${count} 个模型配置吗？\n\nAPI Key 将被一并移除。`,
-    { title: '删除 Key', confirmText: '删除', confirmClass: 'danger' }
-  )
-  if (!ok) return
-  for (const c of group.configs) {
-    await aiStore.removeConfig(c.id)
-  }
-  // 清理整组选中状态
-  delete selectedConfigId.value[groupKey(group)]
-}
-
 async function handleToggleActive(config: AiProviderConfig): Promise<void> {
   try {
     if (config.is_active) {
@@ -443,8 +424,8 @@ async function handleToggleActive(config: AiProviderConfig): Promise<void> {
     } else {
       await aiStore.activateConfig(config.id)
     }
-  } catch {
-    // 乐观更新失败时 store 已回滚，无需额外处理
+  } catch (e) {
+    console.error('[AiConfig] Toggle active failed:', e)
   }
 }
 
@@ -560,25 +541,21 @@ async function handleDeleteProvider(provider: AiProviderDef): Promise<void> {
   }
 }
 
-// Mask API key - 后端已返回首尾明文掩码，直接显示
-function maskApiKey(key: string | undefined): string {
-  if (!key) return '--'
-  return key
-}
-
 // Get provider by ID
 function getProviderById(id: string): AiProviderDef | undefined {
   return providers.value.find((p) => p.id === id)
 }
 
 // Lifecycle
-onMounted(async () => {
-  await aiStore.init(true)
+onMounted(() => {
+  aiStore.init(true).catch((err) => {
+    error.value = getErrorMessage(err)
+  })
 })
 </script>
 
 <template>
-  <div class="ai-config-page" data-theme="dark">
+  <div class="ai-config-page">
     <!-- Upper Section: Provider Cards (42%) -->
     <section class="providers-section">
       <div class="section-header">
@@ -606,6 +583,7 @@ onMounted(async () => {
           :key="provider.id"
           :data-provider-id="provider.id"
           class="provider-card"
+          tabindex="0"
           :class="{
             'is-dragging': isDraggingCard(provider),
             'is-drop-target': isDropTargetCard(idx)
@@ -691,7 +669,6 @@ onMounted(async () => {
           v-if="showTooltip && hoveredProvider"
           class="provider-tooltip"
           :style="{ left: tooltipPosition.x + 'px', top: tooltipPosition.y + 'px' }"
-          @mousemove="onTooltipMouseMove"
         >
           <div class="tooltip-header">
             <div class="tooltip-icon" :style="{ background: getProviderColor(hoveredProvider.slug) }">
@@ -784,26 +761,26 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="group in groupedConfigs" :key="groupKey(group)">
+            <tr v-for="row in tableRows" :key="groupKey(row.group)">
               <td class="td-left">
                 <div class="td-provider">
                   <div
                     class="td-icon"
-                    :style="{ background: getProviderColor(group.providerSlug) }"
+                    :style="{ background: getProviderColor(row.group.providerSlug) }"
                   >
-                    {{ getProviderInitials(group.providerSlug, getProviderById(group.providerId)?.label ?? '') }}
+                    {{ getProviderInitials(row.group.providerSlug, getProviderById(row.group.providerId)?.label ?? '') }}
                   </div>
-                  <span>{{ getProviderById(group.providerId)?.label ?? group.providerId }}</span>
+                  <span>{{ getProviderById(row.group.providerId)?.label ?? row.group.providerId }}</span>
                 </div>
               </td>
               <td class="td-left td-model-cell">
                 <div class="model-stepper">
-                  <span class="stepper-label">{{ getSelectedConfig(group)?.model ?? '--' }}</span>
+                  <span class="stepper-label">{{ row.selected?.model ?? '--' }}</span>
                   <div class="stepper-arrows">
                     <button
                       class="stepper-arrow"
-                      :disabled="group.configs.length <= 1"
-                      @click="cycleModel(group, -1)"
+                      :disabled="row.group.configs.length <= 1"
+                      @click="cycleModel(row.group, -1)"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="m18 15-6-6-6 6" />
@@ -811,8 +788,8 @@ onMounted(async () => {
                     </button>
                     <button
                       class="stepper-arrow"
-                      :disabled="group.configs.length <= 1"
-                      @click="cycleModel(group, 1)"
+                      :disabled="row.group.configs.length <= 1"
+                      @click="cycleModel(row.group, 1)"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="m6 9 6 6 6-6" />
@@ -822,52 +799,52 @@ onMounted(async () => {
                 </div>
               </td>
               <td class="td-left">
-                <code class="td-code td-masked">{{ maskApiKey(group.apiKeyMasked) }}</code>
+                <code class="td-code td-masked">{{ row.group.apiKeyMasked }}</code>
               </td>
               <td class="td-left">
-                <code class="td-code td-url">{{ group.baseUrl }}</code>
+                <code class="td-code td-url">{{ row.group.baseUrl }}</code>
               </td>
               <td>
                 <button
-                  v-if="getSelectedConfig(group)"
+                  v-if="row.selected"
                   class="toggle-switch"
-                  :class="{ active: getSelectedConfig(group)!.is_active }"
-                  @click="handleToggleActive(getSelectedConfig(group)!)"
+                  :class="{ active: row.selected.is_active }"
+                  @click="handleToggleActive(row.selected)"
                 >
                   <span class="toggle-handle"></span>
                 </button>
               </td>
               <td class="td-latency">
-                <template v-if="getSelectedConfig(group)">
-                  <span v-if="isInCooldown(getSelectedConfig(group)!.id)" class="latency-badge cooldown">
-                    冷却 {{ getCooldownRemaining(getSelectedConfig(group)!.id) }}s
+                <template v-if="row.selected">
+                  <span v-if="isInCooldown(row.selected.id)" class="latency-badge cooldown">
+                    冷却 {{ getCooldownRemaining(row.selected.id) }}s
                   </span>
-                  <span v-else-if="getTestResult(getSelectedConfig(group)!.id)" class="latency-badge" :class="{ ok: getTestResult(getSelectedConfig(group)!.id)?.ok }">
-                    <template v-if="getTestResult(getSelectedConfig(group)!.id)?.ok">{{ getTestResult(getSelectedConfig(group)!.id)?.elapsed_ms }}ms</template>
-                    <template v-else>{{ getTestResult(getSelectedConfig(group)!.id)?.error ?? '失败' }}</template>
+                  <span v-else-if="getTestResult(row.selected.id)" class="latency-badge" :class="{ ok: getTestResult(row.selected.id)?.ok }">
+                    <template v-if="getTestResult(row.selected.id)?.ok">{{ getTestResult(row.selected.id)?.elapsed_ms }}ms</template>
+                    <template v-else>{{ getTestResult(row.selected.id)?.error ?? '失败' }}</template>
                   </span>
-                  <span v-else-if="getSelectedConfig(group)!.last_test_ms !== null" class="latency-badge" :class="{ ok: getSelectedConfig(group)!.last_test_ok }">
-                    {{ getSelectedConfig(group)!.last_test_ok ? getSelectedConfig(group)!.last_test_ms + 'ms' : '失败' }}
+                  <span v-else-if="row.selected.last_test_ms !== null" class="latency-badge" :class="{ ok: row.selected.last_test_ok }">
+                    {{ row.selected.last_test_ok ? row.selected.last_test_ms + 'ms' : '失败' }}
                   </span>
                   <span v-else class="latency-none">--</span>
                 </template>
               </td>
               <td>
                 <div class="td-actions">
-                  <template v-if="getSelectedConfig(group)">
+                  <template v-if="row.selected">
                     <button
                       class="action-btn test"
-                      :class="{ testing: isTesting(getSelectedConfig(group)!.id) }"
-                      :disabled="isTesting(getSelectedConfig(group)!.id)"
-                      @click="handleTest(getSelectedConfig(group)!)"
+                      :class="{ testing: isTesting(row.selected.id) }"
+                      :disabled="isTesting(row.selected.id)"
+                      @click="handleTest(row.selected)"
                     >
-                      <template v-if="isInCooldown(getSelectedConfig(group)!.id)">冷却 {{ getCooldownRemaining(getSelectedConfig(group)!.id) }}s</template>
-                      <template v-else-if="isTesting(getSelectedConfig(group)!.id)">测试中...</template>
+                      <template v-if="isInCooldown(row.selected.id)">冷却 {{ getCooldownRemaining(row.selected.id) }}s</template>
+                      <template v-else-if="isTesting(row.selected.id)">测试中...</template>
                       <template v-else>测试</template>
                     </button>
-                    <button class="action-btn delete" @click="handleDeleteModel(getSelectedConfig(group)!)">删除</button>
+                    <button class="action-btn delete" @click="handleDeleteModel(row.selected)">删除</button>
                   </template>
-                  <button class="action-btn add-model" @click="openAppendModel(group.providerId, group.apiKeyMasked)">+ 模型</button>
+                  <button class="action-btn add-model" @click="openAppendModel(row.group.providerId, row.group.apiKeyMasked)">+ 模型</button>
                 </div>
               </td>
             </tr>
@@ -959,7 +936,7 @@ onMounted(async () => {
   background: var(--color-panel-2);
   border: 1px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   padding: 0;
   vertical-align: middle;
 }
@@ -977,7 +954,7 @@ onMounted(async () => {
   height: 18px;
   border-radius: 50%;
   background: var(--color-text-subtle);
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
 }
 
 .toggle-switch.active .toggle-handle {
@@ -1032,7 +1009,7 @@ onMounted(async () => {
   font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   flex-shrink: 0;
 }
 
@@ -1074,9 +1051,9 @@ onMounted(async () => {
   border-radius: 16px;
   padding: 14px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-normal) ease;
   overflow: hidden;
-  animation: fadeUp 0.3s ease-out both;
+  animation: fadeUp var(--duration-slow) ease-out both;
   min-height: 80px;
   display: flex;
   flex-direction: column;
@@ -1096,7 +1073,7 @@ onMounted(async () => {
 
 .provider-card:hover {
   transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-page-border-hover);
 }
 
@@ -1115,7 +1092,7 @@ onMounted(async () => {
 
 .provider-card.is-drop-target {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-accent), 0 0 16px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 0 2px var(--color-accent), 0 0 16px var(--color-accent-border);
   transform: scale(1.02);
 }
 
@@ -1135,11 +1112,12 @@ onMounted(async () => {
   color: var(--color-text-muted);
   cursor: pointer;
   opacity: 0;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   z-index: 10;
 }
 
-.provider-card:hover .card-delete-btn {
+.provider-card:hover .card-delete-btn,
+.provider-card:focus-within .card-delete-btn {
   opacity: 1;
 }
 
@@ -1157,7 +1135,7 @@ onMounted(async () => {
   border-radius: 16px;
   padding: 14px 16px;
   overflow: hidden;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-xl);
   z-index: 9999;
   pointer-events: none;
   transform: rotate(3deg) scale(1.05);
@@ -1170,13 +1148,13 @@ onMounted(async () => {
   z-index: 9998;
   min-width: 260px;
   max-width: 320px;
-  background: var(--color-panel);
+  background: var(--color-panel-3);
   border: 1px solid var(--color-page-border-hover);
   border-radius: 12px;
   padding: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   pointer-events: none;
-  animation: tooltipFadeIn 0.15s ease-out;
+  animation: tooltipFadeIn var(--duration-fast) ease-out;
   font-family: var(--font-body);
 }
 
@@ -1308,7 +1286,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: 11px;
   padding: 3px 8px;
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--color-accent-bg);
   border-radius: 4px;
   color: var(--color-accent);
   font-weight: 500;
@@ -1406,7 +1384,7 @@ onMounted(async () => {
   color: var(--color-btn-primary-text);
   flex-shrink: 0;
   box-shadow: 0 0 16px var(--card-color);
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow var(--duration-normal) ease;
 }
 
 .status-dot {
@@ -1414,7 +1392,7 @@ onMounted(async () => {
   height: 8px;
   border-radius: 50%;
   background: var(--color-text-muted);
-  transition: background 0.2s ease;
+  transition: background var(--duration-normal) ease;
   flex-shrink: 0;
 }
 
@@ -1470,7 +1448,7 @@ onMounted(async () => {
 .keys-table-wrapper {
   overflow: auto;
   max-height: 100%;
-  background: var(--color-panel);
+  background: var(--color-panel-2);
   border: 1px solid var(--color-page-border-hover);
   border-radius: 12px;
 }
@@ -1500,7 +1478,7 @@ onMounted(async () => {
 .keys-table thead {
   position: sticky;
   top: 0;
-  background: var(--color-panel-2);
+  background: var(--color-panel-3);
   z-index: 1;
 }
 
@@ -1530,11 +1508,11 @@ onMounted(async () => {
 }
 
 .keys-table tbody tr {
-  transition: background 0.15s ease;
+  transition: background var(--duration-fast) ease;
 }
 
 .keys-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-panel-2);
 }
 
 .keys-table tbody tr:last-child td {
@@ -1612,7 +1590,7 @@ onMounted(async () => {
 }
 
 .status-badge.active {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
@@ -1631,17 +1609,17 @@ onMounted(async () => {
   border-radius: 10px;
   font-family: var(--font-body);
   font-size: 10px;
-  background: rgba(48, 209, 88, 0.15);
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .latency-badge.ok {
-  background: rgba(48, 209, 88, 0.2);
+  background: var(--color-success-bg);
   color: var(--color-success);
 }
 
 .latency-badge.cooldown {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--color-warning-bg);
   color: var(--color-warning);
 }
 
@@ -1694,7 +1672,7 @@ onMounted(async () => {
   border-radius: 2px;
   color: var(--color-text-subtle);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   flex-shrink: 0;
   padding: 0;
 }
@@ -1733,7 +1711,7 @@ onMounted(async () => {
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--duration-fast) ease;
   background: transparent;
   color: var(--color-text-subtle);
   white-space: nowrap;
@@ -1747,32 +1725,32 @@ onMounted(async () => {
 
 .action-btn.activate {
   color: var(--color-success);
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: var(--color-accent-border);
 }
 
 .action-btn.activate:hover {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-success-bg);
   border-color: var(--color-success);
 }
 
 .action-btn.deactivate {
   color: var(--color-warning);
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: var(--color-warning-bg);
 }
 
 .action-btn.deactivate:hover {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-warning-bg);
   border-color: var(--color-warning);
 }
 
 .action-btn.test {
   color: var(--color-accent);
-  border-color: rgba(99, 102, 241, 0.3);
+  border-color: var(--color-accent-border);
   white-space: nowrap;
 }
 
 .action-btn.test:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--color-accent-bg);
   border-color: var(--color-accent);
 }
 
@@ -1783,23 +1761,23 @@ onMounted(async () => {
 
 .action-btn.delete {
   color: var(--color-danger);
-  border-color: rgba(239, 68, 73, 0.3);
+  border-color: var(--color-danger-bg);
 }
 
 .action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   border-color: var(--color-danger);
 }
 
 .action-btn.add-model {
   color: var(--color-accent);
-  border-color: rgba(99, 102, 241, 0.25);
+  border-color: var(--color-accent-border);
   font-size: 11px;
   padding: 5px 8px;
 }
 
 .action-btn.add-model:hover {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-accent-bg);
   border-color: var(--color-accent);
 }
 
@@ -1828,14 +1806,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 9, 13, 0.8);
+  background: var(--color-overlay);
   z-index: 100;
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(99, 102, 241, 0.2);
+  border: 3px solid var(--color-accent-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1856,8 +1834,8 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 14px 20px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-bg);
   border-radius: 8px;
   color: var(--color-danger);
   font-size: 13px;

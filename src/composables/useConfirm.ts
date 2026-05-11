@@ -18,6 +18,13 @@ let resolvePromise: ((value: boolean) => void) | null = null
 
 export function useConfirm() {
   function confirm(msg: string, options: ConfirmOptions = {}): Promise<boolean> {
+    // Reject any previously pending promise to prevent hanging
+    if (resolvePromise) {
+      console.warn('[useConfirm] New confirm() called while previous dialog is still open — rejecting previous')
+      resolvePromise(false)
+      resolvePromise = null
+    }
+
     message.value = msg
     title.value = options.title ?? '确认操作'
     confirmText.value = options.confirmText ?? '确定'

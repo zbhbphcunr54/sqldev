@@ -9,6 +9,10 @@ import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/response.ts'
 import { logOperation } from '../_shared/operation-logger.ts'
 import { getAppConfig } from '../_shared/app-config.ts'
+import { getClientIp } from '../_shared/request.ts'
+import { createRateLimiter } from '../_shared/rate-limit.ts'
+import { encryptValue, decryptValue } from '../_shared/crypto.ts'
+import type { AiConfigRow, AiProviderRow } from '../_shared/ai-types.ts'
 
 await initCorsConfig()
 
@@ -19,61 +23,75 @@ const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 
-// 内存级限流（单实例足够，冷启动自动重置）
-const rateLimitMap = new Map<string, number[]>()
-const RATE_LIMIT = 6
-const RATE_WINDOW = 60_000
+// 全局限流器（延迟初始化，读取统一配置）
+let configRateLimiter: ReturnType<typeof createRateLimiter> | null = null
 
-// 单个 config 冷却时间，防止同一 API Key 短时间内连续测试
-
-interface AiConfigRow {
-  id: string
-  created_by: string | null
-  provider_id: string
-  name: string
-  base_url: string
-  model: string
-  api_key: string
-  timeout_ms: number
-  is_active: boolean
-  last_test_ok: boolean | null
-  last_test_ms: number | null
-  last_test_at: string | null
-  created_at: string
-  updated_at: string
+async function getRateLimiter(): Promise<ReturnType<typeof createRateLimiter>> {
+  if (configRateLimiter) return configRateLimiter
+  const [maxRequests, windowMs] = await Promise.all([
+    getAppConfig<number>('rate_limit', 'max_requests', { defaultValue: 10, parse: Number }),
+    getAppConfig<number>('rate_limit', 'window_ms', { defaultValue: 60000, parse: Number })
+  ])
+  configRateLimiter = createRateLimiter({
+    scope: 'ai_config',
+    windowMs: windowMs.value,
+    maxRequests: maxRequests.value,
+    trackMax: 500,
+    storeMode: 'kv'
+  })
+  return configRateLimiter
 }
 
-interface AiProviderRow {
-  id: string
-  slug: string
-  label: string
-  region: string
-  base_url: string
-  default_model: string
-  models: string[]
-  api_format?: string
-  is_enabled: boolean
-  sort_order: number
+// 全局配置数量上限缓存
+let cachedMaxConfigsGlobal: number | null = null
+let cachedMaxConfigsGlobalTime = 0
+
+async function getMaxConfigsGlobal(): Promise<number> {
+  const now = Date.now()
+  if (cachedMaxConfigsGlobal !== null && now - cachedMaxConfigsGlobalTime < 60_000) {
+    return cachedMaxConfigsGlobal
+  }
+  const result = await getAppConfig<number>('ai_config', 'max_configs_global', {
+    defaultValue: 20,
+    parse: Number
+  })
+  cachedMaxConfigsGlobal = result.value
+  cachedMaxConfigsGlobalTime = now
+  return cachedMaxConfigsGlobal
 }
+
+// 默认超时缓存（从 app_configs 读取，与 AI 对话框同源）
+let cachedDefaultTimeoutMs: number | null = null
+let cachedDefaultTimeoutMsTime = 0
+const DEFAULT_TIMEOUT_CACHE_TTL = 60_000
+
+async function getDefaultTimeout(): Promise<number> {
+  const now = Date.now()
+  if (cachedDefaultTimeoutMs !== null && now - cachedDefaultTimeoutMsTime < DEFAULT_TIMEOUT_CACHE_TTL) {
+    return cachedDefaultTimeoutMs
+  }
+  const result = await getAppConfig<number>('ai', 'default_timeout_ms', {
+    envVar: 'DEFAULT_AI_TIMEOUT_MS',
+    defaultValue: 45000,
+    parse: Number
+  })
+  cachedDefaultTimeoutMs = result.value
+  cachedDefaultTimeoutMsTime = now
+  return cachedDefaultTimeoutMs
+}
+
 
 function sanitizeError(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'object' && err !== null) {
-    const obj = err as Record<string, unknown>
-    if (obj.message) return String(obj.message)
-    if (obj.code) return String(obj.code)
-    if (obj.hint) return String(obj.hint)
-    try {
-      return JSON.stringify(err)
-    } catch {
-      return String(err)
-    }
+  if (err instanceof Error) {
+    console.error('[ai-config] internal error:', err.message)
+    return 'An internal error occurred'
   }
-  return String(err)
-}
-
-function getClientIp(req: Request): string {
-  return req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '0.0.0.0'
+  if (typeof err === 'object' && err !== null) {
+    console.error('[ai-config] internal error:', JSON.stringify(err))
+    return 'An internal error occurred'
+  }
+  console.error('[ai-config] internal error:', String(err))
+  return 'An internal error occurred'
 }
 
 async function getAdminClient() {
@@ -119,13 +137,17 @@ function buildMaskedResponse(
 ): Record<string, unknown> {
   let apiKeyMasked = '****'
   if (config.api_key) {
-    const rawKey = config.api_key
-    if (rawKey.length > 16) {
-      apiKeyMasked = rawKey.slice(0, 8) + '...' + rawKey.slice(-8)
-    } else if (rawKey.length > 8) {
-      apiKeyMasked = rawKey.slice(0, 4) + '...' + rawKey.slice(-4)
+    if (config.is_encrypted) {
+      apiKeyMasked = '[encrypted] ****'
     } else {
-      apiKeyMasked = '****'
+      const rawKey = config.api_key
+      if (rawKey.length > 16) {
+        apiKeyMasked = rawKey.slice(0, 8) + '...' + rawKey.slice(-8)
+      } else if (rawKey.length > 8) {
+        apiKeyMasked = rawKey.slice(0, 4) + '...' + rawKey.slice(-4)
+      } else {
+        apiKeyMasked = '****'
+      }
     }
   }
 
@@ -256,8 +278,8 @@ async function handleCreate(
   const respond = makeResponse(req)
 
   const providerId = String(body.provider_id || '')
-  const apiKey = String(body.api_key || '')
-  if (!providerId || !apiKey) {
+  let apiKey = String(body.api_key || '')
+  if (!providerId) {
     const resp = { error: 'provider_id and api_key are required' }
     logOperation({
       userId, userEmail, clientIp,
@@ -271,12 +293,37 @@ async function handleCreate(
     })
     return respond(400, resp)
   }
+  // 追加模型：未传 api_key 时自动复用同供应商已有配置的 key
+  if (!apiKey) {
+    const { data: existing } = await adminClient
+      .from('ai_configs')
+      .select('api_key')
+      .eq('provider_id', providerId)
+      .limit(1)
+      .single()
+    if (!existing) {
+      const resp = { error: 'provider_id and api_key are required' }
+      logOperation({
+        userId, userEmail, clientIp,
+        operation: 'ai_config_create',
+        apiName: 'ai-config',
+        requestBody: body,
+        responseBody: resp,
+        responseStatus: 400,
+        durationMs: 0,
+        errorMessage: 'no_existing_key_for_provider'
+      })
+      return respond(400, resp)
+    }
+    apiKey = (existing as { api_key: string }).api_key
+  }
 
+  const maxConfigs = await getMaxConfigsGlobal()
   const { count } = await adminClient
     .from('ai_configs')
     .select('*', { count: 'exact', head: true })
-  if ((count || 0) >= 20) {
-    const resp = { error: 'ai_config_limit_exceeded' }
+  if ((count || 0) >= maxConfigs) {
+    const resp = { error: 'ai_config_limit_exceeded', limit: maxConfigs }
     logOperation({
       userId, userEmail, clientIp,
       operation: 'ai_config_create',
@@ -321,8 +368,9 @@ async function handleCreate(
       name: String(body.name || ''),
       base_url: String(body.base_url || providerData.base_url),
       model: String(body.model || providerData.default_model),
-      api_key: apiKey,
-      timeout_ms: Number(body.timeout_ms || 30000)
+      api_key: await encryptValue(apiKey),
+      is_encrypted: true,
+      timeout_ms: Number(body.timeout_ms) || await getDefaultTimeout()
     })
     .select()
     .single()
@@ -398,7 +446,8 @@ async function handleUpdate(
   if (body.model !== undefined) updateData.model = String(body.model)
   if (body.timeout_ms !== undefined) updateData.timeout_ms = Number(body.timeout_ms)
   if (body.api_key !== undefined && String(body.api_key).length > 0) {
-    updateData.api_key = String(body.api_key)
+    updateData.api_key = await encryptValue(String(body.api_key))
+    updateData.is_encrypted = true
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -466,7 +515,7 @@ async function handleDelete(
 ) {
   const respond = makeResponse(req)
 
-  const { error } = await adminClient.from('ai_configs').delete().eq('id', id)
+  const { data, error } = await adminClient.from('ai_configs').delete().eq('id', id).select('id').single()
   if (error) {
     const resp = { error: sanitizeError(error) }
     logOperation({
@@ -480,6 +529,21 @@ async function handleDelete(
       extra: { config_id: id }
     })
     return respond(400, resp)
+  }
+
+  if (!data) {
+    const resp = { error: 'config_not_found' }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_delete',
+      apiName: 'ai-config',
+      responseBody: resp,
+      responseStatus: 404,
+      durationMs: 0,
+      errorMessage: 'config_not_found',
+      extra: { config_id: id }
+    })
+    return respond(404, resp)
   }
 
   const resp = { ok: true }
@@ -504,6 +568,27 @@ async function handleActivate(
   clientIp: string
 ) {
   const respond = makeResponse(req)
+
+  const { data: target, error: getError } = await adminClient
+    .from('ai_configs')
+    .select('id')
+    .eq('id', id)
+    .single()
+
+  if (getError || !target) {
+    const resp = { error: 'config_not_found' }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_activate',
+      apiName: 'ai-config',
+      responseBody: resp,
+      responseStatus: 404,
+      durationMs: 0,
+      errorMessage: 'config_not_found',
+      extra: { config_id: id }
+    })
+    return respond(404, resp)
+  }
 
   await adminClient.from('ai_configs').update({ is_active: false }).eq('is_active', true)
 
@@ -630,17 +715,11 @@ async function handleReorderProviders(
     }
   }
 
-  const updates = orders.map((item) =>
-    adminClient
-      .from('ai_providers')
-      .update({ sort_order: item.sort_order })
-      .eq('id', item.provider_id)
-  )
+  const { error: updateError } = await adminClient.rpc('reorder_providers', {
+    p_orders: orders.map((o) => ({ provider_id: o.provider_id, sort_order: o.sort_order }))
+  })
 
-  const results = await Promise.all(updates)
-  const hasError = results.some((r: { error: unknown }) => r.error)
-
-  if (hasError) {
+  if (updateError) {
     const resp = { error: 'failed_to_reorder_providers' }
     logOperation({
       userId, userEmail, clientIp,
@@ -709,19 +788,13 @@ async function handleUpdateProvider(
   if (body.base_url !== undefined) updateData.base_url = String(body.base_url)
   if (body.region !== undefined) updateData.region = String(body.region)
   if (body.api_format !== undefined) updateData.api_format = String(body.api_format)
+  // 计算需要删除的孤儿模型（在 provider 更新成功后才执行删除）
+  let removedModels: string[] = []
   if (body.models !== undefined) {
     updateData.models = Array.isArray(body.models) ? body.models : []
-    // 删除已被移除的模型对应的 config，防止孤儿数据
     const newModels: string[] = updateData.models as string[]
     const oldModels: string[] = (existing as unknown as AiProviderRow).models || []
-    const removed = oldModels.filter((m) => !newModels.includes(m))
-    if (removed.length > 0) {
-      await adminClient
-        .from('ai_configs')
-        .delete()
-        .eq('provider_id', providerId)
-        .in('model', removed)
-    }
+    removedModels = oldModels.filter((m) => !newModels.includes(m))
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -761,6 +834,15 @@ async function handleUpdateProvider(
       extra: { provider_id: providerId }
     })
     return respond(400, resp)
+  }
+
+  // 删除已被移除的模型对应的 config（provider 已更新成功，安全删除孤儿数据）
+  if (removedModels.length > 0) {
+    await adminClient
+      .from('ai_configs')
+      .delete()
+      .eq('provider_id', providerId)
+      .in('model', removedModels)
   }
 
   const resp = { ok: true, provider: updated }
@@ -963,23 +1045,6 @@ async function handleTest(
   const respond = makeResponse(req)
 
   const now = Date.now()
-  const hits = (rateLimitMap.get(userId) || []).filter((t) => now - t < RATE_WINDOW)
-  if (hits.length >= RATE_LIMIT) {
-    const resp = { ok: false, elapsed_ms: 0, error: '请求过于频繁，请稍后再试' }
-    logOperation({
-      userId, userEmail, clientIp,
-      operation: 'ai_config_test',
-      apiName: 'ai-config',
-      responseBody: resp,
-      responseStatus: 429,
-      durationMs: 0,
-      errorMessage: 'rate_limited',
-      extra: { config_id: id }
-    })
-    return respond(200, resp)
-  }
-  hits.push(now)
-  rateLimitMap.set(userId, hits)
 
   const cooldown = (await getAppConfig('ai', 'test_cooldown_seconds', { defaultValue: 10 })).value
 
@@ -1001,7 +1066,7 @@ async function handleTest(
       errorMessage: 'config_not_found',
       extra: { config_id: id }
     })
-    return respond(200, resp)
+    return respond(404, resp)
   }
 
   const configData = config as unknown as AiConfigRow
@@ -1032,7 +1097,7 @@ async function handleTest(
         errorMessage: 'cooldown_active',
         extra: { config_id: id, cooldown_seconds: cooldown, elapsed_seconds: Math.floor(elapsed) }
       })
-      return respond(200, resp)
+      return respond(429, resp)
     }
   }
 
@@ -1054,11 +1119,13 @@ async function handleTest(
       errorMessage: 'provider_not_found',
       extra: { config_id: id }
     })
-    return respond(200, resp)
+    return respond(400, resp)
   }
 
   const providerData = provider as unknown as AiProviderRow
-  const apiKey = configData.api_key
+  const apiKey = configData.is_encrypted && configData.api_key
+    ? await decryptValue(configData.api_key)
+    : configData.api_key
 
   // 提前写入 last_test_at 占位，防止竞态（后续请求可以立即看到）
   await adminClient
@@ -1210,6 +1277,17 @@ Deno.serve(async (req) => {
       userId: sessionState.userId,
       userEmail: sessionState.email,
       clientIp: getClientIp(req)
+    }
+
+    // 写操作限流（POST / PATCH / DELETE，统一全局限流配置）
+    if (req.method !== 'GET' && req.method !== 'OPTIONS') {
+      const rl = await getRateLimiter()
+      const rateResult = await rl.consume(`${sessionState.userId}|${logCtx.clientIp}`)
+      if (!rateResult.ok) {
+        return jsonResponse(429, { error: 'rate_limited' }, corsHeaders, {
+          'Retry-After': String(rateResult.retryAfter)
+        })
+      }
     }
 
     const url = new URL(req.url)
