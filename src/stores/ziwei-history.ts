@@ -1,6 +1,7 @@
 // src/stores/ziwei-history.ts
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 import {
   fetchZiweiHistory,
   createZiweiHistory,
@@ -20,7 +21,7 @@ export const useZiweiHistoryStore = defineStore('ziwei-history', () => {
       const result = await fetchZiweiHistory()
       items.value = result.items
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '加载历史失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('history_load_failed')
     } finally {
       loading.value = false
     }
@@ -34,7 +35,7 @@ export const useZiweiHistoryStore = defineStore('ziwei-history', () => {
       await createZiweiHistory(inputJson, resultJson)
       await loadHistory()
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '保存历史失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('history_save_failed')
     }
   }
 
@@ -43,7 +44,7 @@ export const useZiweiHistoryStore = defineStore('ziwei-history', () => {
       await deleteZiweiHistory(id)
       items.value = items.value.filter((item) => item.id !== id)
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '删除历史失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('history_delete_failed')
     }
   }
 

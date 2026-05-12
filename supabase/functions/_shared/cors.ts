@@ -1,5 +1,8 @@
 import { getAppConfig } from './app-config.ts'
 
+export const CORS_DEFAULT_ALLOW_HEADERS = 'authorization, x-client-info, apikey, content-type'
+export const CORS_DEFAULT_ALLOW_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS'
+
 const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i
 
 export interface CorsOptions {
@@ -61,8 +64,8 @@ export async function initCorsConfig(): Promise<void> {
     primaryOrigin: dbConfig.primaryOrigin || '',
     allowedOrigins: dbConfig.allowedOrigins || [],
     allowLocalhost: dbConfig.allowLocalhost ?? true,
-    allowHeaders: dbConfig.allowHeaders || 'authorization, x-client-info, apikey, content-type',
-    allowMethods: dbConfig.allowMethods || 'GET, POST, PATCH, DELETE, OPTIONS'
+    allowHeaders: dbConfig.allowHeaders || CORS_DEFAULT_ALLOW_HEADERS,
+    allowMethods: dbConfig.allowMethods || CORS_DEFAULT_ALLOW_METHODS
   }
 
   configInitialized = true
@@ -72,8 +75,8 @@ export function createCorsHelpers(options: CorsOptions) {
   const primaryOriginEnvKey = options.primaryOriginEnvKey || 'CORS_PRIMARY_ORIGIN'
   const allowedOriginsEnvKey = options.allowedOriginsEnvKey || 'CORS_ALLOWED_ORIGINS'
   const allowLocalhostEnvKey = options.allowLocalhostEnvKey || 'ALLOW_LOCALHOST_ORIGIN'
-  const allowHeaders = options.allowHeaders || 'authorization, x-client-info, apikey, content-type'
-  const allowMethods = options.allowMethods || 'GET, POST, PATCH, DELETE, OPTIONS'
+  const allowHeaders = options.allowHeaders || CORS_DEFAULT_ALLOW_HEADERS
+  const allowMethods = options.allowMethods || CORS_DEFAULT_ALLOW_METHODS
 
   // 优先使用 runtimeConfig（从 DB 加载），env vars 作为回退
   const _primaryOrigin = configInitialized && runtimeConfig
@@ -135,4 +138,32 @@ export function createCorsHelpers(options: CorsOptions) {
     defaultCorsHeaders,
     buildCorsHeaders
   }
+}
+
+/**
+ * One-shot CORS handling: builds headers, returns OPTIONS preflight response,
+ * or returns 403 if origin not allowed.
+ * Returns `null` when the request should proceed (valid origin, non-OPTIONS).
+ */
+export function handleCors(
+  req: Request,
+  corsHelpers: ReturnType<typeof createCorsHelpers>
+): Response | null {
+  const headers = corsHelpers.buildCorsHeaders(req)
+
+  if (req.method === 'OPTIONS') {
+    if (!headers) {
+      return new Response('ok', { headers: corsHelpers.defaultCorsHeaders() })
+    }
+    return new Response('ok', { headers })
+  }
+
+  if (!headers) {
+    return new Response(JSON.stringify({ ok: false, error: 'CORS origin not allowed' }), {
+      status: 403,
+      headers: { ...corsHelpers.defaultCorsHeaders(), 'Content-Type': 'application/json; charset=utf-8' }
+    })
+  }
+
+  return null
 }

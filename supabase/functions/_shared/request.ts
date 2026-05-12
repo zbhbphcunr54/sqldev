@@ -15,3 +15,12 @@ export function getRequestContentLength(req: Request): number {
   if (!Number.isFinite(n) || n < 0) return -1
   return Math.floor(n)
 }
+
+export async function parseJsonBody<T = Record<string, unknown>>(req: Request): Promise<T | null> {
+  try {
+    const data = await req.json()
+    return data as T
+  } catch {
+    return null
+  }
+}

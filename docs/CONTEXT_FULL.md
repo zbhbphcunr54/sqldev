@@ -3,7 +3,293 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
+Last updated: 2026-05-12
+
+---
+
+## 2026-05-12: AI_DEV.md 合规性优化 — 第三轮（Fix 3.3-3.5, 1.7 部分）
+
+### Fix 3.3 — 图标按钮 aria-label
+- DdlPage, FunctionPage, ProcedurePage: "更多选项" + "交换源和目标数据库" 按钮添加 `aria-label`
+- RulesPage: "编辑"、"删除"、"交换源和目标" 按钮添加 `aria-label`
+
+### Fix 3.4 — 移除 as any 类型断言
+- DdlPage, FunctionPage, ProcedurePage: 6 处 `($event.target as HTMLSelectElement).value as any` → `as 'oracle' | 'mysql' | 'postgresql'`
+
+### Fix 3.5 — 统一剪贴板逻辑
+- `src/composables/useClipboard.ts`: 内联 textarea fallback → 改用 `src/utils/browser-dom.ts` 的 `fallbackCopyTextByDom`
+
+### Fix 1.7 — 提取样本 SQL（部分）
+- 新建 `src/features/sql/samples.ts`: 提取 SAMPLE_DDL, SAMPLE_FUNC, SAMPLE_PROC
+- DdlPage, FunctionPage: 本地样本 → import 共享样本，各减少 ~70 行 script
+- ProcedurePage: 跳过（编辑工具限制）
+
+### 新建文件
+- `src/features/sql/samples.ts`
+
+### 修改文件（6 个）
+- `src/composables/useClipboard.ts`
+- `src/components/business/workbench/pages/DdlPage.vue`
+- `src/components/business/workbench/pages/FunctionPage.vue`
+- `src/components/business/workbench/pages/ProcedurePage.vue` (aria-label + as any only)
+- `src/components/business/workbench/pages/RulesPage.vue`
+
 Last updated: 2026-05-11
+
+---
+
+## 2026-05-11: 全代码库 AI_DEV.md 合规性优化（Phase 0-3，第二轮）
+
+### 待处理项推进
+完成 5 项待处理中的 3 项：
+- Fix 1.3: `convert/index.ts` handler 分解（213→50行） ✅
+- Fix 1.4: `feedback/index.ts` handler 分解（180→55行） ✅
+- Fix 1.7: `WorkbenchSidebar.vue` script 提取（157→~110行） ✅
+- Fix 1.2: `computeZiweiChart` 分解 ⏭️ 跳过（339行核心算法，无测试覆盖）
+- Fix 1.5: AI client 统一 ⏭️ 跳过（影响紫微 AI 功能）
+
+### 新增文件
+- `src/components/business/workbench/sidebar-menu.ts` — 侧边栏菜单数据 + SECTION_MAP
+
+### 修改文件（6 个）
+- `supabase/functions/convert/index.ts` — 提取 validateConvertRequest、checkConvertCache、executeConvertEngine、persistConvertCache；移除本地 isPlainObject，改用 _shared/utils.ts
+- `supabase/functions/feedback/index.ts` — 提取 parseFeedbackPayload、checkFeedbackRateLimit、insertFeedbackRow；移除本地 toSafeString，改用 _shared/utils.ts
+- `src/components/business/workbench/WorkbenchSidebar.vue` — 菜单数据和路由映射提取到 sidebar-menu.ts
+
+---
+
+## 2026-05-11: 全代码库 AI_DEV.md 合规性优化（Phase 0-3）
+
+---
+
+## 2026-05-11: 全代码库 AI_DEV.md 合规性优化（Phase 0-3）
+
+### 概述
+对 DDL 翻译 → 操作日志全功能链（排除 AI 配置页面）进行 AI_DEV.md 合规性优化，修复 2 个 P0 Bug、3 项 P1 结构重构、5 项 P2 清理、2 项 P3 打磨。
+
+### Phase 0 — P0 Bug 修复
+- **Fix 0.1**: `src/features/ziwei/compute.ts` — `currentYear` 未声明导致运行时 NaN，添加声明
+- **Fix 0.2**: `supabase/functions/app-config/index.ts` — `Boolean(is_encrypted)` 对字符串 `'false'` 返回 `true`，添加 `toBoolean()` 辅助函数
+
+### Phase 1 — P1 结构重构
+- **Fix 1.1**: `src/stores/workbench.ts` — `convert()` 89 行 + 三段重复 → `convertKind()` 49 行
+- **Fix 1.3-1.5**: 跳过（convert/feedback handler 分解、AI client 统一，避免功能风险）
+- **Fix 1.6**: 12+ 静默 catch 块 → 添加 `console.error/warn`（rules/sync.ts, history-sync.ts, ai-utils.ts, compute.ts, http.ts）
+
+### Phase 2 — P2 中等清理
+- **Fix 2.1**: 新建 `src/utils/type-guards.ts`（`asRecord`, `asString`, `asArray`, `asNumber`），3 文件引用改为 import
+- **Fix 2.2**: 新建 `src/features/navigation/shared.ts`，提取 `resolveLegacyMobileBreakpoint`
+- **Fix 2.3**: `_shared/utils.ts` 新增 `isPlainObject`, `toSafeString`
+- **Fix 2.4**: `src/api/convert.ts` + `src/stores/workbench.ts` — 使用 `ApiError.code` 替代 `String(err)`
+- **Fix 2.6**: CORS 默认 header 提取为 `CORS_DEFAULT_ALLOW_HEADERS`/`CORS_DEFAULT_ALLOW_METHODS` 常量
+
+### Phase 3 — P3 打磨
+- **Fix 3.1**: convert-verify 4 组件（ConvertVerifyPanel, VerifyIssueList, VerifyScoreBadge, VerifySuggestionCard）— 硬编码 Tailwind 颜色替换为语义类（`bg-panel`, `text-text`, `bg-brand-600`, `bg-successBg` 等），支持深色主题
+- **Fix 3.2**: `src/utils/error-map.ts` 新增 30+ 错误码（convert, rules, id-tool, ziwei, history, operation-logs, app-config）；4 个 stores（rules, operation-logs, ziwei-history, workbench）改用 `mapErrorCodeToMessage()`
+- DB 类型颜色替换：FunctionPage, ProcedurePage, RulesPage 中 `#f59e0b/#10b981/#6366f1` → `var(--color-warning/success/chat-accent)`
+
+### 新建文件
+- `src/utils/type-guards.ts`
+- `src/features/navigation/shared.ts`
+
+### 修改文件（20 个）
+- `src/features/ziwei/compute.ts` — currentYear + catch 日志
+- `src/features/ziwei/ai-utils.ts` — import type-guards + catch 日志
+- `src/features/ziwei/history.ts` — import type-guards
+- `src/features/ziwei/history-sync.ts` — catch 日志
+- `src/features/rules/persistence.ts` — import type-guards
+- `src/features/rules/sync.ts` — catch 日志
+- `src/features/navigation/workbench-effects.ts` — import shared
+- `src/features/navigation/workbench-state.ts` — import shared
+- `src/stores/workbench.ts` — convertKind + ApiError
+- `src/stores/rules.ts` — error-map
+- `src/stores/operation-logs.ts` — error-map
+- `src/stores/ziwei-history.ts` — error-map + 修复 import
+- `src/api/convert.ts` — ApiError
+- `src/api/http.ts` — catch 日志
+- `src/utils/error-map.ts` — 30+ 新错误码
+- `src/components/business/convert-verify/ConvertVerifyPanel.vue` — 主题支持
+- `src/components/business/convert-verify/VerifyIssueList.vue` — 主题支持
+- `src/components/business/convert-verify/VerifyScoreBadge.vue` — 主题支持
+- `src/components/business/convert-verify/VerifySuggestionCard.vue` — 主题支持
+- `src/components/business/workbench/pages/FunctionPage.vue` — 颜色变量
+- `src/components/business/workbench/pages/ProcedurePage.vue` — 颜色变量
+- `src/components/business/workbench/pages/RulesPage.vue` — 颜色变量
+- `supabase/functions/app-config/index.ts` — toBoolean
+- `supabase/functions/_shared/utils.ts` — isPlainObject + toSafeString
+- `supabase/functions/_shared/cors.ts` — CORS 常量
+
+### 待后续处理（跳过的 P1 项）
+- Fix 1.2: `computeZiweiChart` 339 行分解（高风险纯重构）
+- Fix 1.3: `convert/index.ts` handler 213 行分解
+- Fix 1.4: `feedback/index.ts` handler 180 行分解
+- Fix 1.5: AI client 统一
+- Fix 1.7: 大 Vue 组件 script 提取（9 个文件 >150 行）
+
+---
+
+## 2026-05-11: 开发规范合并 — FEATURE_DEV_SPEC 并入 AI_DEV.md
+
+### 概述
+将 `docs/FEATURE_DEV_SPEC_AI_NAV_CHAT_FEEDBACK_MENU.md` 独有内容合并到 `docs/AI_DEV.md`，删除原文件，统一为单一规范来源。
+
+### 合并内容
+- **§7.2**：补充增量迁移回滚脚本要求
+- **§13**：新增"去冗余与复用"6条规则 + 日期注释按需使用说明
+- **§15**：补充虚拟滚动、资源加载策略、新增响应式设计子节（§15.4）
+- **§20**：明确配置优先级 — `app_configs` 表 > Secrets > 环境变量 > 代码默认值
+- **§21.3**：组件清单非穷举说明，Button/Card/Modal 补充细节，新增 Dropdown/Select、Scrollbar 规范
+- **§24**：重构为三个子节 — 24.1 任务完成三项输出、24.2 提交前自检清单（9项）、24.3 验收确认
+
+### 冲突裁决
+- SQL migration 已提交不可改（以 AI_DEV §7.2 为准）
+- 配置优先级以 `app_configs` 表为最高优先级
+
+### 删除文件
+- `docs/FEATURE_DEV_SPEC_AI_NAV_CHAT_FEEDBACK_MENU.md`
+
+---
+
+## 2026-05-11: 重复代码消除 — 前端公共组件/Composable + 后端 _shared/ 增强（B1—B14）
+
+### 概述
+按照 CODE_REVIEW_FIX_LIST.md 第五章建议，消除前后端 ~800 行重复代码，创建 7 个新文件，修改 17 个现有文件。
+
+### B1 — BaseModal.vue + 3 个弹窗重构
+
+**问题**：ProviderConfigModal、AddKeyModal、ConfigEditModal 各自实现 overlay + ESC + 关闭按钮 + header/footer，~300 行重复 CSS/JS。
+
+**修复**：新建 `src/components/common/BaseModal.vue`（Teleport + overlay + ESC + header/body/footer slot），三个弹窗改为 `<BaseModal>` 包裹，移除重复的 overlay/header/footer CSS 和 `useEscapeKey` 调用。
+
+- ProviderConfigModal: 690 → ~340 行
+- AddKeyModal: 457 → ~300 行
+- ConfigEditModal: 637 → ~330 行
+
+### B2 — ThemeToggle.vue
+
+**问题**：AppHeader（两处）和 WorkbenchHeaderActions 的主题切换按钮 + SVG 图标完全重复。
+
+**修复**：新建 `src/components/common/ThemeToggle.vue`，支持 `variant="text"|"icon"` 两种模式。AppHeader 主区域用 `variant="text"`，下拉菜单用 `variant="icon"`；WorkbenchHeaderActions 下拉菜单用 `variant="icon"`。移除 6 个内联 SVG 定义和重复的 `.theme-btn`/`.wb-theme-btn` CSS。
+
+### B3 — storage.ts localStorage 工具
+
+**问题**：`try/catch + JSON.parse` 模式在 `AiConfigPage.vue`、`useThemeRuntime.ts`、`stores/ai.ts` 等 5+ 处重复。
+
+**修复**：新建 `src/utils/storage.ts`，导出 `getJson<T>(key, defaultVal): T`、`setJson(key, value): void`、`removeJson(key): void`。更新 3 个文件中的调用处。
+
+### B4 — useEscapeKey 已存在
+
+`src/composables/useEscapeKey.ts` 已在之前的 MEDIUM Issue Fix 中创建，三个 AI 弹窗均已在 B1 重构前就使用此 composable。
+
+### B5 — handleCors() 统一 CORS 处理
+
+**问题**：`buildCorsHeaders(req)` → OPTIONS 返回 → `!corsHeaders` 返回 403 的 6 行样板在 5 个 EF 中逐字重复。
+
+**修复**：`_shared/cors.ts` 新增 `handleCors(req, corsHelpers): Response | null`，返回 null 表示放行。5 个 EF 全部更新为一行调用。
+
+### B6 — errorResponse 规范化
+
+**问题**：ai-chat/feedback 用 `{ ok: false, error }`；ai-config/app-config/convert 用 `{ error }`（缺 `ok: false`）。
+
+**修复**：`errorResponse()` 已是 `{ ok: false, error }` 格式的唯一出口。ai-config 的 `makeResponse` helper 已保留，app-config 和 convert 的 `jsonResponse(..., { error: ... })` 调用未批量修改（需要大面积回归测试），但 `sanitizeError` 移入 `_shared/response.ts` 后统一了错误脱敏逻辑。
+
+### B7 — parseJsonBody()
+
+**问题**：`req.json().catch(() => null)` 在 5 个 EF 中各自手写。
+
+**修复**：`_shared/request.ts` 新增 `parseJsonBody<T>(req): Promise<T | null>`。ai-chat 已更新使用。
+
+### B8 — createLogger() 消除重复 userId/email/ip
+
+**问题**：`logOperation({ userId, userEmail, clientIp, ... }).catch(() => {})` 样板 ~60 处，前三个字段每次重复传入。
+
+**修复**：`_shared/operation-logger.ts` 新增 `createLogger(ctx)` 返回预绑定的 `(operation, overrides?) => void` 函数，内置 `.catch(() => {})`。
+
+### B9 — maskApiKeySync 统一 API Key 掩码
+
+**问题**：ai-config（8+8 或 4+4）、crypto.ts（4+4）、ai-chat（仅末 4 位）、operation-logger（整字段移除）4 种不同实现。
+
+**修复**：`_shared/crypto.ts` 新增 `maskApiKeySync(plain)`（同步版本，前 4 + 后 4 格式），`maskApiKey` 内部复用。ai-chat 和 ai-config 的 `buildMaskedResponse` 已更新使用统一格式。
+
+### B10 — createTtlCache()
+
+**问题**：`cachedXxx + time + if (now - time < TTL) return` 手动 TTL 模式在 ai-chat、ai-config、convert 中逐字重复。
+
+**修复**：`_shared/app-config.ts` 新增 `createTtlCache<T>(fetcher, ttlMs): () => Promise<T>`。
+
+### B11 — sanitizeError 统一
+
+**问题**：ai-config（完整版）、app-config（简化版）各自定义。
+
+**修复**：ai-config 完整版移入 `_shared/response.ts` 并统一导出。ai-config 和 app-config 的本地副本已删除，改为 `import { sanitizeError } from '../_shared/response.ts'`。
+
+### B12 — checkIsAdmin() 统一管理员检查
+
+**问题**：ai-config 查 `admin_users` 表，app-config 查 `app_metadata.is_admin`。
+
+**修复**：`_shared/auth.ts` 新增 `checkIsAdmin(adminClient, email): Promise<boolean>`，统一查询 `admin_users` 表。app-config 已更新使用。
+
+### B13 — getSupabaseEnv()
+
+**问题**：`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` 在 8 个文件中重复 `Deno.env.get`。
+
+**修复**：`_shared/app-config.ts` 新增 `getSupabaseEnv()` 返回 `{ url, anonKey, serviceRoleKey }`。ai-chat、app-config 已更新使用。
+
+### B14 — ai-client.ts 统一 AI HTTP 调用
+
+**问题**：ai-chat（chat completions）和 ai-config（连接测试）各自实现 URL 拼接、Authorization 头、错误码分类。
+
+**修复**：新建 `_shared/ai-client.ts`，导出 `callAiProvider(config, messages, options): Promise<string>`，统一 URL 构建（含 Claude 特殊路径）、请求头（含 x-api-key 格式）和错误分类（429/401/403/5xx → 统一错误码）。
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/utils/storage.ts` | localStorage JSON 读写工具 |
+| `src/components/common/BaseModal.vue` | 通用弹窗组件（overlay+ESC+header/body/footer slot） |
+| `src/components/common/ThemeToggle.vue` | 主题切换组件（text/icon 双 variant） |
+| `supabase/functions/_shared/ai-client.ts` | 统一 AI HTTP 调用客户端 |
+
+### 修改文件清单
+
+| 文件 | 修改类型 |
+|------|----------|
+| `src/stores/ai.ts` | B3: localStorage → storage.ts |
+| `src/composables/useThemeRuntime.ts` | B3: localStorage → storage.ts |
+| `src/components/business/ai/AiConfigPage.vue` | B3: localStorage → storage.ts |
+| `src/components/business/ai/ProviderConfigModal.vue` | B1: 重构为 BaseModal 包裹 |
+| `src/components/business/ai/AddKeyModal.vue` | B1: 重构为 BaseModal 包裹 |
+| `src/components/business/ai/ConfigEditModal.vue` | B1: 重构为 BaseModal 包裹 |
+| `src/components/layout/AppHeader.vue` | B2: 主题切换 → ThemeToggle |
+| `src/components/business/workbench/WorkbenchHeaderActions.vue` | B2: 主题切换 → ThemeToggle |
+| `supabase/functions/_shared/cors.ts` | B5: 新增 handleCors() |
+| `supabase/functions/_shared/response.ts` | B11: 新增 sanitizeError() |
+| `supabase/functions/_shared/request.ts` | B7: 新增 parseJsonBody() |
+| `supabase/functions/_shared/crypto.ts` | B9: 新增 maskApiKeySync() |
+| `supabase/functions/_shared/app-config.ts` | B10+B13: 新增 createTtlCache() + getSupabaseEnv() |
+| `supabase/functions/_shared/auth.ts` | B12: 新增 checkIsAdmin() |
+| `supabase/functions/_shared/operation-logger.ts` | B8: 新增 createLogger() |
+| `supabase/functions/ai-chat/index.ts` | B5/B7/B9/B13: handleCors + parseJsonBody + maskApiKeySync + getSupabaseEnv |
+| `supabase/functions/ai-config/index.ts` | B5/B9/B11: handleCors + maskApiKeySync + sanitizeError |
+| `supabase/functions/app-config/index.ts` | B5/B11/B12/B13: handleCors + sanitizeError + checkIsAdmin + getSupabaseEnv |
+| `supabase/functions/feedback/index.ts` | B5: handleCors |
+| `supabase/functions/convert/index.ts` | B5: handleCors |
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+- ✅ ESLint 通过（修改文件零 error）
+- 消除 ~800 行重复代码
+
+### 部署
+
+```bash
+supabase functions deploy ai-chat
+supabase functions deploy ai-config
+supabase functions deploy app-config
+supabase functions deploy feedback
+supabase functions deploy convert
+pnpm build && pnpm verify
+```
 
 ---
 
@@ -284,6 +570,38 @@ pnpm verify
 | 2 | 新增 Key 默认超时 30s vs AI 对话框 45s | `supabase/functions/ai-config/index.ts` | `getDefaultTimeout()` 从 `app_configs` 读取 `ai.default_timeout_ms`，与 `ai-resolver.ts` 同源，默认 45000 |
 | 3 | 亮色模式侧边栏 Dev Studio 文字看不见 | `WorkbenchSidebar.vue` | `text-white` → `color: var(--color-page-text)`；Dev 图标保留白色 |
 | 4 | 亮色模式弹窗仍为黑色 | `AddKeyModal.vue`、`ProviderConfigModal.vue` | 删除模板中硬编码的 `data-theme="dark"`，弹窗跟随全局主题 |
+
+### 构建状态
+- ✅ `vue-tsc --noEmit` 通过
+
+### 部署
+```bash
+supabase functions deploy ai-config --project-ref <ref>
+pnpm build
+```
+
+---
+
+## 2026-05-11: AI 配置交互响应优化（第二轮）
+
+### 问题与根因
+
+| # | 问题 | 根因 |
+|---|---|---|
+| 1 | 拖拽排序偶现刷新后顺序回退 | `persistToCache()` 在 API `.then()` 回调中执行，若用户刷新时 API 尚未返回，缓存仍是旧顺序 |
+| 2 | 新增/编辑供应商点击保存仍很慢 | `ProviderConfigModal.handleSave()` 自行调用 API → `emit('saved')` → 父级再 `loadProviders()`，弹窗在两次 HTTP 往返期间一直悬停 |
+| 3 | Key 管理表格 API Key 显示 `[encrypted] ****` | `buildMaskedResponse` 对加密 key 直接返回 `[encrypted] ****`，未先解密再脱敏 |
+| 4 | AI 对话框发消息后回到初始状态，不显示模型/剩余次数 | ① 首条消息失败时 `catch` 清除本地消息导致 `hasMessages=false`，`v-else-if="!hasMessages && !sending"` 欢迎页优先渲染，错误被隐藏；② `providerLabel()` 仅依赖 `useChat()` 的异步数据，无 aiStore 回退 |
+
+### 修复文件
+
+| 文件 | 修改 | 说明 |
+|---|---|---|
+| `src/stores/ai.ts` | +9 行 | 新增 `persistToCache()` 方法 |
+| `src/components/business/ai/AiConfigPage.vue` | 多处 | ① 拖拽排序先调 `persistToCache()` 乐观写缓存再调 API；② 新增 `handleProviderSave()` 接收 payload，先关弹窗再 API，直接更新本地列表跳过全量 fetch；③ `handleAddKeySaved` 先关弹窗再 API |
+| `src/components/business/ai/ProviderConfigModal.vue` | 重构 | emit 改为 `save` 携带 payload（isEdit/providerId/data），不再自行调用 API；移除 `aiConfigApi` 导入；`resetForm()` 补充重置 `saving` |
+| `supabase/functions/ai-config/index.ts` | handleGet | admin 路径先并行解密所有 config 的 api_key，再传给 `buildMaskedResponse`，显示 `sk-a***b1c2` 脱敏格式 |
+| `src/components/business/ai/FloatingChat.vue` | 2 处 | ① 欢迎页条件增加 `&& !error`，失败时错误可见；② `providerLabel()` 新增 aiStore fallback，显示 AI 配置页激活的模型 |
 
 ### 构建状态
 - ✅ `vue-tsc --noEmit` 通过

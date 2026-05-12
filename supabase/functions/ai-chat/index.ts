@@ -1,19 +1,19 @@
 import { validateBearerToken } from '../_shared/auth.ts'
-import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
+import { createCorsHelpers, initCorsConfig, handleCors } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
-import { getClientIp } from '../_shared/request.ts'
+import { getClientIp, parseJsonBody } from '../_shared/request.ts'
 import { jsonResponse, logEdgeError } from '../_shared/response.ts'
-import { getAppConfig, getAppConfigsByCategory } from '../_shared/app-config.ts'
+import { getAppConfig, getSupabaseEnv, getDefaultAiTimeoutMs } from '../_shared/app-config.ts'
 import { resolveAiConfig, type ResolvedAiConfig } from '../_shared/ai-resolver.ts'
-import { logOperation } from '../_shared/operation-logger.ts'
+import { logOperation, createLogger } from '../_shared/operation-logger.ts'
+import { maskApiKeySync } from '../_shared/crypto.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 await initCorsConfig()
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
+const corsHelpers = createCorsHelpers({})
+const { defaultCorsHeaders, buildCorsHeaders } = corsHelpers
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceRoleKey: SERVICE_ROLE_KEY } = getSupabaseEnv()
 
 function getAdminClient(): SupabaseClient {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error('Supabase not configured')
@@ -118,14 +118,39 @@ async function consumeQuota(userId: string, dailyLimit: number): Promise<{ allow
     return { allowed: true, used: 0, remaining: dailyLimit }
   }
   const today = getTodayUTC8()
+
+  // 先检查 RPC 是否存在（正确签名：3 个参数）
+  let rpcExists = false
   try {
-    const { data } = await adminClient.rpc('increment_ai_chat_quota', { p_user_id: userId, p_date: today, p_limit: dailyLimit })
-    if (data) {
-      return { allowed: data.allowed, used: data.used_count, remaining: data.remaining }
+    const { data: rpcCheck } = await adminClient.rpc('increment_ai_chat_quota', { p_user_id: userId, p_date: today, p_limit: dailyLimit })
+    // RPC 成功执行，data 中有结果则取；否则继续查表
+    if (rpcCheck) {
+      rpcExists = true
     }
-    return { allowed: true, used: 0, remaining: dailyLimit }
   } catch (err) {
-    console.error('[ai-chat] Failed to consume quota:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[ai-chat] consumeQuota RPC failed:', msg)
+    // 明确告知：迁移未执行
+    if (msg.includes('does not exist') || msg.includes('arguments')) {
+      console.error('[ai-chat] → 请执行迁移: supabase/migrations/202605110001_fix_ai_chat_quota_race.sql')
+    }
+  }
+
+  // 直接查表取结果（RPC 如成功已递增，如失败表无变化）
+  try {
+    const { data } = await adminClient
+      .from('ai_chat_quota')
+      .select('used_count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .single()
+    const used = data?.used_count ?? 0
+    if (used === 0 && !rpcExists) {
+      console.error('[ai-chat] consumeQuota: RPC not executed and no quota record. Check migration.')
+    }
+    return { allowed: used <= dailyLimit, used, remaining: Math.max(0, dailyLimit - used) }
+  } catch (err) {
+    console.error('[ai-chat] consumeQuota table read failed:', err)
     return { allowed: true, used: 0, remaining: dailyLimit }
   }
 }
@@ -168,7 +193,7 @@ async function callAi(
 ): Promise<string> {
   const base = aiConfig.baseUrl.replace(/\/+$/, '')
   const url = /\/v\d+/.test(base) ? base + '/chat/completions' : base + '/v1/chat/completions'
-  const apiKeyMasked = aiConfig.apiKey ? '***' + aiConfig.apiKey.slice(-4) : '(empty)'
+  const apiKeyMasked = aiConfig.apiKey ? maskApiKeySync(aiConfig.apiKey) : '(empty)'
   console.log('[ai-chat] callAi url=', url, 'model=', aiConfig.model, 'apiKey=', apiKeyMasked, 'source=', aiConfig.source)
   const body = {
     model: aiConfig.model,
@@ -205,11 +230,9 @@ async function callAi(
 // ── 主 Handler ──
 export async function handleAiChatRequest(req: Request): Promise<Response> {
   try {
-    const corsHeaders = buildCorsHeaders(req) || defaultCorsHeaders()
-
-    if (req.method === 'OPTIONS') {
-      return new Response('ok', { headers: corsHeaders })
-    }
+    const corsResult = handleCors(req, corsHelpers)
+    if (corsResult) return corsResult
+    const corsHeaders = buildCorsHeaders(req)!
 
     const startTime = Date.now()
     const clientIp = getClientIp(req)
@@ -369,10 +392,8 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
       return jsonResponse(405, { ok: false, error: 'method_not_allowed' }, corsHeaders)
     }
 
-    let payload: Record<string, unknown> | null = null
-    try {
-      payload = await req.json()
-    } catch {
+    const payload = await parseJsonBody(req)
+    if (!payload) {
       return jsonResponse(400, { ok: false, error: 'invalid_json' }, corsHeaders)
     }
 
@@ -393,8 +414,6 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
       }).catch(() => {})
       return jsonResponse(400, { ok: false, error: 'invalid_message' }, corsHeaders)
     }
-
-    const { systemPrompt, dailyLimit, contextLimit, temperature, maxTokens } = await loadChatConfig()
 
     // 原子配额检查+递增
     const quota = await consumeQuota(authUser.userId, dailyLimit)
@@ -519,15 +538,18 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
 
     // 调用 AI
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), aiConfig.timeoutMs || 30000)
+    const timeoutId = setTimeout(() => controller.abort(), aiConfig.timeoutMs || await getDefaultAiTimeoutMs())
 
     let assistantContent: string
     try {
       assistantContent = await callAi(aiConfig, messages, controller.signal, temperature, maxTokens)
     } catch (err) {
-      const errorCode = err instanceof Error && err.message.startsWith('ai_')
-        ? err.message
-        : 'ai_analysis_failed'
+      const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+      const errorCode = isTimeout
+        ? 'ai_request_timeout'
+        : err instanceof Error && err.message.startsWith('ai_')
+          ? err.message
+          : 'ai_analysis_failed'
       logEdgeError('ai-chat', errorCode, err)
       const errorStatus = errorCode === 'ai_upstream_rate_limited' ? 429
         : errorCode === 'ai_upstream_auth_failed' ? 500

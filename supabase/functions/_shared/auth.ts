@@ -51,3 +51,23 @@ export async function validateBearerToken(
   if (state.state !== 'valid') return null
   return { userId: state.userId, email: state.email }
 }
+
+/**
+ * Unified admin check — queries admin_users table by email.
+ * Previously ai-config checked admin_users while app-config used app_metadata.is_admin.
+ */
+export async function checkIsAdmin(
+  adminClient: { from: (table: string) => { select: (columns: string) => { eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: unknown }> } } } },
+  email: string
+): Promise<boolean> {
+  try {
+    const { data } = await adminClient
+      .from('admin_users')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle()
+    return !!data
+  } catch {
+    return false
+  }
+}

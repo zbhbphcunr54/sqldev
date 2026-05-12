@@ -1,4 +1,4 @@
-type RecordLike = Record<string, unknown>
+import { asArray, asNumber, asRecord, asString, type RecordLike } from '@/utils/type-guards'
 
 // AI 分析结果中每颗星的最大化禄标签数量
 const MAX_HUA_TAGS_PER_STAR = 4
@@ -18,22 +18,6 @@ export interface ZiweiAiPayloadOptions {
 export interface ParsedInvokeError {
   status: number
   detail: string
-}
-
-function asRecord(value: unknown): RecordLike {
-  return value && typeof value === 'object' ? (value as RecordLike) : {}
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
-}
-
-function asString(value: unknown): string {
-  return String(value || '')
-}
-
-function asNumber(value: unknown): number {
-  return Number(value || 0)
 }
 
 export function trimZiweiText(value: unknown, maxLen: unknown): string {
@@ -314,13 +298,14 @@ export async function parseZiweiInvokeError(err: unknown): Promise<ParsedInvokeE
         try {
           const parsed = JSON.parse(text) as RecordLike
           detail = asString(parsed.error || parsed.message || text)
-        } catch {
+        } catch (e) {
+          console.warn('[ziwei:ai-utils] failed to parse error context JSON:', e)
           detail = asString(text)
         }
       }
     }
-  } catch {
-    // Edge SDK error contexts are best-effort only.
+  } catch (e) {
+    console.warn('[ziwei:ai-utils] error context extraction failed:', e)
   }
 
   if (!detail) {

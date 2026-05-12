@@ -16,7 +16,21 @@
       "Read(//c/Users/zhengpeng/.claude/projects/d--codextest-sqldev/memory//**)",
       "Bash(echo \"exit: $?\")",
       "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\docs\\\\ai-config-theme-preview.html\")",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "Bash(start d:\\\\codextest\\\\sqldev\\\\preview-ai-fab-icons.html)",
+      "Bash(start \"\" \"d:\\\\codextest\\\\sqldev\\\\preview-ai-fab-icons.html\")",
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/pages/DdlPage.vue)",
+      "Bash(awk '/^const SAMPLE_/,/^`$/' src/components/business/workbench/pages/FunctionPage.vue)",
+      "Bash(awk '/^const SAMPLE_/,/^`$/' src/components/business/workbench/pages/ProcedurePage.vue)",
+      "Bash(grep -n \"^const SAMPLE_\\\\|^\\\\`\" src/components/business/workbench/pages/FunctionPage.vue)",
+      "Bash(grep -n \"^const SAMPLE_\\\\|^\\\\`\" src/components/business/workbench/pages/ProcedurePage.vue)",
+      "Bash(grep -n \"\\\\`$\" src/components/business/workbench/pages/FunctionPage.vue)",
+      "Bash(grep -n \"\\\\`$\" src/components/business/workbench/pages/ProcedurePage.vue)",
+      "Bash(git checkout *)",
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/components/SqlEditor.vue)",
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/auth/AuthModal.vue)",
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/app-config/AppConfigPage.vue)",
+      "Bash(xxd)"
     ]
   }
 }

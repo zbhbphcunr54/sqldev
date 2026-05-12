@@ -22,8 +22,8 @@ export async function syncRulesFromServer(): Promise<void> {
     if (ddlResult.rules_json && Object.keys(ddlResult.rules_json).length > 0) {
       try {
         localStorage.setItem(DDL_KEY, JSON.stringify(ddlResult.rules_json))
-      } catch {
-        /* quota error ignored */
+      } catch (e) {
+        console.warn('[rules:sync] localStorage.setItem quota exceeded:', e)
       }
     }
 
@@ -31,12 +31,12 @@ export async function syncRulesFromServer(): Promise<void> {
     if (bodyResult.rules_json && Object.keys(bodyResult.rules_json).length > 0) {
       try {
         localStorage.setItem(BODY_KEY, JSON.stringify(bodyResult.rules_json))
-      } catch {
-        /* quota error ignored */
+      } catch (e) {
+        console.warn('[rules:sync] localStorage.setItem quota exceeded:', e)
       }
     }
-  } catch {
-    // 网络错误不阻塞，下次再试
+  } catch (e) {
+    console.error('[rules:sync] syncRulesFromServer failed:', e)
   } finally {
     syncInProgress = false
   }
@@ -52,8 +52,8 @@ export async function syncRulesToServer(
 ): Promise<void> {
   try {
     await saveUserRules(kind, rulesJson)
-  } catch {
-    // 网络错误不阻塞，下次 syncRulesFromServer 时会覆盖
+  } catch (e) {
+    console.error('[rules:sync] syncRulesToServer failed:', e)
   }
 }
 
@@ -75,8 +75,8 @@ export async function migrateRulesToServer(): Promise<void> {
         await saveUserRules(kind, rulesJson)
         localStorage.removeItem(storageKey)
       }
-    } catch {
-      // 迁移失败不阻塞，下次再试
+    } catch (e) {
+      console.error('[rules:sync] migrateRulesToServer failed:', e)
     }
   }
 }

@@ -1,4 +1,5 @@
 import { edgeFn } from '@/api/http'
+import { ApiError } from '@/lib/edge'
 
 export interface ConvertRequest {
   sourceDialect: 'oracle' | 'mysql' | 'postgresql'
@@ -55,7 +56,7 @@ export async function requestConvert(payload: ConvertRequest): Promise<ConvertRe
       ok: false,
       outputSql: '',
       warnings: [],
-      error: String(err)
+      error: err instanceof ApiError ? err.code : 'network_error'
     }
   }
 }

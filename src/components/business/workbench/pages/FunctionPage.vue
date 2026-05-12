@@ -16,81 +16,11 @@ import { requestConvert } from '@/api/convert'
 import { requestConvertVerify } from '@/api/convert-verify'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import { useClipboard } from '@/composables/useClipboard'
+import { SAMPLE_FUNC } from '@/features/sql/samples'
 
 const store = useWorkbenchStore()
 const router = useRouter()
 const { copyToClipboard } = useClipboard()
-
-// ==================== 示例 SQL ====================
-
-const SAMPLE_FUNC = `-- 计算订单应付金额函数
-CREATE OR REPLACE FUNCTION calculate_order_amount(
-  p_order_id IN NUMBER,
-  p_use_balance IN BOOLEAN DEFAULT TRUE
-) RETURN NUMBER IS
-  v_order_amount NUMBER(12,2);
-  v_discount_amount NUMBER(12,2) := 0;
-  v_coupon_amount NUMBER(12,2) := 0;
-  v_freight_amount NUMBER(10,2) := 0;
-  v_wallet_balance NUMBER(12,2) := 0;
-  v_customer_level NUMBER(2) := 1;
-  v_points_amount NUMBER(12,2) := 0;
-  v_final_amount NUMBER(12,2);
-  v_discount_rate NUMBER(5,4) := 1.0;
-BEGIN
-  -- 获取订单信息
-  SELECT order_amount, discount_amount, coupon_amount, freight_amount
-  INTO v_order_amount, v_discount_amount, v_coupon_amount, v_freight_amount
-  FROM orders WHERE order_id = p_order_id;
-
-  -- 获取客户等级和钱包余额
-  SELECT NVL(wallet_balance, 0), NVL(customer_level, 1)
-  INTO v_wallet_balance, v_customer_level
-  FROM customers WHERE customer_id = (
-    SELECT customer_id FROM orders WHERE order_id = p_order_id
-  );
-
-  -- 根据客户等级计算折扣
-  CASE v_customer_level
-    WHEN 5 THEN v_discount_rate := 0.85;  -- VIP5 85折
-    WHEN 4 THEN v_discount_rate := 0.90;  -- VIP4 9折
-    WHEN 3 THEN v_discount_rate := 0.95;  -- VIP3 95折
-    WHEN 2 THEN v_discount_rate := 0.98;  -- VIP2 98折
-    ELSE v_discount_rate := 1.0;
-  END CASE;
-
-  -- 计算积分抵扣金额
-  SELECT NVL(SUM(points * 0.01), 0) INTO v_points_amount
-  FROM customer_points
-  WHERE customer_id = (SELECT customer_id FROM orders WHERE order_id = p_order_id)
-    AND points_type = 'ORDER'
-    AND status = 'AVAILABLE'
-    AND expire_time > SYSDATE;
-
-  -- 计算最终金额
-  v_final_amount := v_order_amount * v_discount_rate
-                 - v_discount_amount
-                 - v_coupon_amount
-                 - LEAST(v_points_amount, v_order_amount * 0.1);
-
-  -- 如果使用余额抵扣
-  IF p_use_balance THEN
-    IF v_wallet_balance >= v_final_amount THEN
-      v_final_amount := 0;
-    ELSE
-      v_final_amount := v_final_amount - v_wallet_balance;
-    END IF;
-  END IF;
-
-  -- 最低为0
-  RETURN GREATEST(v_final_amount, 0);
-
-EXCEPTION
-  WHEN NO_DATA_FOUND THEN
-    RETURN NULL;
-  WHEN OTHERS THEN
-    RETURN NULL;
-END calculate_order_amount;`
 
 // ==================== 状态 ====================
 
@@ -367,7 +297,7 @@ const supportedFuncs = [
             class="db-select"
             aria-label="选择源数据库"
             @change="
-              store.pickDb('funcSourceDb', ($event.target as HTMLSelectElement).value as any)
+              store.pickDb('funcSourceDb', ($event.target as HTMLSelectElement).value as 'oracle' | 'mysql' | 'postgresql')
             "
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
@@ -387,8 +317,7 @@ const supportedFuncs = [
 
         <button
           class="swap-btn"
-          title="交换源和目标数据库"
-          aria-label="交换源和目标数据库"
+          title="交换源和目标数据库" aria-label="交换源和目标数据库"
           @click="swapDbs"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -418,7 +347,7 @@ const supportedFuncs = [
             class="db-select"
             aria-label="选择目标数据库"
             @change="
-              store.pickDb('funcTargetDb', ($event.target as HTMLSelectElement).value as any)
+              store.pickDb('funcTargetDb', ($event.target as HTMLSelectElement).value as 'oracle' | 'mysql' | 'postgresql')
             "
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
@@ -444,7 +373,7 @@ const supportedFuncs = [
           {{ isConverting ? '翻译中...' : '开始翻译' }}
           <span class="shortcut">Ctrl+Enter</span>
         </button>
-        <button class="icon-btn" title="更多选项">
+        <button class="icon-btn" title="更多选项" aria-label="更多选项">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="3" r="1.5" fill="currentColor" />
             <circle cx="8" cy="8" r="1.5" fill="currentColor" />
@@ -1574,19 +1503,19 @@ code {
 .type-oracle {
   font-family: var(--font-code);
   font-size: 11px;
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .type-mysql {
   font-family: var(--font-code);
   font-size: 11px;
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .type-pg {
   font-family: var(--font-code);
   font-size: 11px;
-  color: #6366f1;
+  color: var(--color-chat-accent);
 }
 
 .reference-footer {

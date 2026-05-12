@@ -1,18 +1,15 @@
 <!-- [2026-05-07] 新增 Key / 追加模型弹窗 -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import BaseModal from '@/components/common/BaseModal.vue'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
-import { useEscapeKey } from '@/composables/useEscapeKey'
 import FormSelect from '@/components/common/FormSelect.vue'
 
 const props = defineProps<{
   open: boolean
   providers: AiProviderDef[]
-  /** 现有的配置列表，用于检测重复 key */
   existingConfigs: AiProviderConfig[]
-  /** 追加模式：预填的供应商 ID（锁定不可改） */
   prefillProviderId?: string
-  /** 追加模式：预填的 API Key（锁定不可改） */
   prefillApiKey?: string
 }>()
 
@@ -47,7 +44,6 @@ const selectedProvider = computed(() =>
 
 const availableModels = computed(() => {
   if (!selectedProvider.value) return []
-  // 追加模式：过滤掉已存在的模型
   if (isAppendMode.value) {
     const existing = props.existingConfigs
       .filter((c) => c.provider_id === selectedProviderId.value)
@@ -61,9 +57,7 @@ const providerOptions = computed(() =>
   props.providers.map((p) => ({ value: p.id, label: p.label }))
 )
 
-const modelOptions = computed(() =>
-  availableModels.value.map((m) => ({ value: m, label: m }))
-)
+const modelOptions = computed(() => availableModels.value.map((m) => ({ value: m, label: m })))
 
 // Watch provider change to auto-fill URL and default model
 watch(selectedProviderId, (newId) => {
@@ -101,8 +95,6 @@ function resetForm(): void {
   submitting.value = false
 }
 
-useEscapeKey(() => emit('close'))
-
 // Submit
 function handleSubmit(): void {
   if (!selectedProviderId.value || !selectedModel.value) return
@@ -123,227 +115,91 @@ function handleSubmit(): void {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-panel">
-        <!-- Header -->
-        <div class="modal-header">
-          <div class="modal-header-content">
-            <h2 class="modal-title">{{ isAppendMode ? '追加模型' : '新增 API Key' }}</h2>
-            <p class="modal-subtitle">
-              {{ isAppendMode ? '为该 Key 添加新的模型' : '添加新的 AI 服务密钥配置' }}
-            </p>
-          </div>
-          <button class="modal-close" @click="emit('close')">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+  <BaseModal :open="open" @close="emit('close')">
+    <template #title>{{ isAppendMode ? '追加模型' : '新增 API Key' }}</template>
+    <template #subtitle>
+      {{ isAppendMode ? '为该 Key 添加新的模型' : '添加新的 AI 服务密钥配置' }}
+    </template>
+
+    <div class="form-body">
+      <!-- Provider & Model -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">选择供应商</label>
+          <FormSelect
+            v-model="selectedProviderId"
+            :options="providerOptions"
+            placeholder="选择供应商"
+          />
         </div>
-
-        <!-- Body -->
-        <div class="modal-body">
-          <!-- Provider & Model -->
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">选择供应商</label>
-              <FormSelect
-                v-model="selectedProviderId"
-                :options="providerOptions"
-                placeholder="选择供应商"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">{{ isAppendMode ? '可用模型' : '选择模型' }}</label>
-              <FormSelect
-                v-model="selectedModel"
-                :options="modelOptions"
-                :placeholder="availableModels.length === 0 ? '无可用模型' : '选择模型'"
-              />
-            </div>
-          </div>
-
-          <!-- API Key (追加模式自动复用同供应商已有 key) -->
-          <div v-if="!isAppendMode" class="form-group">
-            <label class="form-label">API Key</label>
-            <input
-              v-model="apiKey"
-              type="password"
-              placeholder="sk-..."
-              class="form-input form-input-full"
-            />
-          </div>
-          <div v-else class="form-group">
-            <label class="form-label">API Key</label>
-            <p class="form-hint">自动复用该供应商已有 Key</p>
-          </div>
-
-          <!-- Base URL -->
-          <div class="form-group">
-            <label class="form-label">接口地址</label>
-            <input
-              v-model="baseUrl"
-              type="text"
-              placeholder="https://api.example.com/v1"
-              class="form-input form-input-mono form-input-full"
-            />
-          </div>
-
-          <!-- Note -->
-          <div class="form-group">
-            <label class="form-label">备注</label>
-            <input
-              v-model="note"
-              type="text"
-              placeholder="可选备注"
-              class="form-input form-input-full"
-            />
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="modal-footer">
-          <button class="btn btn-cancel" @click="emit('close')">取消</button>
-          <button
-            class="btn btn-primary"
-            :disabled="submitting || (!isAppendMode && !apiKey) || !selectedModel || availableModels.length === 0"
-            @click="handleSubmit"
-          >
-            {{ submitting ? (isAppendMode ? '添加中...' : '添加中...') : (isAppendMode ? '添加模型' : '添加 Key') }}
-          </button>
+        <div class="form-group">
+          <label class="form-label">{{ isAppendMode ? '可用模型' : '选择模型' }}</label>
+          <FormSelect
+            v-model="selectedModel"
+            :options="modelOptions"
+            :placeholder="availableModels.length === 0 ? '无可用模型' : '选择模型'"
+          />
         </div>
       </div>
+
+      <!-- API Key -->
+      <div v-if="!isAppendMode" class="form-group">
+        <label class="form-label">API Key</label>
+        <input
+          v-model="apiKey"
+          type="password"
+          placeholder="sk-..."
+          class="form-input form-input-full"
+        />
+      </div>
+      <div v-else class="form-group">
+        <label class="form-label">API Key</label>
+        <p class="form-hint">自动复用该供应商已有 Key</p>
+      </div>
+
+      <!-- Base URL -->
+      <div class="form-group">
+        <label class="form-label">接口地址</label>
+        <input
+          v-model="baseUrl"
+          type="text"
+          placeholder="https://api.example.com/v1"
+          class="form-input form-input-mono form-input-full"
+        />
+      </div>
+
+      <!-- Note -->
+      <div class="form-group">
+        <label class="form-label">备注</label>
+        <input
+          v-model="note"
+          type="text"
+          placeholder="可选备注"
+          class="form-input form-input-full"
+        />
+      </div>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <button class="btn btn-cancel" @click="emit('close')">取消</button>
+      <button
+        class="btn btn-primary"
+        :disabled="
+          submitting || (!isAppendMode && !apiKey) || !selectedModel || availableModels.length === 0
+        "
+        @click="handleSubmit"
+      >
+        {{ submitting ? '添加中...' : isAppendMode ? '添加模型' : '添加 Key' }}
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-overlay);
-  backdrop-filter: blur(4px);
-  animation: modalFadeIn 0.15s ease-out;
-}
-
-@keyframes modalFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal-panel {
-  width: 480px;
-  max-width: 92vw;
-  max-height: 90vh;
-  background: var(--color-panel);
-  border: 1px solid var(--color-modal-border);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-xl);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: modalScaleIn 0.2s ease-out;
-}
-
-@keyframes modalScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* Header */
-.modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-modal-section-border);
-  flex-shrink: 0;
-}
-
-.modal-header-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.modal-title {
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.modal-subtitle {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-text-subtle);
-  margin: 0;
-}
-
-.modal-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: none;
-  flex-shrink: 0;
-}
-
-.modal-close:hover {
-  background: var(--color-panel-2);
-  color: var(--color-text);
-}
-
-/* Body */
-.modal-body {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
+.form-body {
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.modal-body::-webkit-scrollbar {
-  width: var(--scrollbar-size, 6px);
-}
-
-.modal-body::-webkit-scrollbar-track {
-  background: var(--scrollbar-track, transparent);
-  border-radius: var(--scrollbar-radius, 3px);
-}
-
-.modal-body::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--scrollbar-radius, 3px);
-}
-
-.modal-body::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
 }
 
 .form-row {
@@ -405,17 +261,6 @@ function handleSubmit(): void {
 
 .form-input[type='password'] {
   font-family: var(--font-code);
-}
-
-/* Footer */
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-modal-section-border);
-  flex-shrink: 0;
 }
 
 .btn {

@@ -19,13 +19,11 @@ export interface LegacySplashHomeTransitionDecision {
   shouldUseSplashApiShowHome: boolean
 }
 
+import { resolveLegacyMobileBreakpoint } from './shared'
+
 export interface LegacySplashHashSyncDecision {
   shouldSyncRoute: boolean
   shouldUseHistoryReplaceState: boolean
-}
-
-function resolveLegacyMobileBreakpoint(value: unknown): number {
-  return Number.isFinite(value) ? Number(value) : 1024
 }
 
 export function resolveLegacyWorkbenchVisibilityDecision(

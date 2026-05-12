@@ -8,6 +8,7 @@ import {
   type DbType,
   type RuleKind
 } from '@/api/rules'
+import { mapErrorCodeToMessage } from '@/utils/error-map'
 
 export const useRulesStore = defineStore('rules', () => {
   const currentRules = ref<unknown[]>([])
@@ -31,7 +32,7 @@ export const useRulesStore = defineStore('rules', () => {
         updatedAt.value = result.updated_at
       }
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '加载规则失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('rules_load_failed')
     } finally {
       loading.value = false
     }
@@ -47,7 +48,7 @@ export const useRulesStore = defineStore('rules', () => {
         updatedAt.value = result.updated_at
       }
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '保存规则失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('rules_save_failed')
       throw e
     } finally {
       loading.value = false
@@ -61,7 +62,7 @@ export const useRulesStore = defineStore('rules', () => {
       await resetUserRules(sourceDb.value, targetDb.value, kind.value)
       await loadRules(sourceDb.value, targetDb.value, kind.value)
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : '重置规则失败'
+      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('rules_reset_failed')
     } finally {
       loading.value = false
     }

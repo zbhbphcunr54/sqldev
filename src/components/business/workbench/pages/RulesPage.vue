@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
         </select>
       </div>
 
-      <button class="swap-btn" title="交换源和目标" @click="swapDb">
+      <button class="swap-btn" title="交换源和目标" aria-label="交换源和目标" @click="swapDb">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M4 10h9M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M16 10H7M9 14l-4-4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -335,12 +335,12 @@ onBeforeUnmount(() => {
             <span class="rule-target">{{ getRuleTarget(rule) }}</span>
           </div>
           <div class="rule-actions">
-            <button class="action-btn edit" title="编辑" @click="openEditModal(index)">
+            <button class="action-btn edit" title="编辑" aria-label="编辑" @click="openEditModal(index)">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M10 2l2 2-7 7H3v-2l7-7z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <button class="action-btn delete" title="删除" @click="deleteRule(index)">
+            <button class="action-btn delete" title="删除" aria-label="删除" @click="deleteRule(index)">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M2 4h10M5 4V2h4v2M5 6v5M9 6v5M3 4l1 8h6l1-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -719,9 +719,9 @@ onBeforeUnmount(() => {
 
 .rule-source {
   padding: 6px 12px;
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--color-warning-bg);
   border-radius: var(--radius-md);
-  color: #f59e0b;
+  color: var(--color-warning);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

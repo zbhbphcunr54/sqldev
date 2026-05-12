@@ -4,29 +4,31 @@
  * 普通用户只读非加密配置
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
-import { errorResponse, jsonResponse } from '../_shared/response.ts'
+import { extractBearerToken, validateUserSession, checkIsAdmin } from '../_shared/auth.ts'
+import { createCorsHelpers, initCorsConfig, handleCors } from '../_shared/cors.ts'
+import { errorResponse, jsonResponse, sanitizeError } from '../_shared/response.ts'
 import { encryptValue, decryptValue } from '../_shared/crypto.ts'
-import { clearConfigCache } from '../_shared/app-config.ts'
+import { clearConfigCache, getSupabaseEnv } from '../_shared/app-config.ts'
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
+const corsHelpers = createCorsHelpers({
   allowMethods: 'POST, PATCH, DELETE, OPTIONS'
 })
+const { defaultCorsHeaders, buildCorsHeaders } = corsHelpers
 
 await initCorsConfig()
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
+const { url: SUPABASE_URL } = getSupabaseEnv()
+
+function toBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return value.toLowerCase() === 'true'
+  return Boolean(value)
+}
 
 function getAdminClient() {
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!key) throw new Error('SERVICE_ROLE_KEY not configured')
   return createClient(SUPABASE_URL, key)
-}
-
-function sanitizeError(err: unknown): string {
-  if (err instanceof Error) return err.message
-  return String(err)
 }
 
 // GET /app-config - 列出所有配置（管理员）
@@ -81,7 +83,7 @@ async function handleCreate(
       value: finalValue,
       value_type: String(value_type || 'string'),
       description: description ? String(description) : null,
-      is_encrypted: Boolean(is_encrypted),
+      is_encrypted: toBoolean(is_encrypted),
       created_by: userId
     })
     .select()
@@ -118,7 +120,7 @@ async function handleUpdate(
   const updateData: Record<string, unknown> = {}
 
   if (body.value !== undefined) {
-    const isEncrypted = existing.is_encrypted || body.is_encrypted
+    const isEncrypted = existing.is_encrypted || toBoolean(body.is_encrypted)
 
     if (isEncrypted && String(body.value)) {
       updateData.value = await encryptValue(String(body.value))
@@ -164,14 +166,9 @@ async function handleClearCache() {
 }
 
 Deno.serve(async (req) => {
-  const corsHeaders = buildCorsHeaders(req)
-
-  if (req.method === 'OPTIONS') {
-    if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
-    return new Response('ok', { headers: corsHeaders })
-  }
-
-  if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+  const corsResult = handleCors(req, corsHelpers)
+  if (corsResult) return corsResult
+  const corsHeaders = buildCorsHeaders(req)!
 
   try {
     // 认证
@@ -189,9 +186,8 @@ Deno.serve(async (req) => {
 
     const adminClient = getAdminClient()
 
-    // 检查管理员权限
-    const { data: userData } = await adminClient.auth.adminGetUserById(sessionState.userId)
-    const isAdmin = userData?.app_metadata?.is_admin === true
+    // 检查管理员权限（统一使用 admin_users 表）
+    const isAdmin = await checkIsAdmin(adminClient, sessionState.email)
 
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)

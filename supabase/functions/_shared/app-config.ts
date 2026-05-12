@@ -180,3 +180,55 @@ export async function getAppConfigsByCategory(
 export function clearConfigCache(): void {
   configCache.clear()
 }
+
+/**
+ * 创建一个 TTL 缓存工厂函数。
+ * 返回的函数会在缓存有效期内直接返回缓存值，过期后自动重新获取。
+ */
+export function createTtlCache<T>(fetcher: () => Promise<T>, ttlMs: number): () => Promise<T> {
+  let cached: T | undefined
+  let timestamp = 0
+
+  return async () => {
+    const now = Date.now()
+    if (cached !== undefined && now - timestamp < ttlMs) {
+      return cached
+    }
+    cached = await fetcher()
+    timestamp = now
+    return cached
+  }
+}
+
+/**
+ * 获取 Supabase 环境变量（三个基础变量被 8 个文件重复读取）。
+ */
+export function getSupabaseEnv(): { url: string; anonKey: string; serviceRoleKey: string } {
+  return {
+    url: Deno.env.get('SUPABASE_URL') || '',
+    anonKey: Deno.env.get('SUPABASE_ANON_KEY') || '',
+    serviceRoleKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+  }
+}
+
+// ── AI 默认超时 ──
+let _cachedDefaultAiTimeoutMs: number | null = null
+let _cachedDefaultAiTimeoutMsTime = 0
+
+/**
+ * 读取 ai.default_timeout_ms，优先级：app_configs 表 > DEFAULT_AI_TIMEOUT_MS 环境变量。
+ * 结果缓存 60s。如未配置则抛出 Config not found。
+ */
+export async function getDefaultAiTimeoutMs(): Promise<number> {
+  const now = Date.now()
+  if (_cachedDefaultAiTimeoutMs !== null && now - _cachedDefaultAiTimeoutMsTime < 60_000) {
+    return _cachedDefaultAiTimeoutMs
+  }
+  const result = await getAppConfig<number>('ai', 'default_timeout_ms', {
+    envVar: 'DEFAULT_AI_TIMEOUT_MS',
+    parse: Number
+  })
+  _cachedDefaultAiTimeoutMs = result.value
+  _cachedDefaultAiTimeoutMsTime = now
+  return _cachedDefaultAiTimeoutMs
+}

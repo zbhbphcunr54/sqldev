@@ -1,10 +1,10 @@
 <!-- [2026-05-06] AI 配置编辑/新建弹窗 - 新设计 -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import BaseModal from '@/components/common/BaseModal.vue'
 import type { AiProviderDef, AiProviderConfig, AiConfigPayload } from '@/features/ai'
 import { DEFAULT_TIMEOUT_MS } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
-import { useEscapeKey } from '@/composables/useEscapeKey'
 
 const props = defineProps<{
   open: boolean
@@ -131,268 +131,141 @@ async function handleTest(): Promise<void> {
     testing.value = false
   }
 }
-
-useEscapeKey(() => emit('close'))
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-panel">
-        <!-- Header -->
-        <div class="modal-header">
-          <div class="modal-header-content">
-            <h2 class="modal-title">{{ isEditMode ? '编辑配置' : '新增配置' }}</h2>
-            <p class="modal-subtitle">
-              <template v-if="selectedProvider">
-                为 {{ selectedProvider.label }} 添加模型和 API Key
-              </template>
-              <template v-else> 添加 AI 服务商配置 </template>
-            </p>
-          </div>
-          <button class="modal-close" @click="emit('close')">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+  <BaseModal :open="open" @close="emit('close')">
+    <template #title>{{ isEditMode ? '编辑配置' : '新增配置' }}</template>
+    <template #subtitle>
+      <template v-if="selectedProvider">
+        为 {{ selectedProvider.label }} 添加模型和 API Key
+      </template>
+      <template v-else> 添加 AI 服务商配置 </template>
+    </template>
 
-        <!-- Body -->
-        <div class="modal-body">
-          <!-- 配置名称 -->
-          <div class="form-group">
-            <label class="form-label">配置名称</label>
-            <input
-              v-model="formName"
-              type="text"
-              placeholder="例如：生产环境、测试环境"
-              class="form-input"
-            />
-          </div>
+    <div class="form-body">
+      <!-- 配置名称 -->
+      <div class="form-group">
+        <label class="form-label">配置名称</label>
+        <input
+          v-model="formName"
+          type="text"
+          placeholder="例如：生产环境、测试环境"
+          class="form-input"
+        />
+      </div>
 
-          <!-- 选择模型 -->
-          <div class="form-group">
-            <label class="form-label">选择模型</label>
-            <select v-model="formModel" class="form-input">
-              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
-            </select>
-          </div>
+      <!-- 选择模型 -->
+      <div class="form-group">
+        <label class="form-label">选择模型</label>
+        <select v-model="formModel" class="form-input">
+          <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+        </select>
+      </div>
 
-          <!-- API Key -->
-          <div class="form-group">
-            <label class="form-label">API Key</label>
-            <input
-              v-model="formApiKey"
-              type="password"
-              :placeholder="isEditMode ? '留空则不修改' : 'sk-...'"
-              class="form-input form-input-mono"
-            />
-            <p class="form-hint">Key 将加密存储，仅显示末四位</p>
-          </div>
+      <!-- API Key -->
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input
+          v-model="formApiKey"
+          type="password"
+          :placeholder="isEditMode ? '留空则不修改' : 'sk-...'"
+          class="form-input form-input-mono"
+        />
+        <p class="form-hint">Key 将加密存储，仅显示末四位</p>
+      </div>
 
-          <!-- Base URL -->
-          <div class="form-group">
-            <label class="form-label">
-              Base URL
-              <span class="form-label-optional">(可选)</span>
-            </label>
-            <input
-              v-model="formBaseUrl"
-              type="text"
-              placeholder="https://api.openai.com/v1"
-              class="form-input form-input-mono"
-            />
-            <p class="form-hint">使用代理或自定义端点时填写</p>
-          </div>
+      <!-- Base URL -->
+      <div class="form-group">
+        <label class="form-label">
+          Base URL
+          <span class="form-label-optional">(可选)</span>
+        </label>
+        <input
+          v-model="formBaseUrl"
+          type="text"
+          placeholder="https://api.openai.com/v1"
+          class="form-input form-input-mono"
+        />
+        <p class="form-hint">使用代理或自定义端点时填写</p>
+      </div>
 
-          <!-- 设为默认配置 -->
-          <div class="form-group form-group-toggle">
-            <label class="form-label">设为默认配置</label>
-            <button
-              class="toggle-switch"
-              :class="{ active: formIsDefault }"
-              @click="formIsDefault = !formIsDefault"
-            >
-              <span class="toggle-handle"></span>
-            </button>
-          </div>
+      <!-- 设为默认配置 -->
+      <div class="form-group form-group-toggle">
+        <label class="form-label">设为默认配置</label>
+        <button
+          class="toggle-switch"
+          :class="{ active: formIsDefault }"
+          @click="formIsDefault = !formIsDefault"
+        >
+          <span class="toggle-handle"></span>
+        </button>
+      </div>
 
-          <!-- Test result -->
-          <div
-            v-if="testResult"
-            class="test-result"
-            :class="testResult.ok ? 'test-success' : 'test-error'"
+      <!-- Test result -->
+      <div
+        v-if="testResult"
+        class="test-result"
+        :class="testResult.ok ? 'test-success' : 'test-error'"
+      >
+        <div class="test-icon">
+          <svg
+            v-if="testResult.ok"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
           >
-            <div class="test-icon">
-              <svg
-                v-if="testResult.ok"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-              <svg
-                v-else
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </div>
-            <div class="test-content">
-              <span class="test-title">{{ testResult.ok ? '连接成功' : '连接失败' }}</span>
-              <span v-if="testResult.ok" class="test-badge">{{ testResult.elapsed_ms }}ms</span>
-              <span v-if="testResult.error" class="test-error-msg">{{ testResult.error }}</span>
-            </div>
-          </div>
-
-          <!-- Save error -->
-          <p v-if="saveError" class="form-error">{{ saveError }}</p>
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <svg
+            v-else
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
         </div>
-
-        <!-- Footer -->
-        <div class="modal-footer">
-          <button class="btn btn-cancel" @click="emit('close')">取消</button>
-          <div class="footer-actions">
-            <button
-              v-if="isEditMode"
-              class="btn btn-outline"
-              :disabled="testing"
-              @click="handleTest"
-            >
-              {{ testing ? '测试中...' : '测试连接' }}
-            </button>
-            <button class="btn btn-primary" :disabled="saving" @click="handleSave">
-              {{ saving ? '保存中...' : '保存配置' }}
-            </button>
-          </div>
+        <div class="test-content">
+          <span class="test-title">{{ testResult.ok ? '连接成功' : '连接失败' }}</span>
+          <span v-if="testResult.ok" class="test-badge">{{ testResult.elapsed_ms }}ms</span>
+          <span v-if="testResult.error" class="test-error-msg">{{ testResult.error }}</span>
         </div>
       </div>
+
+      <!-- Save error -->
+      <p v-if="saveError" class="form-error">{{ saveError }}</p>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="footer-wrap">
+        <button class="btn btn-cancel" @click="emit('close')">取消</button>
+        <div class="footer-actions">
+          <button v-if="isEditMode" class="btn btn-outline" :disabled="testing" @click="handleTest">
+            {{ testing ? '测试中...' : '测试连接' }}
+          </button>
+          <button class="btn btn-primary" :disabled="saving" @click="handleSave">
+            {{ saving ? '保存中...' : '保存配置' }}
+          </button>
+        </div>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-overlay);
-  backdrop-filter: blur(4px);
-  animation: modalFadeIn 0.15s ease-out;
-}
-
-@keyframes modalFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal-panel {
-  width: 520px;
-  max-width: 92vw;
-  max-height: 90vh;
-  background: var(--color-modal-bg);
-  border: 1px solid var(--color-modal-border);
-  border-radius: var(--radius-modal);
-  box-shadow: var(--shadow-xl);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-family: var(--font-body);
-  animation: modalScaleIn 0.2s ease-out;
-}
-
-@keyframes modalScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-/* Header */
-.modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-modal-section-border);
-  flex-shrink: 0;
-}
-
-.modal-header-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.modal-title {
-  font-family: var(--font-body);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.modal-subtitle {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-text-subtle);
-  margin: 0;
-}
-
-.modal-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: none;
-  flex-shrink: 0;
-}
-
-.modal-close:hover {
-  background: var(--color-panel-2);
-  color: var(--color-text);
-}
-
-/* Body */
-.modal-body {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
+.form-body {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-/* Form Groups */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -566,13 +439,11 @@ useEscapeKey(() => emit('close'))
 }
 
 /* Footer */
-.modal-footer {
+.footer-wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-modal-section-border);
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .footer-actions {

@@ -3,6 +3,18 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// 复用 admin client，避免每次记日志都 createClient
+let _cachedLogClient: SupabaseClient | null = null
+function getLogClient(): SupabaseClient | null {
+  const url = Deno.env.get('SUPABASE_URL') || ''
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+  if (!url || !key) return null
+  if (!_cachedLogClient) {
+    _cachedLogClient = createClient(url, key)
+  }
+  return _cachedLogClient
+}
+
 const SENSITIVE_KEYS = new Set([
   'token', 'access_token', 'password', 'authorization', 'api_key', 'secret', 'apikey'
 ])
@@ -53,16 +65,33 @@ function sanitizeLogEntry(entry: OperationLogEntry) {
  * 仅在 SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY 可用时写入。
  */
 export async function logOperation(entry: OperationLogEntry): Promise<void> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-  if (!supabaseUrl || !serviceRoleKey) return
+  const adminClient = getLogClient()
+  if (!adminClient) return
 
   try {
-    const adminClient = createClient(supabaseUrl, serviceRoleKey)
     const sanitized = sanitizeLogEntry(entry)
     await adminClient.from('operation_logs').insert(sanitized)
   } catch (err) {
-    // 日志写入失败不阻塞业务，仅打印
     console.error('[operation-logger] write failed:', err instanceof Error ? err.message : String(err))
+  }
+}
+
+/**
+ * Create a pre-bound logger that carries userId/userEmail/clientIp,
+ * eliminating the repetitive first three fields at every call site.
+ */
+export function createLogger(ctx: { userId?: string; userEmail?: string; clientIp: string }) {
+  return (operation: string, overrides?: Partial<OperationLogEntry>): void => {
+    const entry: OperationLogEntry = {
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      clientIp: ctx.clientIp,
+      operation,
+      apiName: overrides?.apiName || '',
+      responseStatus: overrides?.responseStatus ?? 200,
+      durationMs: overrides?.durationMs ?? 0,
+      ...overrides
+    }
+    logOperation(entry).catch(() => {})
   }
 }

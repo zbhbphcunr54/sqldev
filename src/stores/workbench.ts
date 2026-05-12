@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { requestConvert } from '@/api/convert'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
+import { ApiError } from '@/lib/edge'
 
 export type WorkbenchPage =
   | 'ddl'
@@ -162,93 +163,58 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
   // === Actions ===
   async function convert(): Promise<void> {
-    if (activePage.value === 'ddl') {
-      if (!inputDdl.value.trim()) {
-        showAlert('提示', '请输入要翻译的 DDL 语句')
-        return
-      }
-      ddlConverting.value = true
-      ddlStatusText.value = '正在翻译...'
-      try {
-        const result = await requestConvert({
-          sourceDialect: sourceDb.value,
-          targetDialect: targetDb.value,
-          sql: inputDdl.value,
-          kind: 'ddl'
-        })
-        if (result.ok) {
-          outputDdl.value = result.outputSql || ''
+    if (activePage.value === 'ddl') return convertKind('ddl')
+    if (activePage.value === 'func') return convertKind('func')
+    if (activePage.value === 'proc') return convertKind('proc')
+  }
+
+  async function convertKind(kind: 'ddl' | 'func' | 'proc'): Promise<void> {
+    const refs = {
+      ddl: { input: inputDdl, output: outputDdl, converting: ddlConverting, sourceDb, targetDb },
+      func: { input: funcInput, output: funcOutput, converting: funcConverting, sourceDb: funcSourceDb, targetDb: funcTargetDb },
+      proc: { input: procInput, output: procOutput, converting: procConverting, sourceDb: procSourceDb, targetDb: procTargetDb }
+    }[kind]
+    const label = { ddl: 'DDL', func: '函数', proc: '存储过程' }[kind]
+
+    if (!refs.input.value.trim()) {
+      showAlert('提示', `请输入要翻译的 ${label} 语句`)
+      return
+    }
+    refs.converting.value = true
+    if (kind === 'ddl') ddlStatusText.value = '正在翻译...'
+    else if (kind === 'func') funcStatus.value = 'loading'
+    else procStatus.value = 'loading'
+
+    try {
+      const result = await requestConvert({
+        sourceDialect: refs.sourceDb.value,
+        targetDialect: refs.targetDb.value,
+        sql: refs.input.value,
+        kind
+      })
+      if (result.ok) {
+        refs.output.value = result.outputSql || ''
+        if (kind === 'ddl') {
           ddlStatusText.value = result.cached ? '翻译完成（缓存）' : '翻译完成'
         } else {
-          outputDdl.value = ''
-          ddlStatusText.value = '翻译失败'
-          showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
+          ;(kind === 'func' ? funcStatus : procStatus).value = 'success'
         }
-      } catch (error) {
-        outputDdl.value = ''
-        ddlStatusText.value = '翻译失败'
-        showAlert('翻译失败', mapErrorCodeToMessage(String(error)))
-      } finally {
-        ddlConverting.value = false
+      } else {
+        refs.output.value = ''
+        if (kind === 'ddl') ddlStatusText.value = '翻译失败'
+        else if (kind === 'func') funcStatus.value = 'error'
+        else procStatus.value = 'error'
+        showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
       }
-    } else if (activePage.value === 'func') {
-      if (!funcInput.value.trim()) {
-        showAlert('提示', '请输入要翻译的函数语句')
-        return
-      }
-      funcConverting.value = true
-      funcStatus.value = 'loading'
-      try {
-        const result = await requestConvert({
-          sourceDialect: funcSourceDb.value,
-          targetDialect: funcTargetDb.value,
-          sql: funcInput.value,
-          kind: 'func'
-        })
-        if (result.ok) {
-          funcOutput.value = result.outputSql || ''
-          funcStatus.value = 'success'
-        } else {
-          funcOutput.value = ''
-          funcStatus.value = 'error'
-          showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
-        }
-      } catch (error) {
-        funcOutput.value = ''
-        funcStatus.value = 'error'
-        showAlert('翻译失败', mapErrorCodeToMessage(String(error)))
-      } finally {
-        funcConverting.value = false
-      }
-    } else if (activePage.value === 'proc') {
-      if (!procInput.value.trim()) {
-        showAlert('提示', '请输入要翻译的存储过程语句')
-        return
-      }
-      procConverting.value = true
-      procStatus.value = 'loading'
-      try {
-        const result = await requestConvert({
-          sourceDialect: procSourceDb.value,
-          targetDialect: procTargetDb.value,
-          sql: procInput.value,
-          kind: 'proc'
-        })
-        if (result.ok) {
-          procOutput.value = result.outputSql || ''
-          procStatus.value = 'success'
-        } else {
-          procOutput.value = ''
-          procStatus.value = 'error'
-          showAlert('翻译失败', mapErrorCodeToMessage(result.error || 'convert_failed'))
-        }
-      } catch (error) {
-        procOutput.value = ''
-        procStatus.value = 'error'
-        showAlert('翻译失败', mapErrorCodeToMessage(String(error)))
-      } finally {
-        procConverting.value = false
-      }
+    } catch (error) {
+      refs.output.value = ''
+      if (kind === 'ddl') ddlStatusText.value = '翻译失败'
+      else if (kind === 'func') funcStatus.value = 'error'
+      else procStatus.value = 'error'
+      const code = error instanceof ApiError ? error.code : 'network_error'
+      showAlert('翻译失败', mapErrorCodeToMessage(code))
+    } finally {
+      refs.converting.value = false
     }
   }
 

@@ -4,19 +4,9 @@ import { getJson, setJson, removeJson } from '@/utils/storage'
 
 const STORAGE_KEY = 'sqldev:app:theme'
 const STORAGE_KEY_LEGACY = 'sqldev:theme'
-const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
 
 function isThemeMode(value: unknown): value is ThemeMode {
-  return value === 'light' || value === 'dark' || value === 'system'
-}
-
-function getSystemTheme(mediaQuery: MediaQueryList | null): ResolvedTheme {
-  return mediaQuery?.matches ? 'dark' : 'light'
-}
-
-function resolveTheme(mode: ThemeMode, mediaQuery: MediaQueryList | null): ResolvedTheme {
-  if (mode !== 'system') return mode
-  return getSystemTheme(mediaQuery)
+  return value === 'light' || value === 'dark'
 }
 
 function applyThemeToDocument(theme: ResolvedTheme): void {
@@ -29,12 +19,14 @@ function readStoredTheme(): ThemeMode {
   let stored = getJson<string | null>(STORAGE_KEY, null)
   if (!stored) {
     stored = getJson<string | null>(STORAGE_KEY_LEGACY, null)
-    if (isThemeMode(stored)) {
-      setJson(STORAGE_KEY, stored)
+    if (stored) {
+      setJson(STORAGE_KEY, stored === 'system' ? 'light' : stored)
       removeJson(STORAGE_KEY_LEGACY)
     }
   }
-  return isThemeMode(stored) ? stored : 'system'
+  // 迁移旧的 'system' 值
+  if (stored === 'system') stored = 'light'
+  return isThemeMode(stored) ? stored : 'light'
 }
 
 function writeStoredTheme(mode: ThemeMode): void {
@@ -49,14 +41,12 @@ export function useThemeRuntime(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
   const appStore = useAppStore()
-  const mediaQuery = window.matchMedia(SYSTEM_DARK_QUERY)
 
   appStore.setTheme(readStoredTheme())
 
   function syncTheme(): void {
-    const resolved = resolveTheme(appStore.themeMode, mediaQuery)
-    appStore.setResolvedTheme(resolved)
-    applyThemeToDocument(resolved)
+    appStore.setResolvedTheme(appStore.themeMode)
+    applyThemeToDocument(appStore.themeMode)
   }
 
   const stopWatch = watch(
@@ -68,14 +58,7 @@ export function useThemeRuntime(): void {
     { immediate: true }
   )
 
-  const handleSystemThemeChange = (): void => {
-    if (appStore.themeMode === 'system') syncTheme()
-  }
-
-  mediaQuery.addEventListener('change', handleSystemThemeChange)
-
   onBeforeUnmount(() => {
     stopWatch()
-    mediaQuery.removeEventListener('change', handleSystemThemeChange)
   })
 }

@@ -18,8 +18,17 @@ function getChatErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     return err.message
   }
+  // TypeError 可能是网络不通（fetch 抛出），也可能是响应解析失败（字段缺失）
+  // 统一 console.error 输出实际错误，方便排查
+  console.error('[useChat] send failed:', err)
   if (err instanceof TypeError) {
-    return mapErrorCodeToMessage('network_error')
+    // 区分：网络层 TypeError（如 Failed to fetch）vs 代码层 TypeError（如 Cannot read properties）
+    const msg = err.message || ''
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      return mapErrorCodeToMessage('network_error')
+    }
+    // 响应解析失败 → 可能是服务端异常
+    return `AI 服务响应异常，请稍后重试（${msg.slice(0, 80)}）`
   }
   return mapErrorCodeToMessage('unknown_error')
 }
@@ -66,6 +75,7 @@ export function useChat() {
     try {
       const res = await aiChatApi.getQuota()
       quota.value = res.quota
+      console.log('[useChat] loadQuota response quota:', JSON.stringify(res.quota))
       if (res.provider) provider.value = res.provider
       if (res.model) model.value = res.model
       if (res.maxMessageLength) maxMessageLength.value = res.maxMessageLength
@@ -115,6 +125,7 @@ export function useChat() {
       provider.value = res.provider
       model.value = res.model
       quota.value = res.quota
+      console.log('[useChat] sendMessage response quota:', JSON.stringify(res.quota))
     } catch (err) {
       // 失败时移除本地消息
       messages.value = messages.value.filter((m) => !m.id.startsWith('local-'))
@@ -150,16 +161,24 @@ export function useChat() {
   }
 
   async function deleteSession(sid: string): Promise<void> {
+    // 乐观更新：立即从列表移除，API 后台执行
+    const oldSessions = sessions.value
+    const wasCurrent = sessionId.value === sid
+    sessions.value = sessions.value.filter((s) => s.id !== sid)
+    if (wasCurrent) {
+      sessionId.value = null
+      messages.value = []
+      provider.value = ''
+      model.value = ''
+    }
     try {
       await aiChatApi.deleteSession(sid)
-      sessions.value = sessions.value.filter((s) => s.id !== sid)
-      if (sessionId.value === sid) {
-        sessionId.value = null
-        messages.value = []
-        provider.value = ''
-        model.value = ''
-      }
     } catch (err) {
+      // 失败时恢复
+      sessions.value = oldSessions
+      if (wasCurrent) {
+        sessionId.value = sid
+      }
       error.value = getChatErrorMessage(err)
     }
   }

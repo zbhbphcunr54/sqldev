@@ -1,11 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export type ThemeMode = 'light' | 'dark' | 'system'
+export type ThemeMode = 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
 export const useAppStore = defineStore('app', () => {
-  const themeMode = ref<ThemeMode>('system')
+  const themeMode = ref<ThemeMode>('light')
   const resolvedTheme = ref<ResolvedTheme>('light')
 
   function setTheme(mode: ThemeMode): void {

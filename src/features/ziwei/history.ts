@@ -1,4 +1,4 @@
-type RecordLike = Record<string, unknown>
+import { asRecord, asString, type RecordLike } from '@/utils/type-guards'
 
 // 紫微斗数历史记录最大保存条数
 const MAX_HISTORY_ITEMS = 30
@@ -27,14 +27,6 @@ export interface ZiweiHistoryStateInput {
   xiaoXianRule?: unknown
   liuNianRule?: unknown
   school?: unknown
-}
-
-function asRecord(value: unknown): RecordLike {
-  return value && typeof value === 'object' ? (value as RecordLike) : {}
-}
-
-function asString(value: unknown): string {
-  return String(value || '')
 }
 
 export function loadZiweiHistoryRecords(

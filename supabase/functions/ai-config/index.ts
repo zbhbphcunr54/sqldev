@@ -5,20 +5,21 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
-import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
-import { errorResponse, jsonResponse } from '../_shared/response.ts'
+import { createCorsHelpers, initCorsConfig, handleCors } from '../_shared/cors.ts'
+import { errorResponse, jsonResponse, sanitizeError } from '../_shared/response.ts'
 import { logOperation } from '../_shared/operation-logger.ts'
-import { getAppConfig } from '../_shared/app-config.ts'
+import { getAppConfig, getDefaultAiTimeoutMs } from '../_shared/app-config.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
-import { encryptValue, decryptValue } from '../_shared/crypto.ts'
+import { encryptValue, decryptValue, maskApiKeySync } from '../_shared/crypto.ts'
 import type { AiConfigRow, AiProviderRow } from '../_shared/ai-types.ts'
 
 await initCorsConfig()
 
-const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({
+const corsHelpers = createCorsHelpers({
   allowMethods: 'POST, PATCH, DELETE, OPTIONS, GET'
 })
+const { defaultCorsHeaders, buildCorsHeaders } = corsHelpers
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -60,39 +61,6 @@ async function getMaxConfigsGlobal(): Promise<number> {
   return cachedMaxConfigsGlobal
 }
 
-// 默认超时缓存（从 app_configs 读取，与 AI 对话框同源）
-let cachedDefaultTimeoutMs: number | null = null
-let cachedDefaultTimeoutMsTime = 0
-const DEFAULT_TIMEOUT_CACHE_TTL = 60_000
-
-async function getDefaultTimeout(): Promise<number> {
-  const now = Date.now()
-  if (cachedDefaultTimeoutMs !== null && now - cachedDefaultTimeoutMsTime < DEFAULT_TIMEOUT_CACHE_TTL) {
-    return cachedDefaultTimeoutMs
-  }
-  const result = await getAppConfig<number>('ai', 'default_timeout_ms', {
-    envVar: 'DEFAULT_AI_TIMEOUT_MS',
-    defaultValue: 45000,
-    parse: Number
-  })
-  cachedDefaultTimeoutMs = result.value
-  cachedDefaultTimeoutMsTime = now
-  return cachedDefaultTimeoutMs
-}
-
-
-function sanitizeError(err: unknown): string {
-  if (err instanceof Error) {
-    console.error('[ai-config] internal error:', err.message)
-    return 'An internal error occurred'
-  }
-  if (typeof err === 'object' && err !== null) {
-    console.error('[ai-config] internal error:', JSON.stringify(err))
-    return 'An internal error occurred'
-  }
-  console.error('[ai-config] internal error:', String(err))
-  return 'An internal error occurred'
-}
 
 async function getAdminClient() {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -140,14 +108,7 @@ function buildMaskedResponse(
     if (config.is_encrypted) {
       apiKeyMasked = '[encrypted] ****'
     } else {
-      const rawKey = config.api_key
-      if (rawKey.length > 16) {
-        apiKeyMasked = rawKey.slice(0, 8) + '...' + rawKey.slice(-8)
-      } else if (rawKey.length > 8) {
-        apiKeyMasked = rawKey.slice(0, 4) + '...' + rawKey.slice(-4)
-      } else {
-        apiKeyMasked = '****'
-      }
+      apiKeyMasked = maskApiKeySync(config.api_key)
     }
   }
 
@@ -207,7 +168,19 @@ async function handleGet(
   ])
 
   if (isAdmin) {
-    const results = configs.map((config) => {
+    // 解密 Key 以获得正确的脱敏显示（如 sk-a***b1c2），而非 [encrypted] ****
+    const configsWithKeys = await Promise.all(configs.map(async (config) => {
+      if (config.is_encrypted && config.api_key) {
+        try {
+          const decrypted = await decryptValue(config.api_key)
+          return { ...config, api_key: decrypted, is_encrypted: false }
+        } catch {
+          // 解密失败则保留原样
+        }
+      }
+      return config
+    }))
+    const results = configsWithKeys.map((config) => {
       const provider = providers.find((p) => p.id === config.provider_id)
       return buildMaskedResponse(config, provider)
     })
@@ -294,6 +267,7 @@ async function handleCreate(
     return respond(400, resp)
   }
   // 追加模型：未传 api_key 时自动复用同供应商已有配置的 key
+  let reusedKey = false
   if (!apiKey) {
     const { data: existing } = await adminClient
       .from('ai_configs')
@@ -315,7 +289,9 @@ async function handleCreate(
       })
       return respond(400, resp)
     }
+    // 复用已有密文，避免二次加密
     apiKey = (existing as { api_key: string }).api_key
+    reusedKey = true
   }
 
   const maxConfigs = await getMaxConfigsGlobal()
@@ -368,9 +344,9 @@ async function handleCreate(
       name: String(body.name || ''),
       base_url: String(body.base_url || providerData.base_url),
       model: String(body.model || providerData.default_model),
-      api_key: await encryptValue(apiKey),
+      api_key: reusedKey ? apiKey : await encryptValue(apiKey),
       is_encrypted: true,
-      timeout_ms: Number(body.timeout_ms) || await getDefaultTimeout()
+      timeout_ms: Number(body.timeout_ms) || await getDefaultAiTimeoutMs()
     })
     .select()
     .single()
@@ -390,7 +366,12 @@ async function handleCreate(
     return respond(400, resp)
   }
 
-  const masked = buildMaskedResponse(config as unknown as AiConfigRow, providerData)
+  // 用原始明文（或复用密文）构造正确的 api_key_masked
+  const configRow = config as unknown as AiConfigRow
+  const masked = {
+    ...buildMaskedResponse(configRow, providerData),
+    api_key_masked: reusedKey ? '****' : maskApiKeySync(apiKey)
+  }
   logOperation({
     userId, userEmail, clientIp,
     operation: 'ai_config_create',
@@ -399,7 +380,7 @@ async function handleCreate(
     responseBody: masked,
     responseStatus: 201,
     durationMs: 0,
-    extra: { config_id: (config as unknown as AiConfigRow).id, provider_slug: providerData.slug }
+    extra: { config_id: configRow.id, provider_slug: providerData.slug }
   })
   return respond(201, { ok: true, config: masked })
 }
@@ -1237,16 +1218,9 @@ async function handleTest(
 
 Deno.serve(async (req) => {
   await initCorsConfig()
-  const corsHeaders = buildCorsHeaders(req)
-  const origin = req.headers.get('origin') || ''
-  console.log('[CORS] Final - origin:', origin, 'corsHeaders:', JSON.stringify(corsHeaders))
-
-  if (req.method === 'OPTIONS') {
-    if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
-    return new Response('ok', { headers: corsHeaders })
-  }
-
-  if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+  const corsResult = handleCors(req, corsHelpers)
+  if (corsResult) return corsResult
+  const corsHeaders = buildCorsHeaders(req)!
 
   try {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

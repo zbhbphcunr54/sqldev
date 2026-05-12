@@ -5,10 +5,10 @@ defineProps<{
 }>()
 
 function getScoreColor(score: number): string {
-  if (score >= 90) return 'text-green-600 bg-green-50 border-green-200'
-  if (score >= 70) return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-  if (score >= 50) return 'text-orange-600 bg-orange-50 border-orange-200'
-  return 'text-red-600 bg-red-50 border-red-200'
+  if (score >= 90) return 'text-success bg-successBg border-success'
+  if (score >= 70) return 'text-warning bg-warningBg border-warning'
+  if (score >= 50) return 'text-accent bg-accentBg border-accent'
+  return 'text-danger bg-dangerBg border-danger'
 }
 
 function getScoreLabel(score: number): string {
@@ -21,17 +21,12 @@ function getScoreLabel(score: number): string {
 
 <template>
   <div class="flex items-center gap-3">
-    <div
-      :class="[
-        'inline-flex items-center justify-center w-16 h-16 rounded-lg border-2 font-bold text-xl',
-        getScoreColor(score)
-      ]"
-    >
+    <div :class="['inline-flex items-center justify-center w-16 h-16 rounded-lg border-2 font-bold text-xl', getScoreColor(score)]">
       {{ score }}
     </div>
     <div class="flex flex-col">
-      <span class="text-sm font-medium text-gray-700">{{ getScoreLabel(score) }}</span>
-      <span v-if="summary" class="text-sm text-gray-500 max-w-md">{{ summary }}</span>
+      <span class="text-sm font-medium text-text">{{ getScoreLabel(score) }}</span>
+      <span v-if="summary" class="text-sm text-subtle max-w-md">{{ summary }}</span>
     </div>
   </div>
 </template>

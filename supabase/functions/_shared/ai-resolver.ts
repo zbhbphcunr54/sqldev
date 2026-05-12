@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getAppConfig } from './app-config.ts'
+import { getAppConfig, getDefaultAiTimeoutMs } from './app-config.ts'
 import { decryptValue } from './crypto.ts'
 import type { AiConfigRow, AiProviderRow } from './ai-types.ts'
 
@@ -58,18 +58,17 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig> {
   }
 
   // 优先级 2：从 app_configs 读取默认配置
-  const [baseUrl, model, apiKey, timeoutMs] = await Promise.all([
+  const [baseUrl, model, apiKey] = await Promise.all([
     getAppConfig('ai', 'default_base_url', { envVar: 'DEFAULT_AI_BASE_URL', defaultValue: 'https://api.deepseek.com/v1' }),
     getAppConfig('ai', 'default_model', { envVar: 'DEFAULT_AI_MODEL', defaultValue: 'deepseek-chat' }),
     getAppConfig('ai', 'default_api_key', { envVar: 'DEFAULT_AI_API_KEY', defaultValue: '' }),
-    getAppConfig<number>('ai', 'default_timeout_ms', { envVar: 'DEFAULT_AI_TIMEOUT_MS', defaultValue: 45000, parse: Number })
   ])
 
   return {
     baseUrl: baseUrl.value,
     model: model.value,
     apiKey: apiKey.value,
-    timeoutMs: timeoutMs.value,
+    timeoutMs: await getDefaultAiTimeoutMs(),
     providerSlug: null,
     source: 'environment'
   }

@@ -126,8 +126,8 @@ async function request<T>(
   if (text) {
     try {
       parsed = JSON.parse(text) as Record<string, unknown>
-    } catch {
-      /* ignore */
+    } catch (e) {
+      console.warn('[http] JSON parse failed for response body:', e)
     }
   }
 

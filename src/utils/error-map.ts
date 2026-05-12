@@ -78,6 +78,57 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   ai_chat_invalid_message: '消息内容不合法，请重新输入。',
   ai_chat_session_not_found: '对话不存在或已被删除。',
 
+  // Convert / Workbench
+  convert_input_empty: '请输入要翻译的 SQL 语句。',
+  convert_failed: '翻译失败，请稍后重试。',
+  file_read_failed: '文件读取失败。',
+  file_loaded: '文件已加载。',
+  copy_success: '已复制到剪贴板。',
+  copy_failed: '复制失败。',
+  copy_nothing: '没有可复制的内容。',
+  download_nothing: '没有可下载的内容。',
+  verify_prerequisite: '请先进行翻译后再使用 AI 校验。',
+  verify_in_progress: 'AI 校验中，请稍候。',
+  verify_complete: '校验完成。',
+
+  // Rules
+  rules_load_failed: '规则加载失败。',
+  rules_save_failed: '规则保存失败。',
+  rules_reset_success: '规则已重置为默认值。',
+  rules_reset_failed: '规则重置失败。',
+  rules_unsaved_changes: '规则已修改，请记得保存。',
+
+  // ID Tool
+  id_district_load_failed: '行政区划数据加载失败。',
+  id_birth_invalid: '出生日期不合法。',
+  id_generate_success: '已生成合法身份证号码。',
+  id_generate_failed: '生成失败。',
+  id_format_error: '格式错误。',
+  id_checksum_error: '校验码错误。',
+  id_uscc_generated: '已生成统一社会信用代码。',
+  id_input_required: '请输入证件号码。',
+
+  // Ziwei
+  ziwei_birth_invalid: '出生日期无效。',
+  ziwei_birth_time_invalid: '出生时间无效。',
+  ziwei_chart_failed: '排盘失败。',
+
+  // History
+  history_load_failed: '加载历史失败。',
+  history_save_failed: '保存历史失败。',
+  history_delete_failed: '删除历史失败。',
+
+  // Operation Logs
+  operation_logs_load_failed: '加载操作日志失败。',
+
+  // App Config
+  config_load_partial: '部分配置加载失败，请检查网络后重试。',
+  config_clear_cache_failed: '清除缓存失败。',
+  config_delete_failed: '删除配置失败。',
+  config_status_update_failed: '状态更新失败。',
+  config_save_failed: '保存配置失败。',
+  config_validation_error: '请填写必填字段。',
+
   // Misc
   provider_disabled: '该供应商已被禁用。',
   forbidden: '无权限执行此操作，请联系管理员。',

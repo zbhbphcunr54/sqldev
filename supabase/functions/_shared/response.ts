@@ -37,3 +37,17 @@ export function errorResponse(
 ): Response {
   return jsonResponse(status, { ok: false, error }, corsHeaders, extra)
 }
+
+/** Canonical error sanitizer — logs the real error, returns a safe user-facing string. */
+export function sanitizeError(err: unknown): string {
+  if (err instanceof Error) {
+    console.error('[sanitizeError]', err.message)
+    return 'An internal error occurred'
+  }
+  if (typeof err === 'object' && err !== null) {
+    console.error('[sanitizeError]', JSON.stringify(err))
+    return 'An internal error occurred'
+  }
+  console.error('[sanitizeError]', String(err))
+  return 'An internal error occurred'
+}

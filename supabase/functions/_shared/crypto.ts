@@ -88,12 +88,21 @@ export async function decryptApiKey(blob: Uint8Array): Promise<string> {
 }
 
 /**
- * 脱敏 API Key，返回 "sk-****xxxx" 格式
+ * 脱敏 API Key（同步版本，用于已解密的明文 key）。
+ * 返回 "sk-****xxxx" 格式（前 4 + 后 4）。
+ */
+export function maskApiKeySync(plain: string): string {
+  if (!plain || plain.length <= 8) return '****'
+  return plain.slice(0, 4) + '****' + plain.slice(-4)
+}
+
+/**
+ * 脱敏 API Key（异步版本，先解密再脱敏）。
+ * 返回 "sk-****xxxx" 格式（前 4 + 后 4）。
  */
 export async function maskApiKey(encrypted: Uint8Array): Promise<string> {
   const plain = await decryptApiKey(encrypted)
-  if (plain.length <= 8) return '****'
-  return plain.slice(0, 4) + '****' + plain.slice(-4)
+  return maskApiKeySync(plain)
 }
 
 // ============================================================

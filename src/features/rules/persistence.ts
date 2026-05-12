@@ -1,12 +1,8 @@
-type RecordLike = Record<string, unknown>
+import { asRecord, type RecordLike } from '@/utils/type-guards'
 
 export interface StorageLike {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
-}
-
-function asRecord(value: unknown): RecordLike {
-  return value && typeof value === 'object' ? (value as RecordLike) : {}
 }
 
 function cloneBodyRuleForStorage(ruleValue: unknown): { s: unknown; t: unknown } {

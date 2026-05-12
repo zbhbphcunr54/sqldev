@@ -2,8 +2,11 @@
 import { computed, nextTick, ref, watch, onUnmounted } from 'vue'
 import { useChat } from '@/composables/useChat'
 import { useConfirm } from '@/composables/useConfirm'
+import { useDraggableFab } from '@/composables/useDraggableFab'
+import { useAiStore } from '@/stores/ai'
 
 const { confirm } = useConfirm()
+const aiStore = useAiStore()
 
 const {
   open,
@@ -27,10 +30,18 @@ const {
   deleteSession
 } = useChat()
 
+const fabRoot = ref<HTMLElement | null>(null)
+const { fabStyle, dragging, justDragged, onPointerDown } = useDraggableFab(fabRoot)
+
 const inputText = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 const showHistory = ref(false)
+const expanded = ref(false)
+
+function toggleExpanded(): void {
+  expanded.value = !expanded.value
+}
 
 const quickPrompts = [
   { label: '查询用户活跃度', text: '帮我写一个查询用户活跃度的 SQL' },
@@ -50,7 +61,19 @@ function providerLabel(): string {
   if (provider.value && model.value) {
     return `${provider.value} / ${model.value}`
   }
+  // 从 AI 配置 Store 回退：显示当前激活的模型
+  const active = aiStore.activeConfig
+  if (active) {
+    const p = aiStore.providers.find((pv) => pv.id === active.provider_id)
+    if (p) return `${p.label} / ${active.model}`
+    return active.model
+  }
   return ''
+}
+
+function handleFabClick(): void {
+  if (justDragged.value) return
+  toggleOpen()
 }
 
 function onEscKeydown(e: KeyboardEvent): void {
@@ -68,6 +91,7 @@ watch(open, (isOpen) => {
   } else {
     document.removeEventListener('keydown', onEscKeydown)
     showHistory.value = false
+    expanded.value = false
   }
 })
 
@@ -155,20 +179,26 @@ function onMaskClick(e: MouseEvent): void {
 </script>
 
 <template>
-  <aside class="ai-chat-root">
+  <aside
+    ref="fabRoot"
+    class="ai-chat-root"
+    :class="{ dragging }"
+    :style="fabStyle"
+    @pointerdown="onPointerDown"
+  >
     <!-- Floating Action Button -->
     <button
       class="chat-fab"
       :class="{ active: open }"
       :aria-expanded="open"
       aria-label="AI 小助手"
-      @click="toggleOpen"
+      @click="handleFabClick"
     >
+      <span v-if="!open" class="fab-bot-glow"></span>
       <svg
         v-if="!open"
-        class="fab-icon-magic"
-        width="24"
-        height="24"
+        width="26"
+        height="26"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -177,11 +207,14 @@ function onMaskClick(e: MouseEvent): void {
         stroke-linejoin="round"
         aria-hidden="true"
       >
-        <path d="M5 19L15 9" />
-        <path d="M14 4.5l.6 1.9L16.5 7l-1.9.6L14 9.5l-.6-1.9L11.5 7l1.9-.6z" fill="rgba(253,224,71,0.85)" stroke="none" />
-        <circle cx="18" cy="4" r="0.8" fill="currentColor" stroke="none" opacity="0.5" />
-        <circle cx="10" cy="3" r="0.6" fill="currentColor" stroke="none" opacity="0.35" />
-        <circle cx="19" cy="9" r="0.5" fill="currentColor" stroke="none" opacity="0.3" />
+        <rect x="4" y="5" width="16" height="14" rx="3" />
+        <circle cx="9" cy="11" r="2" class="fab-bot-eye" stroke="none" />
+        <circle cx="15" cy="11" r="2" class="fab-bot-eye" stroke="none" />
+        <path d="M8 15h8" class="fab-bot-smile" />
+        <line x1="12" y1="1" x2="12" y2="5" />
+        <circle cx="12" cy="1" r="1.5" class="fab-bot-antenna" stroke="none" />
+        <rect x="1" y="9" width="3" height="4" rx="1" stroke-width="1" />
+        <rect x="20" y="9" width="3" height="4" rx="1" stroke-width="1" />
       </svg>
       <svg
         v-else
@@ -207,7 +240,7 @@ function onMaskClick(e: MouseEvent): void {
         role="presentation"
         @click="onMaskClick"
       >
-        <div class="chat-panel" role="dialog" aria-modal="true" aria-label="AI 小助手" @click.stop>
+        <div class="chat-panel" :class="{ expanded }" role="dialog" aria-modal="true" aria-label="AI 小助手" @click.stop>
           <!-- Header -->
           <div class="chat-header">
             <div class="chat-header-left">
@@ -256,6 +289,44 @@ function onMaskClick(e: MouseEvent): void {
                 >
                   <rect x="3" y="3" width="18" height="18" rx="2" />
                   <line x1="9" y1="3" x2="9" y2="21" />
+                </svg>
+              </button>
+              <button
+                class="chat-header-btn"
+                :title="expanded ? '还原大小' : '放大'"
+                @click="toggleExpanded"
+              >
+                <svg
+                  v-if="!expanded"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+                <svg
+                  v-else
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="4 8 4 4 8 4" />
+                  <polyline points="20 16 20 20 16 20" />
+                  <line x1="4" y1="4" x2="10" y2="10" />
+                  <line x1="20" y1="20" x2="14" y2="14" />
                 </svg>
               </button>
               <button class="chat-header-btn" title="新对话" @click="handleNewChat">
@@ -337,7 +408,7 @@ function onMaskClick(e: MouseEvent): void {
               </div>
 
               <!-- Welcome: only when idle, no sending -->
-              <div v-else-if="!hasMessages && !sending" class="chat-welcome">
+              <div v-else-if="!hasMessages && !sending && !error" class="chat-welcome">
                 <div class="chat-welcome-icon" aria-hidden="true">
                   <svg
                     width="24"
@@ -481,33 +552,49 @@ function onMaskClick(e: MouseEvent): void {
   width: 52px;
   height: 52px;
   border-radius: var(--radius-pill);
-  border: 1.5px solid rgba(var(--color-chat-accent-rgb),0.32);
-  background: rgba(var(--color-chat-accent-rgb),0.14);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(var(--color-chat-accent-rgb), 0.25);
+  background: linear-gradient(145deg, var(--color-panel-2), var(--color-panel-3));
   color: var(--color-chat-accent-light);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow:
-    0 8px 32px rgba(var(--color-chat-accent-rgb),0.22),
-    0 2px 8px rgba(var(--color-chat-accent-rgb),0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    var(--shadow-md),
+    0 0 0 1px rgba(var(--color-chat-accent-rgb), 0.08);
   transition:
     transform var(--duration-normal) var(--ease-spring),
     box-shadow var(--duration-normal) var(--ease-apple),
     border-color var(--duration-normal) var(--ease-apple),
     background var(--duration-normal) var(--ease-apple);
 }
+
+.fab-bot-glow {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, rgba(var(--color-chat-accent-rgb), 0.2), transparent);
+  z-index: 1;
+  pointer-events: none;
+}
+.fab-bot-eye {
+  fill: var(--color-chat-accent-light);
+  opacity: 0.3;
+}
+.fab-bot-smile {
+  stroke-width: 1.2;
+  opacity: 0.6;
+}
+.fab-bot-antenna {
+  fill: var(--color-chat-accent-light);
+}
+
 .chat-fab:hover {
   transform: scale(1.1);
-  border-color: rgba(var(--color-chat-accent-rgb),0.55);
-  background: rgba(var(--color-chat-accent-rgb),0.2);
+  border-color: rgba(var(--color-chat-accent-rgb), 0.45);
   box-shadow:
-    0 12px 40px rgba(var(--color-chat-accent-rgb),0.32),
-    0 0 0 8px rgba(var(--color-chat-accent-rgb),0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    var(--shadow-lg),
+    0 0 32px rgba(var(--color-chat-accent-rgb), 0.15);
 }
 .chat-fab:active {
   transform: scale(0.96);
@@ -516,8 +603,6 @@ function onMaskClick(e: MouseEvent): void {
   background: var(--color-panel);
   color: var(--color-text);
   border-color: var(--color-border);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   box-shadow: var(--shadow-lg);
 }
 .chat-fab.active:hover {
@@ -525,41 +610,46 @@ function onMaskClick(e: MouseEvent): void {
   box-shadow: var(--shadow-xl);
 }
 
-.fab-icon-magic {
-  filter: drop-shadow(0 0 6px rgba(var(--color-chat-glow-rgb),0.5));
-  transition: filter var(--duration-normal) var(--ease-apple);
+.ai-chat-root.dragging {
+  user-select: none;
+  -webkit-user-select: none;
 }
-.chat-fab:hover .fab-icon-magic {
-  filter: drop-shadow(0 0 10px rgba(var(--color-chat-glow-rgb),0.7));
+.ai-chat-root.dragging .chat-fab {
+  cursor: grabbing;
+  transform: scale(1.08);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 24px rgba(var(--color-chat-accent-rgb), 0.15);
 }
 
 /* ── Light theme FAB ── */
 [data-theme='light'] .chat-fab {
-  border-color: rgba(var(--color-chat-accent-rgb),0.25);
-  background: rgba(var(--color-chat-accent-rgb),0.1);
+  border-color: rgba(var(--color-chat-accent-rgb), 0.2);
+  background: var(--color-panel);
   color: var(--color-chat-accent);
   box-shadow:
-    0 6px 24px rgba(var(--color-chat-accent-rgb),0.15),
-    0 1px 4px rgba(var(--color-chat-accent-rgb),0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    var(--shadow-sm),
+    0 0 0 1px rgba(var(--color-chat-accent-rgb), 0.06);
 }
 [data-theme='light'] .chat-fab:hover {
-  border-color: rgba(var(--color-chat-accent-rgb),0.4);
-  background: rgba(var(--color-chat-accent-rgb),0.15);
+  border-color: rgba(var(--color-chat-accent-rgb), 0.4);
   box-shadow:
-    0 10px 32px rgba(var(--color-chat-accent-rgb),0.22),
-    0 0 0 8px rgba(var(--color-chat-accent-rgb),0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    var(--shadow-md),
+    0 0 24px rgba(var(--color-chat-accent-rgb), 0.12);
 }
 [data-theme='light'] .chat-fab.active {
   border-color: var(--color-border);
   box-shadow: var(--shadow-lg);
 }
-[data-theme='light'] .fab-icon-magic {
-  filter: drop-shadow(0 0 5px rgba(var(--color-chat-accent-rgb),0.35));
+[data-theme='light'] .fab-bot-glow {
+  background: radial-gradient(circle at 50% 30%, rgba(var(--color-chat-accent-rgb), 0.12), transparent);
 }
-[data-theme='light'] .chat-fab:hover .fab-icon-magic {
-  filter: drop-shadow(0 0 8px rgba(var(--color-chat-accent-rgb),0.5));
+[data-theme='light'] .fab-bot-eye {
+  fill: var(--color-chat-accent);
+  opacity: 0.25;
+}
+[data-theme='light'] .fab-bot-antenna {
+  fill: var(--color-chat-accent);
 }
 
 /* ── Overlay ── */
@@ -588,6 +678,13 @@ function onMaskClick(e: MouseEvent): void {
     var(--shadow-xl),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   overflow: hidden;
+}
+.chat-panel.expanded {
+  width: min(840px, 94vw);
+  height: min(1160px, 85vh);
+}
+.chat-panel.expanded .chat-history {
+  width: 280px;
 }
 
 /* ── Header ── */
@@ -1104,6 +1201,14 @@ function onMaskClick(e: MouseEvent): void {
     height: 20px;
   }
   .chat-history {
+    width: 120px;
+  }
+  .chat-panel.expanded {
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+  }
+  .chat-panel.expanded .chat-history {
     width: 120px;
   }
 }

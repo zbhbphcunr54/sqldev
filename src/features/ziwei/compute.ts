@@ -1032,6 +1032,8 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       }
     }
 
+    const currentYear = new Date().getFullYear()
+
     // 2. 计算八字
     const yearGanZhi = getYearGanZhi(baseSolar.year)
     const yearStem = yearGanZhi[0]
@@ -1465,7 +1467,8 @@ export function lunarToSolar(
       }
     }
     return null
-  } catch {
+  } catch (e) {
+    console.error('[ziwei:compute] lunarToSolar failed:', e)
     return null
   }
 }
@@ -1503,7 +1506,8 @@ export function solarToLunar(
       }
     }
     return null
-  } catch {
+  } catch (e) {
+    console.error('[ziwei:compute] solarToLunar failed:', e)
     return null
   }
 }

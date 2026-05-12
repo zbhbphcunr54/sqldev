@@ -139,6 +139,8 @@ function onMouseUp(): void {
 
   // 保存排序到服务器
   if (orderChanged) {
+    // 乐观更新缓存，避免 API 返回前刷新页面导致旧缓存覆盖新顺序
+    aiStore.persistToCache()
     const orders = providers.value.map((p, idx) => ({
       provider_id: p.id,
       sort_order: idx
@@ -378,8 +380,8 @@ async function handleAddKeySaved(payload: {
   base_url?: string
   name?: string
 }): Promise<void> {
-  await aiStore.addConfig(payload)
   closeAddKeyModal()
+  await aiStore.addConfig(payload)
 }
 
 // Provider modal handlers
@@ -398,9 +400,43 @@ function closeProviderModal(): void {
   editingProvider.value = null
 }
 
-async function handleProviderSaved(): Promise<void> {
-  await aiStore.loadProviders(true)
+async function handleProviderSave(payload: {
+  isEdit: boolean
+  providerId?: string
+  data: {
+    label: string
+    slug?: string
+    base_url: string
+    region: string
+    api_format: string
+    models: string[]
+  }
+}): Promise<void> {
   closeProviderModal()
+  try {
+    if (payload.isEdit && payload.providerId) {
+      const updated = await aiConfigApi.updateProvider(payload.providerId, payload.data)
+      const idx = providers.value.findIndex((p) => p.id === updated.id)
+      if (idx !== -1) {
+        providers.value[idx] = { ...providers.value[idx], ...updated }
+      }
+      // 编辑可能删除孤儿模型 → 后台刷新 configs
+      aiStore.loadConfigs()
+    } else {
+      const created = await aiConfigApi.createProvider({
+        label: payload.data.label,
+        slug: payload.data.slug!,
+        base_url: payload.data.base_url,
+        region: payload.data.region,
+        api_format: payload.data.api_format,
+        models: payload.data.models
+      })
+      providers.value = [...providers.value, created].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    }
+    aiStore.persistToCache()
+  } catch (e: unknown) {
+    error.value = getErrorMessage(e)
+  }
 }
 
 // Key actions
@@ -875,7 +911,7 @@ onMounted(() => {
       :provider="editingProvider"
       :providers="providers"
       @close="closeProviderModal"
-      @saved="handleProviderSaved"
+      @save="handleProviderSave"
     />
 
     <!-- Add Key Modal -->

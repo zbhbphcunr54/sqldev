@@ -15,12 +15,12 @@ export async function syncHistoryFromServer(): Promise<void> {
     if (result.items && result.items.length > 0) {
       try {
         localStorage.setItem(ZW_HISTORY_KEY, JSON.stringify(result.items))
-      } catch {
-        /* quota error ignored */
+      } catch (e) {
+        console.warn('[ziwei:history-sync] localStorage.setItem quota exceeded:', e)
       }
     }
-  } catch {
-    // 网络错误不阻塞
+  } catch (e) {
+    console.error('[ziwei:history-sync] syncHistoryFromServer failed:', e)
   }
 }
 
@@ -38,12 +38,12 @@ export async function migrateHistoryToServer(): Promise<void> {
     for (const item of history) {
       try {
         await createZiweiHistory(item, item.result || null)
-      } catch {
-        // 单条失败不影响其他
+      } catch (e) {
+        console.warn('[ziwei:history-sync] single item create failed:', e)
       }
     }
     localStorage.removeItem(ZW_HISTORY_KEY)
-  } catch {
-    // 迁移失败不阻塞
+  } catch (e) {
+    console.error('[ziwei:history-sync] migrateHistoryToServer failed:', e)
   }
 }

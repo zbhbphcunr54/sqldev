@@ -17,86 +17,11 @@ import { requestConvert } from '@/api/convert'
 import { requestConvertVerify } from '@/api/convert-verify'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import { useClipboard } from '@/composables/useClipboard'
+import { SAMPLE_DDL } from '@/features/sql/samples'
 
 const store = useWorkbenchStore()
 const router = useRouter()
 const { copyToClipboard } = useClipboard()
-
-// ==================== 示例 DDL ====================
-
-const SAMPLE_DDL = `-- 电商订单系统核心表结构
--- 订单主表
-CREATE TABLE orders (
-  order_id NUMBER(20) NOT NULL,
-  order_no VARCHAR2(32) NOT NULL,
-  customer_id NUMBER(20) NOT NULL,
-  merchant_id NUMBER(20) NOT NULL,
-  order_status NUMBER(2) DEFAULT 0,
-  payment_status NUMBER(2) DEFAULT 0,
-  shipping_status NUMBER(2) DEFAULT 0,
-  order_amount NUMBER(12,2) NOT NULL,
-  discount_amount NUMBER(12,2) DEFAULT 0,
-  coupon_amount NUMBER(12,2) DEFAULT 0,
-  freight_amount NUMBER(10,2) DEFAULT 0,
-  total_amount NUMBER(12,2) NOT NULL,
-  payment_amount NUMBER(12,2),
-  payment_method VARCHAR2(20),
-  payment_time TIMESTAMP,
-  shipping_time TIMESTAMP,
-  receive_time TIMESTAMP,
-  receiver_name VARCHAR2(100),
-  receiver_phone VARCHAR2(20),
-  receiver_province VARCHAR2(50),
-  receiver_city VARCHAR2(50),
-  receiver_district VARCHAR2(50),
-  receiver_address VARCHAR2(500),
-  buyer_remark VARCHAR2(500),
-  seller_remark VARCHAR2(500),
-  create_time TIMESTAMP DEFAULT SYSTIMESTAMP,
-  update_time TIMESTAMP,
-  is_deleted NUMBER(1) DEFAULT 0,
-  version NUMBER(10) DEFAULT 0,
-  CONSTRAINT pk_orders PRIMARY KEY (order_id),
-  CONSTRAINT uk_orders_order_no UNIQUE (order_no)
-);
-
-COMMENT ON TABLE orders IS '订单主表';
-COMMENT ON COLUMN orders.order_id IS '订单ID';
-COMMENT ON COLUMN orders.order_no IS '订单编号';
-COMMENT ON COLUMN orders.customer_id IS '客户ID';
-COMMENT ON COLUMN orders.merchant_id IS '商户ID';
-COMMENT ON COLUMN orders.order_status IS '订单状态:0-待付款,1-已付款,2-已发货,3-已收货,4-已完成,5-已取消,6-已退款';
-COMMENT ON COLUMN orders.total_amount IS '订单总金额';
-
--- 订单明细表
-CREATE TABLE order_items (
-  item_id NUMBER(20) NOT NULL,
-  order_id NUMBER(20) NOT NULL,
-  product_id NUMBER(20) NOT NULL,
-  sku_id NUMBER(20),
-  product_name VARCHAR2(200) NOT NULL,
-  sku_name VARCHAR2(200),
-  product_image VARCHAR2(500),
-  original_price NUMBER(12,2) NOT NULL,
-  unit_price NUMBER(12,2) NOT NULL,
-  quantity NUMBER(8) NOT NULL DEFAULT 1,
-  discount_amount NUMBER(12,2) DEFAULT 0,
-  item_amount NUMBER(12,2) NOT NULL,
-  is_gift NUMBER(1) DEFAULT 0,
-  create_time TIMESTAMP DEFAULT SYSTIMESTAMP,
-  update_time TIMESTAMP,
-  CONSTRAINT pk_order_items PRIMARY KEY (item_id),
-  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(order_id)
-);
-
--- 创建索引
-CREATE INDEX idx_orders_customer ON orders(customer_id);
-CREATE INDEX idx_orders_merchant ON orders(merchant_id);
-CREATE INDEX idx_orders_status ON orders(order_status);
-CREATE INDEX idx_orders_create_time ON orders(create_time);
-CREATE INDEX idx_orders_payment_status ON orders(payment_status);
-CREATE INDEX idx_order_items_order ON order_items(order_id);
-CREATE INDEX idx_order_items_product ON order_items(product_id);`
 
 // ==================== 状态 ====================
 
@@ -378,7 +303,7 @@ const supportedDdl = [
             :value="store.sourceDb"
             class="db-select"
             aria-label="选择源数据库"
-            @change="store.pickDb('sourceDb', ($event.target as HTMLSelectElement).value as any)"
+            @change="store.pickDb('sourceDb', ($event.target as HTMLSelectElement).value as 'oracle' | 'mysql' | 'postgresql')"
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
               {{ db.label }}
@@ -398,8 +323,7 @@ const supportedDdl = [
         <!-- 交换按钮 -->
         <button
           class="swap-btn"
-          title="交换源和目标数据库"
-          aria-label="交换源和目标数据库"
+          title="交换源和目标数据库" aria-label="交换源和目标数据库"
           @click="swapDbs"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -429,7 +353,7 @@ const supportedDdl = [
             :value="store.targetDb"
             class="db-select"
             aria-label="选择目标数据库"
-            @change="store.pickDb('targetDb', ($event.target as HTMLSelectElement).value as any)"
+            @change="store.pickDb('targetDb', ($event.target as HTMLSelectElement).value as 'oracle' | 'mysql' | 'postgresql')"
           >
             <option v-for="db in dbOptions" :key="db.value" :value="db.value">
               {{ db.label }}

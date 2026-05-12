@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAppStore, type ThemeMode } from '@/stores/app'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthModal } from '@/composables/useAuthModal'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const router = useRouter()
 const route = useRoute()
-const appStore = useAppStore()
 const auth = useAuth()
 const authModal = useAuthModal()
 const { isAuthenticated, user } = auth
@@ -27,10 +26,6 @@ const isNavActive = (path: string) => {
 async function handleSignOut() {
   await auth.signOut()
   await router.push('/')
-}
-
-function setTheme(mode: ThemeMode) {
-  appStore.setTheme(mode)
 }
 
 function openLoginModal() {
@@ -78,29 +73,7 @@ onBeforeUnmount(() => {
       <!-- Actions -->
       <div class="header-actions">
         <!-- Theme Switch -->
-        <div class="theme-switch">
-          <button
-            class="theme-btn"
-            :class="{ active: appStore.themeMode === 'light' }"
-            @click="setTheme('light')"
-          >
-            浅色
-          </button>
-          <button
-            class="theme-btn"
-            :class="{ active: appStore.themeMode === 'dark' }"
-            @click="setTheme('dark')"
-          >
-            深色
-          </button>
-          <button
-            class="theme-btn"
-            :class="{ active: appStore.themeMode === 'system' }"
-            @click="setTheme('system')"
-          >
-            系统
-          </button>
-        </div>
+        <ThemeToggle variant="text" />
 
         <!-- User Menu (Authenticated) -->
         <div v-if="isAuthenticated" class="user-menu-container relative">
@@ -141,67 +114,7 @@ onBeforeUnmount(() => {
 
               <!-- 主题切换 -->
               <div class="dropdown-section-title">主题</div>
-              <div class="dropdown-theme-options">
-                <button
-                  class="dropdown-theme-btn"
-                  :class="{ active: appStore.themeMode === 'light' }"
-                  @click="setTheme('light')"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  >
-                    <circle cx="10" cy="10" r="3" />
-                    <path
-                      d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                  浅色
-                </button>
-                <button
-                  class="dropdown-theme-btn"
-                  :class="{ active: appStore.themeMode === 'dark' }"
-                  @click="setTheme('dark')"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  >
-                    <path
-                      d="M17.5 11.5A7.5 7.5 0 1 1 8.5 4a5 5 0 0 0 9 7.5z"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                  深色
-                </button>
-                <button
-                  class="dropdown-theme-btn"
-                  :class="{ active: appStore.themeMode === 'system' }"
-                  @click="setTheme('system')"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  >
-                    <rect x="3" y="4" width="14" height="10" rx="2" />
-                    <path d="M7 18h6M10 14v4" stroke-linecap="round" />
-                  </svg>
-                  系统
-                </button>
-              </div>
+              <ThemeToggle variant="icon" />
 
               <div class="dropdown-divider"></div>
               <RouterLink to="/ai-config" class="dropdown-item" @click="showUserMenu = false">
@@ -362,37 +275,6 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.theme-switch {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--color-panel-2);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border);
-}
-
-.theme-btn {
-  padding: 6px 12px;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-subtle);
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  transition: all var(--duration-fast) var(--ease-apple);
-}
-
-.theme-btn:hover {
-  color: var(--color-text);
-}
-
-.theme-btn.active {
-  background: var(--color-panel);
-  color: var(--color-text);
-  box-shadow: var(--shadow-xs);
-}
-
 .login-btn {
   padding: 8px 16px;
   border: none;
@@ -487,41 +369,6 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 12px 12px 6px;
-}
-
-.dropdown-theme-options {
-  display: flex;
-  gap: 6px;
-  padding: 0 6px 8px;
-}
-
-.dropdown-theme-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 6px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-apple);
-}
-
-.dropdown-theme-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-}
-
-.dropdown-theme-btn.active {
-  border-color: var(--color-accent);
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
 }
 
 .dropdown-divider {

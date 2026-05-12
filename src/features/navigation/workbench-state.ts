@@ -15,13 +15,11 @@ export interface LegacyTestToolsToggleConfig {
   fallbackPage?: string
 }
 
+import { resolveLegacyMobileBreakpoint } from './shared'
+
 export interface LegacyTestToolsToggleResult {
   nextExpanded: boolean
   nextPage: string | null
-}
-
-function resolveLegacyMobileBreakpoint(value: unknown): number {
-  return Number.isFinite(value) ? Number(value) : 1024
 }
 
 export function resolveLegacySidebarHoverState(

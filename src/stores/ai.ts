@@ -151,9 +151,32 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   async function addConfig(payload: Parameters<typeof aiConfigApi.create>[0]): Promise<void> {
-    const newConfig = await aiConfigApi.create(payload)
-    configs.value = [...configs.value, newConfig]
-    clearCache()
+    // 乐观更新：立即显示占位行，api_key_masked 用表单数据本地脱敏
+    const tempId = `optimistic-${Date.now()}`
+    const optimistic: AiProviderConfig = {
+      id: tempId,
+      provider_id: payload.provider_id,
+      model: payload.model,
+      api_key_masked: payload.api_key ? payload.api_key.slice(0, 4) + '****' + payload.api_key.slice(-4) : '****',
+      base_url: payload.base_url || '',
+      name: payload.name || '',
+      is_active: false,
+      timeout_ms: 0,
+      last_test_ok: null,
+      last_test_ms: null,
+      last_test_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    configs.value = [...configs.value, optimistic]
+    try {
+      const newConfig = await aiConfigApi.create(payload)
+      configs.value = configs.value.map((c) => (c.id === tempId ? newConfig : c))
+      clearCache()
+    } catch (e) {
+      configs.value = configs.value.filter((c) => c.id !== tempId)
+      throw e
+    }
   }
 
   async function testConfig(id: string): Promise<void> {
@@ -165,6 +188,11 @@ export const useAiStore = defineStore('ai', () => {
       cfg.last_test_at = new Date().toISOString()
     }
     clearCache()
+  }
+
+  // 更新 localStorage 缓存（乐观更新后同步，如拖拽排序）
+  function persistToCache(): void {
+    setCache(providers.value, configs.value)
   }
 
   function $reset(): void {
@@ -191,6 +219,7 @@ export const useAiStore = defineStore('ai', () => {
     removeConfig,
     addConfig,
     testConfig,
+    persistToCache,
     $reset
   }
 })

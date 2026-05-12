@@ -88,9 +88,7 @@ const postgresPreviewHtml = `<span class="cmt">-- 用户信息表</span>
 <span class="kw">COMMENT ON COLUMN</span> users.email <span class="kw">IS</span> <span class="str">'邮箱'</span>;`
 
 function nextTheme(mode: ThemeMode): ThemeMode {
-  if (mode === 'light') return 'dark'
-  if (mode === 'dark') return 'system'
-  return 'light'
+  return mode === 'light' ? 'dark' : 'light'
 }
 
 function toggleTheme(): void {
