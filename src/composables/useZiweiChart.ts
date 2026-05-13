@@ -63,7 +63,9 @@ export function useZiweiChart(
         liuNianPalaceName: cell.liuNianPalaceName || '',
         isCurrentDaXian: Boolean(cell.isCurrentDaXian),
         isMing: branch === chart.value?.center?.mingBranch,
-        isShen: branch === chart.value?.center?.shenBranch
+        isShen: branch === chart.value?.center?.shenBranch,
+        daxianSiHua: cell.daxianSiHua || [],
+        liunianSiHua: cell.liunianSiHua || []
       }
     })
   })
@@ -90,11 +92,20 @@ export function useZiweiChart(
       mingBranch: c.mingBranch || '',
       shenBranch: c.shenBranch || '',
       shenZhu: c.shenZhu || '',
+      shenPalaceName: c.shenPalaceName || '',
       inputClockText: c.inputClockText || '',
       shichenLabel: c.shichenLabel || '',
       timeCorrectionText: c.timeCorrectionText || '',
       currentDaXianLabel: c.currentDaXianLabel || '',
       currentLiuNianPalaceLabel: c.currentLiuNianPalaceLabel || '',
+      solarText: c.solarText || '',
+      longitude: c.longitude ?? null,
+      qiYunText: c.qiYunText || '',
+      daXianDirectionLabel: c.daXianDirectionLabel || '',
+      currentYearGanZhiLabel: c.currentYearGanZhiLabel || '',
+      huaSummary: c.huaSummary || [],
+      daxianHuaSummary: c.daxianHuaSummary || [],
+      liunianHuaSummary: c.liunianHuaSummary || [],
       age: ageLabel,
       currentYear: new Date().getFullYear()
     }

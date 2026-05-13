@@ -468,6 +468,7 @@ watch(chart, (v) => {
           <!-- 命盘核心信息卡 -->
           <div class="zw-summary-card">
             <div v-if="centerInfo" class="zw-summary-inner">
+              <!-- 左侧：纳音 + 五行局 -->
               <div class="zw-summary-left">
                 <span class="zw-nayin">{{ centerInfo.yinYang?.charAt(0) || '阴' }}</span>
                 <div class="zw-summary-meta">
@@ -476,21 +477,48 @@ watch(chart, (v) => {
                 </div>
               </div>
               <div class="zw-summary-divider"></div>
+              <!-- 中间：关键要素 -->
               <div class="zw-summary-grid">
                 <div class="zw-kv"><span class="zw-k">命宫</span><span class="zw-v">{{ centerInfo.mingBranch || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">身宫</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">身宫</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}{{ centerInfo.shenPalaceName ? '(' + centerInfo.shenPalaceName + ')' : '' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">命主</span><span class="zw-v">{{ centerInfo.mingZhu || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">身主</span><span class="zw-v">{{ centerInfo.shenZhu || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">时辰</span><span class="zw-v">{{ centerInfo.shichenLabel || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">起运</span><span class="zw-v">{{ centerInfo.qiYunText || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">出生</span><span class="zw-v">{{ centerInfo.inputClockText || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">公历</span><span class="zw-v">{{ centerInfo.solarText || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">顺逆</span><span class="zw-v">{{ centerInfo.daXianDirectionLabel || '--' }}</span></div>
               </div>
               <div class="zw-summary-divider"></div>
+              <!-- 右侧：时间 + 流年 -->
               <div class="zw-summary-right">
                 <span class="zw-lunar-text">{{ centerInfo.lunar || '--' }}</span>
                 <span class="zw-age-text">{{ centerInfo.currentYear }}年 · {{ centerInfo.age }}岁</span>
+                <span v-if="centerInfo.longitude != null" class="zw-age-text">经度 {{ centerInfo.longitude }}°</span>
                 <span class="zw-daxian-info">大限：{{ centerInfo.currentDaXianLabel || '--' }}</span>
-                <span class="zw-liunian-info">流年命宫：{{ centerInfo.currentLiuNianPalaceLabel || '--' }}</span>
+                <span class="zw-liunian-info">流年：{{ centerInfo.currentYearGanZhiLabel || '--' }} · {{ centerInfo.currentLiuNianPalaceLabel || '--' }}</span>
                 <span v-if="profileName" class="zw-profile-name">{{ profileName }}</span>
+              </div>
+            </div>
+            <!-- 三层四化摘要 -->
+            <div v-if="centerInfo?.huaSummary?.length" class="zw-hua-section">
+              <div class="zw-hua-row">
+                <span class="zw-hua-label">生年四化</span>
+                <div class="zw-hua-items">
+                  <span v-for="h in centerInfo.huaSummary" :key="'yh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
+                </div>
+              </div>
+              <div v-if="centerInfo.daxianHuaSummary?.length" class="zw-hua-row">
+                <span class="zw-hua-label">大限四化</span>
+                <div class="zw-hua-items">
+                  <span v-for="h in centerInfo.daxianHuaSummary" :key="'dh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
+                </div>
+              </div>
+              <div v-if="centerInfo.liunianHuaSummary?.length" class="zw-hua-row">
+                <span class="zw-hua-label">流年四化</span>
+                <div class="zw-hua-items">
+                  <span v-for="h in centerInfo.liunianHuaSummary" :key="'lh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -561,6 +589,17 @@ watch(chart, (v) => {
                       <span v-if="cell.miscStars.length" class="zw-aux-dot zw-dot--misc">{{ cell.miscStars.length }}辅</span>
                     </div>
                   </template>
+                </div>
+                <!-- 大限/流年四化落宫 -->
+                <div v-if="cell.daxianSiHua?.length || cell.liunianSiHua?.length" class="zw-cell-hua">
+                  <div v-for="(h, hIdx) in cell.daxianSiHua" :key="'dxh-' + hIdx" class="zw-cell-hua-row">
+                    <span class="zw-cell-hua-prefix zw-cell-hua-prefix--dx">限</span>
+                    <span class="zw-cell-hua-text">{{ h.star }}{{ h.type }}</span>
+                  </div>
+                  <div v-for="(h, hIdx) in cell.liunianSiHua" :key="'lnh-' + hIdx" class="zw-cell-hua-row">
+                    <span class="zw-cell-hua-prefix zw-cell-hua-prefix--ln">年</span>
+                    <span class="zw-cell-hua-text">{{ h.star }}{{ h.type }}</span>
+                  </div>
                 </div>
                 <!-- 底部信息 -->
                 <div class="zw-card-foot">
@@ -869,6 +908,102 @@ watch(chart, (v) => {
 .zw-liunian-info {
   font-size: 11px;
   color: var(--color-liunian);
+}
+
+/* --- 三层四化摘要区 --- */
+.zw-hua-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.zw-hua-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zw-hua-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.zw-hua-items {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.zw-hua-item {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
+.zw-hua--禄 {
+  color: var(--color-hua-lu);
+  background: color-mix(in srgb, var(--color-hua-lu) 14%, transparent);
+}
+
+.zw-hua--权 {
+  color: var(--color-hua-quan);
+  background: color-mix(in srgb, var(--color-hua-quan) 14%, transparent);
+}
+
+.zw-hua--科 {
+  color: var(--color-hua-ke);
+  background: color-mix(in srgb, var(--color-hua-ke) 14%, transparent);
+}
+
+.zw-hua--忌 {
+  color: var(--color-hua-ji);
+  background: color-mix(in srgb, var(--color-hua-ji) 14%, transparent);
+}
+
+/* --- 宫位卡内 大限/流年四化 --- */
+.zw-cell-hua {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.zw-cell-hua-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+}
+
+.zw-cell-hua-prefix {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 2px;
+  line-height: 14px;
+}
+
+.zw-cell-hua-prefix--dx {
+  color: var(--color-daxian);
+  background: color-mix(in srgb, var(--color-daxian) 14%, transparent);
+}
+
+.zw-cell-hua-prefix--ln {
+  color: var(--color-liunian);
+  background: color-mix(in srgb, var(--color-liunian) 14%, transparent);
+}
+
+.zw-cell-hua-text {
+  color: var(--color-text-subtle);
 }
 
 /* --- Palace Card Ring (3-col grid) --- */

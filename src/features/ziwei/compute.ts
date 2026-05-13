@@ -715,6 +715,10 @@ export interface ZiweiCell {
   currentXiaoXian?: string
   outgoingHuaCount?: number
   incomingHuaCount?: number
+  /** 大限四化落入此宫的星曜 */
+  daxianSiHua?: Array<{ star: string; type: string }>
+  /** 流年四化落入此宫的星曜 */
+  liunianSiHua?: Array<{ star: string; type: string }>
 }
 
 export interface ZiweiCenter {
@@ -755,6 +759,10 @@ export interface ZiweiCenter {
   decadeMarks: Array<{ year: string; ganzhi: string; range: string }>
   daXianDirectionLabel: string
   huaSummary: Array<{ tag: string; label: string }>
+  /** 大限四化摘要 */
+  daxianHuaSummary: Array<{ tag: string; label: string }>
+  /** 流年四化摘要 */
+  liunianHuaSummary: Array<{ tag: string; label: string }>
   shiftedByZiHour: boolean
 }
 
@@ -1260,6 +1268,29 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       })
     }
 
+    // 8b. 计算大限四化和流年四化的落宫（以 starBranchMap 为基础）
+    function computeSiHuaByGan(
+      gan: string
+    ): Array<{ star: string; type: string; branch: string }> {
+      const rule = ZW_HUA_BY_STEM[gan]
+      if (!rule) return []
+      const result: Array<{ star: string; type: string; branch: string }> = []
+      const pairs: Array<{ key: string; type: string }> = [
+        { key: 'lu', type: '化禄' },
+        { key: 'quan', type: '化权' },
+        { key: 'ke', type: '化科' },
+        { key: 'ji', type: '化忌' }
+      ]
+      for (const p of pairs) {
+        const starName = rule[p.key as keyof typeof rule]
+        const branch = starBranchMap[starName]
+        if (branch) {
+          result.push({ star: starName, type: p.type, branch })
+        }
+      }
+      return result
+    }
+
     // 9. 计算大限、小限
     const isMale = input.gender === 'male'
     const isYangYear = ZW_YEAR_STEM_YINYANG[yearStem] === '阳'
@@ -1275,6 +1306,33 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     const virtualAge = Math.max(1, currentYear - birthYearForAge + 1)
     const currentLiuNianGanZhi = getYearGanZhi(currentYear)
     const currentLiuNianBranch = currentLiuNianGanZhi[1]
+    const currentLiuNianStem = currentLiuNianGanZhi[0]
+
+    // 大限四化：当前大限宫的天干 → 查四化表
+    // 先找到当前大限宫的 branch，再取 stem
+    let currentDaXianStem = ''
+    {
+      const daXianEntries = Object.values(daXianMap)
+      for (const entry of daXianEntries) {
+        const [rStart, rEnd] = (entry.range || '').split('-').map(Number)
+        if (Number.isFinite(rStart) && Number.isFinite(rEnd) && virtualAge >= rStart && virtualAge <= rEnd) {
+          currentDaXianStem = branchStemMap[entry.branch] || ''
+          break
+        }
+      }
+    }
+    const daxianSiHuaAll = computeSiHuaByGan(currentDaXianStem)
+    const liunianSiHuaAll = computeSiHuaByGan(currentLiuNianStem)
+
+    // 流年十二宫名映射（流年命宫=currentLiuNianBranch，逆时针排列）
+    const liuNianPalaceMap: Record<string, string> = {}
+    {
+      const liuNianStartIdx = branchIndex(currentLiuNianBranch)
+      for (let i = 0; i < 12; i++) {
+        const bIdx = (liuNianStartIdx - i + 12) % 12
+        liuNianPalaceMap[ZW_BRANCHES[bIdx]] = '流年' + ZW_PALACE_NAMES[i]
+      }
+    }
 
     // 10. 构建命盘宫位
     const boardCells: ZiweiCell[] = ZW_BOARD_ORDER.map((branch) => {
@@ -1340,8 +1398,14 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
         liuNianSeriesText: liuNianSeries.join('/'),
         xiaoXianSeries,
         xiaoXianSeriesText: xiaoXianSeries.join('/'),
-        liuNianPalaceName: branch === currentLiuNianBranch ? '流年命宫' : '',
-        isCurrentDaXian
+        liuNianPalaceName: liuNianPalaceMap[branch] || '',
+        isCurrentDaXian,
+        daxianSiHua: daxianSiHuaAll
+          .filter((h) => h.branch === branch)
+          .map((h) => ({ star: h.star, type: h.type })),
+        liunianSiHua: liunianSiHuaAll
+          .filter((h) => h.branch === branch)
+          .map((h) => ({ star: h.star, type: h.type }))
       }
     })
 
@@ -1373,6 +1437,28 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
         { tag: '权', label: '权:' + huaRule.quan },
         { tag: '科', label: '科:' + huaRule.ke },
         { tag: '忌', label: '忌:' + huaRule.ji }
+      )
+    }
+
+    const daxianHuaSummary: Array<{ tag: string; label: string }> = []
+    const daxianHuaRule = ZW_HUA_BY_STEM[currentDaXianStem]
+    if (daxianHuaRule) {
+      daxianHuaSummary.push(
+        { tag: '禄', label: '禄:' + daxianHuaRule.lu },
+        { tag: '权', label: '权:' + daxianHuaRule.quan },
+        { tag: '科', label: '科:' + daxianHuaRule.ke },
+        { tag: '忌', label: '忌:' + daxianHuaRule.ji }
+      )
+    }
+
+    const liunianHuaSummary: Array<{ tag: string; label: string }> = []
+    const liunianHuaRule = ZW_HUA_BY_STEM[currentLiuNianStem]
+    if (liunianHuaRule) {
+      liunianHuaSummary.push(
+        { tag: '禄', label: '禄:' + liunianHuaRule.lu },
+        { tag: '权', label: '权:' + liunianHuaRule.quan },
+        { tag: '科', label: '科:' + liunianHuaRule.ke },
+        { tag: '忌', label: '忌:' + liunianHuaRule.ji }
       )
     }
 
@@ -1430,6 +1516,8 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       decadeMarks: [],
       daXianDirectionLabel: daXianDirection > 0 ? '顺行' : '逆行',
       huaSummary,
+      daxianHuaSummary,
+      liunianHuaSummary,
       shiftedByZiHour: correction.shiftedByZiHour
     }
 
