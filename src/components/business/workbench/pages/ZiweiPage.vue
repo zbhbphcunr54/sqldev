@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useZiweiForm } from '@/composables/useZiweiForm'
 import { useZiweiAI } from '@/composables/useZiweiAI'
 import { useZiweiChart } from '@/composables/useZiweiChart'
@@ -10,6 +11,9 @@ import {
 import { UI_LABELS } from '@/features/ziwei/ui-constants'
 import FormSelect from '@/components/common/FormSelect.vue'
 import ChartLegend from '@/components/business/ziwei/ChartLegend.vue'
+
+/* ---------- 移动端 Tab 切换 ---------- */
+const mobileTab = ref<'input' | 'chart' | 'ai'>('input')
 
 const {
   calendarType,
@@ -68,6 +72,11 @@ const { palaceGrid, centerInfo, chartMeta, daXianTimeline, liuNianTimeline } = u
 )
 
 const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
+
+/* 排盘完成后自动切换到命盘 Tab（移动端） */
+watch(chart, (v) => {
+  if (v) mobileTab.value = 'chart'
+})
 </script>
 
 <template>
@@ -167,10 +176,38 @@ const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
       </div>
     </header>
 
+    <!-- 移动端 Tab 栏 -->
+    <nav class="mobile-tab-bar flex lg:hidden border-b border-border bg-panel shrink-0">
+      <button
+        class="flex-1 py-2.5 text-xs font-medium text-center transition-colors duration-150"
+        :class="mobileTab === 'input' ? 'text-accent border-b-2 border-accent bg-accentBg/40' : 'text-subtle'"
+        @click="mobileTab = 'input'"
+      >
+        输入信息
+      </button>
+      <button
+        class="flex-1 py-2.5 text-xs font-medium text-center transition-colors duration-150"
+        :class="mobileTab === 'chart' ? 'text-accent border-b-2 border-accent bg-accentBg/40' : 'text-subtle'"
+        @click="mobileTab = 'chart'"
+      >
+        命盘
+      </button>
+      <button
+        class="flex-1 py-2.5 text-xs font-medium text-center transition-colors duration-150"
+        :class="mobileTab === 'ai' ? 'text-accent border-b-2 border-accent bg-accentBg/40' : 'text-subtle'"
+        @click="mobileTab = 'ai'"
+      >
+        AI 解读
+      </button>
+    </nav>
+
     <!-- 主内容区 -->
     <main class="flex-1 grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] overflow-hidden">
       <!-- 左栏：输入面板 -->
-      <aside class="flex flex-col p-4 bg-panel border-r border-border overflow-y-auto">
+      <aside
+        class="flex-col p-4 bg-panel border-r border-border overflow-y-auto"
+        :class="mobileTab === 'input' ? 'flex' : 'hidden lg:flex'"
+      >
         <div class="flex flex-col gap-2 mb-4">
           <button class="btn-primary w-full" :disabled="generating" @click="handleGenerate">
             {{ UI_LABELS.BTN_GENERATE }}
@@ -384,7 +421,10 @@ const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
       </aside>
 
       <!-- 中栏：命盘主区域 -->
-      <main class="flex flex-col items-center justify-center p-5 bg-bg overflow-y-auto">
+      <main
+        class="flex-col items-center justify-center p-5 bg-bg overflow-y-auto"
+        :class="mobileTab === 'chart' ? 'flex' : 'hidden lg:flex'"
+      >
         <div
           v-if="!chart"
           class="flex flex-col items-center justify-center gap-4 flex-1 text-center"
@@ -619,7 +659,10 @@ const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
       </main>
 
       <!-- 右栏：AI 功能面板 -->
-      <aside class="flex flex-col p-4 bg-panel border-l border-border overflow-y-auto">
+      <aside
+        class="flex-col p-4 bg-panel border-l border-border overflow-y-auto"
+        :class="mobileTab === 'ai' ? 'flex' : 'hidden lg:flex'"
+      >
         <span
           class="inline-block self-start mb-4 px-2.5 py-1 bg-accentBg text-accent text-[10px] font-bold rounded tracking-wider"
         >
@@ -893,10 +936,15 @@ const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
   transform: translateY(-4px);
 }
 
-@media (max-width: 1024px) {
-  .input-panel,
-  .ai-panel {
-    display: none;
+/* 移动端 Tab 栏按钮热区 ≥ 44px（§15.4.4） */
+.mobile-tab-bar button {
+  min-height: 44px;
+}
+
+@media (max-width: 1023px) {
+  /* 移动端命盘缩放 */
+  .ziwei-board {
+    width: min(96vw, 820px);
   }
 }
 
