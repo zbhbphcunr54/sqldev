@@ -480,12 +480,16 @@ watch(chart, (v) => {
                 <div class="zw-kv"><span class="zw-k">命宫</span><span class="zw-v">{{ centerInfo.mingBranch || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">身宫</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">命主</span><span class="zw-v">{{ centerInfo.mingZhu || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">身主</span><span class="zw-v">{{ centerInfo.shenZhu || '--' }}</span></div>
                 <div class="zw-kv"><span class="zw-k">时辰</span><span class="zw-v">{{ centerInfo.shichenLabel || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">出生</span><span class="zw-v">{{ centerInfo.inputClockText || '--' }}</span></div>
               </div>
               <div class="zw-summary-divider"></div>
               <div class="zw-summary-right">
                 <span class="zw-lunar-text">{{ centerInfo.lunar || '--' }}</span>
                 <span class="zw-age-text">{{ centerInfo.currentYear }}年 · {{ centerInfo.age }}岁</span>
+                <span class="zw-daxian-info">大限：{{ centerInfo.currentDaXianLabel || '--' }}</span>
+                <span class="zw-liunian-info">流年命宫：{{ centerInfo.currentLiuNianPalaceLabel || '--' }}</span>
                 <span v-if="profileName" class="zw-profile-name">{{ profileName }}</span>
               </div>
             </div>
@@ -814,7 +818,7 @@ watch(chart, (v) => {
 
 .zw-summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, auto);
+  grid-template-columns: repeat(3, auto);
   gap: 4px 16px;
 }
 
@@ -855,6 +859,16 @@ watch(chart, (v) => {
 .zw-profile-name {
   font-size: 11px;
   color: var(--color-text-muted);
+}
+
+.zw-daxian-info {
+  font-size: 11px;
+  color: var(--color-daxian);
+}
+
+.zw-liunian-info {
+  font-size: 11px;
+  color: var(--color-liunian);
 }
 
 /* --- Palace Card Ring (3-col grid) --- */
