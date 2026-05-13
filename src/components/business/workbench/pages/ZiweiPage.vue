@@ -202,7 +202,7 @@ watch(chart, (v) => {
     </nav>
 
     <!-- 主内容区 -->
-    <main class="flex-1 grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] overflow-hidden">
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_280px] overflow-hidden">
       <!-- 左栏：输入面板 -->
       <aside
         class="flex-col p-4 bg-panel border-r border-border overflow-y-auto"
@@ -212,7 +212,7 @@ watch(chart, (v) => {
           <button class="btn-primary w-full" :disabled="generating" @click="handleGenerate">
             {{ UI_LABELS.BTN_GENERATE }}
           </button>
-          <button class="btn-secondary w-full gap-1.5 text-xs" :disabled="!chart">
+          <button class="ziwei-btn-outline w-full gap-1.5 text-xs" :disabled="!chart">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <rect
                 x="8"
@@ -676,7 +676,7 @@ watch(chart, (v) => {
           </p>
 
           <button
-            class="btn-secondary w-full gap-2 text-sm"
+            class="ziwei-btn-outline w-full gap-2 text-sm"
             :disabled="!chart || aiLoading"
             @click="handleAiAnalysis"
           >
@@ -764,6 +764,35 @@ watch(chart, (v) => {
 </template>
 
 <style scoped>
+/* 紫微专用描边按钮 — 使用柔和的边框色和文字色，避免强对比 */
+.ziwei-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-apple);
+}
+
+.ziwei-btn-outline:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background: var(--color-panel-2);
+}
+
+.ziwei-btn-outline:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ziwei-btn-outline:focus-visible {
+  box-shadow: var(--shadow-focus-ring);
+}
+
 /* 标题栏高度与全局分割线对齐（56px header + 12px gap = 68px，与全局分割线同一水平线） */
 .ziwei-header {
   height: calc(var(--header-height) + 12px);
