@@ -15,6 +15,12 @@ import ChartLegend from '@/components/business/ziwei/ChartLegend.vue'
 /* ---------- 移动端 Tab 切换 ---------- */
 const mobileTab = ref<'input' | 'chart' | 'ai'>('input')
 
+/* ---------- 命盘宫位选中态 ---------- */
+const selectedPalaceIdx = ref<number | null>(null)
+function togglePalace(idx: number): void {
+  selectedPalaceIdx.value = selectedPalaceIdx.value === idx ? null : idx
+}
+
 const {
   calendarType,
   solarYear,
@@ -459,196 +465,136 @@ watch(chart, (v) => {
             {{ centerInfo.timeCorrectionText }}
           </p>
 
-          <!-- 命盘区域 -->
-          <div class="flex justify-center overflow-x-auto">
-            <div class="relative p-6">
-              <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[11px] text-subtle">{{
-                UI_LABELS.COMPASS_TOP
-              }}</span>
-              <span class="absolute bottom-0 left-1/2 -translate-x-1/2 text-[11px] text-subtle">{{
-                UI_LABELS.COMPASS_BOTTOM
-              }}</span>
-              <span class="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-subtle">{{
-                UI_LABELS.COMPASS_LEFT
-              }}</span>
-              <span class="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-subtle">{{
-                UI_LABELS.COMPASS_RIGHT
-              }}</span>
-
-              <div class="ziwei-board grid gap-px border border-border bg-border">
-                <template v-for="(cell, index) in palaceGrid" :key="'cell-' + index">
-                  <!-- 中央区域 -->
-                  <div
-                    v-if="index === 5 || index === 6 || index === 9 || index === 10"
-                    class="flex items-center justify-center p-1.5 bg-panel2 text-[10px]"
-                  >
-                    <div v-if="(index === 6 || index === 9) && centerInfo" class="text-center">
-                      <div v-if="index === 6" class="flex items-center justify-center gap-2 mb-2">
-                        <span class="text-lg text-warning">{{
-                          centerInfo.yinYang?.charAt(0) || '阴'
-                        }}</span>
-                        <span class="text-xs font-semibold text-text">{{ centerInfo.bureau }}</span>
-                        <span class="text-[10px] text-text">{{ centerInfo.gender }}</span>
-                      </div>
-                      <div v-if="index === 6" class="text-[9px] text-text leading-relaxed">
-                        <p class="my-0.5">命主：{{ centerInfo.mingZhu || '--' }}</p>
-                        <p class="my-0.5">命宫：{{ centerInfo.mingBranch || '--' }}宫</p>
-                        <p class="my-0.5">身宫：{{ centerInfo.shenBranch || '--' }}宫</p>
-                        <p class="my-0.5">时辰：{{ centerInfo.shichenLabel || '--' }}</p>
-                        <p class="mt-1 text-[10px] text-text">
-                          {{ centerInfo.currentYear }}年·{{ centerInfo.age }}岁
-                        </p>
-                      </div>
-                      <div v-if="index === 9" class="text-[9px] text-text">
-                        <p class="my-0.5">{{ centerInfo.lunar || '--' }}</p>
-                        <p class="my-0.5">出生时：{{ centerInfo.inputClockText || '--' }}</p>
-                        <p class="my-0.5">当前大限：{{ centerInfo.currentDaXianLabel || '--' }}</p>
-                        <p class="my-0.5">流年命宫：{{ centerInfo.currentLiuNianPalaceLabel || '--' }}</p>
-                        <p class="mt-1 text-text">命主：{{ profileName || '--' }}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- 十二宫格 -->
-                  <div
-                    v-else-if="cell"
-                    class="palace-cell flex flex-col p-1.5 bg-panel3 text-[10px] border border-border"
-                    :class="{
-                      'border-accent z-[1]': cell.isMing,
-                      'palace-shen': cell.isShen,
-                      'palace-daxian-active': cell.isCurrentDaXian
-                    }"
-                  >
-                    <div class="flex justify-between items-center pb-1 border-b border-border mb-1">
-                      <span class="font-semibold text-text text-[11px]">
-                        {{ cell.palace }}
-                        <span v-if="cell.isMing" class="inline-block ml-1 palace-mark palace-mark-ming">命</span>
-                        <span v-if="cell.isShen" class="inline-block ml-1 palace-mark palace-mark-shen">身</span>
-                      </span>
-                      <span class="text-[9px] text-subtle font-mono">{{ cell.ganzhi }}</span>
-                    </div>
-                    <div class="flex flex-col gap-0.5 flex-1 overflow-hidden">
-                      <div
-                        v-for="(star, sIdx) in cell.mainStars.slice(0, 4)"
-                        :key="'main-' + sIdx"
-                        class="flex items-center gap-1"
-                      >
-                        <span class="inline-flex items-center gap-0.5 font-semibold text-[10px] text-major-star">
-                          ★ {{ star.name }}
-                          <span
-                            v-if="star.hua"
-                            class="text-[8px] px-[3px] rounded-[3px]"
-                            :class="getHuaTagClass(star.hua)"
-                            >{{ star.hua }}</span
-                          >
-                        </span>
-                        <span
-                          v-if="star.level"
-                          class="text-[8px] px-0.5 rounded-[2px]"
-                          :class="getPalaceLevelClass(star.level)"
-                          >{{ star.level }}</span
-                        >
-                      </div>
-                      <div
-                        v-for="(star, sIdx) in cell.luckyStars.slice(0, 2)"
-                        :key="'lucky-' + sIdx"
-                        class="flex items-center gap-1"
-                      >
-                        <span
-                          class="inline-flex items-center gap-0.5 font-mono text-[10px]"
-                          :class="getStarColorClass('luck')"
-                        >
-                          {{ star.name }}
-                        </span>
-                      </div>
-                      <div
-                        v-for="(star, sIdx) in cell.evilStars.slice(0, 2)"
-                        :key="'evil-' + sIdx"
-                        class="flex items-center gap-1"
-                      >
-                        <span class="inline-flex items-center gap-0.5 font-mono text-[10px] text-danger">
-                          {{ star.name }}
-                        </span>
-                      </div>
-                      <div v-if="cell.miscStars.length" class="text-[9px] text-link truncate">
-                        {{ cell.miscStars.slice(0, 3).map((item) => item.name).join(' ') }}
-                      </div>
-                    </div>
-                    <div class="flex justify-between items-center text-[9px] text-subtle mt-auto">
-                      <span>{{ cell.changSheng }}</span>
-                      <span>{{ cell.daXianAge }}</span>
-                    </div>
-                    <div class="mt-0.5 flex justify-between items-center text-[9px]">
-                      <span v-if="cell.isCurrentDaXian" class="text-warning">▶ 当前大限</span>
-                      <span v-else class="text-transparent">.</span>
-                      <span class="liunian-text">{{ cell.liuNianPalaceName }}</span>
-                    </div>
-                  </div>
-                  <!-- 空格子 -->
-                  <div v-else class="p-1.5 bg-panel2"></div>
-                </template>
+          <!-- 命盘核心信息卡 -->
+          <div class="zw-summary-card">
+            <div v-if="centerInfo" class="zw-summary-inner">
+              <div class="zw-summary-left">
+                <span class="zw-nayin">{{ centerInfo.yinYang?.charAt(0) || '阴' }}</span>
+                <div class="zw-summary-meta">
+                  <span class="zw-bureau">{{ centerInfo.bureau }}</span>
+                  <span class="zw-gender-tag">{{ centerInfo.gender }}命</span>
+                </div>
+              </div>
+              <div class="zw-summary-divider"></div>
+              <div class="zw-summary-grid">
+                <div class="zw-kv"><span class="zw-k">命宫</span><span class="zw-v">{{ centerInfo.mingBranch || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">身宫</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">命主</span><span class="zw-v">{{ centerInfo.mingZhu || '--' }}</span></div>
+                <div class="zw-kv"><span class="zw-k">时辰</span><span class="zw-v">{{ centerInfo.shichenLabel || '--' }}</span></div>
+              </div>
+              <div class="zw-summary-divider"></div>
+              <div class="zw-summary-right">
+                <span class="zw-lunar-text">{{ centerInfo.lunar || '--' }}</span>
+                <span class="zw-age-text">{{ centerInfo.currentYear }}年 · {{ centerInfo.age }}岁</span>
+                <span v-if="profileName" class="zw-profile-name">{{ profileName }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 功能按钮组 -->
-          <div class="flex gap-2 flex-wrap">
-            <button
-              class="nav-btn-ming px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
-            >
-              {{ UI_LABELS.NAV_MING }}
-            </button>
-            <button
-              class="nav-btn-qianyi px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
-            >
-              {{ UI_LABELS.NAV_QIANYI }}
-            </button>
-            <button
-              class="nav-btn-ke px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
-            >
-              {{ UI_LABELS.NAV_KE }}
-            </button>
-            <button
-              class="nav-btn-jiao px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
-            >
-              {{ UI_LABELS.NAV_JIAO }}
-            </button>
+          <!-- 十二宫位卡片 -->
+          <div class="zw-palace-ring">
+            <template v-for="(cell, index) in palaceGrid" :key="'pc-' + index">
+              <div
+                v-if="cell"
+                class="zw-card"
+                :class="{
+                  'zw-card--ming': cell.isMing,
+                  'zw-card--shen': cell.isShen,
+                  'zw-card--daxian': cell.isCurrentDaXian,
+                  'zw-card--selected': selectedPalaceIdx === index
+                }"
+                @click="togglePalace(index)"
+              >
+                <!-- 卡片头部 -->
+                <div class="zw-card-head">
+                  <div class="zw-card-title">
+                    <span class="zw-palace-name">{{ cell.palace }}</span>
+                    <span v-if="cell.isMing" class="zw-tag zw-tag--ming">命</span>
+                    <span v-if="cell.isShen" class="zw-tag zw-tag--shen">身</span>
+                    <span v-if="cell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
+                  </div>
+                  <span class="zw-ganzhi">{{ cell.ganzhi }}</span>
+                </div>
+                <!-- 主星区 -->
+                <div class="zw-stars-main">
+                  <div
+                    v-for="(star, sIdx) in cell.mainStars.slice(0, 4)"
+                    :key="'ms-' + sIdx"
+                    class="zw-star-row"
+                  >
+                    <span class="zw-star-name zw-star--major">
+                      {{ star.name }}
+                      <span
+                        v-if="star.hua"
+                        class="zw-hua-pill"
+                        :class="getHuaTagClass(star.hua)"
+                      >{{ star.hua }}</span>
+                    </span>
+                    <span
+                      v-if="star.level"
+                      class="zw-level"
+                      :class="getPalaceLevelClass(star.level)"
+                    >{{ star.level }}</span>
+                  </div>
+                </div>
+                <!-- 辅星区（折叠态只显示计数，展开态显示全部） -->
+                <div class="zw-stars-aux">
+                  <template v-if="selectedPalaceIdx === index">
+                    <div v-for="(star, sIdx) in cell.luckyStars" :key="'lk-' + sIdx" class="zw-star-row">
+                      <span class="zw-star-name zw-star--luck">{{ star.name }}</span>
+                    </div>
+                    <div v-for="(star, sIdx) in cell.evilStars" :key="'ev-' + sIdx" class="zw-star-row">
+                      <span class="zw-star-name zw-star--harm">{{ star.name }}</span>
+                    </div>
+                    <div v-for="(star, sIdx) in cell.miscStars" :key="'mi-' + sIdx" class="zw-star-row">
+                      <span class="zw-star-name zw-star--misc">{{ star.name }}</span>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="zw-aux-summary">
+                      <span v-if="cell.luckyStars.length" class="zw-aux-dot zw-dot--luck" :title="cell.luckyStars.map(s => s.name).join(' ')">{{ cell.luckyStars.length }}吉</span>
+                      <span v-if="cell.evilStars.length" class="zw-aux-dot zw-dot--harm" :title="cell.evilStars.map(s => s.name).join(' ')">{{ cell.evilStars.length }}煞</span>
+                      <span v-if="cell.miscStars.length" class="zw-aux-dot zw-dot--misc">{{ cell.miscStars.length }}辅</span>
+                    </div>
+                  </template>
+                </div>
+                <!-- 底部信息 -->
+                <div class="zw-card-foot">
+                  <span class="zw-changsheng">{{ cell.changSheng }}</span>
+                  <span class="zw-daxian-age">{{ cell.daXianAge }}</span>
+                </div>
+                <div v-if="cell.liuNianPalaceName" class="zw-liunian-label">
+                  {{ cell.liuNianPalaceName }}
+                </div>
+              </div>
+            </template>
           </div>
 
-          <!-- 大限/流年 -->
-          <div class="bg-panel3 border border-border rounded-lg overflow-hidden">
-            <div class="flex border-b border-border last:border-b-0">
-              <span
-                class="w-[60px] shrink-0 p-2.5 bg-panel2 text-[11px] font-semibold text-text flex items-center"
-                >{{ UI_LABELS.TIMELINE_DAXIAN }}</span
-              >
-              <div class="flex flex-1 overflow-x-auto">
+          <!-- 大限/流年时间轴 -->
+          <div class="zw-timeline-section">
+            <div class="zw-timeline-row">
+              <span class="zw-timeline-label">{{ UI_LABELS.TIMELINE_DAXIAN }}</span>
+              <div class="zw-timeline-track">
                 <div
                   v-for="(item, idx) in daXianTimeline"
                   :key="'dx-' + idx"
-                  class="flex-1 min-w-[60px] p-2 border-l border-border text-center"
+                  class="zw-timeline-item"
                 >
-                  <span class="block text-[10px] font-semibold text-text">{{ item.range }}</span>
-                  <span class="block text-[9px] text-subtle mt-0.5 font-mono">{{
-                    item.branch
-                  }}</span>
+                  <span class="zw-tl-range">{{ item.range }}</span>
+                  <span class="zw-tl-branch">{{ item.branch }}</span>
                 </div>
               </div>
             </div>
-            <div class="flex">
-              <span
-                class="w-[60px] shrink-0 p-2.5 bg-panel2 text-[11px] font-semibold text-text flex items-center"
-                >{{ UI_LABELS.TIMELINE_LIUNIAN }}</span
-              >
-              <div class="flex flex-1 overflow-x-auto">
+            <div class="zw-timeline-row">
+              <span class="zw-timeline-label">{{ UI_LABELS.TIMELINE_LIUNIAN }}</span>
+              <div class="zw-timeline-track">
                 <div
                   v-for="(item, idx) in liuNianTimeline"
                   :key="'ln-' + idx"
-                  class="flex-1 min-w-[60px] p-2 border-l border-border text-center"
+                  class="zw-timeline-item"
                 >
-                  <span class="block text-[10px] font-semibold text-text">{{ item.year }}年</span>
-                  <span class="block text-[9px] text-subtle mt-0.5 font-mono">{{
-                    item.ganzhi
-                  }}</span>
+                  <span class="zw-tl-range">{{ item.year }}年</span>
+                  <span class="zw-tl-branch">{{ item.ganzhi }}</span>
                 </div>
               </div>
             </div>
@@ -808,51 +754,384 @@ watch(chart, (v) => {
   }
 }
 
-/* 4×4 宫格 */
-.ziwei-board {
-  width: min(92vw, 820px);
-  aspect-ratio: 1 / 1;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(4, 1fr);
+/* ============================================
+   Modern Ziwei Chart — Card-based Layout
+   Apple HIG inspired, glassmorphism cards
+   ============================================ */
+
+/* --- Summary Card --- */
+.zw-summary-card {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
 }
 
-.palace-cell {
+.zw-summary-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.zw-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zw-nayin {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-warning);
+  line-height: 1;
+}
+
+.zw-summary-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zw-bureau {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.zw-gender-tag {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+}
+
+.zw-summary-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.zw-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 4px 16px;
+}
+
+.zw-kv {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.zw-k {
+  color: var(--color-text-muted);
+}
+
+.zw-v {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.zw-summary-right {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.zw-lunar-text {
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.zw-age-text {
+  font-size: 11px;
+  color: var(--color-text-subtle);
+}
+
+.zw-profile-name {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* --- Palace Card Ring (3-col grid) --- */
+.zw-palace-ring {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+/* --- Single Palace Card --- */
+.zw-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
   transition:
-    opacity var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+    box-shadow var(--duration-normal) var(--ease-apple),
+    border-color var(--duration-normal) var(--ease-apple),
+    transform var(--duration-fast) var(--ease-apple);
+  min-height: 96px;
 }
 
-.palace-cell:hover {
-  opacity: 0.85;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-link) 45%, transparent);
+.zw-card:hover {
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
-.palace-shen {
-  background: color-mix(in srgb, var(--color-link) 10%, var(--color-panel-3));
+.zw-card--selected {
+  border-color: var(--color-accent-border);
+  box-shadow: var(--shadow-md), 0 0 0 2px var(--color-accent-bg);
 }
 
-.palace-daxian-active {
+.zw-card--ming {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 3%, var(--color-panel));
+}
+
+.zw-card--shen {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 3%, var(--color-panel));
+}
+
+.zw-card--daxian {
   background: var(--color-daxian-active-bg);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-hua-lu) 35%, transparent);
+  border-color: color-mix(in srgb, var(--color-hua-lu) 40%, var(--color-border));
 }
 
-.palace-mark {
-  border-radius: 3px;
-  padding: 0 4px;
+/* Card Head */
+.zw-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.zw-card-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zw-palace-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: var(--tracking-wide);
+}
+
+.zw-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
   line-height: 14px;
 }
 
-.palace-mark-ming {
+.zw-tag--ming {
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 14%, transparent);
 }
 
-.palace-mark-shen {
-  color: var(--color-link);
-  background: color-mix(in srgb, var(--color-link) 14%, transparent);
+.zw-tag--shen {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.zw-tag--daxian {
+  color: var(--color-hua-lu);
+  background: color-mix(in srgb, var(--color-hua-lu) 14%, transparent);
+}
+
+.zw-ganzhi {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-family: var(--font-code);
+}
+
+/* Stars */
+.zw-stars-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.zw-star-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.zw-star-name {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.zw-star--major {
+  color: var(--color-major-star);
+  font-weight: 600;
+}
+
+.zw-star--luck {
+  color: var(--color-success);
+  font-size: 11px;
+}
+
+.zw-star--harm {
+  color: var(--color-danger);
+  font-size: 11px;
+}
+
+.zw-star--misc {
+  color: var(--color-text-subtle);
+  font-size: 11px;
+}
+
+.zw-hua-pill {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  margin-left: 2px;
+  font-weight: 600;
+}
+
+.zw-level {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Aux stars collapsed view */
+.zw-stars-aux {
+  margin-top: 4px;
+  min-height: 16px;
+}
+
+.zw-aux-summary {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.zw-aux-dot {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  line-height: 18px;
+}
+
+.zw-dot--luck {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.zw-dot--harm {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.zw-dot--misc {
+  color: var(--color-text-subtle);
+  background: var(--color-panel-2);
+}
+
+/* Card Footer */
+.zw-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.zw-changsheng {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.zw-daxian-age {
+  font-size: 10px;
+  color: var(--color-daxian);
+  font-family: var(--font-code);
+}
+
+.zw-liunian-label {
+  font-size: 9px;
+  color: var(--color-liunian);
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* --- Timeline Section --- */
+.zw-timeline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.zw-timeline-row {
+  display: flex;
+  background: var(--color-panel);
+}
+
+.zw-timeline-label {
+  width: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-panel-2);
+}
+
+.zw-timeline-track {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.zw-timeline-item {
+  flex: 1;
+  min-width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-left: 1px solid var(--color-border);
+}
+
+.zw-tl-range {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.zw-tl-branch {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-family: var(--font-code);
+  margin-top: 2px;
 }
 
 .text-major-star {
@@ -901,19 +1180,7 @@ watch(chart, (v) => {
   }
 }
 
-/* Nav button borders via color-mix */
-.nav-btn-ming {
-  border-color: color-mix(in srgb, var(--color-page-success-alt) 60%, transparent);
-}
-.nav-btn-qianyi {
-  border-color: color-mix(in srgb, var(--color-page-warning-alt) 60%, transparent);
-}
-.nav-btn-ke {
-  border-color: color-mix(in srgb, var(--color-page-link) 60%, transparent);
-}
-.nav-btn-jiao {
-  border-color: color-mix(in srgb, var(--color-purple) 60%, transparent);
-}
+/* Nav button borders via color-mix — removed (old 4×4 grid) */
 
 /* Star level backgrounds via color-mix */
 .level-miao {
@@ -971,16 +1238,37 @@ watch(chart, (v) => {
 }
 
 @media (max-width: 1023px) {
-  /* 移动端命盘缩放 */
-  .ziwei-board {
-    width: min(96vw, 820px);
+  /* 平板端：宫位卡片 2 列 */
+  .zw-palace-ring {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .zw-summary-right {
+    margin-left: 0;
+    text-align: left;
   }
 }
 
 @media (max-width: 600px) {
-  .ziwei-board {
-    width: 98vw;
-    font-size: 10px;
+  /* 手机端：宫位卡片 2 列紧凑 */
+  .zw-palace-ring {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .zw-card {
+    padding: 8px 10px 6px;
+    min-height: 80px;
+  }
+  .zw-palace-name {
+    font-size: 12px;
+  }
+  .zw-star-name {
+    font-size: 11px;
+  }
+  .zw-summary-inner {
+    gap: 10px;
+  }
+  .zw-summary-divider {
+    display: none;
   }
 }
 </style>
