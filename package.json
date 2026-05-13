@@ -43,6 +43,8 @@
     "test:ziwei-history": "node ./tests/ziwei-history.mjs",
     "test:ziwei-presentation": "node ./tests/ziwei-presentation.mjs",
     "test:ziwei-share": "node ./tests/ziwei-share.mjs",
+    "test:ziwei-city": "node ./tests/ziwei-city-longitude.mjs",
+    "test:ziwei-compute": "node ./tests/ziwei-compute.mjs",
     "test:ziwei": "node ./tests/ziwei-ai-utils.mjs",
     "test:routine-generators": "node ./tests/routine-generators.mjs",
     "test": "node ./tests/run-all.mjs",

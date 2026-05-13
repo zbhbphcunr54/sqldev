@@ -24,7 +24,11 @@ function getChatErrorMessage(err: unknown): string {
   if (err instanceof TypeError) {
     // 区分：网络层 TypeError（如 Failed to fetch）vs 代码层 TypeError（如 Cannot read properties）
     const msg = err.message || ''
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
+    if (
+      msg.includes('Failed to fetch') ||
+      msg.includes('NetworkError') ||
+      msg.includes('Load failed')
+    ) {
       return mapErrorCodeToMessage('network_error')
     }
     // 响应解析失败 → 可能是服务端异常

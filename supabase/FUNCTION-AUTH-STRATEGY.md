@@ -5,12 +5,13 @@ Functions in this repo. This is intentional for the current deployment because
 the browser uses Supabase publishable/anon keys and the functions perform their
 own session validation.
 
-## convert
+## sql-convert
 
 - Requires an `Authorization: Bearer <access_token>` header.
 - Validates the token by calling `/auth/v1/user` with the public anon key.
 - Applies rate limiting by `userId + IP`.
-- Rejects invalid tokens before running the SQL conversion engine.
+- Loads prompt templates from `app_configs` and resolves AI config via `ai_configs`.
+- Rejects invalid tokens before calling the AI provider for SQL conversion.
 
 ## feedback
 

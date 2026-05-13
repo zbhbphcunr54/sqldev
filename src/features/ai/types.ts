@@ -45,6 +45,7 @@ export interface AiConfigPayload {
   model?: string
   api_key?: string
   timeout_ms?: number
+  api_key_masked?: string
 }
 
 /** 测试结果 */

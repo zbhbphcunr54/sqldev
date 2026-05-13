@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { submitFeedback, type FeedbackRequest } from '@/api/feedback'
 import { ApiError } from '@/api/http'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
+import FormSelect from '@/components/common/FormSelect.vue'
 
 const SUCCESS_MESSAGES: Record<string, string> = {
   feedback_success: '建议已提交，感谢你的反馈。'
@@ -110,7 +111,14 @@ function closeFeedback(): void {
     >
       <span class="feedback-fab__glow"></span>
       <span class="feedback-fab__inner">
-        <svg class="feedback-fab__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg
+          class="feedback-fab__icon"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
           <path
             d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
             stroke="currentColor"
@@ -159,12 +167,8 @@ function closeFeedback(): void {
           <p class="feedback-modal-desc">告诉我们你希望改进的功能、体验或问题，我们会持续优化。</p>
 
           <!-- Category -->
-          <label class="feedback-label" for="feedback-category">建议类型</label>
-          <select id="feedback-category" v-model="category" class="feedback-select">
-            <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </option>
-          </select>
+          <label class="feedback-label">建议类型</label>
+          <FormSelect v-model="category" :options="categoryOptions" placeholder="选择建议类型" />
 
           <!-- Content -->
           <label class="feedback-label" for="feedback-content">建议内容</label>
@@ -223,8 +227,8 @@ function closeFeedback(): void {
 /* ── FAB ── */
 .feedback-fab {
   position: fixed;
-  right: 0;
-  top: 42%;
+  left: 0;
+  top: 65%;
   z-index: 130;
   display: inline-flex;
   align-items: center;
@@ -232,7 +236,7 @@ function closeFeedback(): void {
   width: 38px;
   padding: 0;
   border: none;
-  border-radius: 6px 0 0 6px;
+  border-radius: 0 6px 6px 0;
   background: transparent;
   cursor: pointer;
   transform: translateY(-50%);
@@ -240,12 +244,12 @@ function closeFeedback(): void {
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .feedback-fab:hover {
-  transform: translateY(-50%) translateX(-2px);
+  transform: translateY(-50%) translateX(2px);
 }
 .feedback-fab__glow {
   position: absolute;
   inset: -3px;
-  border-radius: 8px 0 0 8px;
+  border-radius: 0 8px 8px 0;
   background: linear-gradient(135deg, var(--color-brand-500), var(--color-purple));
   opacity: 0;
   filter: blur(8px);
@@ -263,7 +267,7 @@ function closeFeedback(): void {
   gap: 6px;
   width: 38px;
   padding: 12px 7px;
-  border-radius: 6px 0 0 6px;
+  border-radius: 0 6px 6px 0;
   background: linear-gradient(160deg, var(--color-brand-600), var(--color-brand-500));
   box-shadow:
     0 4px 16px rgba(0, 113, 227, 0.25),
@@ -313,7 +317,7 @@ function closeFeedback(): void {
 }
 
 /* ── Dark theme adjustments ── */
-[data-theme="dark"] .feedback-fab__inner {
+[data-theme='dark'] .feedback-fab__inner {
   box-shadow:
     0 4px 16px rgba(0, 113, 227, 0.35),
     0 1px 3px rgba(0, 0, 0, 0.2),
@@ -414,7 +418,6 @@ body.feedback-open {
   margin-top: 0;
 }
 
-.feedback-select,
 .feedback-input,
 .feedback-textarea {
   width: 100%;
@@ -428,15 +431,6 @@ body.feedback-open {
     border-color var(--duration-fast),
     box-shadow var(--duration-fast);
 }
-.feedback-select {
-  height: 40px;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  cursor: pointer;
-}
 .feedback-input {
   height: 40px;
 }
@@ -446,12 +440,10 @@ body.feedback-open {
   resize: vertical;
   min-height: 120px;
 }
-.feedback-select::placeholder,
 .feedback-input::placeholder,
 .feedback-textarea::placeholder {
   color: var(--color-text-muted);
 }
-.feedback-select:focus,
 .feedback-input:focus,
 .feedback-textarea:focus {
   border-color: var(--color-accent);

@@ -67,12 +67,18 @@
 │   └── CONTEXT_FULL.md            # 项目状态快照与变更记录
 ├── supabase/
 │   ├── migrations/                # 数据库版本控制
-│   ├── functions/
-│   │   ├── _shared/               # 共享工具（auth / cors / rate-limit / response）
-│   │   ├── convert/               # SQL 转换服务
-│   │   ├── feedback/              # 反馈提交服务
-│   │   ├── verify-profiles/       # 校验配置管理
-│   │   └── ziwei-analysis/        # 紫微 AI 分析服务
+t│   ├── functions/
+	│   │   ├── _shared/               # 共享工具（auth / cors / rate-limit / ai-resolver / ai-client / app-config / response）
+	│   │   ├── ai-chat/               # AI 对话服务
+	│   │   ├── ai-config/             # AI 配置管理
+	│   │   ├── app-config/            # 应用配置管理
+	│   │   ├── cleanup/               # 数据清理
+	│   │   ├── feedback/              # 反馈提交服务
+	│   │   ├── operation-logs/        # 操作日志查询
+	│   │   ├── rules/                 # 映射规则管理（待废弃）
+	│   │   ├── sql-convert/           # AI 驱动的 SQL 跨数据库转换
+	│   │   ├── ziwei-analysis/        # 紫微 AI 分析服务
+	│   │   └── ziwei-history/         # 紫微历史记录
 │   ├── FUNCTION-AUTH-STRATEGY.md  # 函数鉴权策略说明
 │   ├── SECURITY-CHECKLIST.md      # 安全检查辅助文档
 │   └── config.toml                # Supabase 本地 CLI 配置
@@ -84,7 +90,6 @@
 │   │   │   ├── ai/               # AI 配置管理
 │   │   │   ├── app-config/       # 应用配置管理
 │   │   │   ├── auth/             # 认证相关
-│   │   │   ├── convert-verify/   # 转换校验与配额
 │   │   │   ├── feedback/         # 反馈组件
 │   │   │   ├── operation-logs/   # 操作日志
 │   │   │   └── workbench/        # 工作台
@@ -97,13 +102,11 @@
 │   │   ├── ai/                    # AI 配置类型与常量
 │   │   ├── app-config/           # 应用配置类型
 │   │   ├── browser/              # 文件下载与剪贴板
-│   │   ├── convert-verify/       # 转换校验（预留）
 │   │   ├── id-tools/             # 证件号码工具
 │   │   ├── navigation/           # 路由解析与状态同步
 │   │   ├── preferences/          # 偏好存储
-│   │   ├── rules/                # 规则引擎与持久化
 │   │   ├── shared/               # 共享类型与工具
-│   │   ├── sql/                  # SQL 文本处理
+│   │   ├── sql/                  # SQL 示例/数据库元数据/格式化
 │   │   └── ziwei/                # 紫微斗数计算与 AI
 │   ├── layouts/                  # 全局布局
 │   ├── lib/                      # 第三方库实例化

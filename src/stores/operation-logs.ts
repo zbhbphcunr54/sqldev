@@ -71,7 +71,8 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
         : []
       apiOptions.value = Array.isArray(result.api_options) ? result.api_options : []
     } catch (e: unknown) {
-      error.value = e instanceof Error ? e.message : mapErrorCodeToMessage('operation_logs_load_failed')
+      error.value =
+        e instanceof Error ? e.message : mapErrorCodeToMessage('operation_logs_load_failed')
     } finally {
       loading.value = false
     }

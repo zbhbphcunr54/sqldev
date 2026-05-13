@@ -17,7 +17,7 @@ const router = createRouter({
     },
     {
       path: '/workbench',
-      redirect: '/workbench/ddl'
+      redirect: '/workbench/sql-convert'
     },
     {
       path: '/workbench/:section',
@@ -33,12 +33,6 @@ const router = createRouter({
       path: '/operation-logs',
       name: 'operation-logs',
       component: () => import('@/pages/operation-logs/index.vue'),
-      meta: { requiresAuth: true, layout: 'default' }
-    },
-    {
-      path: '/app-config',
-      name: 'app-config',
-      component: () => import('@/components/business/app-config/AppConfigPage.vue'),
       meta: { requiresAuth: true, layout: 'default' }
     },
     {

@@ -30,7 +30,26 @@
       "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/components/SqlEditor.vue)",
       "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/auth/AuthModal.vue)",
       "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/app-config/AppConfigPage.vue)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(rm -rf supabase/functions/convert supabase/functions/convert-verify \"supabase/functions/_shared/convert-engine\")",
+      "Bash(rmdir src/features/rules)",
+      "Bash(pnpm lint *)",
+      "Bash(node tests/ziwei-history.mjs)",
+      "Bash(node tests/preferences-storage.mjs)",
+      "Bash(node tests/id-tools.mjs)",
+      "Bash(node tests/navigation-route.mjs)",
+      "Bash(node tests/navigation-workbench-sections.mjs)",
+      "Bash(node tests/navigation-redirect.mjs)",
+      "Bash(sed -i '70,75d' docs/AI_DEV.md)",
+      "Bash(sed -i '69a\\\\\\\\t│   ├── functions/\\\\n\\\\t│   │   ├── _shared/               # 共享工具（auth / cors / rate-limit / ai-resolver / ai-client / app-config / response）\\\\n\\\\t│   │   ├── ai-chat/               # AI 对话服务\\\\n\\\\t│   │   ├── ai-config/             # AI 配置管理\\\\n\\\\t│   │   ├── app-config/            # 应用配置管理\\\\n\\\\t│   │   ├── cleanup/               # 数据清理\\\\n\\\\t│   │   ├── feedback/              # 反馈提交服务\\\\n\\\\t│   │   ├── operation-logs/        # 操作日志查询\\\\n\\\\t│   │   ├── rules/                 # 映射规则管理（待废弃）\\\\n\\\\t│   │   ├── sql-convert/           # AI 驱动的 SQL 跨数据库转换\\\\n\\\\t│   │   ├── ziwei-analysis/        # 紫微 AI 分析服务\\\\n\\\\t│   │   └── ziwei-history/         # 紫微历史记录' docs/AI_DEV.md)",
+      "Bash(sed -i 's/│   │   │   ├── convert-verify\\\\/   # 转换校验与配额/│   │   │   ├── sql-convert\\\\/     # SQL AI 转换/' docs/AI_DEV.md)",
+      "Bash(sed -i 's/│   │   ├── convert-verify\\\\/       # 转换校验（预留）/│   │   ├── sql\\\\/                  # SQL 示例/转换工具/' docs/AI_DEV.md)",
+      "Bash(sed -i 's/│   │   ├── rules\\\\/                # 规则引擎与持久化//' docs/AI_DEV.md)",
+      "Bash(pnpm check:css-colors:update)",
+      "Bash(npx vitest *)",
+      "Bash(awk '/^<script setup/,/^<\\\\/script>/' \"d:\\\\codextest\\\\sqldev\\\\src\\\\components\\\\business\\\\workbench\\\\pages\\\\SqlConvertPage.vue\")",
+      "Bash(npx prettier *)",
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/pages/ZiweiPage.vue)"
     ]
   }
 }

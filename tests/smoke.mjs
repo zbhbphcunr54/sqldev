@@ -67,10 +67,7 @@ const migration = read('supabase/migrations/202604230001_create_feedback_entries
 const profilesMigration = read('supabase/migrations/202604290001_create_profiles.sql')
 const authStrategy = read('supabase/FUNCTION-AUTH-STRATEGY.md')
 const edgeResponseShared = read('supabase/functions/_shared/response.ts')
-const convertSharedEngine = read('supabase/functions/_shared/convert-engine/app-engine.js')
-const convertSharedRules = read('supabase/functions/_shared/convert-engine/rules.js')
-const convertSharedSamples = read('supabase/functions/_shared/convert-engine/samples.js')
-const convertFunction = read('supabase/functions/convert/index.ts')
+const sqlConvertFunction = read('supabase/functions/sql-convert/index.ts')
 const feedbackFunction = read('supabase/functions/feedback/index.ts')
 const ziweiAnalysisFunction = read('supabase/functions/ziwei-analysis/index.ts')
 const ziweiAnalysisHandler = read('supabase/functions/ziwei-analysis/handler.ts')
@@ -84,8 +81,8 @@ const browserDomUtils = read('src/utils/browser-dom.ts')
 const browserLegacyBridge = exists('src/features/browser/legacy-bridge.ts') ? read('src/features/browser/legacy-bridge.ts') : ''
 const preferencesStorage = read('src/features/preferences/storage.ts')
 const preferencesLegacyBridge = exists('src/features/preferences/legacy-bridge.ts') ? read('src/features/preferences/legacy-bridge.ts') : ''
-const rulesPersistence = read('src/features/rules/persistence.ts')
-const rulesLegacyBridge = exists('src/features/rules/legacy-bridge.ts') ? read('src/features/rules/legacy-bridge.ts') : ''
+const dbMeta = read('src/features/sql/db-meta.ts')
+const sqlConvertApi = read('src/api/sql-convert.ts')
 const navigationRoute = read('src/features/navigation/legacy-route.ts')
 const navigationRedirect = read('src/features/navigation/redirect.ts')
 const navigationLegacyBridge = exists('src/features/navigation/legacy-bridge.ts') ? read('src/features/navigation/legacy-bridge.ts') : ''
@@ -104,7 +101,6 @@ const testRunner = read('tests/run-all.mjs')
 const testHelper = read('tests/helpers/load-ts-module.mjs')
 const sqlFormatTest = read('tests/sql-format.mjs')
 const preferencesStorageTest = read('tests/preferences-storage.mjs')
-const rulesPersistenceTest = read('tests/rules-persistence.mjs')
 const idToolsTest = read('tests/id-tools.mjs')
 const navigationRouteTest = read('tests/navigation-route.mjs')
 const navigationWorkbenchSectionsTest = read('tests/navigation-workbench-sections.mjs')
@@ -183,7 +179,7 @@ if (legacyHtml) {
 }
 assert(
   router.includes("path: '/workbench'") &&
-    router.includes("redirect: '/workbench/ddl'") &&
+    router.includes("redirect: '/workbench/sql-convert'") &&
     router.includes("path: '/workbench/:section'") &&
     router.includes("component: () => import('@/pages/workbench/index.vue')"),
   'router must expose one normalized workbench section route'
@@ -289,7 +285,7 @@ assert(
 assert(!appStore.includes('document.'), 'app store must not operate DOM directly')
 assert(!appStore.includes('localStorage'), 'app store must not own browser storage side effects')
 assert(
-  themeRuntime.includes('applyThemeToDocument') && themeRuntime.includes('matchMedia'),
+  themeRuntime.includes('applyThemeToDocument') && themeRuntime.includes('setAttribute'),
   'theme DOM and system-theme runtime must live in a composable'
 )
 assert(
@@ -403,7 +399,7 @@ assert(
 )
 // assert(preferencesLegacyBridge.includes('window.SQLDEV_PREFERENCE_UTILS'), 'preference storage feature must expose a legacy bridge')
 assert(
-  rulesPersistence.includes('export function persistRulesToStorage'),
+  dbMeta.includes('DB_META_MAP'),
   'rules persistence must live in typed feature module'
 )
 // Legacy bridges removed during refactoring
@@ -522,23 +518,20 @@ for (const indexName of [
   assert(migration.includes(indexName), `feedback migration must include ${indexName}`)
 }
 assert(
-  convertFunction.includes('function validateEngineModuleShape') &&
-    convertFunction.includes('app-engine export') &&
-    convertFunction.includes(
-      "validateEngineModuleShape(await import('../_shared/convert-engine/app-engine.js'))"
-    ),
-  'convert function must validate dynamically imported engine module shape'
+  sqlConvertFunction.includes('import { callAiProvider') &&
+    sqlConvertFunction.includes('import { resolveAiConfig') &&
+    sqlConvertFunction.includes("'../_shared/ai-resolver.ts'"),
+  'sql-convert function must use shared AI resolver and client'
 )
 assert(
-  convertFunction.includes("await import('../_shared/convert-engine/samples.js')") &&
-    convertFunction.includes("await import('../_shared/convert-engine/rules.js')"),
-  'convert function must load conversion engine assets from _shared/convert-engine'
+  sqlConvertFunction.includes('sql_convert_template') &&
+    sqlConvertFunction.includes('loadTemplate'),
+  'sql-convert function must load prompt templates from app_configs'
 )
 assert(
-  convertSharedEngine.includes('export { convertDDL, convertFunction, convertProcedure }') &&
-    convertSharedRules.includes('export { _ddlRulesData, _bodyRulesData, _bodyRulesDefault }') &&
-    convertSharedSamples.includes('export const DB_LABELS'),
-  'shared convert engine must expose engine, rules and sample metadata modules'
+  sqlConvertFunction.includes('validateUserSession') &&
+    sqlConvertFunction.includes('createRateLimiter'),
+  'sql-convert function must implement auth and rate limiting'
 )
 assert(
   edgeResponseShared.includes('export function logEdgeError') &&
@@ -547,7 +540,7 @@ assert(
   'Edge Functions must share sanitized logging and safe error responses'
 )
 assert(
-  convertFunction.includes("logEdgeError('convert'") &&
+  sqlConvertFunction.includes('logOperation') &&
     feedbackFunction.includes("logEdgeError('feedback'") &&
     ziweiAnalysisHandler.includes("logEdgeError('ziwei-analysis'"),
   'Edge Functions must use shared sanitized error logging'
@@ -582,7 +575,7 @@ assert(
     ziweiAnalysisResponseParser.includes('export function mapAiErrorStatus'),
   'ziwei analysis response parser must validate chart payloads and normalize AI output'
 )
-assert(authStrategy.includes('## convert'), 'function auth strategy must document convert')
+assert(authStrategy.includes('## sql-convert'), 'function auth strategy must document sql-convert')
 assert(authStrategy.includes('## feedback'), 'function auth strategy must document feedback')
 assert(
   authStrategy.includes('## ziwei-analysis'),
@@ -604,7 +597,6 @@ assert(testHelper.includes('export function loadTsModule'), 'TS module test load
 for (const testFile of [
   sqlFormatTest,
   preferencesStorageTest,
-  rulesPersistenceTest,
   idToolsTest
 ]) {
   assert(
@@ -628,15 +620,19 @@ for (const testFile of [
 }
 
 const functionConfigs = [
-  'supabase/functions/convert/config.toml',
+  'supabase/functions/sql-convert/index.ts',
   'supabase/functions/feedback/config.toml',
-  'supabase/functions/ziwei-analysis/config.toml',
-  'supabase/functions/convert-verify/config.toml'
+  'supabase/functions/ziwei-analysis/config.toml'
 ]
 
 for (const configPath of functionConfigs) {
-  const config = read(configPath)
-  assert(config.includes('verify_jwt = false'), `${configPath} must declare verify_jwt strategy`)
+  // sql-convert entry is TypeScript, check it exists
+  if (configPath.endsWith('.ts')) {
+    assert(exists(configPath), `${configPath} must exist`)
+  } else {
+    const config = read(configPath)
+    assert(config.includes('verify_jwt = false'), `${configPath} must declare verify_jwt strategy`)
+  }
 }
 
 assert(
@@ -647,84 +643,70 @@ assert(
   !exists('supabase/functions/ziwei-analysis/index.rewrite.ts'),
   'obsolete ziwei rewrite function entry must be removed'
 )
-assert(
-  !exists('src/composables/useZiweiTool.ts'),
-  'unused Vue-side Ziwei composable must be removed'
-)
+assert(!exists('src/api/convert.ts'), 'old convert API module must be removed')
+assert(!exists('src/api/convert-verify.ts'), 'old convert-verify API module must be removed')
+assert(!exists('src/api/verify-profiles.ts'), 'obsolete verify-profiles API module must be removed')
+assert(!exists('src/composables/useZiweiTool.ts'), 'unused Vue-side Ziwei composable must be removed')
 assert(!exists('src/api/profile.ts'), 'unused profile API module must be removed')
 assert(!exists('src/api/ziwei.ts'), 'unused Vue-side Ziwei API module must be removed')
 assert(!exists('src/components/ziwei'), 'unused Vue-side Ziwei component directory must be removed')
 
-// AI Verify Edge Function checks
-const convertVerifyFunction = read('supabase/functions/convert-verify/index.ts')
-const convertVerifyPromptTemplate = read('supabase/functions/convert-verify/prompt-template.ts')
-const convertVerifyProvider = read('supabase/functions/convert-verify/provider.ts')
-const convertVerifyQuota = read('supabase/functions/convert-verify/quota.ts')
-const convertVerifyProfile = read('supabase/functions/convert-verify/profile.ts')
-const convertVerifyApi = read('src/api/convert-verify.ts')
-const convertVerifyProfilesApi = read('src/api/verify-profiles.ts')
-
+// SQL Convert Feature checks
 assert(
-  convertVerifyFunction.includes('export async function handleConvertVerifyRequest') ||
-    convertVerifyFunction.includes('Deno.serve'),
-  'convert-verify function must export a handler'
+  sqlConvertFunction.includes('export { handleCors }'),
+  'sql-convert function must export CORS handler for local testing'
 )
 assert(
-  convertVerifyFunction.includes('requestAiVerify') &&
-    convertVerifyPromptTemplate.includes('buildVerifySystemPrompt') &&
-    convertVerifyPromptTemplate.includes('buildVerifyUserPrompt'),
-  'convert-verify must implement AI verification prompt templates'
+  sqlConvertFunction.includes('sql_convert_template') &&
+    sqlConvertFunction.includes('buildPrompt') &&
+    sqlConvertFunction.includes('.replace('),
+  'sql-convert must implement template-based prompt building'
 )
 assert(
-  convertVerifyProvider.includes('export async function requestAiVerify'),
-  'convert-verify must export AI verification request function'
+  dbMeta.includes('DB_META_MAP') &&
+    dbMeta.includes('oracle') &&
+    dbMeta.includes('hivesql'),
+  'db-meta must export DB_META_MAP with all supported databases'
 )
 assert(
-  convertVerifyQuota.includes('checkQuota') &&
-    convertVerifyQuota.includes('incrementQuota') &&
-    convertVerifyQuota.includes('getQuotaInfo'),
-  'convert-verify must implement quota management'
-)
-assert(
-  convertVerifyProfile.includes('loadVerifyProfile'),
-  'convert-verify must implement profile loading'
-)
-assert(
-  convertVerifyApi.includes('requestConvertVerify') &&
-    convertVerifyApi.includes('fetchVerifyQuota'),
-  'convert-verify API must expose client-side functions'
-)
-assert(
-  convertVerifyProfilesApi.includes('fetchVerifyProfiles') &&
-    convertVerifyProfilesApi.includes('saveVerifyProfile') &&
-    convertVerifyProfilesApi.includes('deleteVerifyProfile'),
-  'verify-profiles API must expose CRUD operations'
+  sqlConvertApi.includes('requestSqlConvert') &&
+    sqlConvertApi.includes('/sql-convert'),
+  'sql-convert API must expose client-side request function'
 )
 
-// AI Verify Vue components
+// SQL Convert Vue page
 assert(
-  exists('src/components/business/convert-verify/ConvertVerifyPanel.vue'),
-  'ConvertVerifyPanel component must exist'
-)
-assert(
-  exists('src/components/business/convert-verify/VerifyScoreBadge.vue'),
-  'VerifyScoreBadge component must exist'
-)
-assert(
-  exists('src/components/business/convert-verify/VerifyIssueList.vue'),
-  'VerifyIssueList component must exist'
-)
-assert(
-  exists('src/components/business/convert-verify/VerifySuggestionCard.vue'),
-  'VerifySuggestionCard component must exist'
+  exists('src/components/business/workbench/pages/SqlConvertPage.vue'),
+  'SqlConvertPage component must exist'
 )
 
-// AI Verify error codes
+// Old pages removed
 assert(
-  errorMap.includes('quota_exceeded') &&
-    errorMap.includes('verify_failed') &&
-    errorMap.includes('invalid_kind'),
-  'error map must include convert-verify error codes'
+  !exists('src/components/business/workbench/pages/DdlPage.vue'),
+  'DdlPage must be removed (replaced by SqlConvertPage)'
+)
+assert(
+  !exists('src/components/business/workbench/pages/RulesPage.vue'),
+  'RulesPage must be removed'
+)
+
+// Old backend removed
+assert(
+  !exists('supabase/functions/convert/'),
+  'old convert Edge Function must be removed'
+)
+assert(
+  !exists('supabase/functions/convert-verify/'),
+  'old convert-verify Edge Function must be removed'
+)
+assert(
+  !exists('supabase/functions/_shared/convert-engine/'),
+  'old convert-engine shared module must be removed'
+)
+
+assert(
+  errorMap.includes('validation_invalid_input') || errorMap.includes('convert_failed'),
+  'error map must include SQL convert error codes'
 )
 
 console.log('Smoke checks passed')

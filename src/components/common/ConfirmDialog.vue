@@ -3,7 +3,16 @@
 import { onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 
-const { visible, title, message, confirmText, cancelText, confirmClass, handleConfirm, handleCancel } = useConfirm()
+const {
+  visible,
+  title,
+  message,
+  confirmText,
+  cancelText,
+  confirmClass,
+  handleConfirm,
+  handleCancel
+} = useConfirm()
 
 const confirmPanel = ref<HTMLElement | null>(null)
 
@@ -28,7 +37,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         <div class="confirm-header">
           <h3 class="confirm-title">{{ title }}</h3>
           <button class="confirm-close" aria-label="关闭对话框" @click="handleCancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
@@ -38,7 +54,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
         </div>
         <div class="confirm-footer">
           <button class="btn btn-cancel" @click="handleCancel">{{ cancelText }}</button>
-          <button class="btn" :class="confirmClass === 'danger' ? 'btn-danger' : 'btn-primary'" @click="handleConfirm">
+          <button
+            class="btn"
+            :class="confirmClass === 'danger' ? 'btn-danger' : 'btn-primary'"
+            @click="handleConfirm"
+          >
             {{ confirmText }}
           </button>
         </div>
@@ -61,8 +81,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 }
 
 @keyframes confirmFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .confirm-panel {

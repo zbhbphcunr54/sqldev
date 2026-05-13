@@ -16,14 +16,10 @@ export interface MenuGroup {
 }
 
 export const SECTION_MAP: Record<string, string> = {
-  ddl: '/workbench/ddl',
-  func: '/workbench/function',
-  proc: '/workbench/procedure',
+  sqlConvert: '/workbench/sql-convert',
   idTool: '/workbench/id-tool',
   ziweiTool: '/workbench/ziwei',
-  rules: '/workbench/rules',
   aiConfig: '/workbench/ai-config',
-  appConfig: '/workbench/app-config',
   opLogs: '/workbench/op-logs'
 }
 
@@ -33,11 +29,7 @@ export function buildMenuGroups(): MenuGroup[] {
       key: 'sqlTools',
       title: null,
       collapsible: false,
-      items: [
-        { key: 'ddl', label: 'DDL 语句', icon: 'grid', page: 'ddl' },
-        { key: 'func', label: '函数', icon: 'layers', page: 'func' },
-        { key: 'proc', label: '存储过程', icon: 'terminal', page: 'proc' }
-      ]
+      items: [{ key: 'sqlConvert', label: 'SQL 转换', icon: 'grid', page: 'sqlConvert' }]
     },
     {
       key: 'testTools',
@@ -53,9 +45,7 @@ export function buildMenuGroups(): MenuGroup[] {
       title: '设置',
       collapsible: true,
       items: [
-        { key: 'rules', label: '映射规则', icon: 'document-text', page: 'rules' },
         { key: 'aiConfig', label: 'AI 助手配置', icon: 'sparkles', page: 'aiConfig' },
-        { key: 'appConfig', label: '应用配置', icon: 'cog', page: 'appConfig' },
         { key: 'opLogs', label: '操作日志', icon: 'clock-history', page: 'opLogs' }
       ]
     }

@@ -382,12 +382,12 @@ export const ZW_MINGZHU_BY_BRANCH: Record<string, string> = {
   卯: '文曲',
   辰: '廉贞',
   巳: '武曲',
-  午: '破军',
-  未: '武曲',
-  申: '廉贞',
-  酉: '文曲',
-  戌: '禄存',
-  亥: '巨门'
+  午: '廉贞',
+  未: '文曲',
+  申: '禄存',
+  酉: '巨门',
+  戌: '贪狼',
+  亥: '武曲'
 }
 
 // 身主（年支）
@@ -709,6 +709,8 @@ export interface ZiweiCell {
   liuNianSeriesText: string
   xiaoXianSeries: string[]
   xiaoXianSeriesText: string
+  liuNianPalaceName?: string
+  isCurrentDaXian?: boolean
   currentLiuNian?: string
   currentXiaoXian?: string
   outgoingHuaCount?: number
@@ -733,8 +735,22 @@ export interface ZiweiCenter {
   shenPalaceName: string
   schoolLabel: string
   clockModeLabel: string
+  shichenLabel?: string
+  timeCorrectionText?: string
+  longitude?: number
+  longitudeCorrectionMinutes?: number
+  equationOfTimeMinutes?: number
+  timezoneOffset?: string
   xiaoXianRuleLabel?: string
   liuNianRuleLabel?: string
+  currentYearLabel?: string
+  currentYearGanZhiLabel?: string
+  currentAgeLabel?: string
+  currentDaXianLabel?: string
+  currentLiuNianPalaceLabel?: string
+  birthYearForAge?: number
+  birthMonthForAge?: number
+  birthDayForAge?: number
   qiYunText: string
   decadeMarks: Array<{ year: string; ganzhi: string; range: string }>
   daXianDirectionLabel: string
@@ -836,6 +852,58 @@ export function getHourGanZhiByDayGan(dayGan: string, hour: number): string {
 // 获取时辰索引（0-11，子时=0）
 export function getShiChenIndex(hour: number): number {
   return Math.floor((hour + 1) / 2) % 12
+}
+
+export function getShiChenName(hour: number): string {
+  return `${ZW_SHICHEN_NAMES[getShiChenIndex(hour)] || '子'}时`
+}
+
+function dayOfYear(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 1)
+  const diff = date.getTime() - start.getTime()
+  return Math.floor(diff / 86400000) + 1
+}
+
+export function calcEquationOfTimeMinutes(date: Date): number {
+  const n = dayOfYear(date)
+  const b = (2 * Math.PI * (n - 81)) / 365
+  return 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b)
+}
+
+export function applyTrueSolarTime(
+  baseDate: Date,
+  longitude: number,
+  clockMode: 'standard' | 'trueSolar'
+): {
+  correctedDate: Date
+  longitudeCorrectionMinutes: number
+  equationOfTimeMinutes: number
+  totalCorrectionMinutes: number
+  shiChenBefore: string
+  shiChenAfter: string
+  shiChenChanged: boolean
+  shiftedByZiHour: boolean
+} {
+  const safeLongitude = Number.isFinite(longitude) ? longitude : 120
+  const longitudeCorrectionMinutes = clockMode === 'trueSolar' ? (safeLongitude - 120) * 4 : 0
+  const equationOfTimeMinutes =
+    clockMode === 'trueSolar' ? calcEquationOfTimeMinutes(baseDate) : 0
+  const totalCorrectionMinutes = longitudeCorrectionMinutes + equationOfTimeMinutes
+  const correctedDate = new Date(baseDate.getTime() + totalCorrectionMinutes * 60000)
+  const shiChenBefore = getShiChenName(baseDate.getHours())
+  const shiChenAfter = getShiChenName(correctedDate.getHours())
+  const shiftedByZiHour = correctedDate.getHours() === 23 || correctedDate.getHours() === 0
+
+  return {
+    correctedDate,
+    longitudeCorrectionMinutes,
+    equationOfTimeMinutes,
+    totalCorrectionMinutes,
+    shiChenBefore,
+    shiChenAfter,
+    shiChenChanged: shiChenBefore !== shiChenAfter,
+    shiftedByZiHour
+  }
 }
 
 // 命宫计算
@@ -1000,6 +1068,8 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
   try {
     // 1. 解析出生日期
     let baseSolar: { year: number; month: number; day: number }
+    const birthHour = Number(input.birthHour || '12')
+    const birthMinute = Number(input.birthMinute || '00')
 
     if (input.calendarType === 'lunar') {
       // 农历转公历
@@ -1032,10 +1102,30 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       }
     }
 
+    const birthYearForAge = baseSolar.year
+    const birthMonthForAge = baseSolar.month
+    const birthDayForAge = baseSolar.day
+    const inputDateTime = new Date(
+      baseSolar.year,
+      baseSolar.month - 1,
+      baseSolar.day,
+      birthHour,
+      birthMinute,
+      0,
+      0
+    )
+    const longitude = Number(input.longitude || '120')
+    const correction = applyTrueSolarTime(inputDateTime, longitude, input.clockMode)
+    const correctedDate = correction.correctedDate
+    const effectiveSolarDate = new Date(correctedDate)
+    if (correction.shiftedByZiHour) {
+      effectiveSolarDate.setDate(effectiveSolarDate.getDate() + 1)
+    }
+
     const currentYear = new Date().getFullYear()
 
     // 2. 计算八字
-    const yearGanZhi = getYearGanZhi(baseSolar.year)
+    const yearGanZhi = getYearGanZhi(effectiveSolarDate.getFullYear())
     const yearStem = yearGanZhi[0]
     const yearBranch = yearGanZhi[1]
 
@@ -1045,9 +1135,7 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       month: 'numeric',
       day: 'numeric'
     })
-    const lunarParts = lunarDate.formatToParts(
-      new Date(baseSolar.year, baseSolar.month - 1, baseSolar.day)
-    )
+    const lunarParts = lunarDate.formatToParts(effectiveSolarDate)
     const lunarMonthPart = lunarParts.find((p) => p.type === 'month')
     const lunarDayPart = lunarParts.find((p) => p.type === 'day')
 
@@ -1055,8 +1143,7 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     const lunarDay = lunarDayPart ? parseInt(lunarDayPart.value) : 1
 
     // 3. 计算命宫、身宫
-    const birthHour = Number(input.birthHour || '12')
-    const shiChenIndex = getShiChenIndex(birthHour)
+    const shiChenIndex = getShiChenIndex(correctedDate.getHours())
 
     const mingPos = calcMingGong(lunarMonth, shiChenIndex)
     const shenPos = calcShenGong(lunarMonth, shiChenIndex)
@@ -1143,7 +1230,7 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     }
 
     addStar('地劫', offsetBranch('亥', shiChenIndex), 'assist')
-    addStar('天空', offsetBranch('亥', -shiChenIndex), 'assist')
+    addStar('地空', offsetBranch('亥', -shiChenIndex), 'assist')
 
     // 天马、红鸾、天喜
     const tianma = ZW_TIANMA_BY_YEAR_BRANCH[yearBranch]
@@ -1185,6 +1272,9 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       mingBranch,
       input.xiaoXianRule || 'yearBranch'
     )
+    const virtualAge = Math.max(1, currentYear - birthYearForAge + 1)
+    const currentLiuNianGanZhi = getYearGanZhi(currentYear)
+    const currentLiuNianBranch = currentLiuNianGanZhi[1]
 
     // 10. 构建命盘宫位
     const boardCells: ZiweiCell[] = ZW_BOARD_ORDER.map((branch) => {
@@ -1210,12 +1300,17 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
 
       const daXianInfo = daXianMap[branch] || { range: '', branch: '', palaceName: '' }
       const changSheng = changShengMap[branch] || ''
+      const [rangeStart, rangeEnd] = daXianInfo.range.split('-').map((value) => Number(value))
+      const isCurrentDaXian =
+        Number.isFinite(rangeStart) && Number.isFinite(rangeEnd)
+          ? virtualAge >= rangeStart && virtualAge <= rangeEnd
+          : false
 
       // 流年序列
       const liuNianSeries: string[] = []
       for (let y = currentYear - 10; y <= currentYear + 10; y++) {
-        const age = y - baseSolar.year
-        if (age >= 0 && age <= 100) {
+        const age = y - birthYearForAge + 1
+        if (age >= 1 && age <= 100) {
           liuNianSeries.push(String(age))
         }
       }
@@ -1244,7 +1339,9 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
         liuNianSeries,
         liuNianSeriesText: liuNianSeries.join('/'),
         xiaoXianSeries,
-        xiaoXianSeriesText: xiaoXianSeries.join('/')
+        xiaoXianSeriesText: xiaoXianSeries.join('/'),
+        liuNianPalaceName: branch === currentLiuNianBranch ? '流年命宫' : '',
+        isCurrentDaXian
       }
     })
 
@@ -1254,14 +1351,16 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     // 12. 流年时间线
     const liuNianTimeline: ZiweiTimelineItem[] = []
     for (let y = currentYear - 10; y <= currentYear + 20; y++) {
-      const age = y - baseSolar.year
-      if (age >= 0) {
+      const age = y - birthYearForAge + 1
+      if (age >= 1) {
+        const ganzhi = getYearGanZhi(y)
+        const branch = ganzhi[1]
         liuNianTimeline.push({
           year: String(y),
-          branch: xiaoXianMap[age] || '',
-          palaceName: palaceNames[xiaoXianMap[age] || ''] || '',
+          branch,
+          palaceName: palaceNames[branch] || '',
           age,
-          ganzhi: getYearGanZhi(y)
+          ganzhi
         })
       }
     }
@@ -1278,11 +1377,25 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     }
 
     // 14. 中心信息
+    const currentDaXianCell = boardCells.find((cell) => cell.isCurrentDaXian)
+    const currentLiuNianCell = boardCells.find((cell) => cell.branch === currentLiuNianBranch)
+    const correctionTextBase =
+      `经度修正${correction.longitudeCorrectionMinutes.toFixed(1)}分钟，` +
+      `均时差${correction.equationOfTimeMinutes.toFixed(1)}分钟，` +
+      `总修正${correction.totalCorrectionMinutes.toFixed(1)}分钟`
+    const timeCorrectionText =
+      input.clockMode === 'trueSolar'
+        ? correction.shiChenChanged
+          ? `${correctionTextBase}。时辰由${correction.shiChenBefore}变为${correction.shiChenAfter}。`
+          : `${correctionTextBase}。时辰保持${correction.shiChenAfter}。`
+        : '当前使用标准北京时间排盘。'
+
     const center: ZiweiCenter = {
       genderLabel: isMale ? '男' : '女',
       yinYangGenderLabel: (ZW_YEAR_STEM_YINYANG[yearStem] || '') + (isMale ? '男' : '女'),
-      solarText: `${baseSolar.year}-${String(baseSolar.month).padStart(2, '0')}-${String(baseSolar.day).padStart(2, '0')}`,
+      solarText: `${effectiveSolarDate.getFullYear()}-${String(effectiveSolarDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveSolarDate.getDate()).padStart(2, '0')}`,
       lunarText: `${lunarMonth}月${ZW_LUNAR_DAY_LABEL[lunarDay] || lunarDay}`,
+      inputClockText: `${String(birthHour).padStart(2, '0')}:${String(birthMinute).padStart(2, '0')}`,
       calendarInputType: input.calendarType === 'lunar' ? '农历输入' : '公历输入',
       yearGanZhi,
       naYinLabel: ZW_NAYIN_BY_JIAZI[yearGanZhi] || '',
@@ -1295,11 +1408,29 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       shenPalaceName: palaceNames[shenBranch] || '',
       schoolLabel: input.school === 'flying' ? '飞星四化' : '传统四化',
       clockModeLabel: input.clockMode === 'trueSolar' ? '真太阳时' : '标准时间',
+      shichenLabel: correction.shiChenAfter,
+      timeCorrectionText,
+      longitude,
+      longitudeCorrectionMinutes: correction.longitudeCorrectionMinutes,
+      equationOfTimeMinutes: correction.equationOfTimeMinutes,
+      timezoneOffset: input.timezoneOffset || '8',
+      currentYearLabel: `${currentYear}年`,
+      currentYearGanZhiLabel: currentLiuNianGanZhi,
+      currentAgeLabel: `${virtualAge}岁`,
+      currentDaXianLabel: currentDaXianCell
+        ? `${currentDaXianCell.palaceName}(${currentDaXianCell.branch}) ${currentDaXianCell.daXian}`
+        : '--',
+      currentLiuNianPalaceLabel: currentLiuNianCell
+        ? `${currentLiuNianCell.palaceName}(${currentLiuNianCell.branch})`
+        : '--',
+      birthYearForAge,
+      birthMonthForAge,
+      birthDayForAge,
       qiYunText: `出生后${bureauInfo.bureau}岁起运`,
       decadeMarks: [],
       daXianDirectionLabel: daXianDirection > 0 ? '顺行' : '逆行',
       huaSummary,
-      shiftedByZiHour: false
+      shiftedByZiHour: correction.shiftedByZiHour
     }
 
     // 15. 构建命盘文本
@@ -1344,8 +1475,11 @@ function buildChartText(chart: {
   lines.push('性别：' + chart.center.genderLabel)
   lines.push('公历：' + chart.center.solarText)
   lines.push('农历：' + chart.center.lunarText)
+  if (chart.center.inputClockText) lines.push('出生时间：' + chart.center.inputClockText)
+  if (chart.center.shichenLabel) lines.push('时辰：' + chart.center.shichenLabel)
   lines.push('生年干支：' + chart.center.yearGanZhi)
   lines.push('流派：' + chart.center.schoolLabel)
+  if (chart.center.timeCorrectionText) lines.push('校时：' + chart.center.timeCorrectionText)
   lines.push('五行局：' + chart.center.bureauLabel)
   lines.push('大限方向：' + chart.center.daXianDirectionLabel)
   lines.push('命宫/身宫：' + chart.center.mingBranch + ' / ' + chart.center.shenBranch)

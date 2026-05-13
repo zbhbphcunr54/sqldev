@@ -151,13 +151,23 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   async function addConfig(payload: Parameters<typeof aiConfigApi.create>[0]): Promise<void> {
-    // 乐观更新：立即显示占位行，api_key_masked 用表单数据本地脱敏
+    // 追加模型模式：跳过乐观更新，直接等服务端返回后一次性插入
+    // 乐观条目的 api_key_masked 可能与已有组的真实值不一致，导致 groupedConfigs
+    // 按 provider_id + api_key_masked 分组时产生临时分组 → 表格闪现新行
+    if (!payload.api_key) {
+      const newConfig = await aiConfigApi.create(payload)
+      configs.value = [...configs.value, newConfig]
+      clearCache()
+      return
+    }
+
+    // 新增 Key 模式：乐观更新（用户输入了 api_key，可本地算出准确的 api_key_masked）
     const tempId = `optimistic-${Date.now()}`
     const optimistic: AiProviderConfig = {
       id: tempId,
       provider_id: payload.provider_id,
       model: payload.model,
-      api_key_masked: payload.api_key ? payload.api_key.slice(0, 4) + '****' + payload.api_key.slice(-4) : '****',
+      api_key_masked: payload.api_key!.slice(0, 4) + '****' + payload.api_key!.slice(-4),
       base_url: payload.base_url || '',
       name: payload.name || '',
       is_active: false,
@@ -174,7 +184,7 @@ export const useAiStore = defineStore('ai', () => {
       configs.value = configs.value.map((c) => (c.id === tempId ? newConfig : c))
       clearCache()
     } catch (e) {
-      configs.value = configs.value.filter((c) => c.id !== tempId)
+      configs.value = configs.value.filter((c) => (c.id !== tempId))
       throw e
     }
   }

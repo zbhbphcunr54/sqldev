@@ -140,14 +140,19 @@ async function request<T>(
 
   if (!res.ok) {
     const errorCode = String(parsed.error || parsed.code || 'request_failed')
-    throw new ApiError(mapErrorCodeToMessage(errorCode), errorCode, res.status)
+    throw new ApiError(mapErrorCodeToMessage(errorCode), errorCode, res.status, parsed)
   }
 
   return parsed as T
 }
 
 // 带去重的请求封装
-async function deduplicatedRequest<T>(method: string, path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
+async function deduplicatedRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts?: RequestOptions
+): Promise<T> {
   const key = getRequestKey(method, path, body)
 
   const existing = pendingRequests.get(key)
@@ -164,12 +169,16 @@ async function deduplicatedRequest<T>(method: string, path: string, body?: unkno
 }
 
 export const edgeFn = {
-  get: <T>(path: string, opts?: RequestOptions): Promise<T> => deduplicatedRequest<T>('GET', path, undefined, opts),
-  post: <T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> => deduplicatedRequest<T>('POST', path, body, opts),
-  put: <T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> => deduplicatedRequest<T>('PUT', path, body, opts),
+  get: <T>(path: string, opts?: RequestOptions): Promise<T> =>
+    deduplicatedRequest<T>('GET', path, undefined, opts),
+  post: <T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> =>
+    deduplicatedRequest<T>('POST', path, body, opts),
+  put: <T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> =>
+    deduplicatedRequest<T>('PUT', path, body, opts),
   patch: <T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> =>
     deduplicatedRequest<T>('PATCH', path, body, opts),
-  del: <T = void>(path: string, opts?: RequestOptions): Promise<T> => deduplicatedRequest<T>('DELETE', path, undefined, opts)
+  del: <T = void>(path: string, opts?: RequestOptions): Promise<T> =>
+    deduplicatedRequest<T>('DELETE', path, undefined, opts)
 }
 
 export { ApiError } from '@/lib/edge'

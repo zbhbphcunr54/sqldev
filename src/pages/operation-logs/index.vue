@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useOperationLogsStore } from '@/stores/operation-logs'
 import type { OperationLog } from '@/api/operation-logs'
+import FormSelect from '@/components/common/FormSelect.vue'
 
 const store = useOperationLogsStore()
 const selectedLog = ref<OperationLog | null>(null)
@@ -171,16 +172,13 @@ async function handlePageChange(p: number): Promise<void> {
 
     <!-- Filter Bar -->
     <section class="filter-bar">
-      <select v-model="filterStatus" class="filter-select">
-        <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <select v-model="filterOperation" class="filter-select">
-        <option v-for="opt in OPERATION_OPTIONS" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
+      <FormSelect v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="全部状态" compact />
+      <FormSelect
+        v-model="filterOperation"
+        :options="OPERATION_OPTIONS"
+        placeholder="全部操作"
+        compact
+      />
       <div class="filter-dates">
         <input v-model="filterStartDate" type="date" class="filter-input" />
         <span class="filter-sep">-</span>
@@ -486,23 +484,6 @@ async function handlePageChange(p: number): Promise<void> {
   border: 1px solid var(--color-page-border);
   border-radius: 12px;
   margin-bottom: 24px;
-}
-
-.filter-select {
-  height: 36px;
-  padding: 0 12px;
-  background: var(--color-page-input);
-  border: 1px solid var(--color-page-border-light);
-  border-radius: 8px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  cursor: pointer;
-  min-width: 120px;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: var(--color-page-border-focus);
 }
 
 .filter-dates {

@@ -2,15 +2,36 @@
 import { useAuthForm } from '@/composables/useAuthForm'
 
 const {
-  open, loginMode,
-  email, password, code, resetPassword, resetConfirm, resetCode,
-  resetCodeSent, resetCompleted, busy, status,
-  showPassword, showResetPassword, showResetConfirm, firstInputRef,
-  isResetView, modalTitle, modalDesc,
-  closeModal, loginWithPassword, registerWithPassword,
-  sendLoginCode, loginWithCode,
-  enterReset, exitReset, sendResetCode, submitResetPassword,
-  onMaskClick, setLoginMode
+  open,
+  loginMode,
+  email,
+  password,
+  code,
+  resetPassword,
+  resetConfirm,
+  resetCode,
+  resetCodeSent,
+  resetCompleted,
+  busy,
+  status,
+  showPassword,
+  showResetPassword,
+  showResetConfirm,
+  firstInputRef,
+  isResetView,
+  modalTitle,
+  modalDesc,
+  closeModal,
+  loginWithPassword,
+  registerWithPassword,
+  sendLoginCode,
+  loginWithCode,
+  enterReset,
+  exitReset,
+  sendResetCode,
+  submitResetPassword,
+  onMaskClick,
+  setLoginMode
 } = useAuthForm()
 </script>
 

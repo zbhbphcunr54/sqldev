@@ -32,7 +32,10 @@ export function useAuthForm() {
   const resetCodeSent = ref(false)
   const resetCompleted = ref(false)
   const busy = ref(false)
-  const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({ type: 'idle', text: '' })
+  const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({
+    type: 'idle',
+    text: ''
+  })
   const showPassword = ref(false)
   const showResetPassword = ref(false)
   const showResetConfirm = ref(false)
@@ -57,15 +60,30 @@ export function useAuthForm() {
 
     let code = fallbackCode
     if (msg.includes('invalid login credentials')) code = AUTH_ERRORS.invalid_credentials
-    else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) code = AUTH_ERRORS.email_not_confirmed
+    else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed'))
+      code = AUTH_ERRORS.email_not_confirmed
     else if (msg.includes('user already registered')) code = AUTH_ERRORS.email_registered
     else if (msg.includes('new password should be different')) code = AUTH_ERRORS.password_same
-    else if (msg.includes('password should contain at least one character')) code = AUTH_ERRORS.password_weak
-    else if (msg.includes('password should be at least') || msg.includes('password is too short')) code = AUTH_ERRORS.password_short
-    else if (msg.includes('invalid email') || msg.includes('email address')) code = AUTH_ERRORS.email_invalid
-    else if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('over_email_send_rate_limit')) code = AUTH_ERRORS.rate_limit
-    else if (msg.includes('invalid otp') || msg.includes('expired') || msg.includes('token')) code = AUTH_ERRORS.otp_invalid
-    else if (msg.includes('networkerror') || msg.includes('failed to fetch') || msg.includes('fetch failed')) code = AUTH_ERRORS.network_error
+    else if (msg.includes('password should contain at least one character'))
+      code = AUTH_ERRORS.password_weak
+    else if (msg.includes('password should be at least') || msg.includes('password is too short'))
+      code = AUTH_ERRORS.password_short
+    else if (msg.includes('invalid email') || msg.includes('email address'))
+      code = AUTH_ERRORS.email_invalid
+    else if (
+      msg.includes('rate limit') ||
+      msg.includes('too many requests') ||
+      msg.includes('over_email_send_rate_limit')
+    )
+      code = AUTH_ERRORS.rate_limit
+    else if (msg.includes('invalid otp') || msg.includes('expired') || msg.includes('token'))
+      code = AUTH_ERRORS.otp_invalid
+    else if (
+      msg.includes('networkerror') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('fetch failed')
+    )
+      code = AUTH_ERRORS.network_error
 
     return mapErrorCodeToMessage(code)
   }
@@ -181,10 +199,22 @@ export function useAuthForm() {
     const normalizedEmail = email.value.trim()
     const nextPassword = resetPassword.value.trim()
     const confirmPassword = resetConfirm.value.trim()
-    if (!normalizedEmail) { setStatus('error', mapErrorCodeToMessage('auth_email_required')); return null }
-    if (!nextPassword) { setStatus('error', mapErrorCodeToMessage('auth_password_required')); return null }
-    if (nextPassword.length < 6) { setStatus('error', mapErrorCodeToMessage('auth_password_too_short')); return null }
-    if (nextPassword !== confirmPassword) { setStatus('error', mapErrorCodeToMessage('auth_password_mismatch')); return null }
+    if (!normalizedEmail) {
+      setStatus('error', mapErrorCodeToMessage('auth_email_required'))
+      return null
+    }
+    if (!nextPassword) {
+      setStatus('error', mapErrorCodeToMessage('auth_password_required'))
+      return null
+    }
+    if (nextPassword.length < 6) {
+      setStatus('error', mapErrorCodeToMessage('auth_password_too_short'))
+      return null
+    }
+    if (nextPassword !== confirmPassword) {
+      setStatus('error', mapErrorCodeToMessage('auth_password_mismatch'))
+      return null
+    }
     return { normalizedEmail, nextPassword }
   }
 
@@ -210,7 +240,10 @@ export function useAuthForm() {
     const resetInfo = validateResetForm()
     const token = resetCode.value.trim()
     if (!resetInfo) return
-    if (!token) { setStatus('error', mapErrorCodeToMessage('auth_code_required')); return }
+    if (!token) {
+      setStatus('error', mapErrorCodeToMessage('auth_code_required'))
+      return
+    }
     busy.value = true
     setStatus('idle')
     try {
@@ -257,14 +290,37 @@ export function useAuthForm() {
   })
 
   return {
-    open, view, loginMode, redirectTo,
-    email, password, code, resetPassword, resetConfirm, resetCode,
-    resetCodeSent, resetCompleted, busy, status,
-    showPassword, showResetPassword, showResetConfirm, firstInputRef,
-    isResetView, modalTitle, modalDesc,
-    closeModal, loginWithPassword, registerWithPassword,
-    sendLoginCode, loginWithCode,
-    enterReset, exitReset, sendResetCode, submitResetPassword,
-    onMaskClick, setLoginMode: authModal.setLoginMode
+    open,
+    view,
+    loginMode,
+    redirectTo,
+    email,
+    password,
+    code,
+    resetPassword,
+    resetConfirm,
+    resetCode,
+    resetCodeSent,
+    resetCompleted,
+    busy,
+    status,
+    showPassword,
+    showResetPassword,
+    showResetConfirm,
+    firstInputRef,
+    isResetView,
+    modalTitle,
+    modalDesc,
+    closeModal,
+    loginWithPassword,
+    registerWithPassword,
+    sendLoginCode,
+    loginWithCode,
+    enterReset,
+    exitReset,
+    sendResetCode,
+    submitResetPassword,
+    onMaskClick,
+    setLoginMode: authModal.setLoginMode
   }
 }

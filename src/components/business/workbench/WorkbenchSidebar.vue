@@ -32,20 +32,16 @@ const activeKey = computed(() => {
   // 工作台内部页面
   if (path.startsWith('/workbench/')) {
     const section = path.replace('/workbench/', '')
-    if (section === 'function') return 'func'
-    if (section === 'procedure') return 'proc'
+    if (section === 'sql-convert') return 'sqlConvert'
     if (section === 'id-tool') return 'idTool'
     if (section === 'ziwei') return 'ziweiTool'
-    if (section === 'rules') return 'rules'
     if (section === 'ai-config') return 'aiConfig'
-    if (section === 'app-config') return 'appConfig'
     if (section === 'op-logs') return 'opLogs'
     return section
   }
   // 独立路由页面
-  if (path === '/app-config') return 'app-config'
   if (path === '/operation-logs') return 'op-logs'
-  return 'ddl'
+  return 'sqlConvert'
 })
 
 // 同步选中状态到 store
@@ -94,7 +90,11 @@ function isActive(key: string): boolean {
 <template>
   <aside
     class="h-screen flex flex-col flex-shrink-0"
-    style="width: var(--sidebar-width); background: var(--color-page-panel); border-right: 1px solid var(--color-page-border)"
+    style="
+      width: var(--sidebar-width);
+      background: var(--color-page-panel);
+      border-right: 1px solid var(--color-page-border);
+    "
     aria-label="主导航"
   >
     <!-- 顶部 Logo 区域 -->
@@ -113,7 +113,10 @@ function isActive(key: string): boolean {
       >
         Dev
       </div>
-      <span class="font-semibold" style="font-size: 15px; letter-spacing: -0.01em; color: var(--color-page-text);">
+      <span
+        class="font-semibold"
+        style="font-size: 15px; letter-spacing: -0.01em; color: var(--color-page-text)"
+      >
         Dev Studio
       </span>
     </div>
@@ -173,7 +176,10 @@ function isActive(key: string): boolean {
               </span>
 
               <!-- 菜单文字 -->
-              <span class="flex-1 text-left font-medium" style="font-size: 14px; letter-spacing: -0.01em">
+              <span
+                class="flex-1 text-left font-medium"
+                style="font-size: 14px; letter-spacing: -0.01em"
+              >
                 {{ item.label }}
               </span>
             </button>

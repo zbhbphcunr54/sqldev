@@ -6,12 +6,12 @@ import { useAiStore } from '@/stores/ai'
 import { getProviderColor, getProviderInitials } from '@/features/ai/provider-constants'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
+import { ApiError } from '@/api/http'
 import { useConfirm } from '@/composables/useConfirm'
 import ProviderConfigModal from './ProviderConfigModal.vue'
 import AddKeyModal from './AddKeyModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { getJson, setJson } from '@/utils/storage'
-
 
 const { confirm } = useConfirm()
 
@@ -128,10 +128,15 @@ function onMouseMove(e: MouseEvent): void {
 
 function onMouseUp(): void {
   let orderChanged = false
-  if (dropIndex.value !== -1 && draggedIndex.value !== -1 && dropIndex.value !== draggedIndex.value) {
+  if (
+    dropIndex.value !== -1 &&
+    draggedIndex.value !== -1 &&
+    dropIndex.value !== draggedIndex.value
+  ) {
     const newProviders = [...providers.value]
     const [removed] = newProviders.splice(draggedIndex.value, 1)
-    const adjustedTargetIdx = dropIndex.value > draggedIndex.value ? dropIndex.value - 1 : dropIndex.value
+    const adjustedTargetIdx =
+      dropIndex.value > draggedIndex.value ? dropIndex.value - 1 : dropIndex.value
     newProviders.splice(adjustedTargetIdx, 0, removed)
     providers.value = newProviders
     orderChanged = true
@@ -232,10 +237,12 @@ function getSelectedConfig(group: GroupedConfig): AiProviderConfig | undefined {
   return group.configs.find((c) => c.id === id) ?? group.configs[0]
 }
 
-const tableRows = computed(() => groupedConfigs.value.map((g) => ({
-  group: g,
-  selected: getSelectedConfig(g)
-})))
+const tableRows = computed(() =>
+  groupedConfigs.value.map((g) => ({
+    group: g,
+    selected: getSelectedConfig(g)
+  }))
+)
 
 function groupKey(group: GroupedConfig): string {
   return `${group.providerId}::${group.apiKeyMasked}`
@@ -267,11 +274,15 @@ function cycleModel(group: GroupedConfig, direction: 1 | -1): void {
 }
 
 // Watch groupedConfigs to auto-select latest model when new ones are added
-watch(groupedConfigs, (groups) => {
-  for (const g of groups) {
-    ensureSelectedConfig(g)
-  }
-}, { immediate: true, deep: true })
+watch(
+  groupedConfigs,
+  (groups) => {
+    for (const g of groups) {
+      ensureSelectedConfig(g)
+    }
+  },
+  { immediate: true, deep: true }
+)
 
 function isDraggingCard(provider: AiProviderDef): boolean {
   return isDragging.value && draggedProvider.value?.id === provider.id
@@ -356,15 +367,15 @@ onUnmounted(() => {
 })
 
 // Add Key modal handlers
-const addKeyPrefill = ref<{ providerId?: string; apiKey?: string }>({})
+const addKeyPrefill = ref<{ providerId?: string; apiKey?: string; apiKeyMasked?: string }>({})
 
 function openAddKey(): void {
   addKeyPrefill.value = {}
   showAddKeyModal.value = true
 }
 
-function openAppendModel(providerId: string, _apiKeyMasked: string): void {
-  addKeyPrefill.value = { providerId }
+function openAppendModel(providerId: string, apiKeyMasked: string): void {
+  addKeyPrefill.value = { providerId, apiKeyMasked }
   showAddKeyModal.value = true
 }
 
@@ -380,8 +391,9 @@ async function handleAddKeySaved(payload: {
   base_url?: string
   name?: string
 }): Promise<void> {
+  const groupKey = addKeyPrefill.value.apiKeyMasked
   closeAddKeyModal()
-  await aiStore.addConfig(payload)
+  await aiStore.addConfig({ ...payload, api_key_masked: groupKey })
 }
 
 // Provider modal handlers
@@ -431,7 +443,9 @@ async function handleProviderSave(payload: {
         api_format: payload.data.api_format,
         models: payload.data.models
       })
-      providers.value = [...providers.value, created].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      providers.value = [...providers.value, created].sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      )
     }
     aiStore.persistToCache()
   } catch (e: unknown) {
@@ -470,7 +484,7 @@ const testingIds = ref<Set<string>>(new Set())
 const testResults = ref<Map<string, { ok: boolean; elapsed_ms: number; error?: string }>>(new Map())
 
 // 冷却状态：同 provider 下所有 config 共享冷却期
-const cooldownEndTimes = ref<Map<string, number>>(new Map())   // provider_id → end timestamp
+const cooldownEndTimes = ref<Map<string, number>>(new Map()) // provider_id → end timestamp
 const cooldownRemaining = ref<Map<string, number>>(new Map()) // config_id → remaining seconds
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
@@ -533,17 +547,24 @@ async function handleTest(config: AiProviderConfig): Promise<void> {
       setProviderCooldown(config.provider_id, result.cooldown_remaining)
     }
   } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : '测试失败'
     testResults.value.set(config.id, {
       ok: false,
       elapsed_ms: 0,
-      error: e instanceof Error ? e.message : '测试失败'
+      error: errMsg
     })
+    // 429 冷却响应经 http 层转为 ApiError，cooldown_remaining 在 data 中
+    if (e instanceof ApiError && typeof e.data?.cooldown_remaining === 'number') {
+      setProviderCooldown(config.provider_id, e.data.cooldown_remaining)
+    }
   } finally {
     testingIds.value.delete(config.id)
   }
 }
 
-function getTestResult(configId: string): { ok: boolean; elapsed_ms: number; error?: string } | null {
+function getTestResult(
+  configId: string
+): { ok: boolean; elapsed_ms: number; error?: string } | null {
   return testResults.value.get(configId) || null
 }
 
@@ -554,9 +575,10 @@ function isTesting(configId: string): boolean {
 // Provider actions
 async function handleDeleteProvider(provider: AiProviderDef): Promise<void> {
   const configCount = providerConfigsMap.value.get(provider.id)?.length ?? 0
-  const message = configCount > 0
-    ? `确定删除「${provider.label}」供应商吗？\n\n这将同时删除该供应商下的 ${configCount} 个 API Key 配置。`
-    : `确定删除「${provider.label}」供应商吗？`
+  const message =
+    configCount > 0
+      ? `确定删除「${provider.label}」供应商吗？\n\n这将同时删除该供应商下的 ${configCount} 个 API Key 配置。`
+      : `确定删除「${provider.label}」供应商吗？`
 
   const ok = await confirm(message, {
     title: '删除供应商',
@@ -613,7 +635,7 @@ onMounted(() => {
           新增供应商
         </button>
       </div>
-      <div class="providers-grid" ref="gridRef">
+      <div ref="gridRef" class="providers-grid">
         <div
           v-for="(provider, idx) in providers"
           :key="provider.id"
@@ -636,13 +658,22 @@ onMounted(() => {
           @mousedown="(e) => onCardMouseDown(e, provider)"
           @click="(e) => onCardClick(e, provider)"
         >
-<button
+          <button
             class="card-delete-btn"
             title="删除供应商"
             @click.stop="handleDeleteProvider(provider)"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
             </svg>
           </button>
           <div class="card-content">
@@ -681,9 +712,12 @@ onMounted(() => {
             '--card-bg-end': getCardBgEnd(draggedProvider)
           }"
         >
-<div class="card-content">
+          <div class="card-content">
             <div class="card-header">
-              <div class="provider-icon" :style="{ background: getProviderColor(draggedProvider.slug) }">
+              <div
+                class="provider-icon"
+                :style="{ background: getProviderColor(draggedProvider.slug) }"
+              >
                 {{ getProviderInitials(draggedProvider.slug, draggedProvider.label) }}
               </div>
               <div class="provider-info">
@@ -691,7 +725,8 @@ onMounted(() => {
                   <span class="provider-name">{{ draggedProvider.label }}</span>
                 </div>
                 <span class="provider-meta">
-                  {{ draggedProvider.models.length }} 模型 · {{ getRegionLabel(draggedProvider).label }}
+                  {{ draggedProvider.models.length }} 模型 ·
+                  {{ getRegionLabel(draggedProvider).label }}
                 </span>
               </div>
             </div>
@@ -707,12 +742,18 @@ onMounted(() => {
           :style="{ left: tooltipPosition.x + 'px', top: tooltipPosition.y + 'px' }"
         >
           <div class="tooltip-header">
-            <div class="tooltip-icon" :style="{ background: getProviderColor(hoveredProvider.slug) }">
+            <div
+              class="tooltip-icon"
+              :style="{ background: getProviderColor(hoveredProvider.slug) }"
+            >
               {{ getProviderInitials(hoveredProvider.slug, hoveredProvider.label) }}
             </div>
             <div class="tooltip-title">
               <span class="tooltip-name">{{ hoveredProvider.label }}</span>
-              <span class="tooltip-region" :class="{ domestic: getRegionLabel(hoveredProvider).isDomestic }">
+              <span
+                class="tooltip-region"
+                :class="{ domestic: getRegionLabel(hoveredProvider).isDomestic }"
+              >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="12" cy="12" r="10" />
                 </svg>
@@ -726,14 +767,20 @@ onMounted(() => {
               <span class="stat-label">模型</span>
             </div>
             <div class="tooltip-stat">
-              <span class="stat-value">{{ providerConfigsMap.get(hoveredProvider.id)?.length ?? 0 }}</span>
+              <span class="stat-value">{{
+                providerConfigsMap.get(hoveredProvider.id)?.length ?? 0
+              }}</span>
               <span class="stat-label">已配置</span>
             </div>
           </div>
           <div v-if="hoveredProvider.models.length > 0" class="tooltip-models">
             <span class="models-title">可用模型</span>
             <div class="models-list">
-              <span v-for="model in hoveredProvider.models.slice(0, 8)" :key="model" class="model-tag">
+              <span
+                v-for="model in hoveredProvider.models.slice(0, 8)"
+                :key="model"
+                class="model-tag"
+              >
                 {{ model }}
               </span>
               <span v-if="hoveredProvider.models.length > 8" class="model-more">
@@ -804,9 +851,16 @@ onMounted(() => {
                     class="td-icon"
                     :style="{ background: getProviderColor(row.group.providerSlug) }"
                   >
-                    {{ getProviderInitials(row.group.providerSlug, getProviderById(row.group.providerId)?.label ?? '') }}
+                    {{
+                      getProviderInitials(
+                        row.group.providerSlug,
+                        getProviderById(row.group.providerId)?.label ?? ''
+                      )
+                    }}
                   </div>
-                  <span>{{ getProviderById(row.group.providerId)?.label ?? row.group.providerId }}</span>
+                  <span>{{
+                    getProviderById(row.group.providerId)?.label ?? row.group.providerId
+                  }}</span>
                 </div>
               </td>
               <td class="td-left td-model-cell">
@@ -818,7 +872,14 @@ onMounted(() => {
                       :disabled="row.group.configs.length <= 1"
                       @click="cycleModel(row.group, -1)"
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
                         <path d="m18 15-6-6-6 6" />
                       </svg>
                     </button>
@@ -827,7 +888,14 @@ onMounted(() => {
                       :disabled="row.group.configs.length <= 1"
                       @click="cycleModel(row.group, 1)"
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
                         <path d="m6 9 6 6 6-6" />
                       </svg>
                     </button>
@@ -855,11 +923,23 @@ onMounted(() => {
                   <span v-if="isInCooldown(row.selected.id)" class="latency-badge cooldown">
                     冷却 {{ getCooldownRemaining(row.selected.id) }}s
                   </span>
-                  <span v-else-if="getTestResult(row.selected.id)" class="latency-badge" :class="{ ok: getTestResult(row.selected.id)?.ok }">
-                    <template v-if="getTestResult(row.selected.id)?.ok">{{ getTestResult(row.selected.id)?.elapsed_ms }}ms</template>
-                    <template v-else>{{ getTestResult(row.selected.id)?.error ?? '失败' }}</template>
+                  <span
+                    v-else-if="getTestResult(row.selected.id)"
+                    class="latency-badge"
+                    :class="{ ok: getTestResult(row.selected.id)?.ok }"
+                  >
+                    <template v-if="getTestResult(row.selected.id)?.ok"
+                      >{{ getTestResult(row.selected.id)?.elapsed_ms }}ms</template
+                    >
+                    <template v-else>{{
+                      getTestResult(row.selected.id)?.error ?? '失败'
+                    }}</template>
                   </span>
-                  <span v-else-if="row.selected.last_test_ms !== null" class="latency-badge" :class="{ ok: row.selected.last_test_ok }">
+                  <span
+                    v-else-if="row.selected.last_test_ms !== null"
+                    class="latency-badge"
+                    :class="{ ok: row.selected.last_test_ok }"
+                  >
                     {{ row.selected.last_test_ok ? row.selected.last_test_ms + 'ms' : '失败' }}
                   </span>
                   <span v-else class="latency-none">--</span>
@@ -874,13 +954,22 @@ onMounted(() => {
                       :disabled="isTesting(row.selected.id)"
                       @click="handleTest(row.selected)"
                     >
-                      <template v-if="isInCooldown(row.selected.id)">冷却 {{ getCooldownRemaining(row.selected.id) }}s</template>
+                      <template v-if="isInCooldown(row.selected.id)"
+                        >冷却 {{ getCooldownRemaining(row.selected.id) }}s</template
+                      >
                       <template v-else-if="isTesting(row.selected.id)">测试中...</template>
                       <template v-else>测试</template>
                     </button>
-                    <button class="action-btn delete" @click="handleDeleteModel(row.selected)">删除</button>
+                    <button class="action-btn delete" @click="handleDeleteModel(row.selected)">
+                      删除
+                    </button>
                   </template>
-                  <button class="action-btn add-model" @click="openAppendModel(row.group.providerId, row.group.apiKeyMasked)">+ 模型</button>
+                  <button
+                    class="action-btn add-model"
+                    @click="openAppendModel(row.group.providerId, row.group.apiKeyMasked)"
+                  >
+                    + 模型
+                  </button>
                 </div>
               </td>
             </tr>
@@ -1128,7 +1217,9 @@ onMounted(() => {
 
 .provider-card.is-drop-target {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-accent), 0 0 16px var(--color-accent-border);
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 0 16px var(--color-accent-border);
   transform: scale(1.02);
 }
 
@@ -1660,13 +1751,27 @@ onMounted(() => {
 }
 
 /* ============ Column Widths ============ */
-.col-provider { width: 15%; }
-.col-model { width: 14%; }
-.col-key { width: 13%; }
-.col-address { width: 28%; }
-.col-status { width: 7%; }
-.col-latency { width: 9%; }
-.col-actions { width: 14%; }
+.col-provider {
+  width: 15%;
+}
+.col-model {
+  width: 14%;
+}
+.col-key {
+  width: 13%;
+}
+.col-address {
+  width: 28%;
+}
+.col-status {
+  width: 7%;
+}
+.col-latency {
+  width: 9%;
+}
+.col-actions {
+  width: 14%;
+}
 
 .latency-none {
   font-family: var(--font-body);

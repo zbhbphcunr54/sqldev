@@ -9,33 +9,14 @@ const root = path.resolve(__dirname, '..')
 const testFiles = [
   'tests/smoke.mjs',
   'tests/sql-format.mjs',
-  'tests/ddl-parser-utils.mjs',
-  'tests/ddl-column-parsers.mjs',
-  'tests/ddl-conversion-orchestrator.mjs',
-  'tests/ddl-table-constraint-parsers.mjs',
-  'tests/ddl-extra-ddl.mjs',
-  'tests/ddl-output-builders.mjs',
-  'tests/ddl-postprocess.mjs',
-  'tests/ddl-type-mapping.mjs',
-  'tests/ddl-view-parsing.mjs',
-  'tests/ddl-view-generators.mjs',
-  'tests/convert-error-map.mjs',
   'tests/browser-file-actions.mjs',
-  'tests/body-transform.mjs',
-  'tests/routine-parser-primitives.mjs',
-  'tests/routine-function-parsers.mjs',
-  'tests/routine-procedure-parsers.mjs',
   'tests/preferences-storage.mjs',
-  'tests/rules-persistence.mjs',
   'tests/id-tools.mjs',
+  'tests/ziwei-city-longitude.mjs',
+  'tests/ziwei-compute.mjs',
   'tests/navigation-route.mjs',
   'tests/navigation-workbench-sections.mjs',
-  'tests/navigation-redirect.mjs',
-  'tests/ziwei-history.mjs',
-  'tests/ziwei-presentation.mjs',
-  'tests/ziwei-share.mjs',
-  'tests/ziwei-ai-utils.mjs',
-  'tests/routine-generators.mjs'
+  'tests/navigation-redirect.mjs'
 ]
 
 const startedAt = Date.now()

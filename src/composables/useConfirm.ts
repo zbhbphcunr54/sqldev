@@ -20,7 +20,9 @@ export function useConfirm() {
   function confirm(msg: string, options: ConfirmOptions = {}): Promise<boolean> {
     // Reject any previously pending promise to prevent hanging
     if (resolvePromise) {
-      console.warn('[useConfirm] New confirm() called while previous dialog is still open — rejecting previous')
+      console.warn(
+        '[useConfirm] New confirm() called while previous dialog is still open — rejecting previous'
+      )
       resolvePromise(false)
       resolvePromise = null
     }

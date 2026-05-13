@@ -117,16 +117,24 @@
   --color-chat-glow: rgba(192, 132, 252, 0.5);
   --color-chat-glow-hover: rgba(192, 132, 252, 0.7);
 
-  /* Apple Blue Database Colors */
-  --oracle: #ea6a2d;
-  --mysql: #00758f;
-  --pg: #336791;
+  /* Database Badge Colors */
   --db-oracle: #ea6a2d;
   --db-mysql: #00758f;
-  --db-pg: #336791;
-  --gradient-db-oracle: linear-gradient(135deg, #ea6a2d, #d45a20);
-  --gradient-db-mysql: linear-gradient(135deg, #00758f, #00566f);
-  --gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);
+  --db-postgresql: #336791;
+  --db-kingbasees: #c62828;
+  --db-dm8: #1565c0;
+  --db-yashan: #00695c;
+  --db-gaussdb: #e65100;
+  --db-goldendb: #f9a825;
+  --db-oceanbase_oracle: #0277bd;
+  --db-oceanbase_mysql: #0288d1;
+  --db-tdsql_mysql: #00acc1;
+  --db-tdsql_pg: #00838f;
+  --db-tidb: #d32f2f;
+  --db-gbase_8a: #4527a0;
+  --db-gbase_8c: #512da8;
+  --db-gbase_8s: #5e35b1;
+  --db-hivesql: #ffb300;
 
   /* Apple Typography Scale */
   --text-xs: 0.6875rem;    /* 11px */
@@ -183,6 +191,7 @@
   --color-page-border-focus: rgba(0, 113, 227, 0.3);
 
   --color-page-link: var(--color-brand-500);
+  --color-page-info: var(--color-brand-500);
   --color-page-success-alt: #34c759;
   --color-page-warning-alt: #ff9500;
 }
@@ -265,16 +274,24 @@
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
 
-  /* Database Colors - Dark */
-  --oracle: #ff6b35;
-  --mysql: #00d4ff;
-  --pg: #5a9fd4;
+  /* Database Badge Colors - Dark */
   --db-oracle: #ff6b35;
   --db-mysql: #00d4ff;
-  --db-pg: #5a9fd4;
-  --gradient-db-oracle: linear-gradient(135deg, #ff6b35, #ff4500);
-  --gradient-db-mysql: linear-gradient(135deg, #00d4ff, #00b4d8);
-  --gradient-db-postgresql: linear-gradient(135deg, #5a9fd4, #4a8fc4);
+  --db-postgresql: #5a9fd4;
+  --db-kingbasees: #ef5350;
+  --db-dm8: #42a5f5;
+  --db-yashan: #26a69a;
+  --db-gaussdb: #ff7043;
+  --db-goldendb: #ffca28;
+  --db-oceanbase_oracle: #29b6f6;
+  --db-oceanbase_mysql: #4fc3f7;
+  --db-tdsql_mysql: #4dd0e1;
+  --db-tdsql_pg: #26c6da;
+  --db-tidb: #ef5350;
+  --db-gbase_8a: #7e57c2;
+  --db-gbase_8c: #9575cd;
+  --db-gbase_8s: #b39ddb;
+  --db-hivesql: #ffca28;
 
   /* Page Theme Aliases (for specialized dark pages like DdlPage) */
   --color-page-bg: var(--color-bg);
@@ -305,8 +322,32 @@
   --color-page-border-focus: rgba(10, 132, 255, 0.5);
 
   --color-page-link: var(--color-brand-500);
+  --color-page-info: var(--color-brand-500);
   --color-page-success-alt: #34c759;
   --color-page-warning-alt: #ffd60a;
+  /* === Ziwei (Purple Star Astrology) Colors === */
+  /* 四化颜色 - 需精确色值以区分不同含义 */
+  --color-hua-lu: #ffd700;   /* 化禄 - 金色 */
+  --color-hua-quan: #ff8c00; /* 化权 - 深橙 */
+  --color-hua-ke: #40e0d0;   /* 化科 - 青色 */
+  --color-hua-ji: #ff4060;   /* 化忌 - 红色 */
+
+  /* 星曜亮度颜色 */
+  --color-star-miao: #ffd700;   /* 庙 - 金色 */
+  --color-star-wang: #ffa500;   /* 旺 - 橙色 */
+  --color-star-de-li: #80c0ff; /* 得/利 - 浅蓝 */
+  --color-star-ping: #aaaaaa;   /* 平 - 灰色 */
+  --color-star-xian: #e05555;   /* 陷 - 红色 */
+
+  /* 命盘信息色系 */
+  --color-daxian: #6a9fd8;   /* 大限 - 蓝色系 */
+  --color-liunian: #9a80c0; /* 流年 - 紫色系 */
+
+  /* 十四主星 (沿用 --color-page-warning-alt) */
+  --color-major-star: var(--color-page-warning-alt);
+
+  /* 命盘高亮底色 */
+  --color-daxian-active-bg: rgba(240, 192, 80, 0.07); /* 当前大限金色微光 */
 }
 
 /* ============================================

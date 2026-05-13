@@ -1,0 +1,12 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^\\$files = @\\(\n'D:\\\\codextest\\\\sqldev\\\\src\\\\components\\\\business\\\\workbench\\\\pages\\\\ZiweiPage\\.vue',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\compute\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\presentation\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\ui-constants\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\star-classifier\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\history\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\history-sync\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\share\\.ts',\n'D:\\\\codextest\\\\sqldev\\\\src\\\\features\\\\ziwei\\\\ai-utils\\.ts'\n\\)\n\\$files \\| ForEach-Object \\{ if \\(Test-Path \\$_\\) \\{ \\$lines = \\(Get-Content \\$_\\)\\.Count; \"\\$lines`t\\$_\" \\} \\}$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -v$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

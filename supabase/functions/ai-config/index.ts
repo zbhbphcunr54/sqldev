@@ -368,9 +368,17 @@ async function handleCreate(
 
   // 用原始明文（或复用密文）构造正确的 api_key_masked
   const configRow = config as unknown as AiConfigRow
+  let apiKeyMasked: string
+  if (reusedKey) {
+    // apiKey 是复用的密文，需先解密才能正确脱敏
+    const decrypted = await decryptValue(apiKey)
+    apiKeyMasked = maskApiKeySync(decrypted)
+  } else {
+    apiKeyMasked = maskApiKeySync(apiKey)
+  }
   const masked = {
     ...buildMaskedResponse(configRow, providerData),
-    api_key_masked: reusedKey ? '****' : maskApiKeySync(apiKey)
+    api_key_masked: apiKeyMasked
   }
   logOperation({
     userId, userEmail, clientIp,

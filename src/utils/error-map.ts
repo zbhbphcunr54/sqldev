@@ -37,10 +37,6 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   missing_sql: '缺少原始 SQL 或转换后 SQL。',
   sql_too_long: 'SQL 内容过长，请缩短后重试。',
   verify_failed: 'AI 校验失败，请稍后重试。',
-  verify_profile_not_found: '校验配置不存在。',
-  verify_profile_save_failed: '校验配置保存失败。',
-  verify_profile_delete_failed: '删除校验配置失败。',
-
   // AI upstream
   ai_upstream_rate_limited: 'AI 服务繁忙，请稍后重试。',
   ai_request_timeout: 'AI 响应超时，请稍后重试。',
@@ -91,13 +87,6 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   verify_in_progress: 'AI 校验中，请稍候。',
   verify_complete: '校验完成。',
 
-  // Rules
-  rules_load_failed: '规则加载失败。',
-  rules_save_failed: '规则保存失败。',
-  rules_reset_success: '规则已重置为默认值。',
-  rules_reset_failed: '规则重置失败。',
-  rules_unsaved_changes: '规则已修改，请记得保存。',
-
   // ID Tool
   id_district_load_failed: '行政区划数据加载失败。',
   id_birth_invalid: '出生日期不合法。',
@@ -112,6 +101,12 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   ziwei_birth_invalid: '出生日期无效。',
   ziwei_birth_time_invalid: '出生时间无效。',
   ziwei_chart_failed: '排盘失败。',
+  ziwei_ai_network_error: 'AI 分析网络异常，请检查网络后重试。',
+  ziwei_ai_service_unavailable: 'AI 分析服务暂时不可用，请稍后重试。',
+  ziwei_ai_quota_exceeded: '今日 AI 解读次数已用完。',
+  ziwei_ai_unauthorized: '当前账号未开通紫微 AI 解读权限。',
+  ziwei_qa_not_ready: '请先生成 AI 深度解盘后再提问。',
+  ziwei_qa_failed: '问答请求失败，请稍后重试。',
 
   // History
   history_load_failed: '加载历史失败。',

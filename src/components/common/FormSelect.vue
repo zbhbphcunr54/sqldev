@@ -6,6 +6,8 @@ const props = defineProps<{
   modelValue: string
   placeholder?: string
   compact?: boolean
+  borderless?: boolean
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -23,6 +25,7 @@ const selectedLabel = computed(() => {
 })
 
 function onTriggerClick(): void {
+  if (props.disabled) return
   open.value = !open.value
 }
 
@@ -69,12 +72,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="form-select-wrapper" :class="{ compact: props.compact }">
+  <div
+    class="form-select-wrapper"
+    :class="{ compact: props.compact, borderless: props.borderless }"
+  >
     <button
       ref="triggerRef"
       type="button"
       class="form-select-trigger"
-      :class="{ open, compact: props.compact }"
+      :class="{
+        open,
+        compact: props.compact,
+        borderless: props.borderless,
+        disabled: props.disabled
+      }"
+      :disabled="props.disabled"
       @click="onTriggerClick"
     >
       <span class="trigger-label" :class="{ placeholder: !selectedLabel }">
@@ -251,5 +263,35 @@ onUnmounted(() => {
 
 .form-select-trigger.compact .trigger-label {
   text-align: center;
+}
+
+/* ============ Borderless variant ============ */
+.form-select-wrapper.borderless {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-select-trigger.borderless {
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.form-select-trigger.borderless:hover {
+  border: none;
+}
+
+.form-select-trigger.borderless:focus,
+.form-select-trigger.borderless.open {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.form-select-trigger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

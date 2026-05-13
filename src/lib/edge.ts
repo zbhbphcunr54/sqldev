@@ -10,12 +10,19 @@ export const TOKEN_REFRESH_SKEW_SECONDS = 60
 export class ApiError extends Error {
   code: string
   status: number
+  data: Record<string, unknown> | undefined
 
-  constructor(message: string, code = 'api_error', status = 500) {
+  constructor(
+    message: string,
+    code = 'api_error',
+    status = 500,
+    data?: Record<string, unknown>
+  ) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
+    this.data = data
   }
 }
 

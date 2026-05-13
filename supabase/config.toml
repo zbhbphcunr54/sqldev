@@ -1,4 +1,4 @@
-[functions.convert]
+[functions.sql-convert]
 # Supabase gateway JWT verification is disabled because this project accepts
 # modern publishable keys and validates the user session inside the function via
 # /auth/v1/user. See supabase/FUNCTION-AUTH-STRATEGY.md.
@@ -14,9 +14,6 @@ verify_jwt = false
 # ZIWEI_ALLOWED_EMAILS.
 verify_jwt = false
 
-[functions.rules]
-verify_jwt = true
-
 [functions.ziwei-history]
 verify_jwt = true
 
@@ -24,10 +21,6 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.cleanup]
-verify_jwt = false
-
-[functions.convert-verify]
-# AI verification with bearer token auth inside function
 verify_jwt = false
 
 [functions.ai-config]

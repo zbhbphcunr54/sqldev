@@ -1,6 +1,7 @@
 <!-- [2026-05-04] 更新：操作日志筛选器，匹配设计预览 -->
 <script setup lang="ts">
 import { ref } from 'vue'
+import FormSelect from '@/components/common/FormSelect.vue'
 
 const props = defineProps<{
   operation?: string
@@ -38,9 +39,7 @@ const OPERATION_OPTIONS = [
 
 const API_OPTIONS = [
   { value: '', label: '全部' },
-  { value: 'convert', label: 'convert' },
-  { value: 'convert-verify', label: 'convert-verify' },
-  { value: 'rules', label: 'rules' },
+  { value: 'sql-convert', label: 'sql-convert' },
   { value: 'ziwei-analysis', label: 'ziwei-analysis' },
   { value: 'ziwei-history', label: 'ziwei-history' },
   { value: 'feedback', label: 'feedback' },
@@ -72,22 +71,19 @@ function handleReset(): void {
   <div class="filter-bar">
     <div class="filter-group">
       <span class="filter-label">操作类型</span>
-      <select v-model="localOperation" class="filter-select">
-        <option v-for="opt in OPERATION_OPTIONS" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
+      <FormSelect
+        v-model="localOperation"
+        :options="OPERATION_OPTIONS"
+        placeholder="全部"
+        compact
+      />
     </div>
 
     <div class="filter-divider"></div>
 
     <div class="filter-group">
       <span class="filter-label">API 名称</span>
-      <select v-model="localApiName" class="filter-select">
-        <option v-for="opt in API_OPTIONS" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
+      <FormSelect v-model="localApiName" :options="API_OPTIONS" placeholder="全部" compact />
     </div>
 
     <div class="filter-divider"></div>
@@ -127,23 +123,6 @@ function handleReset(): void {
 .filter-label {
   font-size: 12px;
   color: var(--color-text-subtle);
-}
-
-.filter-select {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: 12px;
-  cursor: pointer;
-  min-width: 100px;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
 }
 
 .filter-input {

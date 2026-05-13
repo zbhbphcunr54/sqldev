@@ -10,21 +10,21 @@ function assertEqual(actual, expected, message) {
   }
 }
 
-assertEqual(sections.WORKBENCH_DEFAULT_SECTION, 'ddl', 'default workbench section must be DDL')
+assertEqual(sections.WORKBENCH_DEFAULT_SECTION, 'sql-convert', 'default workbench section must be sql-convert')
 assertEqual(sections.normalizeWorkbenchSection('ziwei'), 'ziwei', 'known section must be preserved')
 assertEqual(
-  sections.normalizeWorkbenchSection(['function']),
-  'function',
+  sections.normalizeWorkbenchSection(['id-tool']),
+  'id-tool',
   'route param arrays must normalize'
 )
 assertEqual(
   sections.normalizeWorkbenchSection('unknown'),
-  'ddl',
-  'unknown section must fallback to DDL'
+  'sql-convert',
+  'unknown section must fallback to sql-convert'
 )
 assertEqual(
-  sections.buildWorkbenchPath('body-rules'),
-  '/workbench/body-rules',
+  sections.buildWorkbenchPath('ai-config'),
+  '/workbench/ai-config',
   'path builder must preserve mapped section'
 )
 assertEqual(

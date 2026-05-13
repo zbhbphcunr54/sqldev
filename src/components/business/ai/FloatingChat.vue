@@ -234,13 +234,15 @@ function onMaskClick(e: MouseEvent): void {
 
     <!-- Overlay -->
     <Transition name="chat-fade">
-      <div
-        v-if="open"
-        class="chat-overlay"
-        role="presentation"
-        @click="onMaskClick"
-      >
-        <div class="chat-panel" :class="{ expanded }" role="dialog" aria-modal="true" aria-label="AI 小助手" @click.stop>
+      <div v-if="open" class="chat-overlay" role="presentation" @click="onMaskClick">
+        <div
+          class="chat-panel"
+          :class="{ expanded }"
+          role="dialog"
+          aria-modal="true"
+          aria-label="AI 小助手"
+          @click.stop
+        >
           <!-- Header -->
           <div class="chat-header">
             <div class="chat-header-left">
@@ -573,7 +575,11 @@ function onMaskClick(e: MouseEvent): void {
   position: absolute;
   inset: 10px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 30%, rgba(var(--color-chat-accent-rgb), 0.2), transparent);
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgba(var(--color-chat-accent-rgb), 0.2),
+    transparent
+  );
   z-index: 1;
   pointer-events: none;
 }
@@ -642,7 +648,11 @@ function onMaskClick(e: MouseEvent): void {
   box-shadow: var(--shadow-lg);
 }
 [data-theme='light'] .fab-bot-glow {
-  background: radial-gradient(circle at 50% 30%, rgba(var(--color-chat-accent-rgb), 0.12), transparent);
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgba(var(--color-chat-accent-rgb), 0.12),
+    transparent
+  );
 }
 [data-theme='light'] .fab-bot-eye {
   fill: var(--color-chat-accent);

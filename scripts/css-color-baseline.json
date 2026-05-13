@@ -1,2601 +1,249 @@
 [
   {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 188,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "background: rgba(0, 0, 0, 0.6);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 1148,
+    "color": "rgba(var(--color-chat-gradient-start-rgb)",
+    "text": "box-shadow: 0 4px 14px rgba(var(--color-chat-gradient-start-rgb), 0.36);"
   },
   {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 207,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.08);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 557,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "border: 1.5px solid rgba(var(--color-chat-accent-rgb), 0.25);"
   },
   {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 209,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 233,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 264,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 273,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 313,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.08);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 324,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 347,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 363,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 368,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border-color: rgba(255, 255, 255, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 375,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AddKeyModal.vue",
-    "line": 379,
-    "color": "#4f46e5",
-    "text": "background: #4f46e5;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1038,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1109,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1183,
-    "color": "rgba(255, 255, 255, 0.03)",
-    "text": "background: rgba(255, 255, 255, 0.03);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1187,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1227,
-    "color": "rgba(255, 255, 255, 0.02)",
-    "text": "background: rgba(255, 255, 255, 0.02);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1249,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1280,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1285,
-    "color": "rgba(16, 185, 129, 0.15)",
-    "text": "background: rgba(16, 185, 129, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1313,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1322,
-    "color": "rgba(16, 185, 129, 0.1)",
-    "text": "background: rgba(16, 185, 129, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1330,
-    "color": "rgba(239, 68, 68, 0.1)",
-    "text": "background: rgba(239, 68, 68, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1356,
-    "color": "rgba(8, 9, 13, 0.8)",
-    "text": "background: rgba(8, 9, 13, 0.8);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1363,
-    "color": "rgba(99, 102, 241, 0.2)",
-    "text": "border: 3px solid rgba(99, 102, 241, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1384,
-    "color": "rgba(239, 68, 68, 0.15)",
-    "text": "background: rgba(239, 68, 68, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1385,
-    "color": "rgba(239, 68, 68, 0.3)",
-    "text": "border: 1px solid rgba(239, 68, 68, 0.3);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1397,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1404,
-    "color": "#08090d",
-    "text": "--bg-deep: #08090d;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1405,
-    "color": "#0f1017",
-    "text": "--bg-surface: #0f1017;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1406,
-    "color": "#161720",
-    "text": "--bg-elevated: #161720;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1407,
-    "color": "#1a1b26",
-    "text": "--bg-card: #1a1b26;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1408,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "--border: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1409,
-    "color": "#eaebef",
-    "text": "--text-primary: #eaebef;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1410,
-    "color": "#8b8d9a",
-    "text": "--text-secondary: #8b8d9a;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1411,
-    "color": "#55576a",
-    "text": "--text-muted: #55576a;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1412,
-    "color": "#6366f1",
-    "text": "--accent: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1413,
-    "color": "#10b981",
-    "text": "--success: #10b981;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 1414,
-    "color": "#ef4444",
-    "text": "--danger: #ef4444;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 725,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 734,
-    "color": "#4f46e5",
-    "text": "background: #4f46e5;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 754,
-    "color": "rgba(255, 255, 255, 0.03)",
-    "text": "background: rgba(255, 255, 255, 0.03);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 759,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 792,
-    "color": "rgba(0, 0, 0, 0.3)",
-    "text": "box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--card-color);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 807,
-    "color": "rgba(99, 102, 241, 0.3)",
-    "text": "box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(99, 102, 241, 0.3);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 826,
-    "color": "rgba(0, 0, 0, 0.5)",
-    "text": "background: rgba(0, 0, 0, 0.5);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 828,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 840,
-    "color": "rgba(239, 68, 68, 0.8)",
-    "text": "background: rgba(239, 68, 68, 0.8);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 841,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 853,
-    "color": "rgba(0, 0, 0, 0.5)",
-    "text": "box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--card-color);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 866,
-    "color": "#1e2029",
-    "text": "background: #1e2029;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 867,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 870,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 902,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 916,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 927,
-    "color": "#58a6ff",
-    "text": "color: #58a6ff;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 932,
-    "color": "#f0883e",
-    "text": "color: #f0883e;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 943,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 944,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 957,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 962,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 973,
-    "color": "#6e7681",
-    "text": "color: #6e7681;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 987,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 989,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 996,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "background: rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/AiConfigPage.vue",
-    "line": 998,
-    "color": "#6366f1",
-    "text": "color: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 303,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "background: rgba(0, 0, 0, 0.6);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 311,
-    "color": "#131722",
-    "text": "background: #131722;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 312,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 314,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 326,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 339,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 345,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 356,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 357,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 365,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 366,
-    "color": "#e6edf3",
-    "text": "color: #e6edf3;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 393,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 399,
-    "color": "#6e7681",
-    "text": "color: #6e7681;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 407,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 409,
-    "color": "#1a1f2e",
-    "text": "background: #1a1f2e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 410,
-    "color": "#e6edf3",
-    "text": "color: #e6edf3;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 417,
-    "color": "#6e7681",
-    "text": "color: #6e7681;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 422,
-    "color": "rgba(99, 102, 241, 0.5)",
-    "text": "border-color: rgba(99, 102, 241, 0.5);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 432,
-    "color": "#6e7681",
-    "text": "color: #6e7681;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 438,
-    "color": "#f85149",
-    "text": "color: #f85149;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 448,
-    "color": "#1a1f2e",
-    "text": "background: #1a1f2e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 449,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 456,
-    "color": "#6366f1",
-    "text": "background: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 457,
-    "color": "#6366f1",
-    "text": "border-color: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 467,
-    "color": "#8b949e",
-    "text": "background: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 473,
-    "color": "#ffffff",
-    "text": "background: #ffffff;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 487,
-    "color": "rgba(63, 185, 80, 0.1)",
-    "text": "background: rgba(63, 185, 80, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 488,
-    "color": "rgba(63, 185, 80, 0.3)",
-    "text": "border-color: rgba(63, 185, 80, 0.3);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 492,
-    "color": "rgba(248, 81, 73, 0.1)",
-    "text": "background: rgba(248, 81, 73, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 493,
-    "color": "rgba(248, 81, 73, 0.3)",
-    "text": "border-color: rgba(248, 81, 73, 0.3);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 507,
-    "color": "rgba(63, 185, 80, 0.2)",
-    "text": "background: rgba(63, 185, 80, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 508,
-    "color": "#3fb950",
-    "text": "color: #3fb950;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 512,
-    "color": "rgba(248, 81, 73, 0.2)",
-    "text": "background: rgba(248, 81, 73, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 513,
-    "color": "#f85149",
-    "text": "color: #f85149;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 526,
-    "color": "#e6edf3",
-    "text": "color: #e6edf3;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 534,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 535,
-    "color": "#3fb950",
-    "text": "color: #3fb950;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 540,
-    "color": "#f85149",
-    "text": "color: #f85149;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 550,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 572,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 573,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 577,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 578,
-    "color": "#e6edf3",
-    "text": "color: #e6edf3;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 583,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 584,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 588,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 589,
-    "color": "#e6edf3",
-    "text": "color: #e6edf3;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 590,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border-color: rgba(255, 255, 255, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 599,
-    "color": "#6366f1",
-    "text": "background: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 601,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/ai/ConfigEditModal.vue",
-    "line": 605,
-    "color": "#4f46e5",
-    "text": "background: #4f46e5;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 248,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "background: rgba(0, 0, 0, 0.6);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 267,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.08);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 269,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 293,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 324,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 333,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 392,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.08);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 402,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 433,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 442,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "background: rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 443,
-    "color": "rgba(99, 102, 241, 0.25)",
-    "text": "border: 1px solid rgba(99, 102, 241, 0.25);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 483,
-    "color": "rgba(239, 68, 68, 0.2)",
-    "text": "background: rgba(239, 68, 68, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 511,
-    "color": "rgba(99, 102, 241, 0.1)",
-    "text": "background: rgba(99, 102, 241, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 512,
-    "color": "rgba(99, 102, 241, 0.4)",
-    "text": "border: 1px dashed rgba(99, 102, 241, 0.4);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 523,
-    "color": "rgba(99, 102, 241, 0.2)",
-    "text": "background: rgba(99, 102, 241, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 533,
-    "color": "rgba(239, 68, 68, 0.1)",
-    "text": "background: rgba(239, 68, 68, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 534,
-    "color": "rgba(239, 68, 68, 0.2)",
-    "text": "border: 1px solid rgba(239, 68, 68, 0.2);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 545,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 561,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
+    "file": "src/components/business/ai/FloatingChat.vue",
     "line": 566,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border-color: rgba(255, 255, 255, 0.2);"
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "0 0 0 1px rgba(var(--color-chat-accent-rgb), 0.08);"
   },
   {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 573,
-    "color": "#fff",
-    "text": "color: #fff;"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 580,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "rgba(var(--color-chat-accent-rgb), 0.2),"
   },
   {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 577,
-    "color": "#4f46e5",
-    "text": "background: #4f46e5;"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 600,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "border-color: rgba(var(--color-chat-accent-rgb), 0.45);"
   },
   {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 587,
-    "color": "#08090d",
-    "text": "--bg-deep: #08090d;"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 603,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "0 0 32px rgba(var(--color-chat-accent-rgb), 0.15);"
   },
   {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 588,
-    "color": "#0f1017",
-    "text": "--bg-surface: #0f1017;"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 628,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "0 0 24px rgba(var(--color-chat-accent-rgb), 0.15);"
   },
   {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 589,
-    "color": "#161720",
-    "text": "--bg-elevated: #161720;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 590,
-    "color": "#1a1b26",
-    "text": "--bg-card: #1a1b26;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 591,
-    "color": "#eaebef",
-    "text": "--text-primary: #eaebef;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 592,
-    "color": "#8b8d9a",
-    "text": "--text-secondary: #8b8d9a;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 593,
-    "color": "#55576a",
-    "text": "--text-muted: #55576a;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 594,
-    "color": "#6366f1",
-    "text": "--accent: #6366f1;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 595,
-    "color": "#10b981",
-    "text": "--success: #10b981;"
-  },
-  {
-    "file": "src/components/business/ai/ProviderConfigModal.vue",
-    "line": 596,
-    "color": "#ef4444",
-    "text": "--danger: #ef4444;"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 213,
-    "color": "#60a5fa",
-    "text": "string: { bg: 'rgba(96, 165, 250, 0.15)', color: '#60a5fa' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 213,
-    "color": "rgba(96, 165, 250, 0.15)",
-    "text": "string: { bg: 'rgba(96, 165, 250, 0.15)', color: '#60a5fa' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 214,
-    "color": "#fbbf24",
-    "text": "number: { bg: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 214,
-    "color": "rgba(251, 191, 36, 0.15)",
-    "text": "number: { bg: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 215,
-    "color": "#a78bfa",
-    "text": "boolean: { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 215,
-    "color": "rgba(167, 139, 250, 0.15)",
-    "text": "boolean: { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa' },"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 216,
-    "color": "#a78bfa",
-    "text": "jsonb: { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa' }"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 216,
-    "color": "rgba(167, 139, 250, 0.15)",
-    "text": "jsonb: { bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa' }"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 222,
-    "color": "#8b949e",
-    "text": "if (!value) return '#8b949e'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 223,
-    "color": "#e6edf3",
-    "text": "if (valueType === 'string') return '#e6edf3'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 224,
-    "color": "#fcd34d",
-    "text": "if (valueType === 'number') return '#fcd34d'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 226,
-    "color": "#4ade80",
-    "text": "return value === 'true' ? '#4ade80' : '#f87171'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 226,
-    "color": "#f87171",
-    "text": "return value === 'true' ? '#4ade80' : '#f87171'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 228,
-    "color": "#e6edf3",
-    "text": "return '#e6edf3'"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 534,
-    "color": "rgba(48, 209, 88, 0.3)",
-    "text": "border: 1px solid rgba(48, 209, 88, 0.3);"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 578,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 588,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
+    "file": "src/components/business/ai/FloatingChat.vue",
     "line": 633,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "border-color: rgba(var(--color-chat-accent-rgb), 0.2);"
   },
   {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 646,
-    "color": "rgba(255, 255, 255, 0.15)",
-    "text": "background: rgba(255, 255, 255, 0.15);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 638,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "0 0 0 1px rgba(var(--color-chat-accent-rgb), 0.06);"
   },
   {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 841,
-    "color": "#ffffff",
-    "text": "background: #ffffff;"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 641,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "border-color: rgba(var(--color-chat-accent-rgb), 0.4);"
   },
   {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 842,
-    "color": "rgba(0, 0, 0, 0.2)",
-    "text": "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 644,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "0 0 24px rgba(var(--color-chat-accent-rgb), 0.12);"
   },
   {
-    "file": "src/components/business/app-config/AppConfigPage.vue",
-    "line": 988,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 653,
+    "color": "rgba(var(--color-chat-accent-rgb)",
+    "text": "rgba(var(--color-chat-accent-rgb), 0.12),"
   },
   {
-    "file": "src/components/business/app-config/ConfigEditModal.vue",
-    "line": 277,
-    "color": "rgba(0, 0, 0, 0.35)",
-    "text": "background: rgba(0, 0, 0, 0.35);"
-  },
-  {
-    "file": "src/components/business/app-config/ConfigEditModal.vue",
-    "line": 388,
-    "color": "rgba(47, 107, 255, 0.1)",
-    "text": "box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);"
+    "file": "src/components/business/ai/FloatingChat.vue",
+    "line": 689,
+    "color": "rgba(255, 255, 255, 0.04)",
+    "text": "inset 0 0 0 1px rgba(255, 255, 255, 0.04);"
   },
   {
     "file": "src/components/business/auth/AuthModal.vue",
-    "line": 619,
+    "line": 364,
     "color": "#fff",
     "text": "color: #fff;"
   },
   {
     "file": "src/components/business/auth/AuthModal.vue",
-    "line": 834,
+    "line": 579,
     "color": "#ffffff",
     "text": "color: #ffffff;"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 176,
-    "color": "rgba(99, 135, 241, 0.28)",
-    "text": "border: 1px solid rgba(99, 135, 241, 0.28);"
+    "line": 276,
+    "color": "rgba(0, 113, 227, 0.25)",
+    "text": "0 4px 16px rgba(0, 113, 227, 0.25),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 179,
-    "color": "rgba(18, 27, 50, 0.94)",
-    "text": "background: linear-gradient(180deg, rgba(18, 27, 50, 0.94), rgba(9, 15, 31, 0.92));"
+    "line": 277,
+    "color": "rgba(0, 0, 0, 0.08)",
+    "text": "0 1px 3px rgba(0, 0, 0, 0.08),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 179,
-    "color": "rgba(9, 15, 31, 0.92)",
-    "text": "background: linear-gradient(180deg, rgba(18, 27, 50, 0.94), rgba(9, 15, 31, 0.92));"
+    "line": 278,
+    "color": "rgba(255, 255, 255, 0.2)",
+    "text": "inset 0 1px 0 rgba(255, 255, 255, 0.2);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 180,
-    "color": "#cdd9f4",
-    "text": "color: #cdd9f4;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 182,
-    "color": "rgba(2, 6, 23, 0.34)",
-    "text": "0 16px 28px rgba(2, 6, 23, 0.34),"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 183,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "inset 1px 0 0 rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 208,
-    "color": "rgba(125, 163, 255, 0.48)",
-    "text": "border-color: rgba(125, 163, 255, 0.48);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 209,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 211,
-    "color": "rgba(37, 99, 235, 0.24)",
-    "text": "0 18px 34px rgba(37, 99, 235, 0.24),"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 212,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "inset 1px 0 0 rgba(255, 255, 255, 0.08);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 218,
-    "color": "rgba(79, 125, 249, 0.28)",
-    "text": "0 0 0 3px rgba(79, 125, 249, 0.28),"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 219,
-    "color": "rgba(37, 99, 235, 0.24)",
-    "text": "0 18px 34px rgba(37, 99, 235, 0.24);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 234,
-    "color": "rgba(2, 6, 23, 0.6)",
-    "text": "background: rgba(2, 6, 23, 0.6);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 240,
-    "color": "rgba(99, 135, 241, 0.26)",
-    "text": "border: 1px solid rgba(99, 135, 241, 0.26);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 242,
-    "color": "rgba(14, 22, 40, 0.98)",
-    "text": "background: linear-gradient(180deg, rgba(14, 22, 40, 0.98), rgba(8, 13, 27, 0.96));"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 242,
-    "color": "rgba(8, 13, 27, 0.96)",
-    "text": "background: linear-gradient(180deg, rgba(14, 22, 40, 0.98), rgba(8, 13, 27, 0.96));"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 243,
-    "color": "rgba(2, 6, 23, 0.5)",
-    "text": "box-shadow: 0 22px 54px rgba(2, 6, 23, 0.5);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 256,
-    "color": "#e6eefc",
-    "text": "color: #e6eefc;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 266,
-    "color": "#9fb0cf",
-    "text": "color: #9fb0cf;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 273,
-    "color": "rgba(79, 125, 249, 0.12)",
-    "text": "background: rgba(79, 125, 249, 0.12);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 274,
-    "color": "#f2f7ff",
-    "text": "color: #f2f7ff;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 279,
-    "color": "#93a5c6",
-    "text": "color: #93a5c6;"
+    "line": 285,
+    "color": "rgba(0, 113, 227, 0.35)",
+    "text": "0 8px 28px rgba(0, 113, 227, 0.35),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
     "line": 286,
-    "color": "#cbd7ef",
-    "text": "color: #cbd7ef;"
+    "color": "rgba(0, 0, 0, 0.1)",
+    "text": "0 2px 6px rgba(0, 0, 0, 0.1),"
+  },
+  {
+    "file": "src/components/business/feedback/FeedbackWidget.vue",
+    "line": 287,
+    "color": "rgba(255, 255, 255, 0.25)",
+    "text": "inset 0 1px 0 rgba(255, 255, 255, 0.25);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
     "line": 294,
-    "color": "rgba(99, 135, 241, 0.22)",
-    "text": "border: 1px solid rgba(99, 135, 241, 0.22);"
+    "color": "#fff",
+    "text": "color: #fff;"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 296,
-    "color": "rgba(6, 10, 22, 0.72)",
-    "text": "background: rgba(6, 10, 22, 0.72);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 297,
-    "color": "#edf3ff",
-    "text": "color: #edf3ff;"
+    "line": 303,
+    "color": "#fff",
+    "text": "color: #fff;"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
     "line": 308,
-    "color": "#7284a7",
-    "text": "color: #7284a7;"
+    "color": "rgba(0, 0, 0, 0.15)",
+    "text": "text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 313,
-    "color": "rgba(125, 163, 255, 0.55)",
-    "text": "border-color: rgba(125, 163, 255, 0.55);"
+    "line": 318,
+    "color": "rgba(0, 113, 227, 0.3)",
+    "text": "0 0 0 3px rgba(0, 113, 227, 0.3),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 315,
-    "color": "rgba(79, 125, 249, 0.18)",
-    "text": "box-shadow: 0 0 0 3px rgba(79, 125, 249, 0.18);"
+    "line": 319,
+    "color": "rgba(0, 113, 227, 0.25)",
+    "text": "0 4px 16px rgba(0, 113, 227, 0.25);"
+  },
+  {
+    "file": "src/components/business/feedback/FeedbackWidget.vue",
+    "line": 325,
+    "color": "rgba(0, 113, 227, 0.35)",
+    "text": "0 4px 16px rgba(0, 113, 227, 0.35),"
+  },
+  {
+    "file": "src/components/business/feedback/FeedbackWidget.vue",
+    "line": 326,
+    "color": "rgba(0, 0, 0, 0.2)",
+    "text": "0 1px 3px rgba(0, 0, 0, 0.2),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
     "line": 327,
-    "color": "#8294b7",
-    "text": "color: #8294b7;"
+    "color": "rgba(255, 255, 255, 0.1)",
+    "text": "inset 0 1px 0 rgba(255, 255, 255, 0.1);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 332,
-    "color": "#9ab0d4",
-    "text": "color: #9ab0d4;"
+    "line": 354,
+    "color": "rgba(0, 0, 0, 0.12)",
+    "text": "0 24px 80px rgba(0, 0, 0, 0.12),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 339,
-    "color": "#cbd7ef",
-    "text": "color: #cbd7ef;"
+    "line": 355,
+    "color": "rgba(0, 0, 0, 0.08)",
+    "text": "0 8px 24px rgba(0, 0, 0, 0.08),"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 344,
-    "color": "#fca5a5",
-    "text": "color: #fca5a5;"
+    "line": 356,
+    "color": "rgba(0, 0, 0, 0.04)",
+    "text": "0 0 0 1px rgba(0, 0, 0, 0.04);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 348,
-    "color": "#86efac",
-    "text": "color: #86efac;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 361,
-    "color": "rgba(99, 135, 241, 0.22)",
-    "text": "border: 1px solid rgba(99, 135, 241, 0.22);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 363,
-    "color": "rgba(79, 125, 249, 0.08)",
-    "text": "background: rgba(79, 125, 249, 0.08);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 364,
-    "color": "#dbe7ff",
-    "text": "color: #dbe7ff;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 370,
-    "color": "rgba(125, 163, 255, 0.4)",
-    "text": "border-color: rgba(125, 163, 255, 0.4);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 371,
-    "color": "rgba(79, 125, 249, 0.12)",
-    "text": "background: rgba(79, 125, 249, 0.12);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 376,
-    "color": "#4f7df9",
-    "text": "background: linear-gradient(135deg, #4f7df9, #8b5cf6);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 376,
-    "color": "#8b5cf6",
-    "text": "background: linear-gradient(135deg, #4f7df9, #8b5cf6);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 377,
+    "line": 535,
     "color": "#fff",
     "text": "color: #fff;"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 386,
-    "color": "rgba(148, 163, 184, 0.36)",
-    "text": "border-color: rgba(148, 163, 184, 0.36);"
+    "line": 537,
+    "color": "rgba(0, 113, 227, 0.3)",
+    "text": "box-shadow: 0 4px 14px rgba(0, 113, 227, 0.3);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 387,
-    "color": "rgba(241, 245, 249, 0.94)",
-    "text": "background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.94));"
+    "line": 541,
+    "color": "rgba(0, 113, 227, 0.4)",
+    "text": "box-shadow: 0 6px 20px rgba(0, 113, 227, 0.4);"
   },
   {
     "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 387,
-    "color": "rgba(255, 255, 255, 0.96)",
-    "text": "background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.94));"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 388,
-    "color": "#475569",
-    "text": "color: #475569;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 390,
-    "color": "rgba(15, 23, 42, 0.12)",
-    "text": "0 14px 28px rgba(15, 23, 42, 0.12),"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 391,
-    "color": "rgba(255, 255, 255, 0.9)",
-    "text": "inset 1px 0 0 rgba(255, 255, 255, 0.9);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 396,
-    "color": "rgba(37, 99, 235, 0.34)",
-    "text": "border-color: rgba(37, 99, 235, 0.34);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 397,
-    "color": "#1d4ed8",
-    "text": "color: #1d4ed8;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 399,
-    "color": "rgba(37, 99, 235, 0.14)",
-    "text": "0 16px 32px rgba(37, 99, 235, 0.14),"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 400,
-    "color": "rgba(255, 255, 255, 0.9)",
-    "text": "inset 1px 0 0 rgba(255, 255, 255, 0.9);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 404,
-    "color": "rgba(148, 163, 184, 0.32)",
-    "text": "background: rgba(148, 163, 184, 0.32);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 408,
-    "color": "#dbe5f5",
-    "text": "border-color: #dbe5f5;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 409,
-    "color": "#f8fafc",
-    "text": "background: linear-gradient(180deg, #fff, #f8fafc);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 409,
-    "color": "#fff",
-    "text": "background: linear-gradient(180deg, #fff, #f8fafc);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 410,
-    "color": "rgba(15, 23, 42, 0.18)",
-    "text": "box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 414,
-    "color": "#0f172a",
-    "text": "color: #0f172a;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 420,
-    "color": "#64748b",
-    "text": "color: #64748b;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 424,
-    "color": "#1e293b",
-    "text": "color: #1e293b;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 429,
-    "color": "#dbe5f5",
-    "text": "border-color: #dbe5f5;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 430,
-    "color": "#fff",
-    "text": "background: #fff;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 431,
-    "color": "#0f172a",
-    "text": "color: #0f172a;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 435,
-    "color": "#94a3b8",
-    "text": "color: #94a3b8;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 439,
-    "color": "#475569",
-    "text": "color: #475569;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 443,
-    "color": "#334155",
-    "text": "color: #334155;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 447,
-    "color": "#dbe5f5",
-    "text": "border-color: #dbe5f5;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 448,
-    "color": "#fff",
-    "text": "background: #fff;"
-  },
-  {
-    "file": "src/components/business/feedback/FeedbackWidget.vue",
-    "line": 449,
-    "color": "#334155",
-    "text": "color: #334155;"
+    "line": 547,
+    "color": "rgba(0, 113, 227, 0.3)",
+    "text": "box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);"
   },
   {
     "file": "src/components/business/operation-logs/OperationLogFilters.vue",
-    "line": 140,
+    "line": 144,
     "color": "rgba(47, 107, 255, 0.1)",
     "text": "box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);"
   },
   {
     "file": "src/components/business/operation-logs/OperationLogFilters.vue",
-    "line": 155,
+    "line": 159,
     "color": "rgba(47, 107, 255, 0.1)",
     "text": "box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);"
   },
   {
     "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 287,
-    "color": "#ffffff",
-    "text": "backgroundColor: 'var(--color-panel, #ffffff)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 288,
-    "color": "#1e293b",
-    "text": "color: 'var(--color-text, #1e293b)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 292,
-    "color": "#3b82f6",
-    "text": "caretColor: 'var(--color-primary, #3b82f6)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 296,
-    "color": "#3b82f6",
-    "text": "borderLeftColor: 'var(--color-primary, #3b82f6)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 299,
-    "color": "rgba(59, 130, 246, 0.2)",
-    "text": "backgroundColor: 'rgba(59, 130, 246, 0.2)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 302,
-    "color": "rgba(59, 130, 246, 0.04)",
-    "text": "backgroundColor: 'rgba(59, 130, 246, 0.04)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 305,
-    "color": "#f8fafc",
-    "text": "backgroundColor: 'var(--color-panel-2, #f8fafc)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 306,
-    "color": "#94a3b8",
-    "text": "color: 'var(--color-text-subtle, #94a3b8)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 308,
-    "color": "#e2e8f0",
-    "text": "borderRight: '1px solid var(--color-border, #e2e8f0)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 311,
-    "color": "rgba(59, 130, 246, 0.08)",
-    "text": "backgroundColor: 'rgba(59, 130, 246, 0.08)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 312,
-    "color": "#1e293b",
-    "text": "color: 'var(--color-text, #1e293b)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 315,
-    "color": "#94a3b8",
-    "text": "color: 'var(--color-text-subtle, #94a3b8)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 326,
-    "color": "#e2e8f0",
-    "text": "border: '1px solid var(--color-border, #e2e8f0)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 328,
-    "color": "rgba(0, 0, 0, 0.1)",
-    "text": "boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 329,
-    "color": "#ffffff",
-    "text": "backgroundColor: 'var(--color-panel, #ffffff)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 340,
-    "color": "#3b82f6",
-    "text": "backgroundColor: 'var(--color-primary, #3b82f6)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 345,
-    "color": "rgba(59, 130, 246, 0.15)",
-    "text": "backgroundColor: 'rgba(59, 130, 246, 0.15)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 346,
-    "color": "rgba(59, 130, 246, 0.4)",
-    "text": "outline: '1px solid rgba(59, 130, 246, 0.4)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 349,
-    "color": "rgba(255, 207, 51, 0.4)",
-    "text": "backgroundColor: 'rgba(255, 207, 51, 0.4)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 352,
-    "color": "rgba(255, 207, 51, 0.8)",
-    "text": "backgroundColor: 'rgba(255, 207, 51, 0.8)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 364,
-    "color": "#1e1e2e",
-    "text": "backgroundColor: 'var(--color-panel, #1e1e2e)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 365,
-    "color": "#cdd6f4",
-    "text": "color: 'var(--color-text, #cdd6f4)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 369,
-    "color": "#89b4fa",
-    "text": "caretColor: 'var(--color-primary, #89b4fa)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 373,
-    "color": "#89b4fa",
-    "text": "borderLeftColor: 'var(--color-primary, #89b4fa)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 376,
-    "color": "rgba(137, 180, 250, 0.25)",
-    "text": "backgroundColor: 'rgba(137, 180, 250, 0.25)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 379,
-    "color": "rgba(137, 180, 250, 0.06)",
-    "text": "backgroundColor: 'rgba(137, 180, 250, 0.06)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 382,
-    "color": "#181825",
-    "text": "backgroundColor: 'var(--color-panel-2, #181825)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 383,
-    "color": "#6c7086",
-    "text": "color: 'var(--color-text-subtle, #6c7086)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 385,
-    "color": "#313244",
-    "text": "borderRight: '1px solid var(--color-border, #313244)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 388,
-    "color": "rgba(137, 180, 250, 0.10)",
-    "text": "backgroundColor: 'rgba(137, 180, 250, 0.10)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 389,
-    "color": "#cdd6f4",
-    "text": "color: 'var(--color-text, #cdd6f4)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 392,
-    "color": "#6c7086",
-    "text": "color: 'var(--color-text-subtle, #6c7086)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 403,
-    "color": "#313244",
-    "text": "border: '1px solid var(--color-border, #313244)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 405,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 406,
-    "color": "#1e1e2e",
-    "text": "backgroundColor: 'var(--color-panel, #1e1e2e)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 407,
-    "color": "#cdd6f4",
-    "text": "color: 'var(--color-text, #cdd6f4)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 418,
-    "color": "#89b4fa",
-    "text": "backgroundColor: 'var(--color-primary, #89b4fa)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 419,
-    "color": "#1e1e2e",
-    "text": "color: '#1e1e2e'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 423,
-    "color": "rgba(137, 180, 250, 0.2)",
-    "text": "backgroundColor: 'rgba(137, 180, 250, 0.2)',"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 424,
-    "color": "rgba(137, 180, 250, 0.5)",
-    "text": "outline: '1px solid rgba(137, 180, 250, 0.5)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 427,
-    "color": "rgba(249, 226, 175, 0.3)",
-    "text": "backgroundColor: 'rgba(249, 226, 175, 0.3)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 430,
-    "color": "rgba(249, 226, 175, 0.6)",
-    "text": "backgroundColor: 'rgba(249, 226, 175, 0.6)'"
-  },
-  {
-    "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 669,
+    "line": 333,
     "color": "#1e1e2e",
     "text": "background: var(--color-panel, #1e1e2e);"
   },
   {
     "file": "src/components/business/workbench/components/SqlEditor.vue",
-    "line": 673,
+    "line": 337,
     "color": "#1e1e2e",
     "text": "background: var(--color-panel, #1e1e2e);"
   },
   {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1002,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1024,
+    "file": "src/components/business/workbench/pages/SqlConvertPage.vue",
+    "line": 729,
     "color": "rgba(255, 255, 255, 0.2)",
     "text": "background: rgba(255, 255, 255, 0.2);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1179,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1309,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1318,
-    "color": "#2db551",
-    "text": "background: var(--color-success-hover, #2db551);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 1347,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/DdlPage.vue",
-    "line": 918,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1009,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1010,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1024,
-    "color": "rgba(239, 68, 68, 0.1)",
-    "text": "background: rgba(239, 68, 68, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1033,
-    "color": "rgba(99, 102, 241, 0.1)",
-    "text": "background: rgba(99, 102, 241, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1039,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1061,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1071,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1103,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1110,
-    "color": "rgba(139, 92, 246, 0.4)",
-    "text": "box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1113,
-    "color": "rgba(139, 92, 246, 0.4)",
-    "text": "box-shadow: 0 0 8px 2px rgba(139, 92, 246, 0.4);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1124,
-    "color": "rgba(139, 92, 246, 0.1)",
-    "text": "background: rgba(139, 92, 246, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1138,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1171,
-    "color": "rgba(16, 185, 129, 0.15)",
-    "text": "background: rgba(16, 185, 129, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1182,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "background: rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1193,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1211,
-    "color": "rgba(148, 163, 184, 0.6)",
-    "text": "color: rgba(148, 163, 184, 0.6);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1239,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1256,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.2);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1258,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1266,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1267,
-    "color": "rgba(255, 255, 255, 0.3)",
-    "text": "border-color: rgba(255, 255, 255, 0.3);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1275,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1303,
-    "color": "rgba(148, 163, 184, 0.5)",
-    "text": "color: rgba(148, 163, 184, 0.5);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1314,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1402,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1408,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1420,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1439,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1448,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1449,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1458,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1471,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1479,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1493,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1510,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1511,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1528,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1533,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1543,
-    "color": "#f59e0b",
-    "text": "color: #f59e0b;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1549,
-    "color": "#10b981",
-    "text": "color: #10b981;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1555,
-    "color": "#6366f1",
-    "text": "color: #6366f1;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1563,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1564,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1585,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 1586,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 801,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 814,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 843,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 855,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 893,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 921,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 932,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 950,
-    "color": "rgba(255, 255, 255, 0.15)",
-    "text": "background: rgba(255, 255, 255, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 971,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 972,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/FunctionPage.vue",
-    "line": 983,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1006,
-    "color": "rgba(88, 166, 255, 0.15)",
-    "text": "background: rgba(88, 166, 255, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1049,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1211,
-    "color": "rgba(124, 58, 237, 0.1)",
-    "text": "background: rgba(124, 58, 237, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1232,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1296,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1324,
-    "color": "rgba(255, 255, 255, 0.04)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.04);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1349,
-    "color": "rgba(46, 160, 67, 0.12)",
-    "text": "background: rgba(46, 160, 67, 0.12);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1354,
-    "color": "rgba(248, 81, 73, 0.12)",
-    "text": "background: rgba(248, 81, 73, 0.12);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 1400,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 909,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 952,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 971,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/IdToolPage.vue",
-    "line": 988,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1014,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1015,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1026,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1052,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1053,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1067,
-    "color": "rgba(239, 68, 68, 0.1)",
-    "text": "background: rgba(239, 68, 68, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1076,
-    "color": "rgba(99, 102, 241, 0.1)",
-    "text": "background: rgba(99, 102, 241, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1082,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1104,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1114,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1146,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1153,
-    "color": "rgba(139, 92, 246, 0.4)",
-    "text": "box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1156,
-    "color": "rgba(139, 92, 246, 0.4)",
-    "text": "box-shadow: 0 0 8px 2px rgba(139, 92, 246, 0.4);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1167,
-    "color": "rgba(139, 92, 246, 0.1)",
-    "text": "background: rgba(139, 92, 246, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1181,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1214,
-    "color": "rgba(16, 185, 129, 0.15)",
-    "text": "background: rgba(16, 185, 129, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1225,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "background: rgba(99, 102, 241, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1236,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1254,
-    "color": "rgba(148, 163, 184, 0.6)",
-    "text": "color: rgba(148, 163, 184, 0.6);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1282,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1299,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.2);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1301,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1309,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1310,
-    "color": "rgba(255, 255, 255, 0.3)",
-    "text": "border-color: rgba(255, 255, 255, 0.3);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1318,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1346,
-    "color": "rgba(148, 163, 184, 0.5)",
-    "text": "color: rgba(148, 163, 184, 0.5);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1357,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1445,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1451,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1463,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1482,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1491,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1492,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1501,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1514,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1522,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1536,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1553,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1554,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1571,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1576,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1586,
-    "color": "#f59e0b",
-    "text": "color: #f59e0b;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1592,
-    "color": "#10b981",
-    "text": "color: #10b981;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1598,
-    "color": "#6366f1",
-    "text": "color: #6366f1;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1606,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1607,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1628,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 1629,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 844,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 857,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 886,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 898,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 936,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 964,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 975,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/ProcedurePage.vue",
-    "line": 993,
-    "color": "rgba(255, 255, 255, 0.15)",
-    "text": "background: rgba(255, 255, 255, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 561,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 618,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 722,
-    "color": "rgba(245, 158, 11, 0.15)",
-    "text": "background: rgba(245, 158, 11, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 724,
-    "color": "#f59e0b",
-    "text": "color: #f59e0b;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 739,
-    "color": "rgba(34, 197, 94, 0.15)",
-    "text": "background: rgba(34, 197, 94, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 741,
-    "color": "#22c55e",
-    "text": "color: #22c55e;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 780,
-    "color": "#ef4444",
-    "text": "color: #ef4444;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 781,
-    "color": "#ef4444",
-    "text": "border-color: #ef4444;"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 782,
-    "color": "rgba(239, 68, 68, 0.1)",
-    "text": "background: rgba(239, 68, 68, 0.1);"
-  },
-  {
-    "file": "src/components/business/workbench/pages/RulesPage.vue",
-    "line": 974,
-    "color": "#ffffff",
-    "text": "color: #ffffff;"
   },
   {
     "file": "src/components/business/workbench/pages/ZiweiPage.vue",
@@ -2796,342 +444,6 @@
     "text": "background: rgba(255, 255, 255, 0.2);"
   },
   {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 148,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 150,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: var(--color-page-panel, rgba(255, 255, 255, 0.05));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 151,
-    "color": "rgba(200, 205, 213, 0.8)",
-    "text": "color: var(--color-page-text-subtle, rgba(200, 205, 213, 0.8));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 158,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: var(--color-page-elevated, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 159,
-    "color": "rgba(200, 205, 213, 1)",
-    "text": "color: var(--color-page-text, rgba(200, 205, 213, 1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 160,
-    "color": "rgba(255, 255, 255, 0.2)",
-    "text": "border-color: var(--color-page-border-hover, rgba(255, 255, 255, 0.2));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 168,
-    "color": "#1e293b",
-    "text": "background: var(--color-page-panel, #1e293b);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 169,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 171,
-    "color": "rgba(0, 0, 0, 0.3)",
-    "text": "box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 186,
-    "color": "#6366f1",
-    "text": "background: var(--color-brand-500, #6366f1);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 202,
-    "color": "#e2e8f0",
-    "text": "color: var(--color-page-text, #e2e8f0);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 212,
-    "color": "rgba(200, 205, 213, 0.5)",
-    "text": "color: var(--color-page-text-muted, rgba(200, 205, 213, 0.5));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 231,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 234,
-    "color": "rgba(200, 205, 213, 0.6)",
-    "text": "color: var(--color-page-text-muted, rgba(200, 205, 213, 0.6));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 241,
-    "color": "#6366f1",
-    "text": "border-color: var(--color-brand-500, #6366f1);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 242,
-    "color": "#818cf8",
-    "text": "color: var(--color-brand-400, #818cf8);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 246,
-    "color": "#6366f1",
-    "text": "border-color: var(--color-brand-500, #6366f1);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 247,
-    "color": "rgba(99, 102, 241, 0.15)",
-    "text": "background: var(--color-brand-50, rgba(99, 102, 241, 0.15));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 248,
-    "color": "#818cf8",
-    "text": "color: var(--color-brand-400, #818cf8);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 253,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: var(--color-page-border-subtle, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 266,
-    "color": "#c8cdd5",
-    "text": "color: var(--color-page-text, #c8cdd5);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 275,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "background: var(--color-page-elevated, rgba(255, 255, 255, 0.08));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 279,
-    "color": "#f87171",
-    "text": "color: var(--color-danger, #f87171);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 283,
-    "color": "rgba(248, 113, 113, 0.15)",
-    "text": "background: rgba(248, 113, 113, 0.15);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 292,
-    "color": "rgba(255, 255, 255, 0.15)",
-    "text": "border: 1px solid var(--color-page-border-subtle, rgba(255, 255, 255, 0.15));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 294,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: var(--color-page-panel, rgba(255, 255, 255, 0.05));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 295,
-    "color": "#c8cdd5",
-    "text": "color: var(--color-page-text, #c8cdd5);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 303,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: var(--color-page-elevated, rgba(255, 255, 255, 0.1));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchHeaderActions.vue",
-    "line": 304,
-    "color": "rgba(255, 255, 255, 0.25)",
-    "text": "border-color: var(--color-page-border-hover, rgba(255, 255, 255, 0.25));"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchSidebar.vue",
-    "line": 187,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "<div class=\"mx-5\" style=\"height: 1px; background: rgba(255, 255, 255, 0.06)\"></div>"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchSidebar.vue",
-    "line": 197,
-    "color": "rgba(160, 160, 165, 0.6)",
-    "text": "color: rgba(160, 160, 165, 0.6);"
-  },
-  {
-    "file": "src/components/business/workbench/WorkbenchSidebar.vue",
-    "line": 270,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "background: rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 102,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 105,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 111,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "background: rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 112,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 122,
-    "color": "#c9d1d9",
-    "text": "color: #c9d1d9;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 132,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-top: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 147,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 148,
-    "color": "#8b949e",
-    "text": "color: #8b949e;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 152,
-    "color": "rgba(255, 255, 255, 0.05)",
-    "text": "background: rgba(255, 255, 255, 0.05);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 153,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 157,
-    "color": "#6366f1",
-    "text": "background: #6366f1;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 159,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 163,
-    "color": "#4f46e5",
-    "text": "background: #4f46e5;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 167,
-    "color": "#dc2626",
-    "text": "background: #dc2626;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 169,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 173,
-    "color": "#b91c1c",
-    "text": "background: #b91c1c;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 50,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "background: rgba(0, 0, 0, 0.6);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 63,
-    "color": "#1a1d27",
-    "text": "background: #1a1d27;"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 64,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 66,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 86,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
-  },
-  {
-    "file": "src/components/common/ConfirmDialog.vue",
-    "line": 93,
-    "color": "#f0f6fc",
-    "text": "color: #f0f6fc;"
-  },
-  {
-    "file": "src/components/layout/AppHeader.vue",
-    "line": 285,
-    "color": "rgba(255, 255, 255, 0.8)",
-    "text": "background: rgba(255, 255, 255, 0.8);"
-  },
-  {
-    "file": "src/components/layout/AppHeader.vue",
-    "line": 292,
-    "color": "rgba(28, 28, 30, 0.8)",
-    "text": "background: rgba(28, 28, 30, 0.8);"
-  },
-  {
     "file": "src/components/preview/NewDesignPreview.vue",
     "line": 383,
     "color": "#6366f1",
@@ -3319,127 +631,127 @@
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 421,
+    "line": 426,
     "color": "#f0f6fc",
     "text": "color: #f0f6fc;"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 432,
+    "line": 437,
     "color": "rgba(99, 102, 241, 0.3)",
     "text": "border: 1px solid rgba(99, 102, 241, 0.3);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 458,
+    "line": 463,
     "color": "#f0f6fc",
     "text": "color: #f0f6fc;"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 588,
+    "line": 593,
     "color": "rgba(255, 255, 255, 0.02)",
     "text": "background: rgba(255, 255, 255, 0.02);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 606,
+    "line": 611,
     "color": "rgba(255, 255, 255, 0.03)",
     "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.03);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 616,
+    "line": 621,
     "color": "rgba(255, 255, 255, 0.02)",
     "text": "background: rgba(255, 255, 255, 0.02);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 621,
+    "line": 626,
     "color": "rgba(248, 81, 73, 0.3)",
     "text": "border-left: 3px solid rgba(248, 81, 73, 0.3);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 625,
+    "line": 630,
     "color": "rgba(248, 81, 73, 0.08)",
     "text": "background: rgba(248, 81, 73, 0.08);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 754,
+    "line": 759,
     "color": "rgba(255, 255, 255, 0.1)",
     "text": "border: 3px solid rgba(255, 255, 255, 0.1);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 812,
+    "line": 817,
     "color": "rgba(255, 255, 255, 0.05)",
     "text": "background: rgba(255, 255, 255, 0.05);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 821,
+    "line": 826,
     "color": "rgba(255, 255, 255, 0.08)",
     "text": "background: rgba(255, 255, 255, 0.08);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 872,
+    "line": 877,
     "color": "#f0f6fc",
     "text": "color: #f0f6fc;"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 882,
+    "line": 887,
     "color": "rgba(255, 255, 255, 0.05)",
     "text": "background: rgba(255, 255, 255, 0.05);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 891,
+    "line": 896,
     "color": "rgba(255, 255, 255, 0.1)",
     "text": "background: rgba(255, 255, 255, 0.1);"
   },
   {
     "file": "src/pages/operation-logs/index.vue",
-    "line": 950,
+    "line": 955,
     "color": "rgba(248, 81, 73, 0.2)",
     "text": "border: 1px solid rgba(248, 81, 73, 0.2);"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 176,
+    "line": 174,
     "color": "rgba(79,125,249,.3)",
     "text": "<stop offset=\"0%\" stop-color=\"rgba(79,125,249,.3)\" />"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 177,
+    "line": 175,
     "color": "rgba(139,92,246,.4)",
     "text": "<stop offset=\"50%\" stop-color=\"rgba(139,92,246,.4)\" />"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 178,
+    "line": 176,
     "color": "rgba(34,211,238,.3)",
     "text": "<stop offset=\"100%\" stop-color=\"rgba(34,211,238,.3)\" />"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 184,
+    "line": 182,
     "color": "#22d3ee",
     "text": "<circle r=\"3\" fill=\"#22d3ee\" opacity=\"0\">"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 194,
+    "line": 192,
     "color": "#4f7df9",
     "text": "<circle r=\"3\" fill=\"#4f7df9\" opacity=\"0\">"
   },
   {
     "file": "src/pages/splash/index.vue",
-    "line": 210,
+    "line": 208,
     "color": "#8b5cf6",
     "text": "<circle r=\"3\" fill=\"#8b5cf6\" opacity=\"0\">"
   },
@@ -3769,12 +1081,6 @@
   },
   {
     "file": "src/pages/splash/splash.css",
-    "line": 136,
-    "color": "#f5f5f7",
-    "text": "color: #f5f5f7;"
-  },
-  {
-    "file": "src/pages/splash/splash.css",
     "line": 1363,
     "color": "#475569",
     "text": "color:#475569;"
@@ -3980,26 +1286,20 @@
   {
     "file": "src/pages/splash/splash.css",
     "line": 180,
-    "color": "#fff",
-    "text": "color: #fff;"
-  },
-  {
-    "file": "src/pages/splash/splash.css",
-    "line": 181,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "border: 1px solid rgba(255, 255, 255, 0.1);"
+    "color": "#ffffff",
+    "text": "color: #ffffff;"
   },
   {
     "file": "src/pages/splash/splash.css",
     "line": 182,
-    "color": "rgba(255, 255, 255, 0.1)",
-    "text": "box-shadow: 0 0 40px var(--node-glow), inset 0 1px 0 rgba(255, 255, 255, 0.1);"
+    "color": "rgba(255, 255, 255, 0.15)",
+    "text": "box-shadow: 0 0 40px var(--node-glow), inset 0 1px 0 rgba(255, 255, 255, 0.15);"
   },
   {
     "file": "src/pages/splash/splash.css",
     "line": 186,
-    "color": "rgba(234, 106, 45, 0.2)",
-    "text": ".sp-db-node-oracle { top: 0; left: 50%; transform: translateX(-50%); --node-glow: rgba(234, 106, 45, 0.2); }"
+    "color": "rgba(234, 106, 45, 0.3)",
+    "text": ".sp-db-node-oracle { top: 0; left: 50%; transform: translateX(-50%); --node-glow: rgba(234, 106, 45, 0.3); }"
   },
   {
     "file": "src/pages/splash/splash.css",
@@ -4016,8 +1316,8 @@
   {
     "file": "src/pages/splash/splash.css",
     "line": 188,
-    "color": "rgba(0, 117, 143, 0.25)",
-    "text": ".sp-db-node-mysql { bottom: 0; left: 8%; --node-glow: rgba(0, 117, 143, 0.25); }"
+    "color": "rgba(0, 117, 143, 0.35)",
+    "text": ".sp-db-node-mysql { bottom: 0; left: 8%; --node-glow: rgba(0, 117, 143, 0.35); }"
   },
   {
     "file": "src/pages/splash/splash.css",
@@ -4034,8 +1334,8 @@
   {
     "file": "src/pages/splash/splash.css",
     "line": 190,
-    "color": "rgba(51, 103, 145, 0.25)",
-    "text": ".sp-db-node-pg { bottom: 0; right: 8%; --node-glow: rgba(51, 103, 145, 0.25); }"
+    "color": "rgba(51, 103, 145, 0.35)",
+    "text": ".sp-db-node-pg { bottom: 0; right: 8%; --node-glow: rgba(51, 103, 145, 0.35); }"
   },
   {
     "file": "src/pages/splash/splash.css",
@@ -4555,12 +1855,6 @@
   },
   {
     "file": "src/pages/splash/splash.css",
-    "line": 60,
-    "color": "rgba(0, 0, 0, 0.8)",
-    "text": "background: rgba(0, 0, 0, 0.8);"
-  },
-  {
-    "file": "src/pages/splash/splash.css",
     "line": 602,
     "color": "#c74634",
     "text": ".sp-preview-dot.oracle{background:#c74634}"
@@ -4732,12 +2026,6 @@
     "line": 629,
     "color": "#6b7a99",
     "text": ".sp-feat-desc{font-size:12.5px;color:#6b7a99;line-height:1.6}"
-  },
-  {
-    "file": "src/pages/splash/splash.css",
-    "line": 63,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
   },
   {
     "file": "src/pages/splash/splash.css",
@@ -5515,12 +2803,6 @@
   },
   {
     "file": "src/pages/splash/splash.css",
-    "line": 80,
-    "color": "#f5f5f7",
-    "text": ".sp-nav-logo-text { font-family: inherit; font-size: 15px; font-weight: 600; color: #f5f5f7; letter-spacing: -0.01em; }"
-  },
-  {
-    "file": "src/pages/splash/splash.css",
     "line": 800,
     "color": "#0f172a",
     "text": "[data-theme=\"light\"] .CodeMirror{background:#fff;color:#0f172a}"
@@ -6265,93 +3547,159 @@
   },
   {
     "file": "src/styles/main.css",
-    "line": 134,
+    "line": 139,
     "color": "#ffffff",
     "text": "color: #ffffff;"
   },
   {
     "file": "src/styles/main.css",
-    "line": 228,
+    "line": 233,
     "color": "#ffffff",
     "text": "color: #ffffff;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 101,
-    "color": "#ea6a2d",
-    "text": "--oracle: #ea6a2d;"
+    "line": 100,
+    "color": "#ffffff",
+    "text": "--color-btn-primary-text: #ffffff;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 102,
-    "color": "#00758f",
-    "text": "--mysql: #00758f;"
+    "line": 110,
+    "color": "#8b5cf6",
+    "text": "--color-chat-accent: #8b5cf6;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 103,
-    "color": "#336791",
-    "text": "--pg: #336791;"
+    "line": 112,
+    "color": "#c084fc",
+    "text": "--color-chat-accent-light: #c084fc;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 104,
+    "line": 114,
+    "color": "#4f7df9",
+    "text": "--color-chat-gradient-start: #4f7df9;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 117,
+    "color": "rgba(192, 132, 252, 0.5)",
+    "text": "--color-chat-glow: rgba(192, 132, 252, 0.5);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 118,
+    "color": "rgba(192, 132, 252, 0.7)",
+    "text": "--color-chat-glow-hover: rgba(192, 132, 252, 0.7);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 121,
     "color": "#ea6a2d",
     "text": "--db-oracle: #ea6a2d;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 105,
+    "line": 122,
     "color": "#00758f",
     "text": "--db-mysql: #00758f;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 106,
+    "line": 123,
     "color": "#336791",
-    "text": "--db-pg: #336791;"
+    "text": "--db-postgresql: #336791;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 107,
-    "color": "#d45a20",
-    "text": "--gradient-db-oracle: linear-gradient(135deg, #ea6a2d, #d45a20);"
+    "line": 124,
+    "color": "#c62828",
+    "text": "--db-kingbasees: #c62828;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 107,
-    "color": "#ea6a2d",
-    "text": "--gradient-db-oracle: linear-gradient(135deg, #ea6a2d, #d45a20);"
+    "line": 125,
+    "color": "#1565c0",
+    "text": "--db-dm8: #1565c0;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 108,
-    "color": "#00566f",
-    "text": "--gradient-db-mysql: linear-gradient(135deg, #00758f, #00566f);"
+    "line": 126,
+    "color": "#00695c",
+    "text": "--db-yashan: #00695c;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 108,
-    "color": "#00758f",
-    "text": "--gradient-db-mysql: linear-gradient(135deg, #00758f, #00566f);"
+    "line": 127,
+    "color": "#e65100",
+    "text": "--db-gaussdb: #e65100;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 109,
-    "color": "#1f4060",
-    "text": "--gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);"
+    "line": 128,
+    "color": "#f9a825",
+    "text": "--db-goldendb: #f9a825;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 109,
-    "color": "#336791",
-    "text": "--gradient-db-postgresql: linear-gradient(135deg, #336791, #1f4060);"
+    "line": 129,
+    "color": "#0277bd",
+    "text": "--db-oceanbase_oracle: #0277bd;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 13,
-    "color": "#ffffff",
-    "text": "--color-bg: #ffffff;"
+    "color": "#fafafa",
+    "text": "--color-bg: #fafafa;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 130,
+    "color": "#0288d1",
+    "text": "--db-oceanbase_mysql: #0288d1;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 131,
+    "color": "#00acc1",
+    "text": "--db-tdsql_mysql: #00acc1;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 132,
+    "color": "#00838f",
+    "text": "--db-tdsql_pg: #00838f;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 133,
+    "color": "#d32f2f",
+    "text": "--db-tidb: #d32f2f;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 134,
+    "color": "#4527a0",
+    "text": "--db-gbase_8a: #4527a0;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 135,
+    "color": "#512da8",
+    "text": "--db-gbase_8c: #512da8;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 136,
+    "color": "#5e35b1",
+    "text": "--db-gbase_8s: #5e35b1;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 137,
+    "color": "#ffb300",
+    "text": "--db-hivesql: #ffb300;"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6361,213 +3709,33 @@
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 142,
-    "color": "#000000",
-    "text": "--color-bg: #000000;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 143,
-    "color": "#1c1c1e",
-    "text": "--color-panel: #1c1c1e;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 144,
-    "color": "#2c2c2e",
-    "text": "--color-panel-2: #2c2c2e;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 145,
-    "color": "#3a3a3c",
-    "text": "--color-panel-3: #3a3a3c;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 148,
-    "color": "#f5f5f7",
-    "text": "--color-text: #f5f5f7;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 149,
-    "color": "#a1a1a6",
-    "text": "--color-text-subtle: #a1a1a6;"
-  },
-  {
-    "file": "src/styles/tokens.css",
     "line": 15,
-    "color": "#f5f5f7",
-    "text": "--color-panel-2: #f5f5f7;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 150,
-    "color": "#636366",
-    "text": "--color-text-muted: #636366;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 153,
-    "color": "#0a1929",
-    "text": "--color-brand-50: #0a1929;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 154,
-    "color": "#0d2137",
-    "text": "--color-brand-100: #0d2137;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 155,
-    "color": "#143352",
-    "text": "--color-brand-200: #143352;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 156,
-    "color": "#1a4a70",
-    "text": "--color-brand-300: #1a4a70;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 157,
-    "color": "#1e5f8a",
-    "text": "--color-brand-400: #1e5f8a;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 158,
-    "color": "#0a84ff",
-    "text": "--color-brand-500: #0a84ff;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 159,
-    "color": "#0a84ff",
-    "text": "--color-brand-600: #0a84ff;"
+    "color": "#f4f4f6",
+    "text": "--color-panel-2: #f4f4f6;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 16,
-    "color": "#eaeaec",
-    "text": "--color-panel-3: #eaeaec;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 160,
-    "color": "#409cff",
-    "text": "--color-brand-700: #409cff;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 161,
-    "color": "#70b8ff",
-    "text": "--color-brand-800: #70b8ff;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 165,
-    "color": "#409cff",
-    "text": "--color-accent-hover: #409cff;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 166,
-    "color": "rgba(10, 132, 255, 0.15)",
-    "text": "--color-accent-bg: rgba(10, 132, 255, 0.15);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 167,
-    "color": "rgba(10, 132, 255, 0.3)",
-    "text": "--color-accent-border: rgba(10, 132, 255, 0.3);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 169,
-    "color": "rgba(10, 132, 255, 0.3)",
-    "text": "--shadow-brand: 0 4px 16px rgba(10, 132, 255, 0.3);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 170,
-    "color": "rgba(10, 132, 255, 0.4)",
-    "text": "--shadow-brand-hover: 0 6px 24px rgba(10, 132, 255, 0.4);"
+    "color": "#fafafa",
+    "text": "--color-panel-3: #fafafa;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 171,
-    "color": "rgba(10, 132, 255, 0.25)",
-    "text": "--shadow-focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.25);"
+    "color": "rgba(0, 0, 0, 0.06)",
+    "text": "--color-page-border-subtle: rgba(0, 0, 0, 0.06);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 174,
-    "color": "#30d158",
-    "text": "--color-success: #30d158;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 175,
-    "color": "rgba(48, 209, 88, 0.15)",
-    "text": "--color-success-bg: rgba(48, 209, 88, 0.15);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 176,
-    "color": "#30d158",
-    "text": "--color-success-text: #30d158;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 178,
-    "color": "#ffd60a",
-    "text": "--color-warning: #ffd60a;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 179,
-    "color": "rgba(255, 214, 10, 0.15)",
-    "text": "--color-warning-bg: rgba(255, 214, 10, 0.15);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 181,
-    "color": "#ff453a",
-    "text": "--color-danger: #ff453a;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 182,
-    "color": "rgba(255, 69, 58, 0.15)",
-    "text": "--color-danger-bg: rgba(255, 69, 58, 0.15);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 183,
-    "color": "#ff453a",
-    "text": "--color-danger-text: #ff453a;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 185,
-    "color": "#bf5af2",
-    "text": "--color-purple: #bf5af2;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 186,
-    "color": "rgba(191, 90, 242, 0.15)",
-    "text": "--color-purple-bg: rgba(191, 90, 242, 0.15);"
+    "line": 187,
+    "color": "rgba(110, 110, 115, 0.12)",
+    "text": "--color-page-gray-bg: rgba(110, 110, 115, 0.12);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 189,
-    "color": "rgba(84, 84, 88, 0.65)",
-    "text": "--color-border: rgba(84, 84, 88, 0.65);"
+    "color": "rgba(0, 0, 0, 0.06)",
+    "text": "--color-page-border-light: rgba(0, 0, 0, 0.06);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6578,32 +3746,26 @@
   {
     "file": "src/styles/tokens.css",
     "line": 190,
-    "color": "rgba(124, 124, 128, 0.8)",
-    "text": "--color-border-hover: rgba(124, 124, 128, 0.8);"
+    "color": "rgba(0, 0, 0, 0.12)",
+    "text": "--color-page-border-hover: rgba(0, 0, 0, 0.12);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 191,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "--color-overlay: rgba(0, 0, 0, 0.6);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 193,
-    "color": "rgba(120, 120, 128, 0.4)",
-    "text": "--scrollbar-thumb: rgba(120, 120, 128, 0.4);"
+    "color": "rgba(0, 113, 227, 0.3)",
+    "text": "--color-page-border-focus: rgba(0, 113, 227, 0.3);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 194,
-    "color": "rgba(120, 120, 128, 0.6)",
-    "text": "--scrollbar-thumb-hover: rgba(120, 120, 128, 0.6);"
+    "color": "#34c759",
+    "text": "--color-page-success-alt: #34c759;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 199,
-    "color": "rgba(0, 0, 0, 0.25)",
-    "text": "--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);"
+    "line": 195,
+    "color": "#ff9500",
+    "text": "--color-page-warning-alt: #ff9500;"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6613,39 +3775,45 @@
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 200,
-    "color": "rgba(0, 0, 0, 0.35)",
-    "text": "--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);"
-  },
-  {
-    "file": "src/styles/tokens.css",
     "line": 201,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "--shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);"
+    "color": "#000000",
+    "text": "--color-bg: #000000;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 202,
-    "color": "rgba(0, 0, 0, 0.5)",
-    "text": "--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);"
+    "color": "#000000",
+    "text": "--color-panel: #000000;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 203,
-    "color": "rgba(0, 0, 0, 0.6)",
-    "text": "--shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);"
+    "color": "#0a0a0a",
+    "text": "--color-panel-2: #0a0a0a;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 206,
-    "color": "rgba(0, 0, 0, 0.3)",
-    "text": "--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);"
+    "line": 204,
+    "color": "#161616",
+    "text": "--color-panel-3: #161616;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 207,
-    "color": "rgba(0, 0, 0, 0.4)",
-    "text": "--shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);"
+    "color": "#f5f5f7",
+    "text": "--color-text: #f5f5f7;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 208,
+    "color": "#a1a1a6",
+    "text": "--color-text-subtle: #a1a1a6;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 209,
+    "color": "#636366",
+    "text": "--color-text-muted: #636366;"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6655,81 +3823,123 @@
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 210,
-    "color": "#ff6b35",
-    "text": "--oracle: #ff6b35;"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 211,
-    "color": "#00d4ff",
-    "text": "--mysql: #00d4ff;"
-  },
-  {
-    "file": "src/styles/tokens.css",
     "line": 212,
-    "color": "#5a9fd4",
-    "text": "--pg: #5a9fd4;"
+    "color": "#0a1929",
+    "text": "--color-brand-50: #0a1929;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 213,
-    "color": "#ff6b35",
-    "text": "--db-oracle: #ff6b35;"
+    "color": "#0d2137",
+    "text": "--color-brand-100: #0d2137;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 214,
-    "color": "#00d4ff",
-    "text": "--db-mysql: #00d4ff;"
+    "color": "#143352",
+    "text": "--color-brand-200: #143352;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 215,
-    "color": "#5a9fd4",
-    "text": "--db-pg: #5a9fd4;"
+    "color": "#1a4a70",
+    "text": "--color-brand-300: #1a4a70;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 216,
-    "color": "#ff4500",
-    "text": "--gradient-db-oracle: linear-gradient(135deg, #ff6b35, #ff4500);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 216,
-    "color": "#ff6b35",
-    "text": "--gradient-db-oracle: linear-gradient(135deg, #ff6b35, #ff4500);"
+    "color": "#1e5f8a",
+    "text": "--color-brand-400: #1e5f8a;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 217,
-    "color": "#00b4d8",
-    "text": "--gradient-db-mysql: linear-gradient(135deg, #00d4ff, #00b4d8);"
-  },
-  {
-    "file": "src/styles/tokens.css",
-    "line": 217,
-    "color": "#00d4ff",
-    "text": "--gradient-db-mysql: linear-gradient(135deg, #00d4ff, #00b4d8);"
+    "color": "#0a84ff",
+    "text": "--color-brand-500: #0a84ff;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 218,
-    "color": "#4a8fc4",
-    "text": "--gradient-db-postgresql: linear-gradient(135deg, #5a9fd4, #4a8fc4);"
+    "color": "#0a84ff",
+    "text": "--color-brand-600: #0a84ff;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 218,
-    "color": "#5a9fd4",
-    "text": "--gradient-db-postgresql: linear-gradient(135deg, #5a9fd4, #4a8fc4);"
+    "line": 219,
+    "color": "#409cff",
+    "text": "--color-brand-700: #409cff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 220,
+    "color": "#70b8ff",
+    "text": "--color-brand-800: #70b8ff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 224,
+    "color": "#409cff",
+    "text": "--color-accent-hover: #409cff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 225,
+    "color": "rgba(10, 132, 255, 0.15)",
+    "text": "--color-accent-bg: rgba(10, 132, 255, 0.15);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 226,
-    "color": "rgba(255, 255, 255, 0.06)",
-    "text": "--color-page-border-subtle: rgba(255, 255, 255, 0.06);"
+    "color": "rgba(10, 132, 255, 0.3)",
+    "text": "--color-accent-border: rgba(10, 132, 255, 0.3);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 228,
+    "color": "rgba(10, 132, 255, 0.3)",
+    "text": "--shadow-brand: 0 4px 16px rgba(10, 132, 255, 0.3);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 229,
+    "color": "rgba(10, 132, 255, 0.4)",
+    "text": "--shadow-brand-hover: 0 6px 24px rgba(10, 132, 255, 0.4);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 230,
+    "color": "rgba(10, 132, 255, 0.25)",
+    "text": "--shadow-focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.25);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 233,
+    "color": "#30d158",
+    "text": "--color-success: #30d158;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 234,
+    "color": "rgba(48, 209, 88, 0.15)",
+    "text": "--color-success-bg: rgba(48, 209, 88, 0.15);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 235,
+    "color": "#30d158",
+    "text": "--color-success-text: #30d158;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 237,
+    "color": "#ffd60a",
+    "text": "--color-warning: #ffd60a;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 238,
+    "color": "rgba(255, 214, 10, 0.15)",
+    "text": "--color-warning-bg: rgba(255, 214, 10, 0.15);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6739,33 +3949,45 @@
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 242,
-    "color": "rgba(161, 161, 166, 0.12)",
-    "text": "--color-page-gray-bg: rgba(161, 161, 166, 0.12);"
+    "line": 240,
+    "color": "#ff453a",
+    "text": "--color-danger: #ff453a;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 244,
-    "color": "rgba(255, 255, 255, 0.08)",
-    "text": "--color-page-border-light: rgba(255, 255, 255, 0.08);"
+    "line": 241,
+    "color": "#e03e34",
+    "text": "--color-danger-hover: #e03e34;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 242,
+    "color": "rgba(255, 69, 58, 0.15)",
+    "text": "--color-danger-bg: rgba(255, 69, 58, 0.15);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 243,
+    "color": "#ff453a",
+    "text": "--color-danger-text: #ff453a;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 245,
-    "color": "rgba(255, 255, 255, 0.15)",
-    "text": "--color-page-border-hover: rgba(255, 255, 255, 0.15);"
+    "color": "#bf5af2",
+    "text": "--color-purple: #bf5af2;"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 246,
-    "color": "rgba(10, 132, 255, 0.5)",
-    "text": "--color-page-border-focus: rgba(10, 132, 255, 0.5);"
+    "color": "rgba(191, 90, 242, 0.15)",
+    "text": "--color-purple-bg: rgba(191, 90, 242, 0.15);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 249,
-    "color": "#34c759",
-    "text": "--color-page-success-alt: #34c759;"
+    "color": "rgba(120, 120, 128, 0.4)",
+    "text": "--color-border: rgba(120, 120, 128, 0.4);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6776,14 +3998,32 @@
   {
     "file": "src/styles/tokens.css",
     "line": 250,
-    "color": "#ffd60a",
-    "text": "--color-page-warning-alt: #ffd60a;"
+    "color": "rgba(148, 148, 156, 0.6)",
+    "text": "--color-border-hover: rgba(148, 148, 156, 0.6);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 251,
+    "color": "rgba(0, 0, 0, 0.6)",
+    "text": "--color-overlay: rgba(0, 0, 0, 0.6);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 253,
+    "color": "rgba(120, 120, 128, 0.4)",
+    "text": "--scrollbar-thumb: rgba(120, 120, 128, 0.4);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 254,
+    "color": "rgba(120, 120, 128, 0.6)",
+    "text": "--scrollbar-thumb-hover: rgba(120, 120, 128, 0.6);"
   },
   {
     "file": "src/styles/tokens.css",
     "line": 259,
-    "color": "rgba(255, 255, 255, 0.72)",
-    "text": "background: rgba(255, 255, 255, 0.72);"
+    "color": "rgba(0, 0, 0, 0.25)",
+    "text": "--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6793,9 +4033,33 @@
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 265,
-    "color": "rgba(29, 29, 31, 0.72)",
-    "text": "background: rgba(29, 29, 31, 0.72);"
+    "line": 260,
+    "color": "rgba(0, 0, 0, 0.35)",
+    "text": "--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 261,
+    "color": "rgba(0, 0, 0, 0.4)",
+    "text": "--shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 262,
+    "color": "rgba(0, 0, 0, 0.5)",
+    "text": "--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 263,
+    "color": "rgba(0, 0, 0, 0.6)",
+    "text": "--shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 269,
+    "color": "#ffffff",
+    "text": "--color-btn-primary-text: #ffffff;"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6805,9 +4069,99 @@
   },
   {
     "file": "src/styles/tokens.css",
+    "line": 273,
+    "color": "rgba(0, 0, 0, 0.3)",
+    "text": "--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 274,
+    "color": "rgba(0, 0, 0, 0.4)",
+    "text": "--shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 277,
+    "color": "#ff6b35",
+    "text": "--db-oracle: #ff6b35;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 278,
+    "color": "#00d4ff",
+    "text": "--db-mysql: #00d4ff;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 279,
+    "color": "#5a9fd4",
+    "text": "--db-postgresql: #5a9fd4;"
+  },
+  {
+    "file": "src/styles/tokens.css",
     "line": 28,
     "color": "#60a5fa",
     "text": "--color-brand-400: #60a5fa;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 280,
+    "color": "#ef5350",
+    "text": "--db-kingbasees: #ef5350;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 281,
+    "color": "#42a5f5",
+    "text": "--db-dm8: #42a5f5;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 282,
+    "color": "#26a69a",
+    "text": "--db-yashan: #26a69a;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 283,
+    "color": "#ff7043",
+    "text": "--db-gaussdb: #ff7043;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 284,
+    "color": "#ffca28",
+    "text": "--db-goldendb: #ffca28;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 285,
+    "color": "#29b6f6",
+    "text": "--db-oceanbase_oracle: #29b6f6;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 286,
+    "color": "#4fc3f7",
+    "text": "--db-oceanbase_mysql: #4fc3f7;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 287,
+    "color": "#4dd0e1",
+    "text": "--db-tdsql_mysql: #4dd0e1;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 288,
+    "color": "#26c6da",
+    "text": "--db-tdsql_pg: #26c6da;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 289,
+    "color": "#ef5350",
+    "text": "--db-tidb: #ef5350;"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6817,9 +4171,39 @@
   },
   {
     "file": "src/styles/tokens.css",
+    "line": 290,
+    "color": "#7e57c2",
+    "text": "--db-gbase_8a: #7e57c2;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 291,
+    "color": "#9575cd",
+    "text": "--db-gbase_8c: #9575cd;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 292,
+    "color": "#b39ddb",
+    "text": "--db-gbase_8s: #b39ddb;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 293,
+    "color": "#ffca28",
+    "text": "--db-hivesql: #ffca28;"
+  },
+  {
+    "file": "src/styles/tokens.css",
     "line": 30,
     "color": "#0071e3",
     "text": "--color-brand-600: #0071e3;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 301,
+    "color": "rgba(255, 255, 255, 0.1)",
+    "text": "--color-page-border-subtle: rgba(255, 255, 255, 0.1);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6829,9 +4213,57 @@
   },
   {
     "file": "src/styles/tokens.css",
+    "line": 317,
+    "color": "rgba(161, 161, 166, 0.12)",
+    "text": "--color-page-gray-bg: rgba(161, 161, 166, 0.12);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 319,
+    "color": "rgba(255, 255, 255, 0.12)",
+    "text": "--color-page-border-light: rgba(255, 255, 255, 0.12);"
+  },
+  {
+    "file": "src/styles/tokens.css",
     "line": 32,
     "color": "#004494",
     "text": "--color-brand-800: #004494;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 320,
+    "color": "rgba(255, 255, 255, 0.2)",
+    "text": "--color-page-border-hover: rgba(255, 255, 255, 0.2);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 321,
+    "color": "rgba(10, 132, 255, 0.5)",
+    "text": "--color-page-border-focus: rgba(10, 132, 255, 0.5);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 324,
+    "color": "#34c759",
+    "text": "--color-page-success-alt: #34c759;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 325,
+    "color": "#ffd60a",
+    "text": "--color-page-warning-alt: #ffd60a;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 334,
+    "color": "rgba(255, 255, 255, 0.72)",
+    "text": "--glass-bg: rgba(255, 255, 255, 0.72);"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 339,
+    "color": "rgba(29, 29, 31, 0.72)",
+    "text": "--glass-bg: rgba(29, 29, 31, 0.72);"
   },
   {
     "file": "src/styles/tokens.css",
@@ -6908,84 +4340,90 @@
   {
     "file": "src/styles/tokens.css",
     "line": 53,
+    "color": "#e0352b",
+    "text": "--color-danger-hover: #e0352b;"
+  },
+  {
+    "file": "src/styles/tokens.css",
+    "line": 54,
     "color": "rgba(255, 59, 48, 0.12)",
     "text": "--color-danger-bg: rgba(255, 59, 48, 0.12);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 54,
+    "line": 55,
     "color": "#dc3545",
     "text": "--color-danger-text: #dc3545;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 56,
+    "line": 57,
     "color": "#af52de",
     "text": "--color-purple: #af52de;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 57,
+    "line": 58,
     "color": "rgba(175, 82, 222, 0.12)",
     "text": "--color-purple-bg: rgba(175, 82, 222, 0.12);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 60,
+    "line": 61,
     "color": "#d2d2d7",
     "text": "--color-border: #d2d2d7;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 61,
+    "line": 62,
     "color": "#b0b0b5",
     "text": "--color-border-hover: #b0b0b5;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 62,
+    "line": 63,
     "color": "rgba(0, 0, 0, 0.4)",
     "text": "--color-overlay: rgba(0, 0, 0, 0.4);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 64,
+    "line": 65,
     "color": "#c7c7cc",
     "text": "--scrollbar-thumb: #c7c7cc;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 65,
+    "line": 66,
     "color": "#aeaeb2",
     "text": "--scrollbar-thumb-hover: #aeaeb2;"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 79,
+    "line": 80,
     "color": "rgba(0, 0, 0, 0.04)",
     "text": "--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 80,
+    "line": 81,
     "color": "rgba(0, 0, 0, 0.06)",
     "text": "--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 81,
+    "line": 82,
     "color": "rgba(0, 0, 0, 0.08)",
     "text": "--shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 82,
+    "line": 83,
     "color": "rgba(0, 0, 0, 0.1)",
     "text": "--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);"
   },
   {
     "file": "src/styles/tokens.css",
-    "line": 83,
+    "line": 84,
     "color": "rgba(0, 0, 0, 0.12)",
     "text": "--shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);"
   }

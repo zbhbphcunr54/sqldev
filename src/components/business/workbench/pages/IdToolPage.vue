@@ -1,20 +1,19 @@
-<!-- [2026-05-06] 更新：证件工具页面 - 完成态界面 -->
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useWorkbenchStore } from '@/stores/workbench'
 import { useClipboard } from '@/composables/useClipboard'
+import FormSelect from '@/components/common/FormSelect.vue'
 import {
   calcIdCardCheckDigit,
   validateBirthYmd8,
   randomSequenceByGender,
   validateUscc18,
+  validateOrgCode,
   validateLegacy15,
-  generateLegacyThreeCert
+  generateLegacyThreeCert,
+  calcUsccCheckChar,
+  randomUsccBody
 } from '@/features/id-tools'
 
-const router = useRouter()
-const _store = useWorkbenchStore()
 const { copyToClipboard } = useClipboard()
 
 // ==================== 状态 ====================
@@ -25,10 +24,7 @@ const provinces = ref<{ code: string; name: string }[]>([])
 const citiesByProvince = ref<Record<string, { code: string; name: string }[]>>({})
 const countiesByCity = ref<Record<string, { code: string; name: string }[]>>({})
 
-// 用户菜单
-const showUserMenu = ref(false)
-
-// ID Card 状态 - 预填默认值
+// ID Card 状态
 const idProvinceCode = ref('110000')
 const idCityCode = ref('110000')
 const idCountyCode = ref('110101')
@@ -41,10 +37,12 @@ const idGenerateMsg = ref('')
 const idGenerateMsgType = ref<'success' | 'error' | ''>('')
 const idVerifyInput = ref('')
 const idVerifyMsg = ref('')
-const idVerifyMsgType = ref<'success' | 'error' | ''>('')
+const idVerifyMsgType = ref<'success' | 'error' | 'neutral' | ''>('')
 const idCopyDone = ref(false)
+const idVerifyKey = ref(0)
+const idLastVerifyResult = ref('')
 
-// USCC 状态 - 预填默认值
+// USCC 状态
 const usccProvinceCode = ref('110000')
 const usccCityCode = ref('110000')
 const usccCountyCode = ref('110101')
@@ -56,10 +54,11 @@ const usccGenerateMsg = ref('')
 const usccGenerateMsgType = ref<'success' | 'error' | ''>('')
 const usccVerifyInput = ref('')
 const usccVerifyMsg = ref('')
-const usccVerifyMsgType = ref<'success' | 'error' | ''>('')
+const usccVerifyMsgType = ref<'success' | 'error' | 'neutral' | ''>('')
 const usccCopyDone = ref(false)
+const usccVerifyKey = ref(0)
+const usccLastVerifyResult = ref('')
 
-// 旧版三证解析结果
 const usccLegacyParsed = ref<{
   bizRegNo: string
   orgCode: string
@@ -73,34 +72,69 @@ const idCountyOptions = computed(() => countiesByCity.value[idCityCode.value] ||
 const usccCityOptions = computed(() => citiesByProvince.value[usccProvinceCode.value] || [])
 const usccCountyOptions = computed(() => countiesByCity.value[usccCityCode.value] || [])
 
-// 年份选项
+const currentYear = new Date().getFullYear()
 const yearOptions = computed(() => {
-  const years = []
-  for (let y = 1940; y <= 2010; y++) {
+  const years: string[] = []
+  for (let y = 1940; y <= currentYear; y++) {
     years.push(String(y))
   }
   return years
 })
 
-// 月份选项
 const monthOptions = computed(() => {
-  const months = []
+  const months: string[] = []
   for (let m = 1; m <= 12; m++) {
     months.push(String(m).padStart(2, '0'))
   }
   return months
 })
 
-// 日期选项
 const dayOptions = computed(() => {
-  const days = []
+  const days: string[] = []
   for (let d = 1; d <= 31; d++) {
     days.push(String(d).padStart(2, '0'))
   }
   return days
 })
 
-// ==================== 登记管理部门与机构类别映射（GB 32100-2015）====================
+// ==================== FormSelect 选项 ====================
+
+const provinceFormOptions = computed(() =>
+  provinces.value.map((p) => ({ value: p.code, label: `${p.name} (${p.code})` }))
+)
+const idCityFormOptions = computed(() =>
+  idCityOptions.value.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+)
+const usccCityFormOptions = computed(() =>
+  usccCityOptions.value.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+)
+const idCountyFormOptions = computed(() =>
+  idCountyOptions.value.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+)
+const usccCountyFormOptions = computed(() =>
+  usccCountyOptions.value.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))
+)
+const yearFormOptions = computed(() =>
+  yearOptions.value.map((y) => ({ value: y, label: `${y}年` }))
+)
+const monthFormOptions = computed(() =>
+  monthOptions.value.map((m) => ({ value: m, label: `${m}月` }))
+)
+const dayFormOptions = computed(() => dayOptions.value.map((d) => ({ value: d, label: `${d}日` })))
+
+const codeModeOptions: { value: string; label: string }[] = [
+  { value: 'uscc18', label: '统一社会信用代码（18位）' },
+  { value: 'org15', label: '旧版三证（工商/组织机构/税务）' }
+]
+
+const deptFormOptions = computed(() =>
+  deptOptions.map((d) => ({ value: d.value, label: `${d.label} (${d.value})` }))
+)
+const orgTypeFormOptions = computed(() =>
+  currentOrgTypes.value.map((o) => ({ value: o.value, label: `${o.label} (${o.value})` }))
+)
+
+// ==================== 登记管理部门与机构类别映射 ====================
 
 interface OrgTypeItem {
   value: string
@@ -113,7 +147,6 @@ interface DeptItem {
   orgTypes: OrgTypeItem[]
 }
 
-// 登记管理部门及其对应的机构类别（层级关联）
 const deptOptions: DeptItem[] = [
   {
     value: '1',
@@ -224,47 +257,68 @@ const deptOptions: DeptItem[] = [
   }
 ]
 
-// 根据选中的登记管理部门获取对应的机构类别选项
 const currentOrgTypes = computed(() => {
   const dept = deptOptions.find((d) => d.value === usccDeptCode.value)
   return dept?.orgTypes || []
 })
 
+// ==================== 行政区划存在性检查 ====================
+
+function regionCodeExists(code: string): boolean {
+  if (provinces.value.some((p) => p.code === code)) return true
+  for (const list of Object.values(citiesByProvince.value)) {
+    if (list.some((c) => c.code === code)) return true
+  }
+  for (const list of Object.values(countiesByCity.value)) {
+    if (list.some((c) => c.code === code)) return true
+  }
+  return false
+}
+
 // ==================== 数据加载 ====================
+
+interface RegionJsonItem {
+  code: string
+  name: string
+  cityList?: RegionCityItem[]
+}
+
+interface RegionCityItem {
+  code: string
+  name: string
+  areaList?: { code: string; name: string }[]
+}
 
 async function loadRegionData(): Promise<void> {
   regionLoading.value = true
   regionLoadError.value = ''
   try {
-    const response = await fetch('./region_codes_2024.json')
-    const data = await response.json()
+    const baseUrl = import.meta.env.BASE_URL || '/'
+    const response = await fetch(baseUrl + 'region_codes_2024.json')
+    const data: RegionJsonItem[] = await response.json()
 
-    const provMap: Record<string, { code: string; name: string }[]> = {}
-    provinces.value = Object.entries(data)
-      .filter(([code]) => code.endsWith('0000'))
-      .map(([code, name]) => {
-        provMap[code] = []
-        return { code, name: String(name) }
-      })
+    provinces.value = data.map((p) => ({ code: p.code, name: p.name }))
 
     const cityMap: Record<string, { code: string; name: string }[]> = {}
-    Object.entries(data)
-      .filter(([code]) => code.endsWith('00') && !code.endsWith('0000'))
-      .forEach(([code, name]) => {
-        const province = code.slice(0, 2) + '0000'
-        if (!cityMap[province]) cityMap[province] = []
-        cityMap[province].push({ code, name: String(name) })
-      })
-    citiesByProvince.value = cityMap
-
     const countyMap: Record<string, { code: string; name: string }[]> = {}
-    Object.entries(data)
-      .filter(([code]) => !code.endsWith('00'))
-      .forEach(([code, name]) => {
-        const city = code.slice(0, 4) + '00'
-        if (!countyMap[city]) countyMap[city] = []
-        countyMap[city].push({ code, name: String(name) })
-      })
+
+    for (const province of data) {
+      if (province.cityList) {
+        for (const city of province.cityList) {
+          if (!cityMap[province.code]) cityMap[province.code] = []
+          cityMap[province.code].push({ code: city.code, name: city.name })
+
+          if (city.areaList) {
+            for (const area of city.areaList) {
+              if (!countyMap[city.code]) countyMap[city.code] = []
+              countyMap[city.code].push({ code: area.code, name: area.name })
+            }
+          }
+        }
+      }
+    }
+
+    citiesByProvince.value = cityMap
     countiesByCity.value = countyMap
   } catch {
     regionLoadError.value = '行政区划数据加载失败'
@@ -299,37 +353,53 @@ function generateIdNumber(): void {
   }
 }
 
-function validateIdNumber(): void {
+async function validateIdNumber(): Promise<void> {
   const input = idVerifyInput.value.trim()
 
   if (!input) {
+    idVerifyKey.value++
     idVerifyMsg.value = '请输入身份证号码'
     idVerifyMsgType.value = 'error'
+    idLastVerifyResult.value = ''
     return
   }
 
   if (!/^\d{17}[\dX]$/i.test(input)) {
+    idVerifyKey.value++
     idVerifyMsg.value = '格式错误'
     idVerifyMsgType.value = 'error'
+    idLastVerifyResult.value = input + '|格式错误'
     return
   }
 
   const birthYmd = input.slice(6, 14)
   if (!validateBirthYmd8(birthYmd)) {
+    idVerifyKey.value++
     idVerifyMsg.value = '出生日期不合法'
     idVerifyMsgType.value = 'error'
+    idLastVerifyResult.value = input + '|出生日期不合法'
     return
   }
 
   const expectedCheck = calcIdCardCheckDigit(input.slice(0, 17))
   if (!expectedCheck || expectedCheck.toUpperCase() !== input[17].toUpperCase()) {
+    idVerifyKey.value++
     idVerifyMsg.value = '校验码错误'
     idVerifyMsgType.value = 'error'
+    idLastVerifyResult.value = input + '|校验码错误'
     return
   }
 
-  idVerifyMsg.value = '已重新校验，结果与上次一致：校验通过：身份证号码合法'
-  idVerifyMsgType.value = 'success'
+  const resultKey = input + '|校验通过'
+  if (resultKey === idLastVerifyResult.value) {
+    idVerifyMsg.value = '校验结果与上次相同'
+    idVerifyMsgType.value = 'neutral'
+  } else {
+    idVerifyKey.value++
+    idVerifyMsg.value = '校验通过：身份证号码合法'
+    idVerifyMsgType.value = 'success'
+    idLastVerifyResult.value = resultKey
+  }
 }
 
 async function copyIdNumber(): Promise<void> {
@@ -346,43 +416,33 @@ async function copyIdNumber(): Promise<void> {
 // ==================== 统一社会信用代码功能 ====================
 
 function generateUsccCode(): void {
-  if (usccCodeMode.value === 'uscc18') {
-    const regionCode = usccCountyCode.value || usccCityCode.value || usccProvinceCode.value
-    const body9 = Array.from(
-      { length: 9 },
-      () => '0123456789ABCDEFGHJKLMNPQRTUWXY'[Math.floor(Math.random() * 31)]
-    ).join('')
+  const regionCode = usccCountyCode.value || usccCityCode.value || usccProvinceCode.value
 
+  if (usccCodeMode.value === 'uscc18') {
+    const body9 = randomUsccBody(9)
     const base17 = usccDeptCode.value + usccOrgTypeCode.value + regionCode + body9
-    const weights = [1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28]
-    let sum = 0
-    for (let i = 0; i < 17; i++) {
-      sum += parseInt(base17[i]) * weights[i]
+    const checkChar = calcUsccCheckChar(base17)
+
+    if (!checkChar) {
+      usccGenerateMsg.value = '生成失败：校验码计算错误'
+      usccGenerateMsgType.value = 'error'
+      return
     }
-    const p = 31
-    const m0 = sum % p
-    const checkChar = p - m0 === 31 ? '0' : String.fromCharCode(55 + (p - m0))
 
     usccGeneratedCode.value = base17 + checkChar
     usccGenerateMsg.value = '已生成统一社会信用代码'
     usccGenerateMsgType.value = 'success'
     usccLegacyParsed.value = null
   } else {
-    // 旧版三证：工商注册号(15位) + 组织机构代码(9位) + 税务登记号(15位)
-    const region6 = regionCode // 6位行政区划码
-    const result = generateLegacyThreeCert(region6)
+    const result = generateLegacyThreeCert(regionCode)
 
     if (result) {
-      // 工商注册号 = 区划码(6位) + 随机(9位)
       usccGeneratedCode.value = result.businessRegNo
-
-      // 解析三证
       usccLegacyParsed.value = {
         bizRegNo: result.businessRegNo,
         orgCode: result.orgCode,
         taxCode: result.taxNo
       }
-
       usccGenerateMsg.value = '已生成旧版三证号码（工商/组织机构/税务）'
       usccGenerateMsgType.value = 'success'
     } else {
@@ -393,33 +453,57 @@ function generateUsccCode(): void {
 }
 
 function validateUsccCode(): void {
-  const input = usccVerifyInput.value.trim().replace(/-/g, '')
+  const raw = usccVerifyInput.value.trim()
 
-  if (!input) {
+  if (!raw) {
+    usccVerifyKey.value++
     usccVerifyMsg.value = '请输入证件号码'
     usccVerifyMsgType.value = 'error'
+    usccLastVerifyResult.value = ''
     return
   }
 
-  let result: { type: 'success' | 'error'; text: string }
+  // 去掉中划线后的值
+  const noDash = raw.replace(/-/g, '')
 
-  if (input.length === 18 || input.length === 17) {
-    result = validateUscc18(input.length === 17 ? input : input.replace(/-/g, ''))
-      ? { type: 'success', text: '校验通过：统一社会信用代码合法' }
-      : { type: 'error', text: '校验失败' }
-  } else if (input.length === 15 || input.length === 13) {
-    result = validateLegacy15(input.length === 13 ? input.slice(0, 8) + input.slice(10) : input)
-      ? { type: 'success', text: '校验通过：组织机构代码合法' }
-      : { type: 'error', text: '校验失败' }
-  } else if (input.length === 8 || (input.includes('-') && input.split('-').length === 2)) {
-    // 纯组织机构代码
-    result = { type: 'success', text: '校验通过：组织机构代码合法' }
-  } else {
-    result = { type: 'error', text: '格式错误' }
+  // 统一社会信用代码：18位，字母数字混合（不含 I/O/S/V/Z）
+  if (/^[0-9A-HJ-NPQRTUWXY]{18}$/i.test(noDash)) {
+    const result = validateUscc18(noDash.toUpperCase(), regionCodeExists)
+    applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    return
   }
 
-  usccVerifyMsg.value = result.text
-  usccVerifyMsgType.value = result.type
+  // 组织机构代码：8位主体 + 可选中划线 + 1位校验（数字或X）
+  const orgMatch = raw.match(/^([0-9A-Z]{8})-?([0-9X])$/i)
+  if (orgMatch) {
+    const result = validateOrgCode(orgMatch[1] + orgMatch[2])
+    applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    return
+  }
+
+  // 旧版15位号码（工商注册号 / 税务登记号）
+  if (/^\d{15}$/.test(noDash)) {
+    const result = validateLegacy15(noDash, regionCodeExists)
+    applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    return
+  }
+
+  const fallbackMsg =
+    '无法识别的证件格式，支持：统一社会信用代码（18位）、组织机构代码（9位）、旧版15位号码'
+  applyUsccResult(raw, fallbackMsg, 'error')
+}
+
+function applyUsccResult(input: string, msg: string, type: 'success' | 'error'): void {
+  const resultKey = `${input}|${msg}|${type}`
+  if (resultKey === usccLastVerifyResult.value) {
+    usccVerifyMsg.value = '校验结果与上次相同'
+    usccVerifyMsgType.value = 'neutral'
+  } else {
+    usccVerifyKey.value++
+    usccVerifyMsg.value = msg
+    usccVerifyMsgType.value = type
+    usccLastVerifyResult.value = resultKey
+  }
 }
 
 async function copyUsccCode(): Promise<void> {
@@ -433,27 +517,11 @@ async function copyUsccCode(): Promise<void> {
   }
 }
 
-// ==================== 导航功能 ====================
-
-function goBack(): void {
-  router.push('/')
-}
-
-function toggleUserMenu(): void {
-  showUserMenu.value = !showUserMenu.value
-}
-
-function closeUserMenu(): void {
-  showUserMenu.value = false
-}
-
 // ==================== 级联选择 ====================
 
-// 当登记管理部门变化时，重置机构类别选择
 watch(
   () => usccDeptCode.value,
   () => {
-    // 重置为该部门下的第一个选项
     const dept = deptOptions.find((d) => d.value === usccDeptCode.value)
     if (dept && dept.orgTypes.length > 0) {
       usccOrgTypeCode.value = dept.orgTypes[0].value
@@ -464,7 +532,6 @@ watch(
 // ==================== 生命周期 ====================
 
 onMounted(() => {
-  // 初始化机构类别为市场监管下的企业
   const defaultDept = deptOptions.find((d) => d.value === '9')
   if (defaultDept && defaultDept.orgTypes.length > 0) {
     usccOrgTypeCode.value = defaultDept.orgTypes[0].value
@@ -475,143 +542,60 @@ onMounted(() => {
 
 <template>
   <div class="id-tool-page">
-    <!-- 顶部导航栏 -->
-    <header class="page-header">
-      <div class="header-left">
-        <h1 class="header-title">测试工具</h1>
-        <span class="header-subtitle">身份证号码与统一社会信用代码生成／校验</span>
-      </div>
+    <!-- 顶栏 -->
+    <div class="idt-top-bar">
+      <h1 class="idt-title">证件工具</h1>
+      <p class="idt-subtitle">身份证 / 统一社会信用代码生成与校验</p>
+    </div>
 
-      <div class="header-right">
-        <button class="btn-back" @click="goBack">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M19 12H5M12 5L5 12L12 19"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>返回首页</span>
-        </button>
-
-        <div class="menu-wrapper">
-          <button class="btn-menu" @click="toggleUserMenu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="6" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="18" r="1.5" fill="currentColor" />
-            </svg>
-          </button>
-
-          <!-- 用户菜单浮层 -->
-          <Transition name="fade">
-            <div v-if="showUserMenu" class="user-menu" @click.stop>
-              <div class="user-info">
-                <div class="user-avatar">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" />
-                    <path
-                      d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </div>
-                <div class="user-details">
-                  <span class="user-name">开发者</span>
-                  <span class="user-email">developer@local.dev</span>
-                </div>
-              </div>
-              <div class="menu-divider"></div>
-              <button class="menu-item">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M16 17L21 12L16 7M21 12H9"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-                <span>退出登录</span>
-              </button>
-            </div>
-          </Transition>
-          <div v-if="showUserMenu" class="menu-backdrop" @click="closeUserMenu"></div>
-        </div>
-      </div>
-    </header>
-
-    <!-- 主内容区 -->
     <main class="page-content">
       <!-- 左栏：身份证号码工具 -->
       <section class="tool-card">
-        <!-- 生成区块 -->
         <div class="card-section">
           <h2 class="section-title">生成身份证号码</h2>
 
-          <!-- 表单 -->
           <div class="form-grid">
-            <!-- 省份 + 城市 -->
             <div class="form-row">
               <div class="form-field">
                 <label>省份</label>
-                <select v-model="idProvinceCode" :disabled="regionLoading">
-                  <option value="">请选择</option>
-                  <option v-for="p in provinces" :key="p.code" :value="p.code">
-                    {{ p.name }} ({{ p.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="idProvinceCode"
+                  :options="provinceFormOptions"
+                  :disabled="regionLoading"
+                  placeholder="请选择"
+                />
               </div>
               <div class="form-field">
                 <label>城市</label>
-                <select v-model="idCityCode" :disabled="regionLoading || !idProvinceCode">
-                  <option value="">请选择</option>
-                  <option v-for="c in idCityOptions" :key="c.code" :value="c.code">
-                    {{ c.name }} ({{ c.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="idCityCode"
+                  :options="idCityFormOptions"
+                  :disabled="regionLoading || !idProvinceCode"
+                  placeholder="请选择"
+                />
               </div>
             </div>
 
-            <!-- 区/县 + 出生日期 -->
             <div class="form-row">
               <div class="form-field">
                 <label>区 / 县</label>
-                <select v-model="idCountyCode" :disabled="regionLoading || !idCityCode">
-                  <option value="">请选择</option>
-                  <option v-for="c in idCountyOptions" :key="c.code" :value="c.code">
-                    {{ c.name }} ({{ c.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="idCountyCode"
+                  :options="idCountyFormOptions"
+                  :disabled="regionLoading || !idCityCode"
+                  placeholder="请选择"
+                />
               </div>
               <div class="form-field">
-                <label class="link-label">出生日期</label>
+                <label>出生日期</label>
                 <div class="date-inputs">
-                  <select v-model="idBirthYear">
-                    <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}年</option>
-                  </select>
-                  <select v-model="idBirthMonth">
-                    <option v-for="m in monthOptions" :key="m" :value="m">{{ m }}月</option>
-                  </select>
-                  <select v-model="idBirthDay">
-                    <option v-for="d in dayOptions" :key="d" :value="d">{{ d }}日</option>
-                  </select>
+                  <FormSelect v-model="idBirthYear" :options="yearFormOptions" />
+                  <FormSelect v-model="idBirthMonth" :options="monthFormOptions" />
+                  <FormSelect v-model="idBirthDay" :options="dayFormOptions" />
                 </div>
               </div>
             </div>
 
-            <!-- 性别 -->
             <div class="form-row">
               <div class="form-field gender-field">
                 <label>性别</label>
@@ -631,22 +615,19 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 生成按钮 -->
           <button class="btn-generate" :disabled="regionLoading" @click="generateIdNumber">
-            <span>生成</span>
+            生成
           </button>
 
-          <!-- 结果输出区 -->
           <div class="result-area">
             <div class="result-box" :class="{ active: idGeneratedNumber }">
-              <input
-                type="text"
-                :value="idGeneratedNumber"
-                readonly
-                placeholder="生成结果将显示在这里"
-                class="result-input"
-              />
-              <button class="btn-copy" :disabled="!idGeneratedNumber" @click="copyIdNumber">
+              <input type="text" :value="idGeneratedNumber" readonly class="result-input" />
+              <button
+                class="btn-copy"
+                :disabled="!idGeneratedNumber"
+                aria-label="复制"
+                @click="copyIdNumber"
+              >
                 <svg v-if="!idCopyDone" width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <rect
                     x="8"
@@ -676,33 +657,32 @@ onMounted(() => {
               </button>
             </div>
 
-            <!-- 成功提示条 -->
-            <Transition name="slide-fade">
-              <div v-if="idGenerateMsg && idGenerateMsgType === 'success'" class="toast success">
+            <Transition name="toast-fade" mode="out-in">
+              <div
+                v-if="idGenerateMsg"
+                :key="'id-gen-' + idVerifyKey"
+                class="toast"
+                :class="idGenerateMsgType"
+              >
                 {{ idGenerateMsg }}
               </div>
             </Transition>
           </div>
         </div>
 
-        <!-- 校验区块 -->
         <div class="card-section">
           <h3 class="section-subtitle">校验身份证号码</h3>
 
           <div class="verify-form">
-            <label class="verify-label">输入身份证号码</label>
-            <input
-              v-model="idVerifyInput"
-              type="text"
-              placeholder="110101199001015678X"
-              maxlength="18"
-              class="verify-input"
-            />
-            <button class="btn-verify" @click="validateIdNumber">
-              <span>校验</span>
-            </button>
-            <Transition name="slide-fade">
-              <div v-if="idVerifyMsg && idVerifyMsgType === 'success'" class="toast success">
+            <input v-model="idVerifyInput" type="text" maxlength="18" class="verify-input" />
+            <button class="btn-verify" @click="validateIdNumber">校验</button>
+            <Transition name="toast-fade" mode="out-in">
+              <div
+                v-if="idVerifyMsg"
+                :key="'id-v-' + idVerifyKey"
+                class="toast"
+                :class="idVerifyMsgType"
+              >
                 {{ idVerifyMsg }}
               </div>
             </Transition>
@@ -712,97 +692,85 @@ onMounted(() => {
 
       <!-- 右栏：统一社会信用代码工具 -->
       <section class="tool-card">
-        <!-- 生成区块 -->
         <div class="card-section">
           <h2 class="section-title">生成统一社会信用代码</h2>
 
-          <!-- 表单 -->
           <div class="form-grid">
-            <!-- 证件体系 -->
             <div class="form-row full-width">
               <div class="form-field">
                 <label>证件体系</label>
-                <select v-model="usccCodeMode" class="mode-select">
-                  <option value="uscc18">统一社会信用代码（18位）</option>
-                  <option value="org15">旧版三证（工商/组织机构/税务）</option>
-                </select>
+                <FormSelect v-model="usccCodeMode" :options="codeModeOptions" />
               </div>
             </div>
 
-            <!-- 登记管理部门 + 机构类别代码 -->
             <div class="form-row">
               <div class="form-field">
                 <label>登记管理部门</label>
-                <select v-model="usccDeptCode" :disabled="regionLoading">
-                  <option value="">请选择</option>
-                  <option v-for="d in deptOptions" :key="d.value" :value="d.value">
-                    {{ d.label }} ({{ d.value }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="usccDeptCode"
+                  :options="deptFormOptions"
+                  :disabled="regionLoading"
+                  placeholder="请选择"
+                />
               </div>
               <div class="form-field">
                 <label>机构类别代码</label>
-                <select v-model="usccOrgTypeCode" :disabled="regionLoading">
-                  <option value="">请选择</option>
-                  <option v-for="o in currentOrgTypes" :key="o.value" :value="o.value">
-                    {{ o.label }} ({{ o.value }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="usccOrgTypeCode"
+                  :options="orgTypeFormOptions"
+                  :disabled="regionLoading"
+                  placeholder="请选择"
+                />
               </div>
             </div>
 
-            <!-- 省份 + 城市 -->
             <div class="form-row">
               <div class="form-field">
                 <label>省份</label>
-                <select v-model="usccProvinceCode" :disabled="regionLoading">
-                  <option value="">请选择</option>
-                  <option v-for="p in provinces" :key="p.code" :value="p.code">
-                    {{ p.name }} ({{ p.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="usccProvinceCode"
+                  :options="provinceFormOptions"
+                  :disabled="regionLoading"
+                  placeholder="请选择"
+                />
               </div>
               <div class="form-field">
                 <label>城市</label>
-                <select v-model="usccCityCode" :disabled="regionLoading || !usccProvinceCode">
-                  <option value="">请选择</option>
-                  <option v-for="c in usccCityOptions" :key="c.code" :value="c.code">
-                    {{ c.name }} ({{ c.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="usccCityCode"
+                  :options="usccCityFormOptions"
+                  :disabled="regionLoading || !usccProvinceCode"
+                  placeholder="请选择"
+                />
               </div>
             </div>
 
-            <!-- 区/县 -->
             <div class="form-row full-width">
               <div class="form-field">
                 <label>区 / 县</label>
-                <select v-model="usccCountyCode" :disabled="regionLoading || !usccCityCode">
-                  <option value="">请选择</option>
-                  <option v-for="c in usccCountyOptions" :key="c.code" :value="c.code">
-                    {{ c.name }} ({{ c.code }})
-                  </option>
-                </select>
+                <FormSelect
+                  v-model="usccCountyCode"
+                  :options="usccCountyFormOptions"
+                  :disabled="regionLoading || !usccCityCode"
+                  placeholder="请选择"
+                />
               </div>
             </div>
           </div>
 
-          <!-- 生成按钮 -->
           <button class="btn-generate" :disabled="regionLoading" @click="generateUsccCode">
-            <span>生成</span>
+            生成
           </button>
 
-          <!-- 结果输出区 -->
           <div class="result-area">
             <div class="result-box" :class="{ active: usccGeneratedCode }">
-              <input
-                type="text"
-                :value="usccGeneratedCode"
-                readonly
-                placeholder="生成结果将显示在这里"
-                class="result-input"
-              />
-              <button class="btn-copy" :disabled="!usccGeneratedCode" @click="copyUsccCode">
+              <input type="text" :value="usccGeneratedCode" readonly class="result-input" />
+              <button
+                class="btn-copy"
+                :disabled="!usccGeneratedCode"
+                aria-label="复制"
+                @click="copyUsccCode"
+              >
                 <svg v-if="!usccCopyDone" width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <rect
                     x="8"
@@ -832,8 +800,7 @@ onMounted(() => {
               </button>
             </div>
 
-            <!-- 详细解析区块（旧版三证） -->
-            <Transition name="slide-fade">
+            <Transition name="toast-fade" mode="out-in">
               <div v-if="usccLegacyParsed" class="detail-panel">
                 <div class="detail-item">
                   <span class="detail-label">工商注册号：</span>
@@ -850,11 +817,12 @@ onMounted(() => {
               </div>
             </Transition>
 
-            <!-- 成功提示条 -->
-            <Transition name="slide-fade">
+            <Transition name="toast-fade" mode="out-in">
               <div
-                v-if="usccGenerateMsg && usccGenerateMsgType === 'success'"
-                class="toast success"
+                v-if="usccGenerateMsg"
+                :key="'uscc-gen-' + usccVerifyKey"
+                class="toast"
+                :class="usccGenerateMsgType"
               >
                 {{ usccGenerateMsg }}
               </div>
@@ -862,23 +830,19 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 校验区块 -->
         <div class="card-section">
           <h3 class="section-subtitle">校验统一社会信用代码</h3>
 
           <div class="verify-form">
-            <label class="verify-label">输入代码（支持统一社会信用代码／旧版三证）</label>
-            <input
-              v-model="usccVerifyInput"
-              type="text"
-              placeholder="91310106MA1FY4BN0X 或 3DWTNK2M-7"
-              class="verify-input"
-            />
-            <button class="btn-verify" @click="validateUsccCode">
-              <span>校验</span>
-            </button>
-            <Transition name="slide-fade">
-              <div v-if="usccVerifyMsg && usccVerifyMsgType === 'success'" class="toast success">
+            <input v-model="usccVerifyInput" type="text" class="verify-input" />
+            <button class="btn-verify" @click="validateUsccCode">校验</button>
+            <Transition name="toast-fade" mode="out-in">
+              <div
+                v-if="usccVerifyMsg"
+                :key="'uscc-v-' + usccVerifyKey"
+                class="toast"
+                :class="usccVerifyMsgType"
+              >
                 {{ usccVerifyMsg }}
               </div>
             </Transition>
@@ -892,195 +856,64 @@ onMounted(() => {
 <style scoped>
 /* ==================== 页面布局 ==================== */
 .id-tool-page {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: 0;
   background: var(--color-page-bg);
   color: var(--color-page-text);
 }
 
-/* ==================== 顶部导航栏 ==================== */
-.page-header {
+/* 顶栏 */
+.idt-top-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: var(--color-page-elevated);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.header-subtitle {
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-back {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-back:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
-}
-
-.btn-menu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-page-text-subtle);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-menu:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--color-page-text);
-}
-
-/* 用户菜单 */
-.menu-wrapper {
-  position: relative;
-}
-
-.user-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 240px;
-  background: var(--color-page-elevated);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  overflow: hidden;
-}
-
-.user-info {
-  display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  height: calc(var(--header-height) + 12px);
+  padding: 0 24px;
+  flex-shrink: 0;
+  background: var(--color-page-panel);
 }
 
-.user-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(88, 166, 255, 0.15);
-  border-radius: 50%;
-  color: var(--color-page-link);
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
+.idt-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1;
   color: var(--color-page-text);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
 }
 
-.user-email {
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
+.idt-subtitle {
+  font-size: var(--text-xs);
+  color: var(--color-page-text-muted);
+  margin: 0;
+  line-height: 1;
 }
 
-.menu-divider {
-  height: 1px;
-  background: var(--color-page-border-subtle);
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 16px;
-  background: transparent;
-  border: none;
-  color: var(--color-page-text);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.menu-item svg {
-  color: var(--color-page-text-subtle);
-}
-
-.menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-}
-
-/* ==================== 主内容区 ==================== */
 .page-content {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 24px;
+  gap: 12px;
+  padding: 24px 12px 12px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 /* ==================== 工具卡片 ==================== */
 .tool-card {
   display: flex;
   flex-direction: column;
-  background: var(--color-page-elevated);
+  background: var(--color-page-panel);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
 .card-section {
-  padding: 20px;
+  padding: 18px;
 }
 
 .card-section:not(:last-child) {
@@ -1088,15 +921,15 @@ onMounted(() => {
 }
 
 .section-title {
-  margin: 0 0 16px;
-  font-size: 15px;
+  margin: 0 0 14px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--color-page-text);
 }
 
 .section-subtitle {
-  margin: 0 0 12px;
-  font-size: 14px;
+  margin: 0 0 10px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-page-text);
 }
@@ -1105,13 +938,13 @@ onMounted(() => {
 .form-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .form-row.full-width {
@@ -1121,42 +954,12 @@ onMounted(() => {
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .form-field label {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--color-page-text-subtle);
-}
-
-.form-field .link-label {
-  color: var(--color-page-link);
-}
-
-.form-field select,
-.form-field input {
-  padding: 8px 12px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.form-field select:focus,
-.form-field input:focus {
-  border-color: var(--color-page-link);
-}
-
-.form-field select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.form-field select option {
-  background: var(--color-page-elevated);
 }
 
 /* 日期输入组 */
@@ -1165,7 +968,7 @@ onMounted(() => {
   gap: 4px;
 }
 
-.date-inputs select {
+.date-inputs > * {
   flex: 1;
   min-width: 0;
 }
@@ -1184,14 +987,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  background: var(--color-page-bg);
+  padding: 6px 14px;
+  background: var(--color-page-input);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-page-text-subtle);
-  font-size: 13px;
+  font-size: var(--text-sm);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .radio-item input {
@@ -1203,19 +1006,19 @@ onMounted(() => {
   height: 16px;
   border: 2px solid var(--color-page-border-subtle);
   border-radius: 50%;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .radio-item.active {
-  border-color: var(--color-purple);
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--color-purple);
+  border-color: var(--color-page-brand);
+  background: var(--color-page-brand-bg);
+  color: var(--color-page-brand);
 }
 
 .radio-item.active .radio-circle {
-  border-color: var(--color-purple);
-  background: var(--color-purple);
-  box-shadow: inset 0 0 0 3px var(--color-page-bg);
+  border-color: var(--color-page-brand);
+  background: var(--color-page-brand);
+  box-shadow: inset 0 0 0 3px var(--color-page-panel);
 }
 
 /* ==================== 按钮 ==================== */
@@ -1223,21 +1026,20 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 16px;
-  margin-top: 16px;
-  background: var(--color-purple);
+  padding: 6px 24px;
+  margin-top: 12px;
+  background: var(--color-page-brand);
   border: none;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  color: var(--color-btn-primary-text);
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--duration-fast);
 }
 
 .btn-generate:hover:not(:disabled) {
-  background: var(--color-purple);
+  background: var(--color-page-brand-hover);
 }
 
 .btn-generate:disabled {
@@ -1247,21 +1049,17 @@ onMounted(() => {
 
 /* ==================== 结果展示 ==================== */
 .result-area {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .result-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--color-page-bg);
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--color-page-input);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-}
-
-.result-box.active {
-  border-color: var(--color-page-success-alt);
+  border-radius: var(--radius-sm);
 }
 
 .result-input {
@@ -1269,32 +1067,29 @@ onMounted(() => {
   background: transparent;
   border: none;
   color: var(--color-page-text);
-  font-family: var(--font-code);
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
   outline: none;
-}
-
-.result-input::placeholder {
-  color: var(--color-page-link);
+  padding: 4px 0;
 }
 
 .btn-copy {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-page-text-subtle);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--duration-fast);
 }
 
 .btn-copy:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
+  background: var(--color-page-elevated);
+  border-color: var(--color-page-border-hover);
   color: var(--color-page-text);
 }
 
@@ -1306,10 +1101,10 @@ onMounted(() => {
 /* 详细解析区块 */
 .detail-panel {
   margin-top: 8px;
-  padding: 12px;
-  background: var(--color-page-bg);
+  padding: 10px;
+  background: var(--color-page-input);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .detail-item {
@@ -1317,74 +1112,65 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .detail-item:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-page-border-subtle);
+  padding-bottom: 6px;
   margin-bottom: 4px;
 }
 
 .detail-label {
-  color: var(--color-page-link);
+  color: var(--color-page-brand);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .detail-value {
   color: var(--color-page-text);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
 }
 
 /* ==================== 提示条 ==================== */
 .toast {
   margin-top: 8px;
-  padding: 12px 16px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
 }
 
 .toast.success {
-  background: rgba(46, 160, 67, 0.12);
-  color: var(--color-page-success-alt);
+  background: var(--color-page-success-bg);
+  color: var(--color-page-success);
 }
 
 .toast.error {
-  background: rgba(248, 81, 73, 0.12);
+  background: var(--color-page-danger-bg);
   color: var(--color-page-danger);
+}
+
+.toast.neutral {
+  background: var(--color-page-input);
+  color: var(--color-page-text-subtle);
 }
 
 /* ==================== 校验区块 ==================== */
 .verify-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.verify-label {
-  font-size: 12px;
-  color: var(--color-page-link);
+  gap: 8px;
 }
 
 .verify-input {
-  padding: 10px 12px;
-  background: var(--color-page-bg);
+  padding: 6px 10px;
+  background: var(--color-page-input);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-page-text);
-  font-family: var(--font-code);
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
   outline: none;
-  transition: border-color 0.15s;
-}
-
-.verify-input:focus {
-  border-color: var(--color-page-link);
-}
-
-.verify-input::placeholder {
-  color: var(--color-page-link);
 }
 
 .btn-verify {
@@ -1392,48 +1178,40 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   align-self: flex-start;
-  gap: 6px;
-  padding: 7px 16px;
-  background: var(--color-purple);
+  padding: 6px 24px;
+  background: var(--color-page-brand);
   border: none;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  color: var(--color-btn-primary-text);
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--duration-fast);
 }
 
 .btn-verify:hover {
-  background: var(--color-purple);
+  background: var(--color-page-brand-hover);
 }
 
 /* ==================== 过渡动画 ==================== */
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-.slide-fade-enter-active {
+.toast-fade-enter-active {
   transition: all 0.2s ease-out;
 }
 
-.slide-fade-leave-active {
+.toast-fade-leave-active {
   transition: all 0.15s ease-in;
 }
 
-.slide-fade-enter-from,
-.slide-fade-leave-to {
+.toast-fade-enter-from,
+.toast-fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+/* ==================== 焦点与滚动条 ==================== */
+.verify-input:focus-visible,
+.result-input:focus-visible {
+  box-shadow: none;
 }
 
 /* ==================== 响应式 ==================== */
@@ -1444,24 +1222,13 @@ onMounted(() => {
 }
 
 @media (max-width: 600px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-  }
-
-  .header-right {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .form-row {
     grid-template-columns: 1fr;
   }
 
   .page-content {
-    padding: 16px;
+    padding: 6px 8px 8px;
+    gap: 8px;
   }
 }
 </style>

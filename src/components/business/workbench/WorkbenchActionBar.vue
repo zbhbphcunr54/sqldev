@@ -225,7 +225,7 @@ function clearAll(): void {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 5px 16px;
+  padding: 8px 16px 12px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-panel);
   flex-shrink: 0;

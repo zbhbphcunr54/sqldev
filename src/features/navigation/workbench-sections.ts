@@ -1,14 +1,10 @@
-export const WORKBENCH_DEFAULT_SECTION = 'ddl'
+export const WORKBENCH_DEFAULT_SECTION = 'sql-convert'
 
 export const WORKBENCH_SECTIONS = [
-  'ddl',
-  'function',
-  'procedure',
+  'sql-convert',
   'id-tool',
   'ziwei',
-  'rules',
   'ai-config',
-  'app-config',
   'op-logs'
 ] as const
 
@@ -22,14 +18,10 @@ export interface WorkbenchSectionNavItem {
 }
 
 export const WORKBENCH_SECTION_NAV_ITEMS: readonly WorkbenchSectionNavItem[] = [
-  { section: 'ddl', to: '/workbench/ddl', label: 'DDL 翻译', icon: 'DDL' },
-  { section: 'function', to: '/workbench/function', label: '函数翻译', icon: 'Fn' },
-  { section: 'procedure', to: '/workbench/procedure', label: '存储过程', icon: 'Pr' },
+  { section: 'sql-convert', to: '/workbench/sql-convert', label: 'SQL 转换', icon: 'SQL' },
   { section: 'id-tool', to: '/workbench/id-tool', label: '证件号码', icon: 'ID' },
   { section: 'ziwei', to: '/workbench/ziwei', label: '紫微斗数', icon: 'ZW' },
-  { section: 'rules', to: '/workbench/rules', label: '映射规则', icon: 'RL' },
   { section: 'ai-config', to: '/workbench/ai-config', label: 'AI 助手配置', icon: 'AI' },
-  { section: 'app-config', to: '/workbench/app-config', label: '应用配置', icon: 'APP' },
   { section: 'op-logs', to: '/workbench/op-logs', label: '操作日志', icon: 'LOG' }
 ]
 

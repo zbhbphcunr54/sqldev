@@ -1,461 +1,83 @@
-<!-- [2026-05-06] 紫微斗数命盘页面 - 完整深色主题设计 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useZiweiForm } from '@/composables/useZiweiForm'
+import { useZiweiAI } from '@/composables/useZiweiAI'
+import { useZiweiChart } from '@/composables/useZiweiChart'
 import {
-  computeZiweiChart,
-  validateBirthDate,
-  validateBirthTime,
-  type ZiweiChart
-} from '@/features/ziwei/compute'
-import { requestZiweiAnalysis } from '@/api/ziwei-analysis'
+  getStarColorClass,
+  getHuaTagClass,
+  getPalaceLevelClass
+} from '@/features/ziwei/star-classifier'
+import { UI_LABELS } from '@/features/ziwei/ui-constants'
+import FormSelect from '@/components/common/FormSelect.vue'
+import ChartLegend from '@/components/business/ziwei/ChartLegend.vue'
 
-const router = useRouter()
+const {
+  calendarType,
+  solarYear,
+  solarMonth,
+  solarDay,
+  lunarYear,
+  lunarMonth,
+  lunarDay,
+  birthHour,
+  birthMinute,
+  gender,
+  birthProvince,
+  birthCity,
+  profileName,
+  school,
+  showUserMenu,
+  generating,
+  status,
+  chart,
+  correctionText,
+  shiChenCorrectionNotice,
+  yearFormOptions,
+  monthOptions,
+  dayOptions,
+  hourOptions,
+  minuteOptions,
+  provinceOptions,
+  cityOptions,
+  selectedLongitudeText,
+  calendarTypeOptions,
+  toggleUserMenu,
+  closeUserMenu,
+  handleGenerate
+} = useZiweiForm()
 
-// ==================== 状态 ====================
+const {
+  aiLoading,
+  aiError,
+  aiResult,
+  aiQuestionInput,
+  aiQuestionLoading,
+  aiQuestionAnswer,
+  aiQuestionError,
+  currentStep,
+  aiButtonLabel,
+  handleAiAnalysis,
+  handleAiQuestion
+} = useZiweiAI(chart, profileName, gender, school)
 
-const showUserMenu = ref(false)
+const { palaceGrid, centerInfo, chartMeta, daXianTimeline, liuNianTimeline } = useZiweiChart(
+  chart,
+  calendarType,
+  solarYear,
+  lunarYear
+)
 
-// 输入表单状态
-const calendarType = ref<'solar' | 'lunar'>('solar')
-const solarYear = ref('1990')
-const solarMonth = ref('06')
-const solarDay = ref('15')
-const lunarYear = ref('1990')
-const lunarMonth = ref('5')
-const lunarDay = ref('23')
-const lunarLeap = ref(false)
-const birthHour = ref('12')
-const birthMinute = ref('00')
-const gender = ref<'male' | 'female'>('male')
-const profileName = ref('')
-const school = ref<'traditional' | 'flying'>('traditional')
-
-// 排盘状态
-const generating = ref(false)
-const status = ref<{ type: 'success' | 'error' | ''; text: string }>({ type: '', text: '' })
-
-// 命盘数据
-const chart = ref<ZiweiChart | null>(null)
-
-// AI 状态
-const aiLoading = ref(false)
-const aiError = ref('')
-const aiResult = ref<{
-  overview: string
-  sections: Array<{ title: string; summary: string }>
-} | null>(null)
-const aiQuestionInput = ref('')
-const aiQuestionLoading = ref(false)
-const aiQuestionAnswer = ref('')
-
-// ==================== 选项数据 ====================
-
-const yearOptions = computed(() => {
-  const years = []
-  for (let y = 2010; y >= 1920; y--) years.push(String(y))
-  return years
-})
-
-const monthOptions = computed(() => {
-  return Array.from({ length: 12 }, (_, i) => ({
-    value: String(i + 1).padStart(2, '0'),
-    label: String(i + 1).padStart(2, '0')
-  }))
-})
-
-const dayOptions = computed(() => {
-  return Array.from({ length: 31 }, (_, i) => ({
-    value: String(i + 1).padStart(2, '0'),
-    label: String(i + 1).padStart(2, '0')
-  }))
-})
-
-const hourOptions = computed(() => {
-  return Array.from({ length: 24 }, (_, i) => ({
-    value: String(i).padStart(2, '0'),
-    label: `${String(i).padStart(2, '0')}时`
-  }))
-})
-
-const minuteOptions = computed(() => {
-  return Array.from({ length: 60 }, (_, i) => ({
-    value: String(i).padStart(2, '0'),
-    label: `${String(i).padStart(2, '0')}分`
-  }))
-})
-
-// 历史命例
-const historyExamples = [
-  { value: '', label: '快速加载历史命例' },
-  { value: '1', label: '示例命例 1' },
-  { value: '2', label: '示例命例 2' }
-]
-const selectedHistory = ref('')
-
-// 当前步骤
-const currentStep = computed(() => {
-  if (!chart.value) return 1
-  if (!aiResult.value) return 2
-  return 3
-})
-
-const aiButtonLabel = computed(() => {
-  if (aiLoading.value) return 'AI 分析中...'
-  if (aiResult.value) return '重新生成'
-  return 'AI 深度解盘'
-})
-
-// ==================== 函数 ====================
-
-function toggleUserMenu(): void {
-  showUserMenu.value = !showUserMenu.value
-}
-
-function closeUserMenu(): void {
-  showUserMenu.value = false
-}
-
-function goBack(): void {
-  router.push('/')
-}
-
-function clearForm(): void {
-  profileName.value = ''
-  calendarType.value = 'solar'
-  solarYear.value = '1990'
-  solarMonth.value = '06'
-  solarDay.value = '15'
-  birthHour.value = '12'
-  birthMinute.value = '00'
-  gender.value = 'male'
-  chart.value = null
-  aiResult.value = null
-  status.value = { type: '', text: '' }
-}
-
-async function handleGenerate(): Promise<void> {
-  generating.value = true
-  status.value = { type: '', text: '' }
-
-  try {
-    const dateValidation =
-      calendarType.value === 'solar'
-        ? validateBirthDate(calendarType.value, solarYear.value, solarMonth.value, solarDay.value)
-        : validateBirthDate(
-            calendarType.value,
-            lunarYear.value,
-            lunarMonth.value,
-            lunarDay.value,
-            lunarLeap.value
-          )
-
-    if (!dateValidation.valid) {
-      status.value = { type: 'error', text: dateValidation.error || '出生日期无效' }
-      return
-    }
-
-    const timeValidation = validateBirthTime(birthHour.value, birthMinute.value)
-    if (!timeValidation.valid) {
-      status.value = { type: 'error', text: timeValidation.error || '出生时间无效' }
-      return
-    }
-
-    const result = computeZiweiChart({
-      calendarType: calendarType.value,
-      solarYear: solarYear.value,
-      solarMonth: solarMonth.value,
-      solarDay: solarDay.value,
-      lunarYear: lunarYear.value,
-      lunarMonth: lunarMonth.value,
-      lunarDay: lunarDay.value,
-      lunarLeap: lunarLeap.value,
-      birthHour: birthHour.value,
-      birthMinute: birthMinute.value,
-      gender: gender.value,
-      school: school.value,
-      clockMode: 'standard',
-      timezoneOffset: '8',
-      longitude: '120.000',
-      xiaoXianRule: 'yearBranch',
-      liuNianRule: 'yearForward'
-    })
-
-    if (result.ok && result.chart) {
-      chart.value = result.chart
-      status.value = { type: 'success', text: '排盘完成。' }
-    } else {
-      status.value = { type: 'error', text: result.error || '排盘失败' }
-    }
-  } catch (err) {
-    status.value = { type: 'error', text: String(err) }
-  } finally {
-    generating.value = false
-  }
-}
-
-async function handleAiAnalysis(): Promise<void> {
-  if (!chart.value) return
-
-  aiLoading.value = true
-  aiError.value = ''
-
-  try {
-    const result = await requestZiweiAnalysis({
-      chart: chart.value,
-      profileName: profileName.value,
-      gender: gender.value,
-      school: school.value
-    })
-
-    if (result.ok && result.data) {
-      aiResult.value = result.data
-    } else {
-      aiError.value = result.error || 'AI 分析失败'
-    }
-  } catch (err) {
-    aiError.value = String(err)
-  } finally {
-    aiLoading.value = false
-  }
-}
-
-async function handleAiQuestion(): Promise<void> {
-  if (!aiQuestionInput.value.trim() || !aiResult.value) return
-  aiQuestionLoading.value = true
-  try {
-    // TODO: 实际调用 API
-    aiQuestionAnswer.value = '问答功能开发中...'
-  } finally {
-    aiQuestionLoading.value = false
-  }
-}
-
-// ==================== 命盘辅助函数 ====================
-
-const palaceMap: Record<string, string> = {
-  子: '命宫',
-  丑: '兄弟',
-  寅: '夫妻',
-  卯: '子女',
-  辰: '财帛',
-  巳: '疾厄',
-  午: '迁移',
-  未: '仆役',
-  申: '官禄',
-  酉: '田宅',
-  戌: '父母',
-  亥: '福德'
-}
-
-function getPalaceName(branch: string): string {
-  return palaceMap[branch] || branch
-}
-
-// 星曜类型分类
-function getStarType(starName: string): 'main' | 'luck' | 'power' | 'harm' | 'assist' {
-  // 主星（甲级星）
-  const mainStars = [
-    '紫微',
-    '天机',
-    '太阳',
-    '武曲',
-    '天同',
-    '廉贞',
-    '天府',
-    '太阴',
-    '贪狼',
-    '巨门',
-    '天相',
-    '天梁',
-    '七杀',
-    '破军'
-  ]
-  if (mainStars.includes(starName)) return 'main'
-
-  // 吉星
-  const luckStars = ['左辅', '右弼', '文昌', '文曲', '天魁', '天钺', '禄存', '天马']
-  if (luckStars.includes(starName)) return 'luck'
-
-  // 煞星
-  const harmStars = ['擎羊', '陀罗', '火星', '铃星', '地空', '地劫', '天空']
-  if (harmStars.includes(starName)) return 'harm'
-
-  // 四化
-  if (['化禄', '化权', '化科', '化忌'].includes(starName)) return 'power'
-
-  return 'assist'
-}
-
-function getStarClass(starType: string): string {
-  const map: Record<string, string> = {
-    main: 'star-main',
-    luck: 'star-luck',
-    power: 'star-power',
-    harm: 'star-harm',
-    assist: 'star-assist'
-  }
-  return map[starType] || 'star-assist'
-}
-
-function getHuaTagClass(hua: string): string {
-  const map: Record<string, string> = {
-    禄: 'tag-lu',
-    权: 'tag-quan',
-    科: 'tag-ke',
-    忌: 'tag-ji'
-  }
-  return map[hua] || ''
-}
-
-// 星曜属性（庙旺利平陷）
-function getPalaceLevelClass(level: string): string {
-  const map: Record<string, string> = {
-    庙: 'level-miao',
-    旺: 'level-wang',
-    利: 'level-li',
-    平: 'level-ping',
-    陷: 'level-xian'
-  }
-  return map[level] || ''
-}
-
-// 4×4 宫格顺序
-// 布局:
-// 1.寅(夫妻)  2.卯(子女)  3.辰(财帛)  4.巳(疾厄)
-// 5.子(命宫)   6.[中央]   7.[中央]    8.午(迁移)
-// 9.亥(福德)   10.[中央]  11.[中央]   12.未(仆役)
-// 13.戌(父母) 14.酉(田宅) 15.申(官禄) 16.丑(兄弟)
-const palaceOrder = [
-  '寅',
-  '卯',
-  '辰',
-  '巳',
-  '子',
-  null,
-  null,
-  '午',
-  '亥',
-  null,
-  null,
-  '未',
-  '戌',
-  '酉',
-  '申',
-  '丑'
-]
-
-// 构建命盘网格数据
-const palaceGrid = computed(() => {
-  if (!chart.value?.boardCells) return []
-
-  const cells = chart.value.boardCells
-
-  return palaceOrder.map((branch) => {
-    if (!branch) return null
-
-    const cell = cells.find((c) => c.branch === branch)
-    if (!cell) return null
-
-    const allStars: Array<{
-      name: string
-      type: string
-      hua?: string
-      level?: string
-    }> = []
-
-    // 主星
-    ;(cell.mainStars || []).forEach((s) => {
-      allStars.push({
-        name: s.name,
-        type: getStarType(s.name),
-        hua: s.huaTags?.[0],
-        level: s.level
-      })
-    })
-
-    // 辅星
-    ;(cell.assistStars || []).forEach((s) => {
-      allStars.push({
-        name: s.name,
-        type: getStarType(s.name)
-      })
-    })
-
-    // 杂星
-    ;(cell.miscStars || []).forEach((s) => {
-      allStars.push({
-        name: s.name,
-        type: getStarType(s.name)
-      })
-    })
-
-    return {
-      branch,
-      palace: getPalaceName(branch),
-      ganzhi: cell.stemBranch || '',
-      stars: allStars,
-      changSheng: cell.changSheng || '',
-      daXianAge: cell.daXian || '',
-      isMing: branch === chart.value?.center?.mingBranch,
-      isShen: branch === chart.value?.center?.shenBranch
-    }
-  })
-})
-
-// 中央信息区数据
-const centerInfo = computed(() => {
-  if (!chart.value?.center) return null
-  const c = chart.value.center
-
-  // 计算当前年龄
-  let age = ''
-  if (c.yearGanZhi) {
-    const birthYear = parseInt(calendarType.value === 'solar' ? solarYear.value : lunarYear.value)
-    const currentYear = new Date().getFullYear()
-    age = String(currentYear - birthYear)
-  }
-
-  return {
-    yearGanzhi: c.yearGanZhi || '',
-    bureau: c.bureauLabel || '',
-    gender: c.genderLabel || '',
-    lunar: c.lunarText || '',
-    yinYang: c.naYinLabel || '',
-    mingZhu: c.mingZhu || '',
-    mingBranch: c.mingBranch || '',
-    shenBranch: c.shenBranch || '',
-    shenZhu: c.shenZhu || '',
-    age: age,
-    currentYear: new Date().getFullYear()
-  }
-})
-
-// 元信息（标题行右侧）
-const chartMeta = computed(() => {
-  if (!centerInfo.value) return ''
-  return `${centerInfo.value.yearGanzhi}·${centerInfo.value.bureau}·${centerInfo.value.gender}命`
-})
-
-// 大限数据（10个年龄段）
-const daXianTimeline = computed(() => {
-  const timeline = chart.value?.daXianTimeline || []
-  return timeline.slice(0, 10)
-})
-
-// 流年数据
-const liuNianTimeline = computed(() => {
-  const timeline = chart.value?.liuNianTimeline || []
-  return timeline.slice(0, 12)
-})
+const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
 </script>
 
 <template>
-  <div class="ziwei-page">
+  <div class="flex flex-col min-h-full bg-bg text-text">
     <!-- 顶部导航栏 -->
-    <header class="page-header">
-      <div class="header-left">
-        <div class="header-icon">
+    <header
+      class="flex items-center justify-between shrink-0 px-6 ziwei-header bg-panel"
+    >
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-accentBg text-accent">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
             <path
@@ -471,39 +93,35 @@ const liuNianTimeline = computed(() => {
             <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
           </svg>
         </div>
-        <div class="header-title-group">
-          <h1 class="header-title">紫微斗数命盘</h1>
-          <span class="header-subtitle">公历／农历输入，自动排出完整方盘命盘</span>
+        <div class="flex flex-col gap-0.5">
+          <h1 class="text-base font-semibold text-text">{{ UI_LABELS.PAGE_TITLE }}</h1>
+          <span class="text-xs text-subtle">{{ UI_LABELS.PAGE_SUBTITLE }}</span>
         </div>
       </div>
-
-      <div class="header-right">
-        <button class="btn-back" @click="goBack">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M19 12H5M12 5L5 12L12 19"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>返回首页</span>
-        </button>
-
-        <div class="menu-wrapper">
-          <button class="btn-menu" @click="toggleUserMenu">
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <button
+            class="flex items-center justify-center w-9 h-9 rounded-md bg-transparent text-subtle hover:text-text transition-apple"
+            aria-label="用户菜单"
+            @click="toggleUserMenu"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="6" r="1.5" fill="currentColor" />
               <circle cx="12" cy="12" r="1.5" fill="currentColor" />
               <circle cx="12" cy="18" r="1.5" fill="currentColor" />
             </svg>
           </button>
-
           <Transition name="fade">
-            <div v-if="showUserMenu" class="user-menu" @click.stop>
-              <div class="user-info">
-                <div class="user-avatar">
+            <div
+              v-if="showUserMenu"
+              class="absolute top-full mt-2 right-0 w-60 bg-panel border border-border rounded-lg z-[100] overflow-hidden"
+              style="box-shadow: 0 8px 24px var(--color-overlay)"
+              @click.stop
+            >
+              <div class="flex items-center gap-3 px-4 py-3.5">
+                <div
+                  class="flex items-center justify-center w-10 h-10 rounded-full bg-accentBg text-accent"
+                >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" />
                     <path
@@ -514,13 +132,16 @@ const liuNianTimeline = computed(() => {
                     />
                   </svg>
                 </div>
-                <div class="user-details">
-                  <span class="user-name">开发者</span>
-                  <span class="user-email">developer@local.dev</span>
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-sm font-medium text-text">{{ UI_LABELS.USER_NAME }}</span>
+                  <span class="text-xs text-subtle">{{ UI_LABELS.USER_EMAIL }}</span>
                 </div>
               </div>
-              <div class="menu-divider"></div>
-              <button class="menu-item">
+              <div class="h-px bg-border"></div>
+              <button
+                class="flex items-center gap-2.5 w-full px-4 py-2.5 bg-transparent border-none text-sm text-text text-left cursor-pointer hover:bg-accentBg/50 transition-colors duration-150"
+                tabindex="0"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
@@ -537,23 +158,24 @@ const liuNianTimeline = computed(() => {
                     stroke-linejoin="round"
                   />
                 </svg>
-                <span>退出登录</span>
+                <span>{{ UI_LABELS.MENU_LOGOUT }}</span>
               </button>
             </div>
           </Transition>
-          <div v-if="showUserMenu" class="menu-backdrop" @click="closeUserMenu"></div>
+          <div v-if="showUserMenu" class="fixed inset-0 z-[99]" @click="closeUserMenu"></div>
         </div>
       </div>
     </header>
 
     <!-- 主内容区 -->
-    <main class="page-content">
-      <!-- ==================== 左栏：输入面板 ==================== -->
-      <aside class="input-panel">
-        <!-- 操作按钮 -->
-        <div class="action-buttons">
-          <button class="btn-generate" :disabled="generating" @click="handleGenerate">排盘</button>
-          <button class="btn-share" :disabled="!chart">
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-[240px_1fr_280px] overflow-hidden">
+      <!-- 左栏：输入面板 -->
+      <aside class="flex flex-col p-4 bg-panel border-r border-border overflow-y-auto">
+        <div class="flex flex-col gap-2 mb-4">
+          <button class="btn-primary w-full" :disabled="generating" @click="handleGenerate">
+            {{ UI_LABELS.BTN_GENERATE }}
+          </button>
+          <button class="btn-secondary w-full gap-1.5 text-xs" :disabled="!chart">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <rect
                 x="8"
@@ -578,149 +200,196 @@ const liuNianTimeline = computed(() => {
                 stroke-linecap="round"
               />
             </svg>
-            分享海报
+            {{ UI_LABELS.BTN_SHARE }}
           </button>
         </div>
 
         <!-- 步骤指引 -->
-        <div class="steps-guide">
-          <div class="step-item" :class="{ active: currentStep === 1, completed: currentStep > 1 }">
-            <span class="step-num">1</span>
-            <span class="step-text">填写出生时间</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step-item" :class="{ active: currentStep === 2, completed: currentStep > 2 }">
-            <span class="step-num">2</span>
-            <span class="step-text">点击排盘</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step-item" :class="{ active: currentStep === 3 }">
-            <span class="step-num">3</span>
-            <span class="step-text">点击 AI 解读</span>
-          </div>
+        <div class="flex items-center justify-between p-3 bg-bg rounded-lg mb-4">
+          <template v-for="(label, idx) in stepLabels" :key="'step-' + idx">
+            <div class="flex flex-col items-center gap-1">
+              <span
+                class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-all duration-200"
+                :class="{
+                  'bg-accentBg text-accent': currentStep === idx + 1,
+                  'bg-successBg text-success': currentStep > idx + 1,
+                  'bg-transparent border border-muted text-subtle': currentStep < idx + 1
+                }"
+                >{{ idx + 1 }}</span
+              >
+              <span
+                class="text-[10px] text-center"
+                :class="currentStep >= idx + 1 ? 'text-text' : 'text-subtle'"
+                >{{ label }}</span
+              >
+            </div>
+            <div v-if="idx < 2" class="flex-1 h-px mx-1 mb-4 bg-border"></div>
+          </template>
         </div>
 
         <!-- 出生信息表单 -->
-        <div class="form-section">
-          <!-- 命主名称 -->
-          <div class="form-field">
-            <label>命主名称（可选）</label>
-            <input v-model="profileName" type="text" placeholder="例如：张明远" />
-            <span class="field-hint">用于生成个性化解读</span>
+        <div class="flex flex-col gap-3 flex-1">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_PROFILE }}</label>
+            <input
+              v-model="profileName"
+              type="text"
+              :placeholder="UI_LABELS.PLACEHOLDER_PROFILE"
+              class="input-control"
+            />
+            <span class="text-[10px] text-subtle">{{ UI_LABELS.HINT_PROFILE }}</span>
           </div>
 
-          <!-- 历注输入 -->
-          <div class="form-field">
-            <label>历注输入</label>
-            <select v-model="calendarType">
-              <option value="solar">公历输入</option>
-              <option value="lunar">农历输入</option>
-            </select>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_CALENDAR }}</label>
+            <FormSelect v-model="calendarType" :options="calendarTypeOptions" />
           </div>
 
-          <!-- 年份 -->
-          <div class="form-field">
-            <label>{{ calendarType === 'solar' ? '公历年份' : '农历年份' }}</label>
-            <select v-if="calendarType === 'solar'" v-model="solarYear">
-              <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}年</option>
-            </select>
-            <select v-else v-model="lunarYear">
-              <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}年</option>
-            </select>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-subtle">{{
+              calendarType === 'solar' ? UI_LABELS.LABEL_SOLAR_YEAR : UI_LABELS.LABEL_LUNAR_YEAR
+            }}</label>
+            <FormSelect
+              v-if="calendarType === 'solar'"
+              v-model="solarYear"
+              :options="yearFormOptions"
+            />
+            <FormSelect v-else v-model="lunarYear" :options="yearFormOptions" />
           </div>
 
-          <!-- 月份/日期 -->
-          <div class="form-row">
-            <div class="form-field">
-              <label>{{ calendarType === 'solar' ? '月份' : '农历月份' }}</label>
-              <select v-if="calendarType === 'solar'" v-model="solarMonth">
-                <option v-for="m in monthOptions" :key="m.value" :value="m.value">
-                  {{ m.label }}月
-                </option>
-              </select>
-              <select v-else v-model="lunarMonth">
-                <option v-for="m in monthOptions" :key="m.value" :value="m.value">
-                  {{ m.label }}月
-                </option>
-              </select>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{
+                calendarType === 'solar' ? UI_LABELS.LABEL_MONTH : UI_LABELS.LABEL_LUNAR_MONTH
+              }}</label>
+              <FormSelect
+                v-if="calendarType === 'solar'"
+                v-model="solarMonth"
+                :options="monthOptions"
+              />
+              <FormSelect v-else v-model="lunarMonth" :options="monthOptions" />
             </div>
-            <div class="form-field">
-              <label>{{ calendarType === 'solar' ? '日期' : '农历日期' }}</label>
-              <select v-if="calendarType === 'solar'" v-model="solarDay">
-                <option v-for="d in dayOptions" :key="d.value" :value="d.value">
-                  {{ d.label }}日
-                </option>
-              </select>
-              <select v-else v-model="lunarDay">
-                <option v-for="d in dayOptions" :key="d.value" :value="d.value">
-                  {{ d.label }}日
-                </option>
-              </select>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{
+                calendarType === 'solar' ? UI_LABELS.LABEL_DAY : UI_LABELS.LABEL_LUNAR_DAY
+              }}</label>
+              <FormSelect
+                v-if="calendarType === 'solar'"
+                v-model="solarDay"
+                :options="dayOptions"
+              />
+              <FormSelect v-else v-model="lunarDay" :options="dayOptions" />
             </div>
           </div>
 
-          <!-- 出生时间 -->
-          <div class="form-row">
-            <div class="form-field">
-              <label>出生小时(24h)</label>
-              <select v-model="birthHour">
-                <option v-for="h in hourOptions" :key="h.value" :value="h.value">
-                  {{ h.label }}
-                </option>
-              </select>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_BIRTH_HOUR }}</label>
+              <FormSelect v-model="birthHour" :options="hourOptions" />
             </div>
-            <div class="form-field">
-              <label>出生分钟</label>
-              <select v-model="birthMinute">
-                <option v-for="m in minuteOptions" :key="m.value" :value="m.value">
-                  {{ m.label }}
-                </option>
-              </select>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_BIRTH_MINUTE }}</label>
+              <FormSelect v-model="birthMinute" :options="minuteOptions" />
             </div>
           </div>
 
-          <!-- 性别 -->
-          <div class="form-field">
-            <label>性别</label>
-            <div class="radio-group">
-              <label class="radio-item" :class="{ active: gender === 'male' }">
-                <input v-model="gender" type="radio" value="male" />
-                <span class="radio-circle"></span>
-                <span>男</span>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_PROVINCE }}</label>
+              <FormSelect v-model="birthProvince" :options="provinceOptions" />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_CITY }}</label>
+              <FormSelect v-model="birthCity" :options="cityOptions" />
+            </div>
+          </div>
+
+          <div class="rounded-md border border-border bg-bg px-3 py-2 text-[11px] text-subtle">
+            <p>{{ UI_LABELS.LABEL_LONGITUDE }}：{{ selectedLongitudeText }}</p>
+            <p class="mt-1 text-link">{{ UI_LABELS.HINT_TRUE_SOLAR }}</p>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_GENDER }}</label>
+            <div class="flex gap-2">
+              <label
+                class="flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
+                :class="
+                  gender === 'male'
+                    ? 'border-accent bg-accentBg text-accent'
+                    : 'border-border text-text'
+                "
+                tabindex="0"
+                role="radio"
+                aria-checked="true"
+                @keydown.enter.prevent="gender = 'male'"
+                @keydown.space.prevent="gender = 'male'"
+              >
+                <input v-model="gender" type="radio" value="male" class="hidden" />
+                <span
+                  class="w-4 h-4 rounded-full border-2 transition-all duration-150"
+                  :class="gender === 'male' ? 'border-accent bg-accent' : 'border-border'"
+                  :style="gender === 'male' ? { boxShadow: 'inset 0 0 0 3px var(--color-bg)' } : {}"
+                ></span>
+                <span>{{ UI_LABELS.LABEL_MALE }}</span>
               </label>
-              <label class="radio-item" :class="{ active: gender === 'female' }">
-                <input v-model="gender" type="radio" value="female" />
-                <span class="radio-circle"></span>
-                <span>女</span>
+              <label
+                class="flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
+                :class="
+                  gender === 'female'
+                    ? 'border-accent bg-accentBg text-accent'
+                    : 'border-border text-text'
+                "
+                tabindex="0"
+                role="radio"
+                aria-checked="false"
+                @keydown.enter.prevent="gender = 'female'"
+                @keydown.space.prevent="gender = 'female'"
+              >
+                <input v-model="gender" type="radio" value="female" class="hidden" />
+                <span
+                  class="w-4 h-4 rounded-full border-2 transition-all duration-150"
+                  :class="gender === 'female' ? 'border-accent bg-accent' : 'border-border'"
+                  :style="
+                    gender === 'female' ? { boxShadow: 'inset 0 0 0 3px var(--color-bg)' } : {}
+                  "
+                ></span>
+                <span>{{ UI_LABELS.LABEL_FEMALE }}</span>
               </label>
             </div>
           </div>
         </div>
 
-        <!-- 历史命例 -->
-        <div class="history-section">
-          <div class="history-row">
-            <select v-model="selectedHistory" class="history-select">
-              <option v-for="h in historyExamples" :key="h.value" :value="h.value">
-                {{ h.label }}
-              </option>
-            </select>
-            <button class="btn-clear" @click="clearForm">清空</button>
-          </div>
-        </div>
-
-        <!-- 状态提示 -->
         <Transition name="slide-fade">
-          <div v-if="status.text && status.type === 'success'" class="status-toast success">
+          <div
+            v-if="status.text"
+            class="mt-4 p-3 rounded-md text-xs"
+            :class="status.type === 'success' ? 'bg-successBg text-success' : 'bg-dangerBg text-danger'"
+          >
             {{ status.text }}
           </div>
         </Transition>
+        <div
+          v-if="shiChenCorrectionNotice"
+          class="mt-3 rounded-md border border-border bg-panel2 px-3 py-2 text-[11px] text-warning"
+        >
+          {{ shiChenCorrectionNotice }}
+        </div>
+        <p
+          v-else-if="correctionText"
+          class="mt-3 rounded-md border border-border bg-bg px-3 py-2 text-[11px] text-subtle"
+        >
+          {{ correctionText }}
+        </p>
       </aside>
 
-      <!-- ==================== 中栏：命盘主区域 ==================== -->
-      <main class="chart-panel">
-        <div v-if="!chart" class="empty-state">
-          <div class="empty-icon">
+      <!-- 中栏：命盘主区域 -->
+      <main class="flex flex-col items-center justify-center p-5 bg-bg overflow-y-auto">
+        <div
+          v-if="!chart"
+          class="flex flex-col items-center justify-center gap-4 flex-1 text-center"
+        >
+          <div class="text-muted">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" />
               <path
@@ -735,172 +404,283 @@ const liuNianTimeline = computed(() => {
               />
             </svg>
           </div>
-          <h3>等待排盘</h3>
-          <p>填写出生信息后点击「排盘」按钮<br />将生成完整紫微斗数方盘</p>
+          <h3 class="text-lg text-text">{{ UI_LABELS.EMPTY_TITLE }}</h3>
+          <p class="text-sm text-subtle leading-relaxed whitespace-pre-line">
+            {{ UI_LABELS.EMPTY_DESC }}
+          </p>
         </div>
 
-        <div v-else class="chart-content">
-          <!-- 标题行 -->
-          <div class="chart-header">
-            <h2 class="chart-title">图片命盘</h2>
-            <span class="chart-meta">{{ chartMeta }}</span>
+        <div v-else class="flex flex-col gap-4 w-full">
+          <div class="flex items-center gap-3">
+            <h2 class="text-base font-semibold text-text">{{ UI_LABELS.CHART_TITLE }}</h2>
+            <span class="text-sm text-subtle">{{ chartMeta }}</span>
           </div>
+          <p v-if="centerInfo?.timeCorrectionText" class="text-xs text-subtle">
+            {{ centerInfo.timeCorrectionText }}
+          </p>
 
           <!-- 命盘区域 -->
-          <div class="board-wrapper">
-            <div class="board-container">
-              <!-- 方位标注 -->
-              <div class="compass-label compass-top">正南方</div>
-              <div class="compass-label compass-right">正西方</div>
-              <div class="compass-label compass-bottom">正北方</div>
-              <div class="compass-label compass-left">正东方</div>
+          <div class="flex justify-center overflow-x-auto">
+            <div class="relative p-6">
+              <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[11px] text-subtle">{{
+                UI_LABELS.COMPASS_TOP
+              }}</span>
+              <span class="absolute bottom-0 left-1/2 -translate-x-1/2 text-[11px] text-subtle">{{
+                UI_LABELS.COMPASS_BOTTOM
+              }}</span>
+              <span class="absolute left-0 top-1/2 -translate-y-1/2 text-[11px] text-subtle">{{
+                UI_LABELS.COMPASS_LEFT
+              }}</span>
+              <span class="absolute right-0 top-1/2 -translate-y-1/2 text-[11px] text-subtle">{{
+                UI_LABELS.COMPASS_RIGHT
+              }}</span>
 
-              <!-- 4×4 宫格 -->
-              <div class="ziwei-board">
+              <div class="ziwei-board grid gap-px border border-border bg-border">
                 <template v-for="(cell, index) in palaceGrid" :key="'cell-' + index">
                   <!-- 中央区域 -->
                   <div
                     v-if="index === 5 || index === 6 || index === 9 || index === 10"
-                    class="palace center-area"
+                    class="flex items-center justify-center p-1.5 bg-panel2 text-[10px]"
                   >
-                    <div v-if="index === 6 || index === 9" class="center-info">
-                      <div v-if="index === 6" class="center-main">
-                        <span class="center-yinyang">{{
-                          centerInfo?.yinYang?.charAt(0) || '阴'
+                    <div v-if="(index === 6 || index === 9) && centerInfo" class="text-center">
+                      <div v-if="index === 6" class="flex items-center justify-center gap-2 mb-2">
+                        <span class="text-lg text-warning">{{
+                          centerInfo.yinYang?.charAt(0) || '阴'
                         }}</span>
-                        <span class="center-bureau">{{ centerInfo?.bureau }}</span>
-                        <span class="center-gender">{{ centerInfo?.gender }}</span>
+                        <span class="text-xs font-semibold text-text">{{ centerInfo.bureau }}</span>
+                        <span class="text-[10px] text-text">{{ centerInfo.gender }}</span>
                       </div>
-                      <div v-if="index === 6" class="center-details">
-                        <p>命主：{{ centerInfo?.mingZhu || '--' }}</p>
-                        <p>命宫：{{ centerInfo?.mingBranch || '--' }}宫</p>
-                        <p>身宫：{{ centerInfo?.shenBranch || '--' }}宫</p>
-                        <p class="center-year">
-                          {{ centerInfo?.currentYear }}年·{{ centerInfo?.age }}岁
+                      <div v-if="index === 6" class="text-[9px] text-text leading-relaxed">
+                        <p class="my-0.5">命主：{{ centerInfo.mingZhu || '--' }}</p>
+                        <p class="my-0.5">命宫：{{ centerInfo.mingBranch || '--' }}宫</p>
+                        <p class="my-0.5">身宫：{{ centerInfo.shenBranch || '--' }}宫</p>
+                        <p class="my-0.5">时辰：{{ centerInfo.shichenLabel || '--' }}</p>
+                        <p class="mt-1 text-[10px] text-text">
+                          {{ centerInfo.currentYear }}年·{{ centerInfo.age }}岁
                         </p>
                       </div>
-                      <div v-if="index === 9" class="center-lunar">
-                        <p>{{ centerInfo?.lunar || '--' }}</p>
-                        <p class="center-name">命主：{{ profileName || '--' }}</p>
+                      <div v-if="index === 9" class="text-[9px] text-text">
+                        <p class="my-0.5">{{ centerInfo.lunar || '--' }}</p>
+                        <p class="my-0.5">出生时：{{ centerInfo.inputClockText || '--' }}</p>
+                        <p class="my-0.5">当前大限：{{ centerInfo.currentDaXianLabel || '--' }}</p>
+                        <p class="my-0.5">流年命宫：{{ centerInfo.currentLiuNianPalaceLabel || '--' }}</p>
+                        <p class="mt-1 text-text">命主：{{ profileName || '--' }}</p>
                       </div>
                     </div>
                   </div>
                   <!-- 十二宫格 -->
                   <div
                     v-else-if="cell"
-                    class="palace"
-                    :class="{ 'palace-ming': cell.isMing, 'palace-shen': cell.isShen }"
+                    class="palace-cell flex flex-col p-1.5 bg-panel3 text-[10px] border border-border"
+                    :class="{
+                      'border-accent z-[1]': cell.isMing,
+                      'palace-shen': cell.isShen,
+                      'palace-daxian-active': cell.isCurrentDaXian
+                    }"
                   >
-                    <div class="palace-header">
-                      <span class="palace-name">{{ cell.palace }}</span>
-                      <span class="palace-ganzhi">{{ cell.ganzhi }}</span>
+                    <div class="flex justify-between items-center pb-1 border-b border-border mb-1">
+                      <span class="font-semibold text-text text-[11px]">
+                        {{ cell.palace }}
+                        <span v-if="cell.isMing" class="inline-block ml-1 palace-mark palace-mark-ming">命</span>
+                        <span v-if="cell.isShen" class="inline-block ml-1 palace-mark palace-mark-shen">身</span>
+                      </span>
+                      <span class="text-[9px] text-subtle font-mono">{{ cell.ganzhi }}</span>
                     </div>
-                    <div class="palace-stars">
+                    <div class="flex flex-col gap-0.5 flex-1 overflow-hidden">
                       <div
-                        v-for="(star, sIdx) in cell.stars.slice(0, 5)"
-                        :key="'star-' + sIdx"
-                        class="star-row"
+                        v-for="(star, sIdx) in cell.mainStars.slice(0, 4)"
+                        :key="'main-' + sIdx"
+                        class="flex items-center gap-1"
                       >
-                        <span class="star-item" :class="getStarClass(star.type)">
-                          <span class="star-name">{{ star.name }}</span>
+                        <span class="inline-flex items-center gap-0.5 font-semibold text-[10px] text-major-star">
+                          ★ {{ star.name }}
                           <span
                             v-if="star.hua"
-                            class="star-hua-tag"
+                            class="text-[8px] px-[3px] rounded-[3px]"
                             :class="getHuaTagClass(star.hua)"
                             >{{ star.hua }}</span
                           >
                         </span>
                         <span
                           v-if="star.level"
-                          class="star-level"
+                          class="text-[8px] px-0.5 rounded-[2px]"
                           :class="getPalaceLevelClass(star.level)"
                           >{{ star.level }}</span
                         >
                       </div>
+                      <div
+                        v-for="(star, sIdx) in cell.luckyStars.slice(0, 2)"
+                        :key="'lucky-' + sIdx"
+                        class="flex items-center gap-1"
+                      >
+                        <span
+                          class="inline-flex items-center gap-0.5 font-mono text-[10px]"
+                          :class="getStarColorClass('luck')"
+                        >
+                          {{ star.name }}
+                        </span>
+                      </div>
+                      <div
+                        v-for="(star, sIdx) in cell.evilStars.slice(0, 2)"
+                        :key="'evil-' + sIdx"
+                        class="flex items-center gap-1"
+                      >
+                        <span class="inline-flex items-center gap-0.5 font-mono text-[10px] text-danger">
+                          {{ star.name }}
+                        </span>
+                      </div>
+                      <div v-if="cell.miscStars.length" class="text-[9px] text-link truncate">
+                        {{ cell.miscStars.slice(0, 3).map((item) => item.name).join(' ') }}
+                      </div>
                     </div>
-                    <div class="palace-footer">
-                      <span class="palace-changsheng">{{ cell.changSheng }}</span>
-                      <span class="palace-daxian">{{ cell.daXianAge }}</span>
+                    <div class="flex justify-between items-center text-[9px] text-subtle mt-auto">
+                      <span>{{ cell.changSheng }}</span>
+                      <span>{{ cell.daXianAge }}</span>
+                    </div>
+                    <div class="mt-0.5 flex justify-between items-center text-[9px]">
+                      <span v-if="cell.isCurrentDaXian" class="text-warning">▶ 当前大限</span>
+                      <span v-else class="text-transparent">.</span>
+                      <span class="liunian-text">{{ cell.liuNianPalaceName }}</span>
                     </div>
                   </div>
                   <!-- 空格子 -->
-                  <div v-else class="palace empty-palace"></div>
+                  <div v-else class="p-1.5 bg-panel2"></div>
                 </template>
               </div>
             </div>
           </div>
 
           <!-- 功能按钮组 -->
-          <div class="chart-nav-btns">
-            <button class="nav-btn ming">命宫</button>
-            <button class="nav-btn qianyi">迁移宫</button>
-            <button class="nav-btn ke">科天梁</button>
-            <button class="nav-btn jiao">全交图</button>
+          <div class="flex gap-2 flex-wrap">
+            <button
+              class="nav-btn-ming px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
+            >
+              {{ UI_LABELS.NAV_MING }}
+            </button>
+            <button
+              class="nav-btn-qianyi px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
+            >
+              {{ UI_LABELS.NAV_QIANYI }}
+            </button>
+            <button
+              class="nav-btn-ke px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
+            >
+              {{ UI_LABELS.NAV_KE }}
+            </button>
+            <button
+              class="nav-btn-jiao px-3 py-1.5 bg-panel3 border rounded-md text-xs font-medium cursor-pointer transition-all duration-150 hover:bg-panel2 text-text"
+            >
+              {{ UI_LABELS.NAV_JIAO }}
+            </button>
           </div>
 
-          <!-- 大限/流年行 -->
-          <div class="timeline-section">
-            <div class="timeline-row">
-              <span class="timeline-label">大限</span>
-              <div class="timeline-cells">
-                <div v-for="(item, idx) in daXianTimeline" :key="'dx-' + idx" class="timeline-cell">
-                  <span class="cell-age">{{ item.range }}</span>
-                  <span class="cell-branch">{{ item.branch }}</span>
+          <!-- 大限/流年 -->
+          <div class="bg-panel3 border border-border rounded-lg overflow-hidden">
+            <div class="flex border-b border-border last:border-b-0">
+              <span
+                class="w-[60px] shrink-0 p-2.5 bg-panel2 text-[11px] font-semibold text-text flex items-center"
+                >{{ UI_LABELS.TIMELINE_DAXIAN }}</span
+              >
+              <div class="flex flex-1 overflow-x-auto">
+                <div
+                  v-for="(item, idx) in daXianTimeline"
+                  :key="'dx-' + idx"
+                  class="flex-1 min-w-[60px] p-2 border-l border-border text-center"
+                >
+                  <span class="block text-[10px] font-semibold text-text">{{ item.range }}</span>
+                  <span class="block text-[9px] text-subtle mt-0.5 font-mono">{{
+                    item.branch
+                  }}</span>
                 </div>
               </div>
             </div>
-            <div class="timeline-row">
-              <span class="timeline-label">流年</span>
-              <div class="timeline-cells">
+            <div class="flex">
+              <span
+                class="w-[60px] shrink-0 p-2.5 bg-panel2 text-[11px] font-semibold text-text flex items-center"
+                >{{ UI_LABELS.TIMELINE_LIUNIAN }}</span
+              >
+              <div class="flex flex-1 overflow-x-auto">
                 <div
                   v-for="(item, idx) in liuNianTimeline"
                   :key="'ln-' + idx"
-                  class="timeline-cell"
+                  class="flex-1 min-w-[60px] p-2 border-l border-border text-center"
                 >
-                  <span class="cell-year">{{ item.year }}年</span>
-                  <span class="cell-ganzhi">{{ item.ganzhi }}</span>
+                  <span class="block text-[10px] font-semibold text-text">{{ item.year }}年</span>
+                  <span class="block text-[9px] text-subtle mt-0.5 font-mono">{{
+                    item.ganzhi
+                  }}</span>
                 </div>
               </div>
             </div>
           </div>
+
+          <ChartLegend />
         </div>
       </main>
 
-      <!-- ==================== 右栏：AI 功能面板 ==================== -->
-      <aside class="ai-panel">
-        <div class="ai-badge">AI POWERED</div>
+      <!-- 右栏：AI 功能面板 -->
+      <aside class="flex flex-col p-4 bg-panel border-l border-border overflow-y-auto">
+        <span
+          class="inline-block self-start mb-4 px-2.5 py-1 bg-accentBg text-accent text-[10px] font-bold rounded tracking-wider"
+        >
+          {{ UI_LABELS.AI_BADGE }}
+        </span>
 
-        <div class="ai-section">
-          <h3 class="ai-title">AI 个性化解盘</h3>
-          <p class="ai-desc">{{ aiResult ? '已生成' : '基于当前命盘信息生成，未生成' }}</p>
+        <div class="flex flex-col gap-2.5">
+          <h3 class="text-[15px] font-semibold text-text">{{ UI_LABELS.AI_TITLE }}</h3>
+          <p class="text-xs text-subtle">
+            {{ aiResult ? UI_LABELS.AI_DESC_GENERATED : UI_LABELS.AI_DESC_NOT_GENERATED }}
+          </p>
 
-          <button class="btn-ai" :disabled="!chart || aiLoading" @click="handleAiAnalysis">
-            <span v-if="aiLoading" class="loading-dot"></span>
+          <button
+            class="btn-secondary w-full gap-2 text-sm"
+            :disabled="!chart || aiLoading"
+            @click="handleAiAnalysis"
+          >
+            <span v-if="aiLoading" class="w-2 h-2 bg-accent rounded-full loading-dot"></span>
             {{ aiButtonLabel }}
           </button>
 
-          <p class="ai-disclaimer">本分析仅供参考娱乐，不代代专业建议。</p>
+          <div
+            v-if="aiError"
+            class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
+            role="alert"
+          >
+            {{ aiError }}
+          </div>
+
+          <p
+            class="p-2.5 bg-accentBg border border-accentBorder rounded-md text-[11px] text-text leading-relaxed"
+          >
+            {{ UI_LABELS.AI_DISCLAIMER }}
+          </p>
         </div>
 
-        <div class="ai-divider"></div>
+        <hr class="border-panel2 my-4" />
 
-        <div class="qa-section">
-          <h4 class="qa-title">向 AI 命盘问问</h4>
-          <p class="qa-desc">可直接输入问题，或点击查看推荐提问问题</p>
+        <div class="flex flex-col gap-2.5">
+          <h4 class="text-sm font-semibold text-text">{{ UI_LABELS.QA_TITLE }}</h4>
+          <p class="text-xs text-subtle">{{ UI_LABELS.QA_DESC }}</p>
 
-          <div class="qa-input-row">
+          <div class="flex gap-2">
             <input
               v-model="aiQuestionInput"
               type="text"
-              placeholder="输入你的问题..."
+              :placeholder="UI_LABELS.PLACEHOLDER_AI_QUESTION"
               :disabled="!aiResult"
+              class="input-control flex-1"
             />
             <button
-              class="btn-send"
-              :disabled="!aiResult || !aiQuestionInput.trim()"
+              class="w-10 bg-accent border-none rounded-md text-white cursor-pointer transition-colors duration-150 hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="{
+                'opacity-50 cursor-not-allowed':
+                  !aiResult || !aiQuestionInput.trim() || aiQuestionLoading
+              }"
+              :disabled="!aiResult || !aiQuestionInput.trim() || aiQuestionLoading"
+              aria-label="发送问题"
               @click="handleAiQuestion"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="mx-auto">
                 <path
                   d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
                   stroke="currentColor"
@@ -912,12 +692,26 @@ const liuNianTimeline = computed(() => {
             </button>
           </div>
 
-          <p class="qa-hint">
-            {{ aiResult ? '已生成 AI 解盘，可以开始提问' : '先点击"排盘"，再生成 AI 深度解盘' }}
+          <div v-if="aiQuestionLoading" class="text-xs text-subtle">
+            {{ UI_LABELS.HINT_AI_QA_LOADING }}
+          </div>
+
+          <div
+            v-if="aiQuestionError"
+            class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
+            role="alert"
+          >
+            {{ aiQuestionError }}
+          </div>
+
+          <p class="text-[11px] text-subtle">
+            {{ aiResult ? UI_LABELS.HINT_AI_QA_READY : UI_LABELS.HINT_AI_QA_NOT_READY }}
           </p>
 
-          <!-- AI 回答 -->
-          <div v-if="aiQuestionAnswer" class="ai-answer">
+          <div
+            v-if="aiQuestionAnswer"
+            class="mt-3 p-3 bg-bg border border-border rounded-md text-xs text-text leading-relaxed"
+          >
             <p>{{ aiQuestionAnswer }}</p>
           </div>
         </div>
@@ -927,996 +721,104 @@ const liuNianTimeline = computed(() => {
 </template>
 
 <style scoped>
-/* ==================== 页面布局 ==================== */
-.ziwei-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  background: var(--color-page-bg);
-  color: var(--color-page-text);
-}
-
-/* ==================== 顶部导航栏 ==================== */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: var(--color-page-elevated);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(88, 166, 255, 0.15);
-  border-radius: 10px;
-  color: var(--color-page-link);
-}
-
-.header-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.header-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.header-subtitle {
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-back {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-back:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
-}
-
-.btn-menu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-page-text-subtle);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-menu:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--color-page-text);
-}
-
-/* 用户菜单 */
-.menu-wrapper {
-  position: relative;
-}
-
-.user-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 240px;
-  background: var(--color-page-elevated);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  overflow: hidden;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.user-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(88, 166, 255, 0.15);
-  border-radius: 50%;
-  color: var(--color-page-link);
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-page-text);
-}
-
-.user-email {
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.menu-divider {
-  height: 1px;
-  background: var(--color-page-border-subtle);
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 16px;
-  background: transparent;
-  border: none;
-  color: var(--color-page-text);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.menu-item svg {
-  color: var(--color-page-text-subtle);
-}
-
-.menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-}
-
-/* ==================== 主内容区 ==================== */
-.page-content {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 240px 1fr 280px;
-  overflow: hidden;
-}
-
-/* ==================== 左栏：输入面板 ==================== */
-.input-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background: var(--color-page-elevated);
-  border-right: 1px solid var(--color-page-border-subtle);
-  overflow-y: auto;
-}
-
-/* 操作按钮 */
-.action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.btn-generate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  background: var(--color-page-info);
-  border: none;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-generate:hover:not(:disabled) {
-  background: var(--color-page-link);
-}
-
-.btn-generate:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-share {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px;
-  background: transparent;
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text-subtle);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-share:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
-  color: var(--color-page-text);
-}
-
-.btn-share:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 步骤指引 */
-.steps-guide {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: var(--color-page-bg);
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.step-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.step-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--color-page-border-subtle);
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-page-text-subtle);
-  transition: all 0.2s;
-}
-
-.step-item.active .step-num {
-  background: var(--color-page-info);
-  color: #fff;
-}
-
-.step-item.completed .step-num {
-  background: var(--color-page-success-alt);
-  color: #fff;
-}
-
-.step-text {
-  font-size: 10px;
-  color: var(--color-page-text-subtle);
-  text-align: center;
-}
-
-.step-item.active .step-text {
-  color: var(--color-page-text);
-}
-
-.step-line {
-  flex: 1;
-  height: 1px;
-  background: var(--color-page-border-subtle);
-  margin: 0 4px;
-  margin-bottom: 16px;
-}
-
-/* 表单 */
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-field label {
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.form-field input,
-.form-field select {
-  padding: 8px 12px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.form-field input:focus,
-.form-field select:focus {
-  border-color: var(--color-page-link);
-}
-
-.form-field input::placeholder {
-  color: var(--color-page-link);
-}
-
-.form-field select option {
-  background: var(--color-page-elevated);
-}
-
-.field-hint {
-  font-size: 10px;
-  color: var(--color-page-text-muted);
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-/* 性别单选 */
-.radio-group {
-  display: flex;
-  gap: 8px;
-}
-
-.radio-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text-subtle);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.radio-item input {
-  display: none;
-}
-
-.radio-circle {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-page-border-subtle);
-  border-radius: 50%;
-  transition: all 0.15s;
-}
-
-.radio-item.active {
-  border-color: var(--color-page-info);
-  background: rgba(31, 111, 235, 0.1);
-  color: var(--color-page-link);
-}
-
-.radio-item.active .radio-circle {
-  border-color: var(--color-page-info);
-  background: var(--color-page-info);
-  box-shadow: inset 0 0 0 3px var(--color-page-bg);
-}
-
-/* 历史命例 */
-.history-section {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-page-border-subtle);
-}
-
-.history-row {
-  display: flex;
-  gap: 8px;
-}
-
-.history-select {
-  flex: 1;
-  padding: 8px 12px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 12px;
-  outline: none;
-}
-
-.history-select option {
-  background: var(--color-page-elevated);
-}
-
-.btn-clear {
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text-subtle);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-clear:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
-}
-
-/* 状态提示 */
-.status-toast {
-  margin-top: 16px;
-  padding: 12px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.status-toast.success {
-  background: rgba(46, 160, 67, 0.12);
-  color: var(--color-page-success-alt);
-}
-
-/* ==================== 中栏：命盘主区域 ==================== */
-.chart-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  background: var(--color-page-bg);
-  overflow-y: auto;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
-}
-
-.empty-icon {
-  color: var(--color-page-border-subtle);
-}
-
-.empty-state h3 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--color-page-text);
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-page-text-subtle);
-  line-height: 1.6;
-}
-
-.chart-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.chart-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.chart-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.chart-meta {
-  font-size: 13px;
-  color: var(--color-page-text-subtle);
-}
-
-/* 命盘区域 */
-.board-wrapper {
-  display: flex;
-  justify-content: center;
-  overflow-x: auto;
-}
-
-.board-container {
-  position: relative;
-  padding: 24px;
-}
-
-/* 方位标注 */
-.compass-label {
-  position: absolute;
-  font-size: 11px;
-  color: var(--color-page-text-muted);
-}
-
-.compass-top {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.compass-bottom {
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.compass-left {
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.compass-right {
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+/* 标题栏高度与全局分割线对齐（56px header + 12px gap = 68px，与全局分割线同一水平线） */
+.ziwei-header {
+  height: calc(var(--header-height) + 12px);
+}
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 4×4 宫格 */
 .ziwei-board {
-  display: grid;
-  grid-template-columns: repeat(4, 110px);
-  grid-template-rows: repeat(4, 110px);
-  border: 1px solid var(--color-page-border-subtle);
-  background: var(--color-page-border-subtle);
-  gap: 1px;
+  width: min(92vw, 820px);
+  aspect-ratio: 1 / 1;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
 }
 
-.palace {
-  display: flex;
-  flex-direction: column;
-  padding: 6px 8px;
-  background: var(--color-page-elevated);
-  font-size: 10px;
+.palace-cell {
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
-.palace.palace-ming {
-  border: 2px solid var(--color-page-info);
-  z-index: 1;
+.palace-cell:hover {
+  opacity: 0.85;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-link) 45%, transparent);
+  transform: translateY(-1px);
 }
 
-.palace.palace-shen {
-  background: rgba(88, 166, 255, 0.05);
+.palace-shen {
+  background: color-mix(in srgb, var(--color-link) 10%, var(--color-panel-3));
 }
 
-.palace.center-area {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-page-card);
+.palace-daxian-active {
+  background: var(--color-daxian-active-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-hua-lu) 35%, transparent);
 }
 
-.palace.empty-palace {
-  background: var(--color-page-card);
-}
-
-.palace-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 4px;
-}
-
-.palace-name {
-  font-weight: 600;
-  color: var(--color-page-text);
-  font-size: 11px;
-}
-
-.palace-ganzhi {
-  font-size: 9px;
-  color: var(--color-page-text-subtle);
-  font-family: var(--font-code);
-}
-
-.palace-stars {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
-}
-
-.star-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.star-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.star-name {
-  font-family: var(--font-code);
-  font-size: 10px;
-}
-
-/* 星曜颜色 */
-.star-main .star-name {
-  color: var(--color-page-danger);
-}
-
-.star-main .star-name::before {
-  content: '★';
-  margin-right: 1px;
-}
-
-.star-luck .star-name {
-  color: var(--color-page-success-alt);
-}
-
-.star-power .star-name {
-  color: var(--color-page-warning-alt);
-}
-
-.star-harm .star-name {
-  color: var(--color-page-warning-alt);
-}
-
-.star-assist .star-name {
-  color: var(--color-page-link);
-  font-size: 9px;
-}
-
-/* 四化标签 */
-.star-hua-tag {
-  font-size: 8px;
-  padding: 0 3px;
+.palace-mark {
   border-radius: 3px;
-  color: #fff;
-}
-
-.tag-lu {
-  background: var(--color-page-success-alt);
-}
-
-.tag-quan {
-  background: var(--color-page-warning-alt);
-}
-
-.tag-ke {
-  background: var(--color-page-link);
-}
-
-.tag-ji {
-  background: var(--color-page-danger);
-}
-
-/* 星曜属性标签 */
-.star-level {
-  font-size: 8px;
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
-.level-miao {
-  background: rgba(63, 185, 80, 0.2);
-  color: var(--color-page-success-alt);
-}
-
-.level-wang {
-  background: rgba(88, 166, 255, 0.2);
-  color: var(--color-page-link);
-}
-
-.level-li {
-  background: rgba(240, 136, 62, 0.2);
-  color: var(--color-page-warning-alt);
-}
-
-.level-ping {
-  background: rgba(139, 148, 158, 0.2);
-  color: var(--color-page-text-subtle);
-}
-
-.level-xian {
-  background: rgba(248, 81, 73, 0.2);
-  color: var(--color-page-danger);
-}
-
-.palace-footer {
-  display: flex;
-  justify-content: space-between;
+  padding: 0 4px;
   font-size: 9px;
-  color: var(--color-page-text-muted);
-  margin-top: auto;
+  line-height: 14px;
 }
 
-/* 中央信息区 */
-.center-info {
-  text-align: center;
+.palace-mark-ming {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
 }
 
-.center-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 8px;
+.palace-mark-shen {
+  color: var(--color-link);
+  background: color-mix(in srgb, var(--color-link) 14%, transparent);
 }
 
-.center-yinyang {
-  font-size: 18px;
-  color: var(--color-page-warning-alt);
+.text-major-star {
+  color: var(--color-major-star);
 }
 
-.center-bureau {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-page-text);
+.text-link {
+  color: var(--color-link);
 }
 
-.center-gender {
-  font-size: 10px;
-  color: var(--color-page-text-subtle);
+.liunian-text {
+  color: var(--color-liunian);
 }
 
-.center-details {
-  font-size: 9px;
-  color: var(--color-page-text-subtle);
-  line-height: 1.6;
+.hua-tag {
+  color: var(--color-text);
 }
 
-.center-details p {
-  margin: 2px 0;
+.hua-lu {
+  background: color-mix(in srgb, var(--color-hua-lu) 24%, transparent);
 }
 
-.center-year {
-  margin-top: 4px;
-  font-size: 10px;
-  color: var(--color-page-text);
+.hua-quan {
+  background: color-mix(in srgb, var(--color-hua-quan) 24%, transparent);
 }
 
-.center-lunar {
-  font-size: 9px;
-  color: var(--color-page-text-subtle);
+.hua-ke {
+  background: color-mix(in srgb, var(--color-hua-ke) 24%, transparent);
 }
 
-.center-lunar p {
-  margin: 2px 0;
+.hua-ji {
+  background: color-mix(in srgb, var(--color-hua-ji) 24%, transparent);
 }
 
-.center-name {
-  margin-top: 4px;
-  color: var(--color-page-text);
-}
-
-/* 功能按钮组 */
-.chart-nav-btns {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.nav-btn {
-  padding: 6px 12px;
-  background: var(--color-page-elevated);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.nav-btn:hover {
-  background: var(--color-page-card);
-}
-
-.nav-btn.ming {
-  color: var(--color-page-success-alt);
-  border-color: rgba(63, 185, 80, 0.3);
-}
-
-.nav-btn.qianyi {
-  color: var(--color-page-warning-alt);
-  border-color: rgba(240, 136, 62, 0.3);
-}
-
-.nav-btn.ke {
-  color: var(--color-page-link);
-  border-color: rgba(88, 166, 255, 0.3);
-}
-
-.nav-btn.jiao {
-  color: var(--color-purple);
-  border-color: rgba(167, 139, 250, 0.3);
-}
-
-/* 大限/流年行 */
-.timeline-section {
-  background: var(--color-page-elevated);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.timeline-row {
-  display: flex;
-  border-bottom: 1px solid var(--color-page-border-subtle);
-}
-
-.timeline-row:last-child {
-  border-bottom: none;
-}
-
-.timeline-label {
-  width: 60px;
-  padding: 10px;
-  background: var(--color-page-card);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-page-text-subtle);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-.timeline-cells {
-  display: flex;
-  flex: 1;
-  overflow-x: auto;
-}
-
-.timeline-cell {
-  flex: 1;
-  min-width: 60px;
-  padding: 8px;
-  border-left: 1px solid var(--color-page-border-subtle);
-  text-align: center;
-}
-
-.cell-age,
-.cell-year {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.cell-branch,
-.cell-ganzhi {
-  display: block;
-  font-size: 9px;
-  color: var(--color-page-text-subtle);
-  margin-top: 2px;
-  font-family: var(--font-code);
-}
-
-/* ==================== 右栏：AI 功能面板 ==================== */
-.ai-panel {
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background: var(--color-page-elevated);
-  border-left: 1px solid var(--color-page-border-subtle);
-  overflow-y: auto;
-}
-
-.ai-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  background: rgba(88, 166, 255, 0.15);
-  color: var(--color-page-link);
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-  align-self: flex-start;
-  margin-bottom: 16px;
-}
-
-.ai-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ai-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.ai-desc {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.btn-ai {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px;
-  background: transparent;
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-ai:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--color-page-text-subtle);
-}
-
-.btn-ai:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
+/* Loading dot animation */
 .loading-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--color-page-link);
-  border-radius: 50%;
   animation: pulse 1s infinite;
 }
-
 @keyframes pulse {
   0%,
   100% {
@@ -1927,171 +829,81 @@ const liuNianTimeline = computed(() => {
   }
 }
 
-.ai-disclaimer {
-  margin: 0;
-  padding: 10px 12px;
-  background: rgba(88, 166, 255, 0.05);
-  border: 1px solid rgba(88, 166, 255, 0.15);
-  border-radius: 6px;
-  font-size: 11px;
-  color: var(--color-page-text-subtle);
-  line-height: 1.5;
+/* Nav button borders via color-mix */
+.nav-btn-ming {
+  border-color: color-mix(in srgb, var(--color-page-success-alt) 60%, transparent);
+}
+.nav-btn-qianyi {
+  border-color: color-mix(in srgb, var(--color-page-warning-alt) 60%, transparent);
+}
+.nav-btn-ke {
+  border-color: color-mix(in srgb, var(--color-page-link) 60%, transparent);
+}
+.nav-btn-jiao {
+  border-color: color-mix(in srgb, var(--color-purple) 60%, transparent);
 }
 
-.ai-divider {
-  height: 1px;
-  background: var(--color-page-card);
-  margin: 16px 0;
+/* Star level backgrounds via color-mix */
+.level-miao {
+  background: color-mix(in srgb, var(--color-page-success-alt) 20%, transparent);
+  color: var(--color-page-success-alt);
+}
+.level-wang {
+  background: color-mix(in srgb, var(--color-star-wang) 20%, transparent);
+  color: var(--color-star-wang);
+}
+.level-de-li {
+  background: color-mix(in srgb, var(--color-star-de-li) 20%, transparent);
+  color: var(--color-star-de-li);
+}
+.level-li {
+  background: color-mix(in srgb, var(--color-star-de-li) 20%, transparent);
+  color: var(--color-star-de-li);
+}
+.level-ping {
+  background: color-mix(in srgb, var(--color-star-ping) 20%, transparent);
+  color: var(--color-star-ping);
+}
+.level-xian {
+  background: color-mix(in srgb, var(--color-star-xian) 20%, transparent);
+  color: var(--color-star-xian);
 }
 
-.qa-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.qa-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-page-text);
-}
-
-.qa-desc {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-page-text-subtle);
-}
-
-.qa-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-.qa-input-row input {
-  flex: 1;
-  padding: 10px 12px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  color: var(--color-page-text);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.qa-input-row input:focus {
-  border-color: var(--color-page-link);
-}
-
-.qa-input-row input::placeholder {
-  color: var(--color-page-link);
-}
-
-.qa-input-row input:disabled {
-  opacity: 0.5;
-}
-
-.btn-send {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  background: var(--color-page-info);
-  border: none;
-  border-radius: 6px;
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-send:hover:not(:disabled) {
-  background: var(--color-page-link);
-}
-
-.btn-send:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.qa-hint {
-  margin: 0;
-  font-size: 11px;
-  color: var(--color-page-text-muted);
-}
-
-.ai-answer {
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--color-page-bg);
-  border: 1px solid var(--color-page-border-subtle);
-  border-radius: 6px;
-  font-size: 12px;
-  color: var(--color-page-text);
-  line-height: 1.6;
-}
-
-/* ==================== 过渡动画 ==================== */
+/* Vue transition classes */
 .fade-enter-active,
 .fade-leave-active {
   transition:
     opacity 0.15s,
     transform 0.15s;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
 }
-
 .slide-fade-enter-active {
   transition: all 0.2s ease-out;
 }
-
 .slide-fade-leave-active {
   transition: all 0.15s ease-in;
 }
-
 .slide-fade-enter-from,
 .slide-fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
 }
 
-/* ==================== 响应式 ==================== */
-@media (max-width: 1200px) {
-  .page-content {
-    grid-template-columns: 220px 1fr 260px;
-  }
-}
-
 @media (max-width: 1024px) {
-  .page-content {
-    grid-template-columns: 1fr;
-  }
-
   .input-panel,
   .ai-panel {
     display: none;
   }
-
-  .chart-panel {
-    flex: 1;
-  }
 }
 
 @media (max-width: 600px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
-  }
-
-  .header-right {
-    width: 100%;
-    justify-content: flex-end;
+  .ziwei-board {
+    width: 98vw;
+    font-size: 10px;
   }
 }
 </style>

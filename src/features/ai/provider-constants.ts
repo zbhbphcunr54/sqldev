@@ -37,7 +37,7 @@ export const PROVIDER_COLORS: Record<string, string> = {
   siliconflow: '#06b6d4',
   kluster: '#3b82f6',
   llm7: '#8b5cf6',
-  fireworksai: '#ec4899',
+  fireworksai: '#ec4899'
 }
 
 export const PROVIDER_INITIALS: Record<string, string> = {
@@ -71,7 +71,7 @@ export const PROVIDER_INITIALS: Record<string, string> = {
   siliconflow: 'SF',
   kluster: 'KLS',
   llm7: 'LLM7',
-  fireworksai: 'FW',
+  fireworksai: 'FW'
 }
 
 export function getProviderColor(slug: string): string {

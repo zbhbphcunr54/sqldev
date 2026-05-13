@@ -38,14 +38,20 @@ export const aiConfigApi = {
   deactivate: (id: string): Promise<AiConfigMutationResponse> =>
     edgeFn.post(`/ai-config/${id}/deactivate`),
 
-  test: (id: string): Promise<TestResult> => edgeFn.post<TestResult>(`/ai-config/${id}/test`, undefined, { skipRetry: true }),
+  test: (id: string): Promise<TestResult> =>
+    edgeFn.post<TestResult>(`/ai-config/${id}/test`, undefined, { skipRetry: true }),
 
   reorderProviders: (orders: { provider_id: string; sort_order: number }[]): Promise<void> =>
     edgeFn.post('/ai-config/providers/reorder', { orders }),
 
-  createProvider: async (
-    payload: { label: string; slug: string; base_url: string; region?: string; api_format?: string; models: string[] }
-  ): Promise<AiProviderDef> => {
+  createProvider: async (payload: {
+    label: string
+    slug: string
+    base_url: string
+    region?: string
+    api_format?: string
+    models: string[]
+  }): Promise<AiProviderDef> => {
     const res = await edgeFn.post<AiProviderResponse>('/ai-config/providers', payload)
     return res.provider
   },
@@ -55,9 +61,18 @@ export const aiConfigApi = {
 
   updateProvider: async (
     providerId: string,
-    payload: { label?: string; base_url?: string; region?: string; api_format?: string; models?: string[] }
+    payload: {
+      label?: string
+      base_url?: string
+      region?: string
+      api_format?: string
+      models?: string[]
+    }
   ): Promise<AiProviderDef> => {
-    const res = await edgeFn.patch<AiProviderResponse>(`/ai-config/providers/${providerId}`, payload)
+    const res = await edgeFn.patch<AiProviderResponse>(
+      `/ai-config/providers/${providerId}`,
+      payload
+    )
     return res.provider
   }
 }

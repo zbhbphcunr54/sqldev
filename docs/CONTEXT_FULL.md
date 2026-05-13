@@ -3,7 +3,363 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
+
+---
+
+## 2026-05-13: AI 配置页追加模型闪现新行修复 (v3)
+
+### 需求
+AI 配置页 Key 管理表格中点击"+ 模型"时，表格闪现新行而非仅在模型列步进器中新增模型选项。
+
+### 根因
+`addConfig()` 乐观更新在追加模式（api_key 为空）时向 configs 数组插入临时条目，即使 api_key_masked 正确，两次 configs.value 变更（插入乐观条目→服务端替换）触发双重响应式重算，导致 groupedConfigs/tableRows 短暂出现不一致。
+
+### 实现方案
+追加模式完全跳过乐观更新：直接调用 API，等服务端返回后一次性插入真实配置。新增 Key 模式保持原有乐观更新逻辑不变。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/stores/ai.ts | addConfig() 追加模式跳过乐观更新，直接 await API |
+| src/features/ai/types.ts | AiConfigPayload 新增 api_key_masked?: string（预留） |
+
+### 验证
+- `pnpm typecheck` ✔
+
+### 需求
+AI 配置页 Key 管理表格中点击"+ 模型"时，表格闪现新行而非仅在模型列步进器中新增模型选项。
+
+### 根因
+`openAppendModel` 接收了正确的 `apiKeyMasked` 但丢弃了（参数 `_apiKeyMasked`），且 store 用 `configs.value.find()` 查找 `api_key_masked` 在多个同 provider Key 时会选错组。
+
+### 实现方案
+将 `apiKeyMasked` 从点击事件 → prefill → handleAddKeySaved → store.addConfig 完整透传，确保乐观条目分组键与已有组一致。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/features/ai/types.ts | AiConfigPayload 新增 api_key_masked?: string |
+| src/components/business/ai/AiConfigPage.vue | addKeyPrefill 扩展类型、openAppendModel 保存 apiKeyMasked、handleAddKeySaved 透传 |
+| src/stores/ai.ts | addConfig 乐观更新直接使用 payload.api_key_masked |
+
+### 验证
+- `pnpm typecheck` ✔
+
+---
+
+## 2026-05-13: SQL 转换禁用 HTTP 重试，防止重复请求
+
+### 需求
+SQL 转换点击一次"开始转换"按钮，HTTP 层自动重试机制会在网络错误或 5xx 时发起最多 2 次额外请求，导致一次点击最多 3 个 /sql-convert 请求。AI 转换非幂等，重复请求浪费资源且可能产生不一致结果。
+
+### 实现方案
+在 `requestSqlConvert()` 调用 `edgeFn.post()` 时传入 `{ skipRetry: true }`，禁用该接口的自动重试。前端现有 4 层并发防护（按钮 disabled、组件 guard、store guard、HTTP 去重）均正常工作，不修改。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/api/sql-convert.ts | 修改：`edgeFn.post()` 第三参数传入 `{ skipRetry: true }` |
+
+### 验证
+- `pnpm typecheck` ✔
+
+---
+
+## 2026-05-12: 统一全站下拉框为 FormSelect 组件
+
+### 需求
+项目中除 AI 助手配置页外的所有页面使用原生 `<select>` 元素，下拉选项无法样式化，需全部替换为 `FormSelect` 自定义组件。
+
+### 实现方案
+全站 7 个文件共 23 个原生 `<select>` 全部替换为 `<FormSelect>` 组件，带自定义下拉面板、accent 色高亮选中项、teleported 定位。
+
+### FormSelect 增强
+- 新增 `borderless` prop：嵌入模式（无边框/背景/圆角，flex: 1 填充），用于 SqlConvertPage DB 选择器容器
+- 新增 `disabled` prop：禁用态（opacity 0.5 + cursor not-allowed），用于 IdToolPage 行政区划加载中
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/components/common/FormSelect.vue | 增强：新增 `borderless` 和 `disabled` props 及对应 CSS |
+| src/components/business/feedback/FeedbackWidget.vue | 修改：1 个 select → FormSelect，移除 .feedback-select CSS |
+| src/components/business/operation-logs/OperationLogFilters.vue | 修改：2 个 select → FormSelect compact，移除 .filter-select CSS |
+| src/pages/operation-logs/index.vue | 修改：2 个 select → FormSelect compact，移除 .filter-select CSS |
+| src/components/business/workbench/pages/SqlConvertPage.vue | 修改：2 个 DB 选择器 → FormSelect borderless（嵌入容器），移除 handleSourceDbChange/handleTargetDbChange |
+| src/components/business/workbench/pages/IdToolPage.vue | 修改：11 个级联/日期/部门选择 → FormSelect，新增 9 个 form option computed，移除全部 select CSS |
+| src/components/business/workbench/pages/ZiweiPage.vue | 修改：8 个历法/年月日/时分/历史选择 → FormSelect，新增 calendarTypeOptions/yearFormOptions computed，移除全部 select CSS |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔
+
+---
+
+## 2026-05-12 (夜间): SQL转换示例按数据库区分（4 项）
+
+### 需求
+SQL 转换功能的"加载示例"需根据源数据库加载专属示例 SQL，而非统一使用 Oracle 风格硬编码示例。每个数据库的示例需展示其特有的数据类型、自增列、默认值、约束、注释语法、序列、索引、分区、函数/存储过程语法、异常处理、系统函数等。
+
+### 实现方案
+- **存储层**: 在 `app_configs` 表新增 `sql_convert_sample` 分类，key 格式 `{db_slug}_{sql_type}`，每条记录含该数据库专属 DDL/函数/存储过程示例
+- **前端**: `loadSample()` 改为异步从 API 获取，带内存缓存；未配置时明确提示，不回退到硬编码示例；工具栏新增 SQL 类型分段控件（DDL/函数/存储过程）
+
+### 修改/新增文件
+| 文件 | 变更类型 |
+|---|---|
+| src/features/app-config/types.ts | 新增（修复之前缺失的类型定义，`AppConfig / CreateConfigPayload / UpdateConfigPayload`） |
+| supabase/migrations/202605130002_insert_sql_convert_samples.sql | 新增（17库 × 3类型 = 51条示例，含 Oracle/MySQL/PG/KingbaseES/DM8/YashanDB/GaussDB/GoldenDB/OceanBase/TDSQL/TiDB/GBase/HiveSQL） |
+| src/stores/workbench.ts | 修改：`loadSample()` 改用 `appConfigApi.list('sql_convert_sample')` 按 `{sourceDb}_{sqlType}` 查询；新增 `sampleCache` + `loadingSample` + `getFallbackSample()` |
+| src/components/business/workbench/pages/SqlConvertPage.vue | 修改：`handleLoadSample()` 改为 async；两个"加载示例"按钮添加 loading 禁用态和"加载中..."文本 |
+
+### 各数据库示例特性
+- **Oracle 系** (Oracle/DM8/KingbaseES/YashanDB/OceanBase Oracle): NUMBER/VARCHAR2/序列/COMMENT ON/PL/SQL/PRAGMA/SQL%ROWCOUNT/NVL/SYSTIMESTAMP
+- **MySQL 系** (MySQL/GoldenDB/OceanBase MySQL/TDSQL MySQL/TiDB/GBase 8a): INT AUTO_INCREMENT/DECIMAL/DELIMITER/DECLARE HANDLER/ENGINE/内联COMMENT/ROW_COUNT/NOW
+- **PG 系** (PostgreSQL/GaussDB/TDSQL PG/GBase 8c): SERIAL/NUMERIC/BOOLEAN/$$ quoting/LANGUAGE plpgsql/FOR RECORD/GET DIAGNOSTICS
+- **GBase 8s**: SERIAL/MONEY/DATETIME YEAR TO SECOND/SPL/DEFINE/FOREACH/LOCK MODE ROW
+- **HiveSQL**: STRING/DOUBLE/PARTITIONED BY/STORED AS ORC/INSERT OVERWRITE/UDF 模式
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔
+
+---
+
+## 2026-05-12 (晚间): 第二轮 UI 修正 + AppConfig 删除（6 项）
+
+### 修正内容
+1. **IdToolPage 硬编码 #fff 修复** — `color: #fff` → `var(--color-btn-primary-text)`（生成/校验按钮）
+2. **工具栏按钮进一步下移 + 交换按钮对齐** — WorkbenchActionBar padding 增至 `8px 16px 12px`；SqlConvertPage 左右 flex 比例调整为 `0.6:1.4`，center 移除 padding，使交换按钮对齐输入/输出面板垂直分割线
+3. **移除输入/输出框及 DB 选择器 focus 色环** — 删除 `.sc-code-editor:focus-visible` 和 `.sc-db-selector:focus-within` 规则
+4. **移除证件号码页面所有输入框 focus 色环** — select/input/verify-input/result-input/date-inputs 统一添加 `:focus { outline: none; border-color: var(--color-page-border-subtle) }`
+5. **证件号码页面添加顶栏标题** — 新增 `.idt-top-bar`（标题"证件工具"/副标题"身份证 / 统一社会信用代码生成与校验"），`.page-content` padding-top 从 `calc(var(--header-height) + 16px)` 恢复为 `12px`
+6. **删除应用配置界面及关联功能**：
+   - 删除：`AppConfigPage.vue`、`ConfigEditModal.vue`、`useAppConfig.ts`、`features/app-config/`（types + barrel）
+   - 简化：`api/app-config.ts`（仅保留 `list` 方法，移除 create/update/delete/clearCache）
+   - 清理：router、WorkbenchApp、Sidebar、sidebar-menu、workbench-sections、workbench store、AppHeader 中所有 appConfig 引用
+   - 保留：Edge Function `app-config` 及 `_shared/app-config.ts`（其他函数运行时依赖）
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/components/business/workbench/WorkbenchActionBar.vue | 调整 padding |
+| src/components/business/workbench/pages/SqlConvertPage.vue | 调整布局 + 移除 focus |
+| src/components/business/workbench/pages/IdToolPage.vue | #fff→token + 移除 focus + 添加标题 |
+| src/components/business/app-config/AppConfigPage.vue | 删除 |
+| src/components/business/app-config/ConfigEditModal.vue | 删除 |
+| src/composables/useAppConfig.ts | 删除 |
+| src/features/app-config/ | 删除 |
+| src/api/app-config.ts | 简化（仅保留 list） |
+| src/router/index.ts | 移除 /app-config 路由 |
+| src/.../workbench/WorkbenchApp.vue | 移除 AppConfigPage 导入/渲染 |
+| src/.../workbench/WorkbenchSidebar.vue | 移除 appConfig 路径检测 |
+| src/.../workbench/sidebar-menu.ts | 移除 appConfig 菜单项 |
+| src/features/navigation/workbench-sections.ts | 移除 app-config 节 |
+| src/stores/workbench.ts | 移除 appConfig from 类型/数组/map |
+| src/components/layout/AppHeader.vue | 移除应用配置下拉链接 |
+| scripts/css-color-baseline.json | 基线更新（738 records，较上轮 746 减少 8） |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors, 0 warnings)
+- `pnpm check:css-colors` ✔ (738 records)
+- `pnpm test` (8 suites) ✔
+
+---
+
+## 2026-05-12 (傍晚): 工具栏/转换页/证件工具页 UI 修正（7 项）
+
+### 问题修复
+1. **工具栏按钮太贴近底部横线** — `WorkbenchActionBar.vue`: padding 从 `5px 16px` 调整为 `6px 16px 8px`，增加底部留白
+2. **源/交换/目标/转换按钮位置后移，交换按钮对齐垂直分割线** — `SqlConvertPage.vue`: 左右工具栏 flex 比例从 `1:1` 调整为 `0.65:1.35`，center padding 从 `0 16px` 调整为 `0 10px 0 0`
+3. **输入框空白状态无法粘贴 SQL** — `SqlConvertPage.vue`: 空状态 div 新增 `@paste` 事件处理，`handlePaste()` 从剪贴板读取文本并写入 store
+4. **证件号码页面卡片顶部在分割线上面** — `IdToolPage.vue`: `.page-content` padding-top 从 `24px` 改为 `calc(var(--header-height, 56px) + 16px)`
+5. **证件号码页面字体稍微缩小** — `IdToolPage.vue`: 标题 `--text-lg`→`--text-base`，副标题/标签/单选按钮 `--text-base`→`--text-sm`
+6. **生成/校验按钮改为圆角矩形** — `IdToolPage.vue`: border-radius 从 `--radius-pill` 改为 `--radius-sm`(6px)，水平 padding 从 18px 增至 24px
+7. **证件号码校验闪烁 + 换号后报相同结果** — `IdToolPage.vue`:
+   - 所有 `<Transition name="toast-fade">` 添加 `mode="out-in"` 消除闪烁
+   - `validateIdNumber()`: `idLastVerifyResult` 比较键包含输入值 `input + '|' + resultCode`，避免不同号码误判"与上次相同"
+   - `applyUsccResult()`: 同理，`resultKey = input + '|' + msg + '|' + type`
+   - `idVerifyKey`/`usccVerifyKey` 自增移到消息设置之前
+
+### AI_DEV.md 合规
+- 按钮圆角使用 `var(--radius-sm)` token（而非硬编码 6px）
+- 全部颜色沿用已有 CSS 变量，无新增硬编码 hex
+- 字体使用 rem-based token（`--text-base`/`--text-sm`）
+- 空状态 paste 属于纯前端交互，无新增依赖
+- `pnpm verify` 通过（typecheck + lint + utf8 + css-colors + test），test:unit 6 个失败为已有问题
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/components/business/workbench/WorkbenchActionBar.vue | 调整工具栏 padding |
+| src/components/business/workbench/pages/SqlConvertPage.vue | 调整按钮位置 + 新增 paste 支持 |
+| src/components/business/workbench/pages/IdToolPage.vue | 卡片定位/字号/按钮形状/校验逻辑修复 |
+| scripts/css-color-baseline.json | 基线更新（746 records） |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors, 0 warnings)
+- `pnpm check:utf8` ✔
+- `pnpm check:css-colors` ✔
+- `pnpm test` (8 suites) ✔
+- `pnpm test:unit` ⚠️ (6 failed, 均为已有 api-http/composables 问题)
+
+---
+
+
+### 问题修复（7 项）
+1. **卡片充满屏幕** — padding 从 `24px` 缩减为 `8px 12px 12px`，gap 从 `24px` 缩减为 `12px`，卡片上沿靠近顶部分割线
+2. **校验按钮多次点击无反应** — 新增 `idVerifyKey`/`usccVerifyKey` 计数器作为 toast `:key`，每次校验强制重建 DOM 触发过渡动画
+3. **输入框字体改为全局字体** — 结果框/校验框从 `var(--font-code)` 改为 `var(--font-body)`（Apple 系统字体），与全局一致
+4. **移除输入框 focus 边框** — 删除 select/input 的 `:focus { border-color }` 规则
+5. **USCC 校验重写** — 修复三个 bug：
+   - 中划线在开头就被 strip 导致后续 `includes('-')` 永远为 false → 组织机构代码 `XXXXXXXX-X` 被判为"格式错误"
+   - `validateLegacy15` 调用缺少 `regionCodeExists` 回调 → 输入工商注册号时抛出 TypeError
+   - 税务登记号误判为"组织机构代码合法"→ 三类旧版证件各自按格式特征分流
+   - 新增 `regionCodeExists()` 函数从已加载的省市县数据中查找
+6. **字号整体放大** — label 从 `var(--text-sm)` (12px) → `var(--text-base)` (14px)，select/input/button 同步放大
+7. **新增 `validateOrgCode` 导入** — 从 `@/features/id-tools` 导入，用于组织机构代码独立校验
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/components/business/workbench/pages/IdToolPage.vue | 第二轮全面修正 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors, 0 warnings)
+- `pnpm build` ✔
+
+---
+
+## 2026-05-12 (下午): 证件号码页面样式/功能修正（第一轮）
+
+### 问题修复（9 项）
+1. **移除独立顶部导航栏** — 页面处于工作台布局内，已有侧边栏+全局HeaderActions，删除冗余的标题/副标题/返回首页按钮/用户菜单
+2. **修复省市县下拉数据加载** — `region_codes_2024.json` 实际为嵌套数组结构 `[{code,name,cityList:[{code,name,areaList:[...]}]}]`，重写 `loadRegionData()` 解析逻辑；fetch 路径改用 `import.meta.env.BASE_URL`
+3. **出生年份扩展** — 年份上限从 2010 年改为 `new Date().getFullYear()`（当前为 2026）
+4. **校验提示修正** — 身份证校验成功消息从"已重新校验，结果与上次一致：..."改为"校验通过：身份证号码合法"
+5. **按钮颜色统一** — 生成/校验按钮从 `var(--color-purple)` 改为 `var(--color-page-brand)`（Apple 蓝），与全局品牌色一致
+6. **字号统一为 Design Token** — 所有 `font-size` 从硬编码 px 值改为 `var(--text-xs)`/`var(--text-sm)`/`var(--text-base)`/`var(--text-lg)`
+7. **输入框/结果框收紧** — 移除 placeholder 文字提示；padding 从 `8px 12px`/`10px 12px` 缩减为 `6px 10px`
+8. **卡片充满屏幕** — `.id-tool-page` 添加 `flex: 1; min-height: 0`，卡片使用 `var(--color-page-panel)` 背景
+9. **USCC 生成 bug 修复** — `regionCode` 变量作用域从 if/else 内提升到函数顶部，修复旧版三证模式引用未定义变量的问题
+
+### AI_DEV.md 合规
+- 全部颜色使用 CSS 变量（`var(--color-page-*)`），无硬编码 hex
+- 字体使用 rem-based token，按钮使用 `var(--radius-pill)` 圆角
+- 过渡动画使用 `var(--duration-fast)`
+- 删除未使用的 `useRouter`/`useWorkbenchStore` 导入
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/components/business/workbench/pages/IdToolPage.vue | 全面改写 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors, 0 warnings)
+- `pnpm build` ✔
+- `tests/id-tools.mjs` ✔
+- 单元测试: 3/9 通过（6 个失败为已有 api-http/composables 问题，非本次引入）
+
+---
+
+## 2026-05-12 (下午): 提示词整合 + SqlConvertPage UI 重构 + AI_DEV.md 合规
+
+### 提示词模版整合
+- 5 套独立模版（ddl/function/procedure/auto/default）→ 1 套统一模版 `sql_convert_template.unified`
+- AI 自动检测 SQL 类型，输出结构化 JSON（converted_sql / ai_ratio / manual_needed / manual_parts / notes / accuracy）
+- 修改：migrations/202605130001_insert_sql_convert_configs.sql、functions/sql-convert/index.ts
+
+### Edge Function 升级
+- 新增 `parseAiResult()` — 解析 AI 结构化 JSON，fallback 到原始 SQL
+- 新增 `clampRatio()` / `validateAccuracy()` 防御性校验
+- `loadTemplate()` 固定加载 `unified` 键，不再按 sql_type 分派
+- 响应新增 5 个字段：ai_ratio、manual_needed、manual_parts、notes、accuracy
+
+### SqlConvertPage UI 重构（7 项）
+1. 删除 SQL 类型标签栏（DDL/函数/存储过程/自动检测）
+2. 删除"返回首页"按钮
+3. 标题下方横线移除，工具栏上移——顶栏+工具栏合并为 `.sc-header-section`，共用一条底部边框
+4. 数据库选择器重新设计——左右 selector 连体（左圆角→右圆角），自定义 SVG 下拉箭头，focus-within 边框+ring
+5. 开始转换按钮移到输出面板 header（右侧），避开固定定位的三点菜单
+6. SQL 输入输出框字体从 `--font-code` 改为 `--font-body`（与全局一致）
+7. 转换成功后状态栏出现"展开转换详情"按钮，点击展开详情面板（AI 转换率、准确度、需人工处理项、注意事项、方向/耗时）
+
+### AI_DEV.md 合规修复
+- 硬编码颜色全面替换为 Design Token：
+  - `#fff` → `var(--color-btn-primary-text)`
+  - `#f59e0b`/`#d97706` → `var(--color-warning)`
+  - `#fef3c7` → `var(--color-warning-bg)`
+  - `rgba(59,130,246,0.15)` → `var(--shadow-focus-ring)`
+- 字号全部改用 rem-based token（`--text-xs`/`--text-sm`/`--text-base`/`--text-lg`/`--text-xl`/`--text-2xl`）
+- 所有交互元素添加 `:focus-visible` 轮廓样式
+- 详情面板过渡动画兼容 `prefers-reduced-motion: reduce`
+- 装饰性 SVG 添加 `aria-hidden="true"`
+- 2 处例外：`.sc-shortcut` 的 `rgba(255,255,255,0.2)`（品牌色上的固定白色叠加层）；下拉箭头 SVG data URI 中的 `#94a3b8`（data URI 无法使用 CSS 变量）
+
+### 前端类型/状态更新
+- `src/api/sql-convert.ts`: SqlConvertResponse 新增 aiRatio/manualNeeded/manualParts/notes/accuracy
+- `src/stores/workbench.ts`: 新增 5 个 ref + `resetOutputState()` 辅助函数，convert/clearAll/loadSample 中统一调用
+
+### 修改文件清单
+| 文件 | 变更类型 |
+|---|---|
+| supabase/migrations/202605130001_insert_sql_convert_configs.sql | 模版整合 |
+| supabase/functions/sql-convert/index.ts | 结构化输出 + unified 模版 |
+| src/api/sql-convert.ts | 新增字段 |
+| src/stores/workbench.ts | 新增 state + 辅助函数 |
+| src/components/.../SqlConvertPage.vue | UI 重构 + 合规修复 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors, 0 warnings)
+- 单元测试：6/9 通过（3 个 theme 测试为已有失败，非本次引入）
+
+### 部署
+- `supabase functions deploy sql-convert --no-verify-jwt`
+- 迁移自动执行或 `supabase db push`
+- `pnpm build`
+
+---
+
+## 2026-05-12: SQL 转换功能重新设计 — AI 驱动跨数据库互转
+
+### 背景
+原有 DDL 语句 / 函数 / 存储过程三个独立翻译页面，依赖后端静态规则引擎（convert-engine）进行转换。现重新设计为统一的「SQL 转换」页面，直接调用 AI 大模型进行跨数据库 SQL 互转。
+
+### 核心变更
+- **三合一页面**: DdlPage + FunctionPage + ProcedurePage → SqlConvertPage
+- **AI 驱动转换**: 删除后端 convert-engine 静态规则引擎，改用 AI 大模型
+- **数据库扩展**: 3 种 (Oracle/MySQL/PostgreSQL) → 17 种
+- **删除 AI 校验**: AI 成为主转换器，不再需要独立校验按钮
+- **删除映射规则**: RulesPage 及所有规则管理代码删除
+- **配置全部 app_configs 化**: 数据库列表、Prompt 模板、参数限制全部存储在 app_configs 表
+
+### 前端变更
+- **新建文件 (4)**: SqlConvertPage.vue、sql-convert.ts (API)、db-meta.ts、supabase/functions/sql-convert/index.ts
+- **修改文件 (9)**: workbench.ts (store)、WorkbenchApp.vue、sidebar-menu.ts、WorkbenchSidebar.vue、workbench-sections.ts、router/index.ts、tokens.css、app-config/types.ts、auth.ts
+- **删除文件 (30+)**: DdlPage、FunctionPage、ProcedurePage、RulesPage、convert.ts、convert-verify.ts、rules.ts、rules store、rules feature、convert-verify UI 组件
+
+### 后端变更
+- **新建**: supabase/functions/sql-convert/ — AI 转换 Edge Function
+- **删除**: supabase/functions/convert/、supabase/functions/convert-verify/、supabase/functions/_shared/convert-engine/
+- **新迁移**: supabase/migrations/202605130001_insert_sql_convert_configs.sql — app_configs 种子数据（databases 列表 + 5 条 prompt 模板 + 配置参数 + 限流配置）
+
+### 验证结果
+- `pnpm typecheck` ✔
+- `pnpm lint` ✔ (0 errors)
+- `pnpm test` ✔ (8/8 suites passed)
+- 单元测试：2 个不相关文件预存失败
+
+### 部署步骤
+1. `supabase functions deploy sql-convert`
+2. 执行迁移: `supabase db push` 或手动执行 `202605130001_insert_sql_convert_configs.sql`
+3. `pnpm build` 构建前端
+
+Last updated: 2026-05-13
 
 ---
 

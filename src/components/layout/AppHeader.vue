@@ -145,21 +145,6 @@ onBeforeUnmount(() => {
                 </svg>
                 操作日志
               </RouterLink>
-              <RouterLink to="/app-config" class="dropdown-item" @click="showUserMenu = false">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <circle cx="8" cy="8" r="2" />
-                  <circle cx="14" cy="14" r="2" />
-                  <path d="M8 10v5M5 8h6M10 14h5" />
-                </svg>
-                应用配置
-              </RouterLink>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item danger" @click="handleSignOut">
                 <svg
