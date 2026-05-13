@@ -7,6 +7,121 @@ Last updated: 2026-05-13
 
 ---
 
+## 2026-05-13: 操作日志表格交互优化 (v4)
+
+### 需求
+日志表格改为点击右侧"详情"按钮展开详情，而非整行点击。
+
+### 实现方案
+1. 移除 `<tr>` 的 `@click` 事件处理器
+2. 移除行 hover 时的 `cursor: pointer`
+3. 新增"操作"列，添加详情按钮
+4. 详情按钮使用 `@click.stop` 阻止事件冒泡
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/pages/operation-logs/index.vue | 移除行点击事件，新增详情按钮列 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm build` ✔
+
+---
+
+## 2026-05-13: 操作日志页面 UI 优化 (v3)
+
+### 需求
+操作日志页面进一步优化：
+1. 删除"管理员"标签
+2. 标题栏颜色与导航栏统一（glass 效果 + 边框）
+3. 四个指标栏数值和汉字字体统一
+4. 状态和操作筛选按钮左侧添加标签文字
+5. 日期选择器显示真实日期（添加 lang="zh-CN"）
+6. 日志表格增加请求报文和返回报文列
+
+### 实现方案
+1. 移除 admin-badge 组件及其样式
+2. page-header 使用 `var(--glass-bg)` + `backdrop-filter` + `border: 1px solid var(--color-border)` 与导航栏一致
+3. stat-value 从 `var(--font-code)` 改为 `var(--font-body)` 与 stat-label 统一
+4. 筛选栏添加 `filter-label` 组件显示"状态"/"操作"文字
+5. 日期 input 添加 `lang="zh-CN"` 属性确保正确格式化
+6. 表格新增两列：请求报文、返回报文（显示图标指示器）
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/pages/operation-logs/index.vue | 删除管理员标签、统一标题栏样式、统一指标字体、添加筛选标签、修复日期格式、新增报文列 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm build` ✔
+
+---
+
+## 2026-05-13: 操作日志页面 UI 优化 (v2)
+
+### 需求
+操作日志页面字体和颜色未与全局统一：
+1. 四个标签栏、表格列、分页数字、弹窗内容字体
+2. 选项栏、表格、弹窗颜色
+3. 表格边框在深色模式下不可见
+
+### 实现方案
+1. 所有字体改用 CSS 变量：`font-size: var(--text-*)`, `font-family: var(--font-body)`
+2. 圆角统一使用 `var(--radius-*)` 变量
+3. 过渡动画改用 `var(--duration-fast)` 和 `var(--ease-apple)`
+4. 所有卡片/面板改用 `var(--color-page-panel)`（一致的颜色映射）
+5. 表格边框改用 `var(--color-page-border)` 确保双主题可见
+6. 滚动条样式扩展到弹窗 modal-body
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/pages/operation-logs/index.vue | 样式全面重构：字体/颜色/圆角/过渡全部使用 CSS 变量 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm build` ✔
+
+---
+
+## 2026-05-13: 操作日志页面 UI 优化 (v1)
+
+### 需求
+操作日志页面存在以下问题：
+1. 组件字体未与全局统一（硬编码 #f0f6fc 等颜色）
+2. 两套主题下部分字体和表格边框不可见
+3. 页面整体可滚动，应改为表格内部滚动
+4. "全部状态"/"全部操作"按钮文字过长
+5. 日期选择器格式问题
+
+### 实现方案
+1. 页面布局改为 flex 纵向布局 + `overflow: hidden`，表格区域 `flex: 1 + overflow-y: auto`
+2. 所有硬编码颜色替换为 CSS 变量（`var(--color-page-text)` 等）
+3. 表格边框颜色使用 `var(--color-page-border)` 确保双主题可见
+4. 按钮标签从"全部状态"/"全部操作"简化为"状态"/"操作"
+5. 表格内单元格 `text-align: center`，内容超出时 ellipsis
+
+### 新增 CSS 变量
+| 变量 | 用途 |
+|---|---|
+| `--color-page-scrollbar-track` | 表格滚动条轨道色 |
+| `--color-page-scrollbar-thumb` | 滚动条滑块色 |
+| `--color-page-scrollbar-thumb-hover` | 滚动条悬停色 |
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| src/styles/tokens.css | 新增 page-scrollback CSS 变量（light + dark） |
+| src/pages/operation-logs/index.vue | 样式修复：移除硬编码颜色、页面布局改为表格内滚动、简化按钮标签 |
+
+### 验证
+- `pnpm typecheck` ✔
+- `pnpm build` ✔
+
+---
+
 ## 2026-05-13: AI 配置页追加模型闪现新行修复 (v3)
 
 ### 需求

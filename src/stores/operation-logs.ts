@@ -24,7 +24,7 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
   const items = ref<OperationLog[]>([])
   const total = ref(0)
   const page = ref(1)
-  const pageSize = ref(10)
+  const pageSize = ref(10) // configurable via UI selector
   const isAdmin = ref(false)
   const loading = ref(false)
   const error = ref('')

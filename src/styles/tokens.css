@@ -190,6 +190,10 @@
   --color-page-border-hover: rgba(0, 0, 0, 0.12);
   --color-page-border-focus: rgba(0, 113, 227, 0.3);
 
+  --color-page-scrollbar-track: transparent;
+  --color-page-scrollbar-thumb: #c7c7cc;
+  --color-page-scrollbar-thumb-hover: #aeaeb2;
+
   --color-page-link: var(--color-brand-500);
   --color-page-info: var(--color-brand-500);
   --color-page-success-alt: #34c759;
@@ -320,6 +324,10 @@
   --color-page-border-light: rgba(255, 255, 255, 0.12);
   --color-page-border-hover: rgba(255, 255, 255, 0.2);
   --color-page-border-focus: rgba(10, 132, 255, 0.5);
+
+  --color-page-scrollbar-track: transparent;
+  --color-page-scrollbar-thumb: rgba(120, 120, 128, 0.4);
+  --color-page-scrollbar-thumb-hover: rgba(120, 120, 128, 0.6);
 
   --color-page-link: var(--color-brand-500);
   --color-page-info: var(--color-brand-500);

@@ -8,6 +8,7 @@ const props = defineProps<{
   compact?: boolean
   borderless?: boolean
   disabled?: boolean
+  flipUpward?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -110,6 +111,7 @@ onUnmounted(() => {
         v-if="open && dropdownPos"
         ref="dropdownRef"
         class="form-select-dropdown"
+        :class="{ 'flip-up': props.flipUpward }"
         :style="{
           top: dropdownPos.top + 'px',
           left: dropdownPos.left + 'px',
@@ -200,6 +202,10 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: var(--shadow-xl);
   overflow: hidden;
+}
+
+.form-select-dropdown.flip-up {
+  transform: translateY(calc(-100% - 38px));
 }
 
 .dropdown-list {
