@@ -3,7 +3,6 @@ import { createCorsHelpers, initCorsConfig, handleCors } from '../_shared/cors.t
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.ts'
-import { logOperation } from '../_shared/operation-logger.ts'
 import { getAppConfig } from '../_shared/app-config.ts'
 import { toSafeString } from '../_shared/utils.ts'
 
@@ -151,23 +150,11 @@ Deno.serve(async (req) => {
     const authUserId = authUser?.userId || null
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      await logOperation({
-        userId: authUserId, userEmail: authUser?.email, clientIp,
-        operation: 'feedback_error', apiName: 'feedback',
-        requestBody: payload, responseBody: { error: 'invalid_payload' },
-        responseStatus: 400, durationMs: Date.now() - startTime
-      }).catch(() => {})
       return errorResponse(400, 'invalid_payload', corsHeaders)
     }
 
     const rowResult = await parseFeedbackPayload(req, payload, corsHeaders)
     if (rowResult instanceof Response) {
-      await logOperation({
-        userId: authUserId, userEmail: authUser?.email, clientIp,
-        operation: 'feedback_error', apiName: 'feedback',
-        requestBody: payload, responseBody: { error: 'content_too_short' },
-        responseStatus: 400, durationMs: Date.now() - startTime
-      }).catch(() => {})
       return rowResult
     }
     const row = rowResult as FeedbackRow
@@ -176,12 +163,6 @@ Deno.serve(async (req) => {
 
     const rateLimitResponse = await checkFeedbackRateLimit(authUserId, clientIp, corsHeaders)
     if (rateLimitResponse) {
-      await logOperation({
-        userId: authUserId, userEmail: authUser?.email, clientIp,
-        operation: 'feedback_error', apiName: 'feedback',
-        requestBody: payload, responseBody: { error: 'rate_limited' },
-        responseStatus: 429, durationMs: Date.now() - startTime
-      }).catch(() => {})
       return rateLimitResponse
     }
 
@@ -193,21 +174,9 @@ Deno.serve(async (req) => {
     const inserted = await insertRes.json().catch(() => [])
     const first = Array.isArray(inserted) ? inserted[0] : null
     const responseBody = { ok: true, id: first?.id || null }
-    await logOperation({
-      userId: authUserId, userEmail: authUser?.email, clientIp,
-      operation: 'feedback_submit', apiName: 'feedback',
-      requestBody: payload, responseBody, responseStatus: 200,
-      durationMs: Date.now() - startTime
-    }).catch(() => {})
     return jsonResponse(200, responseBody, corsHeaders)
   } catch (err) {
     logEdgeError('feedback', 'internal_error', err)
-    await logOperation({
-      userId: null, userEmail: null, clientIp,
-      operation: 'feedback_error', apiName: 'feedback',
-      responseBody: { error: 'internal_error' },
-      responseStatus: 500, durationMs: Date.now() - startTime
-    }).catch(() => {})
     return errorResponse(500, 'internal_error', corsHeaders)
   }
 })

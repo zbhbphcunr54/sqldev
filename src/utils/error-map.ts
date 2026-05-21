@@ -59,7 +59,8 @@ const ERROR_MESSAGE_MAP: Record<string, string> = {
   feedback_submit_failed: '提交失败，请稍后重试。',
 
   // AI Config
-  ai_config_limit_exceeded: '全站配置数已达上限（20 条），请删除不需要的配置后重试。',
+  ai_config_limit_exceeded: 'AI 配置数量校验失败，请联系管理员检查服务端限制。',
+  ai_config_model_duplicate: '同一供应商下该模型已存在，请不要重复添加。',
   ai_config_not_found: '找不到指定的 AI 配置。',
   ai_config_test_failed: '连接测试失败，请检查 API Key 和地址。',
   ai_config_save_failed: '保存配置失败，请稍后重试。',

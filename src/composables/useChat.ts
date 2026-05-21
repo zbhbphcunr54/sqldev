@@ -1,5 +1,5 @@
-import { ref, computed } from 'vue'
-import { aiChatApi, type ChatMessage, type ChatSession, type ChatQuota } from '@/api/ai-chat'
+import { computed, ref } from 'vue'
+import { aiChatApi, type ChatMessage, type ChatQuota, type ChatSession } from '@/api/ai-chat'
 import { ApiError } from '@/api/http'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 
@@ -16,13 +16,12 @@ export interface ChatState {
 
 function getChatErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
-    return err.message
+    return mapErrorCodeToMessage(err.code || err.message)
   }
-  // TypeError 可能是网络不通（fetch 抛出），也可能是响应解析失败（字段缺失）
-  // 统一 console.error 输出实际错误，方便排查
-  console.error('[useChat] send failed:', err)
+
+  console.error('[useChat] request failed:', err)
+
   if (err instanceof TypeError) {
-    // 区分：网络层 TypeError（如 Failed to fetch）vs 代码层 TypeError（如 Cannot read properties）
     const msg = err.message || ''
     if (
       msg.includes('Failed to fetch') ||
@@ -31,15 +30,13 @@ function getChatErrorMessage(err: unknown): string {
     ) {
       return mapErrorCodeToMessage('network_error')
     }
-    // 响应解析失败 → 可能是服务端异常
-    return `AI 服务响应异常，请稍后重试（${msg.slice(0, 80)}）`
+
+    return `${mapErrorCodeToMessage('server_error')}：${msg.slice(0, 80)}`
   }
+
   return mapErrorCodeToMessage('unknown_error')
 }
 
-// Module-level reactive state — singleton shared across all component instances.
-// Kept as composable (not Pinia store) because AI chat UI has DOM coupling
-// (scroll-to-bottom, auto-resize) that doesn't fit Pinia's SSR/decoupled model.
 const open = ref(false)
 const sessionId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
@@ -79,13 +76,12 @@ export function useChat() {
     try {
       const res = await aiChatApi.getQuota()
       quota.value = res.quota
-      console.log('[useChat] loadQuota response quota:', JSON.stringify(res.quota))
       if (res.provider) provider.value = res.provider
       if (res.model) model.value = res.model
       if (res.maxMessageLength) maxMessageLength.value = res.maxMessageLength
       if (res.maxSessions) maxSessions.value = res.maxSessions
     } catch (err) {
-      if (import.meta.env.DEV) console.error('[useChat] loadQuota failed:', err)
+      if (import.meta.env.DEV) console.error('[useChat] Failed to load quota:', err)
     } finally {
       loadingQuota.value = false
     }
@@ -105,34 +101,73 @@ export function useChat() {
   }
 
   async function sendMessage(content: string): Promise<void> {
-    if (!content.trim() || sending.value) return
+    const trimmed = content.trim()
+    if (!trimmed || sending.value) return
+
     sending.value = true
     error.value = ''
 
-    // 立即展示用户消息
+    const seed = Date.now()
+    const localUserId = `local-user-${seed}`
+    const localAssistantId = `local-assistant-${seed}`
+
     messages.value.push({
-      id: 'local-' + Date.now(),
+      id: localUserId,
       role: 'user',
-      content: content.trim(),
+      content: trimmed,
+      created_at: new Date().toISOString()
+    })
+
+    messages.value.push({
+      id: localAssistantId,
+      role: 'assistant',
+      content: '',
       created_at: new Date().toISOString()
     })
 
     try {
-      const res = await aiChatApi.sendMessage(content.trim(), sessionId.value ?? undefined)
-      if (!sessionId.value) {
-        sessionId.value = res.sessionId
-      }
-      // 用服务端返回的 ID 替换本地临时 ID
-      const localMsg = messages.value.find((m) => m.id.startsWith('local-'))
-      if (localMsg) localMsg.id = res.userMessage.id
-      messages.value.push(res.message)
+      const res = await aiChatApi.sendMessageStream(trimmed, sessionId.value ?? undefined, {
+        onMeta(payload) {
+          if (payload.sessionId) sessionId.value = payload.sessionId
+          if (payload.provider) provider.value = payload.provider
+          if (payload.model) model.value = payload.model
+          if (payload.quota) quota.value = payload.quota
+
+          if (payload.userMessage) {
+            const userMsg = messages.value.find((item) => item.id === localUserId)
+            if (userMsg) {
+              userMsg.created_at = payload.userMessage.created_at
+            }
+          }
+        },
+        onDelta(text) {
+          const assistantMsg = messages.value.find((item) => item.id === localAssistantId)
+          if (assistantMsg) {
+            assistantMsg.content += text
+          }
+        }
+      })
+
+      sessionId.value = res.sessionId
       provider.value = res.provider
       model.value = res.model
       quota.value = res.quota
-      console.log('[useChat] sendMessage response quota:', JSON.stringify(res.quota))
+
+      const userMsg = messages.value.find((item) => item.id === localUserId)
+      if (userMsg) {
+        userMsg.id = res.userMessage.id
+        userMsg.content = res.userMessage.content
+        userMsg.created_at = res.userMessage.created_at
+      }
+
+      const assistantMsg = messages.value.find((item) => item.id === localAssistantId)
+      if (assistantMsg) {
+        assistantMsg.id = res.message.id
+        assistantMsg.content = res.message.content
+        assistantMsg.created_at = res.message.created_at
+      }
     } catch (err) {
-      // 失败时移除本地消息
-      messages.value = messages.value.filter((m) => !m.id.startsWith('local-'))
+      messages.value = messages.value.filter((item) => item.id !== localUserId && item.id !== localAssistantId)
       error.value = getChatErrorMessage(err)
     } finally {
       sending.value = false
@@ -142,8 +177,8 @@ export function useChat() {
   function toggleOpen(): void {
     open.value = !open.value
     if (open.value) {
-      loadSessions()
-      loadQuota()
+      void loadSessions()
+      void loadQuota()
     }
   }
 
@@ -165,20 +200,20 @@ export function useChat() {
   }
 
   async function deleteSession(sid: string): Promise<void> {
-    // 乐观更新：立即从列表移除，API 后台执行
     const oldSessions = sessions.value
     const wasCurrent = sessionId.value === sid
-    sessions.value = sessions.value.filter((s) => s.id !== sid)
+
+    sessions.value = sessions.value.filter((item) => item.id !== sid)
     if (wasCurrent) {
       sessionId.value = null
       messages.value = []
       provider.value = ''
       model.value = ''
     }
+
     try {
       await aiChatApi.deleteSession(sid)
     } catch (err) {
-      // 失败时恢复
       sessions.value = oldSessions
       if (wasCurrent) {
         sessionId.value = sid

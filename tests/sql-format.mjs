@@ -1,6 +1,6 @@
 ﻿import { loadTsModule } from './helpers/load-ts-module.mjs'
 
-const { formatSqlText, splitSqlStatements } = loadTsModule('src/features/sql/sql-format.ts')
+const { formatSqlForDisplay, formatSqlText, splitSqlStatements } = loadTsModule('src/features/sql/sql-format.ts')
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -25,6 +25,26 @@ assert(
 assert(
   formatSqlText('begin\n\n\n  null;\nend;', { preserveBlocks: true }) === 'begin\n\n  null;\nend;',
   'formatSqlText must preserve PL/SQL blocks when requested'
+)
+
+assert(
+  formatSqlForDisplay(
+    "CREATE TABLE t(a NUMBER NOT NULL, b VARCHAR2(20), CONSTRAINT pk_t PRIMARY KEY (a)) ORGANIZATION INDEX NOCOMPRESS PCTFREE 10;"
+  ) ===
+    "CREATE TABLE t (\n  a NUMBER NOT NULL,\n  b VARCHAR2(20),\n  CONSTRAINT pk_t PRIMARY KEY (a)\n)\nORGANIZATION INDEX\nNOCOMPRESS\nPCTFREE 10;",
+  'formatSqlForDisplay must expand single-line CREATE TABLE output into readable multi-line DDL'
+)
+
+assert(
+  formatSqlForDisplay('[CREATE TABLE t(a NUMBER, b VARCHAR2(20));]') ===
+    "CREATE TABLE t (\n  a NUMBER,\n  b VARCHAR2(20)\n);",
+  'formatSqlForDisplay must unwrap accidental list-like wrappers around SQL output'
+)
+
+assert(
+  formatSqlForDisplay('begin dbms_output.put_line(\'ok\'); end;', { sqlType: 'procedure' }) ===
+    "begin dbms_output.put_line('ok');\nend;",
+  'formatSqlForDisplay must keep routine output stable while still separating terminal statements'
 )
 
 console.log('SQL format tests passed')

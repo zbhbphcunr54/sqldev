@@ -19,6 +19,25 @@ const SENSITIVE_KEYS = new Set([
   'token', 'access_token', 'password', 'authorization', 'api_key', 'secret', 'apikey'
 ])
 
+const ALLOWED_OPERATIONS = new Set([
+  'sql_convert',
+  'id_card_generate',
+  'id_card_validate',
+  'uscc_generate',
+  'uscc_validate',
+  'ziwei_chart_generate',
+  'ziwei_analysis',
+  'ziwei_qa',
+  'ai_provider_create',
+  'ai_provider_update',
+  'ai_provider_delete',
+  'ai_config_create',
+  'ai_config_append_model',
+  'ai_config_test',
+  'ai_config_delete',
+  'ai_chat_message'
+])
+
 export interface OperationLogEntry {
   userId?: string
   userEmail?: string
@@ -67,6 +86,7 @@ function sanitizeLogEntry(entry: OperationLogEntry) {
 export async function logOperation(entry: OperationLogEntry): Promise<void> {
   const adminClient = getLogClient()
   if (!adminClient) return
+  if (!ALLOWED_OPERATIONS.has(entry.operation)) return
 
   try {
     const sanitized = sanitizeLogEntry(entry)

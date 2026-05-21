@@ -3,17 +3,38 @@ import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { jsonResponse, logEdgeError } from '../_shared/response.ts'
-import { buildQaConfig } from './prompt-template.ts'
-import { buildAiEndpoint, requestAiAnalysis, requestAiQa, type ZiweiAiProviderConfig } from './provider.ts'
+import { logOperation } from '../_shared/operation-logger.ts'
 import {
+  getAppConfig,
+  getAppConfigsByCategory,
+  getDefaultAiTimeoutMs
+} from '../_shared/app-config.ts'
+import { resolveAiConfig } from '../_shared/ai-resolver.ts'
+import { buildQaConfig } from './prompt-template.ts'
+import {
+  buildAnalysisMessages,
+  buildQaMessages,
+  buildZiweiAiRequestUrl,
+  requestAiAnalysis,
+  requestAiAnalysisStream,
+  requestAiQa,
+  requestAiQaStream,
+  type ZiweiAiProviderConfig
+} from './provider.ts'
+import {
+  buildStreamingAnalysisPartial,
+  buildAnalysisFallbackFromPartialJson,
+  buildFallbackFromText,
+  extractAnalysisPreview,
   isPlainObject,
   isValidChartPayloadStructure,
   mapAiErrorStatus,
+  normalizeAnalysis,
   normalizeAiErrorCode,
   normalizeChartPayload,
+  parseJsonLoose,
   toSafeString
 } from './response-parser.ts'
-import { getAppConfig, getAppConfigsByCategory } from '../_shared/app-config.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
 
@@ -22,46 +43,111 @@ await initCorsConfig()
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 
-// [2026-05-03] 修改：从 app-config 读取配置，支持数据库优先 + 环境变量回退
-async function loadAiConfig(): Promise<{
+function createSseResponse(stream: ReadableStream<Uint8Array>, corsHeaders: Record<string, string>): Response {
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive'
+    }
+  })
+}
+
+function encodeSseEvent(event: string, data: Record<string, unknown>): Uint8Array {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  return new TextEncoder().encode(payload)
+}
+
+async function loadAiConfig(userId: string): Promise<{
   aiConfig: ZiweiAiProviderConfig
   allowedEmails: string[]
   rateLimit: { windowMs: number; maxRequests: number; trackMax: number }
   qaSuggestions: string[]
 }> {
-  // 紫微分析配置
-  const [baseUrlResult, modelResult, timeoutResult, maxChartCharsResult,
-         qaMaxQuestionResult, analysisMaxTokensResult, qaMaxTokensResult,
-         analysisTemplateResult, qaTemplateResult, qaSuggestionsResult,
-         allowedEmailsResult, rateLimitResult] = await Promise.all([
-    getAppConfig('ziwei', 'base_url', { envVar: 'ZIWEI_AI_BASE_URL', defaultValue: 'https://api.openai.com/v1' }),
-    getAppConfig('ziwei', 'model', { envVar: 'ZIWEI_AI_MODEL', defaultValue: 'gpt-4.1-mini' }),
-    getAppConfig<number>('ziwei', 'timeout_ms', { envVar: 'ZIWEI_AI_TIMEOUT_MS', defaultValue: 20000, parse: Number }),
-    getAppConfig<number>('ziwei_chart', 'max_chart_chars', { envVar: 'ZIWEI_AI_MAX_CHART_CHARS', defaultValue: 12000, parse: Number }),
-    getAppConfig<number>('ziwei_qa', 'max_question_chars', { envVar: 'ZIWEI_AI_QA_MAX_QUESTION_CHARS', defaultValue: 220, parse: Number }),
-    getAppConfig<number>('ziwei', 'analysis_max_tokens', { envVar: 'ZIWEI_AI_ANALYSIS_MAX_TOKENS', defaultValue: 900, parse: Number }),
-    getAppConfig<number>('ziwei_qa', 'max_tokens', { envVar: 'ZIWEI_AI_QA_MAX_TOKENS', defaultValue: 520, parse: Number }),
-    getAppConfig('ziwei_chart', 'template', { envVar: 'ZIWEI_AI_ANALYSIS_TEMPLATE', defaultValue: '' }),
-    getAppConfig('ziwei_qa', 'template', { envVar: 'ZIWEI_AI_QA_TEMPLATE', defaultValue: '' }),
-    getAppConfig<string[]>('ziwei_qa', 'suggestions', { envVar: 'ZIWEI_AI_QA_SUGGESTIONS', defaultValue: [], parse: (v) => v ? JSON.parse(v) : [] }),
-    getAppConfig<string[]>('ziwei', 'allowed_emails', { envVar: 'ZIWEI_ALLOWED_EMAILS', defaultValue: [], parse: (v) => v.split(',').map(e => e.trim()).filter(Boolean) }),
+  const resolvedAiConfig = await resolveAiConfig(userId)
+  const fallbackTimeoutMs = resolvedAiConfig.timeoutMs || await getDefaultAiTimeoutMs()
+
+  const [
+    timeoutResult,
+    maxChartCharsResult,
+    qaMaxQuestionResult,
+    analysisTemperatureResult,
+    qaTemperatureResult,
+    analysisSystemResult,
+    analysisUserResult,
+    qaSystemResult,
+    qaUserResult,
+    qaSuggestionsResult,
+    allowedEmailsResult,
+    rateLimitResult
+  ] = await Promise.all([
+    getAppConfig<number>('ziwei', 'timeout_ms', {
+      envVar: 'ZIWEI_AI_TIMEOUT_MS',
+      defaultValue: fallbackTimeoutMs,
+      parse: Number
+    }),
+    getAppConfig<number>('ziwei_chart', 'max_chart_chars', {
+      envVar: 'ZIWEI_AI_MAX_CHART_CHARS',
+      defaultValue: 15000,
+      parse: Number
+    }),
+    getAppConfig<number>('ziwei_qa', 'max_question_chars', {
+      envVar: 'ZIWEI_AI_QA_MAX_QUESTION_CHARS',
+      defaultValue: 220,
+      parse: Number
+    }),
+    getAppConfig<number>('ziwei_chart', 'temperature', {
+      envVar: 'ZIWEI_AI_ANALYSIS_TEMPERATURE',
+      defaultValue: 0.2,
+      parse: Number
+    }),
+    getAppConfig<number>('ziwei_qa', 'temperature', {
+      envVar: 'ZIWEI_AI_QA_TEMPERATURE',
+      defaultValue: 0.2,
+      parse: Number
+    }),
+    getAppConfig<string>('ziwei_chart_template', 'system', {
+      envVar: 'ZIWEI_AI_ANALYSIS_SYSTEM_TEMPLATE',
+      defaultValue: ''
+    }),
+    getAppConfig<string>('ziwei_chart_template', 'user', {
+      envVar: 'ZIWEI_AI_ANALYSIS_USER_TEMPLATE',
+      defaultValue: ''
+    }),
+    getAppConfig<string>('ziwei_qa_template', 'system', {
+      envVar: 'ZIWEI_AI_QA_SYSTEM_TEMPLATE',
+      defaultValue: ''
+    }),
+    getAppConfig<string>('ziwei_qa_template', 'user', {
+      envVar: 'ZIWEI_AI_QA_USER_TEMPLATE',
+      defaultValue: ''
+    }),
+    getAppConfig<string[]>('ziwei_qa', 'suggestions', {
+      envVar: 'ZIWEI_AI_QA_SUGGESTIONS',
+      defaultValue: [],
+      parse: (v) => (v ? JSON.parse(v) : [])
+    }),
+    getAppConfig<string[]>('ziwei', 'allowed_emails', {
+      envVar: 'ZIWEI_ALLOWED_EMAILS',
+      defaultValue: [],
+      parse: (v) => v.split(',').map((e) => e.trim()).filter(Boolean)
+    }),
     getAppConfigsByCategory('rate_limit')
   ])
 
-  // API Key 仍从环境变量获取（敏感信息不存数据库）
-  const apiKey = (Deno.env.get('ZIWEI_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY') || '').trim()
-
   const aiConfig: ZiweiAiProviderConfig = {
-    endpoint: buildAiEndpoint(baseUrlResult.value),
-    apiKey,
-    model: modelResult.value,
+    aiConfig: resolvedAiConfig,
     timeoutMs: timeoutResult.value,
-    analysisMaxTokens: analysisMaxTokensResult.value,
-    qaMaxTokens: qaMaxTokensResult.value,
+    maxChartChars: maxChartCharsResult.value,
     qaMaxQuestionChars: qaMaxQuestionResult.value,
-    analysisTemplate: analysisTemplateResult.value,
-    qaTemplate: qaTemplateResult.value,
-    maxChartChars: maxChartCharsResult.value
+    analysisTemperature: Math.max(0, Math.min(0.2, Number.isFinite(analysisTemperatureResult.value) ? analysisTemperatureResult.value : 0.2)),
+    qaTemperature: Math.max(0, Math.min(0.2, Number.isFinite(qaTemperatureResult.value) ? qaTemperatureResult.value : 0.2)),
+    analysisSystemTemplate: String(analysisSystemResult.value || ''),
+    analysisUserTemplate: String(analysisUserResult.value || ''),
+    qaSystemTemplate: String(qaSystemResult.value || ''),
+    qaUserTemplate: String(qaUserResult.value || '')
   }
 
   const rateLimit = {
@@ -78,22 +164,29 @@ async function loadAiConfig(): Promise<{
   }
 }
 
-// 缓存加载结果
-let cachedConfig: Awaited<ReturnType<typeof loadAiConfig>> | null = null
-let configCacheTime = 0
-const CONFIG_CACHE_TTL = 60_000 // 1 分钟
-
-async function getAiConfig() {
-  const now = Date.now()
-  if (!cachedConfig || now - configCacheTime > CONFIG_CACHE_TTL) {
-    cachedConfig = await loadAiConfig()
-    configCacheTime = now
-  }
-  return cachedConfig
+function hasTemplateContent(value: string): boolean {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
-// 限流器实例缓存
-const rateLimiterCache = new Map<string, { limiter: ReturnType<typeof createRateLimiter>; windowMs: number }>()
+const configCache = new Map<string, {
+  value: Awaited<ReturnType<typeof loadAiConfig>>
+  timestamp: number
+}>()
+const CONFIG_CACHE_TTL = 60_000
+
+async function getAiConfig(userId: string) {
+  const now = Date.now()
+  const cached = configCache.get(userId)
+  if (cached && now - cached.timestamp <= CONFIG_CACHE_TTL) {
+    return cached.value
+  }
+
+  const value = await loadAiConfig(userId)
+  configCache.set(userId, { value, timestamp: now })
+  return value
+}
+
+const rateLimiterCache = new Map<string, { limiter: ReturnType<typeof createRateLimiter> }>()
 
 async function getRateLimiter(windowMs: number, maxRequests: number) {
   const key = `${windowMs}:${maxRequests}`
@@ -105,9 +198,49 @@ async function getRateLimiter(windowMs: number, maxRequests: number) {
       trackMax: 2000,
       storeMode: 'kv'
     })
-    rateLimiterCache.set(key, { limiter, windowMs })
+    rateLimiterCache.set(key, { limiter })
   }
   return rateLimiterCache.get(key)!.limiter
+}
+
+async function writeZiweiAiLog(params: {
+  mode: 'analysis' | 'qa'
+  userId: string
+  userEmail?: string
+  clientIp: string
+  payload: Record<string, unknown>
+  chartPayloadLength: number
+  responseStatus: number
+  durationMs: number
+  responseBody: Record<string, unknown>
+  errorMessage?: string
+  aiRequest?: Record<string, unknown>
+  aiRequestUrl?: string
+  temperature?: number
+}): Promise<void> {
+  const question = toSafeString(params.payload.question, 220)
+  await logOperation({
+    userId: params.userId,
+    userEmail: params.userEmail,
+    clientIp: params.clientIp,
+    operation: params.mode === 'qa' ? 'ziwei_qa' : 'ziwei_analysis',
+    apiName: 'ziwei-analysis',
+    requestBody: {
+      mode: params.mode,
+      style: toSafeString(params.payload.style, 16) || 'pro',
+      chart_length: params.chartPayloadLength,
+      question_length: question.length || undefined,
+      ai_request: params.aiRequest
+    },
+    responseBody: params.responseBody,
+    responseStatus: params.responseStatus,
+    durationMs: params.durationMs,
+    errorMessage: params.errorMessage,
+    extra: {
+      ai_request_url: params.aiRequestUrl,
+      temperature: params.temperature
+    }
+  }).catch(() => {})
 }
 
 export async function handleZiweiAnalysisRequest(req: Request): Promise<Response> {
@@ -126,11 +259,10 @@ export async function handleZiweiAnalysisRequest(req: Request): Promise<Response
       supabaseAnonKey: SUPABASE_ANON_KEY
     })
     if (!authUser) return jsonResponse(401, { ok: false, error: 'unauthorized' }, corsHeaders)
+    const startTime = Date.now()
 
-    // 加载配置
-    const config = await getAiConfig()
+    const config = await getAiConfig(authUser.userId)
 
-    // 邮箱白名单检查
     if (config.allowedEmails.length > 0) {
       const email = String(authUser.email || '').trim().toLowerCase()
       if (!email || !config.allowedEmails.includes(email)) {
@@ -149,15 +281,14 @@ export async function handleZiweiAnalysisRequest(req: Request): Promise<Response
     const styleRaw = toSafeString(payload.style, 16)
     const style: 'simple' | 'pro' = styleRaw === 'simple' ? 'simple' : 'pro'
     const modeRaw = toSafeString(payload.mode, 16)
-    const mode: 'analysis' | 'qa' | 'config' = modeRaw === 'qa' ? 'qa' : (modeRaw === 'config' ? 'config' : 'analysis')
+    const mode: 'analysis' | 'qa' | 'config' = modeRaw === 'qa' ? 'qa' : modeRaw === 'config' ? 'config' : 'analysis'
+    const stream = payload.stream === true
     const signature = toSafeString(payload.signature, 160) || null
 
-    // config 模式返回问答配置
     if (mode === 'config') {
       return jsonResponse(200, { ok: true, signature, config: buildQaConfig(JSON.stringify(config.qaSuggestions)) }, corsHeaders)
     }
 
-    // 限流检查
     const rateLimiter = await getRateLimiter(config.rateLimit.windowMs, config.rateLimit.maxRequests)
     const clientIp = getClientIp(req)
     const rate = await rateLimiter.consume(`${authUser.userId}|${clientIp}`)
@@ -165,29 +296,251 @@ export async function handleZiweiAnalysisRequest(req: Request): Promise<Response
       return jsonResponse(429, { ok: false, error: 'rate_limited' }, corsHeaders, { 'Retry-After': String(rate.retryAfter) })
     }
 
-    // 验证命盘数据
     if (!isValidChartPayloadStructure(payload.chart)) {
       return jsonResponse(400, { ok: false, error: 'invalid_chart_payload' }, corsHeaders)
     }
 
-    const chartPayload = normalizeChartPayload(payload.chart, config.aiConfig.maxChartChars || 12000)
+    const chartPayload = normalizeChartPayload(payload.chart, config.aiConfig.maxChartChars || 15000)
     if (!chartPayload || chartPayload.length < 120) {
       return jsonResponse(400, { ok: false, error: 'chart_payload_too_small' }, corsHeaders)
+    }
+
+    if (
+      !hasTemplateContent(config.aiConfig.analysisSystemTemplate) ||
+      !hasTemplateContent(config.aiConfig.analysisUserTemplate) ||
+      !hasTemplateContent(config.aiConfig.qaSystemTemplate) ||
+      !hasTemplateContent(config.aiConfig.qaUserTemplate)
+    ) {
+      return jsonResponse(500, { ok: false, error: 'ziwei_template_missing' }, corsHeaders)
     }
 
     try {
       if (mode === 'qa') {
         const question = toSafeString(payload.question, config.aiConfig.qaMaxQuestionChars || 220)
         if (!question) return jsonResponse(400, { ok: false, error: 'invalid_question' }, corsHeaders)
+
+        const messages = buildQaMessages(config.aiConfig, chartPayload, question)
+        const aiRequest = {
+          model: config.aiConfig.aiConfig.model,
+          provider_slug: config.aiConfig.aiConfig.providerSlug ?? undefined,
+          temperature: config.aiConfig.qaTemperature,
+          timeout_ms: config.aiConfig.timeoutMs,
+          messages
+        }
+        const aiRequestUrl = buildZiweiAiRequestUrl(config.aiConfig.aiConfig)
+
+        if (stream) {
+          const streamResponse = new ReadableStream<Uint8Array>({
+            start: async (controller) => {
+              let answerText = ''
+              try {
+                controller.enqueue(encodeSseEvent('meta', {
+                  model: config.aiConfig.aiConfig.model
+                }))
+
+                answerText = await requestAiQaStream(config.aiConfig, chartPayload, question, (text) => {
+                  if (!text) return
+                  controller.enqueue(encodeSseEvent('delta', { text }))
+                })
+
+                await writeZiweiAiLog({
+                  mode: 'qa',
+                  userId: authUser.userId,
+                  userEmail: authUser.email,
+                  clientIp,
+                  payload,
+                  chartPayloadLength: chartPayload.length,
+                  responseStatus: 200,
+                  durationMs: Date.now() - startTime,
+                  responseBody: { ok: true },
+                  aiRequest,
+                  aiRequestUrl,
+                  temperature: config.aiConfig.qaTemperature
+                })
+
+                controller.enqueue(encodeSseEvent('done', {
+                  ok: true,
+                  signature,
+                  model: config.aiConfig.aiConfig.model,
+                  answer: answerText
+                }))
+                controller.close()
+              } catch (err) {
+                const errorCode = normalizeAiErrorCode(err)
+                logEdgeError('ziwei-analysis', errorCode, err)
+                await writeZiweiAiLog({
+                  mode: 'qa',
+                  userId: authUser.userId,
+                  userEmail: authUser.email,
+                  clientIp,
+                  payload,
+                  chartPayloadLength: chartPayload.length,
+                  responseStatus: mapAiErrorStatus(errorCode),
+                  durationMs: Date.now() - startTime,
+                  responseBody: { ok: false, error: errorCode },
+                  errorMessage: errorCode
+                })
+                controller.enqueue(encodeSseEvent('error', { error: errorCode }))
+                controller.close()
+              }
+            }
+          })
+
+          return createSseResponse(streamResponse, corsHeaders)
+        }
+
         const answer = await requestAiQa(config.aiConfig, chartPayload, question)
-        return jsonResponse(200, { ok: true, signature, model: config.aiConfig.model, answer }, corsHeaders)
+        await writeZiweiAiLog({
+          mode: 'qa',
+          userId: authUser.userId,
+          userEmail: authUser.email,
+          clientIp,
+          payload,
+          chartPayloadLength: chartPayload.length,
+          responseStatus: 200,
+          durationMs: Date.now() - startTime,
+          responseBody: { ok: true },
+          aiRequest,
+          aiRequestUrl,
+          temperature: config.aiConfig.qaTemperature
+        })
+        return jsonResponse(200, { ok: true, signature, model: config.aiConfig.aiConfig.model, answer }, corsHeaders)
+      }
+
+      const messages = buildAnalysisMessages(config.aiConfig, chartPayload, style)
+      const aiRequest = {
+        model: config.aiConfig.aiConfig.model,
+        provider_slug: config.aiConfig.aiConfig.providerSlug ?? undefined,
+        temperature: config.aiConfig.analysisTemperature,
+        timeout_ms: config.aiConfig.timeoutMs,
+        messages
+      }
+      const aiRequestUrl = buildZiweiAiRequestUrl(config.aiConfig.aiConfig)
+
+      if (stream) {
+        const streamResponse = new ReadableStream<Uint8Array>({
+          start: async (controller) => {
+            let rawText = ''
+            let streamedPreview = ''
+            let lastPartialPayload = ''
+            try {
+              controller.enqueue(encodeSseEvent('meta', {
+                model: config.aiConfig.aiConfig.model
+              }))
+
+              rawText = await requestAiAnalysisStream(config.aiConfig, chartPayload, style, (text) => {
+                if (!text) return
+                rawText += text
+
+                const partialAnalysis = buildStreamingAnalysisPartial(rawText)
+                if (partialAnalysis) {
+                  const payload = JSON.stringify(partialAnalysis)
+                  if (payload !== lastPartialPayload) {
+                    lastPartialPayload = payload
+                    controller.enqueue(encodeSseEvent('partial', { analysis: partialAnalysis }))
+                  }
+                }
+
+                const previewText = extractAnalysisPreview(rawText)
+                if (!previewText) return
+
+                const nextChunk = previewText.slice(streamedPreview.length)
+                if (!nextChunk) return
+
+                streamedPreview = previewText
+                controller.enqueue(encodeSseEvent('delta', { text: nextChunk }))
+              })
+
+              const finalPreview = extractAnalysisPreview(rawText)
+              if (finalPreview && finalPreview.length > streamedPreview.length) {
+                controller.enqueue(encodeSseEvent('delta', {
+                  text: finalPreview.slice(streamedPreview.length)
+                }))
+                streamedPreview = finalPreview
+              }
+
+              let analysis = normalizeAnalysis(parseJsonLoose(rawText))
+              if (!analysis) analysis = buildAnalysisFallbackFromPartialJson(rawText)
+              if (!analysis) analysis = buildFallbackFromText(rawText)
+              if (!analysis) throw new Error('ai_response_invalid')
+
+              await writeZiweiAiLog({
+                mode: 'analysis',
+                userId: authUser.userId,
+                userEmail: authUser.email,
+                clientIp,
+                payload,
+                chartPayloadLength: chartPayload.length,
+                responseStatus: 200,
+                durationMs: Date.now() - startTime,
+                responseBody: { ok: true },
+                aiRequest,
+                aiRequestUrl,
+                temperature: config.aiConfig.analysisTemperature
+              })
+
+              controller.enqueue(encodeSseEvent('done', {
+                ok: true,
+                signature,
+                model: config.aiConfig.aiConfig.model,
+                analysis
+              }))
+              controller.close()
+            } catch (err) {
+              const errorCode = normalizeAiErrorCode(err)
+              logEdgeError('ziwei-analysis', errorCode, err)
+              await writeZiweiAiLog({
+                mode: 'analysis',
+                userId: authUser.userId,
+                userEmail: authUser.email,
+                clientIp,
+                payload,
+                chartPayloadLength: chartPayload.length,
+                responseStatus: mapAiErrorStatus(errorCode),
+                durationMs: Date.now() - startTime,
+                responseBody: { ok: false, error: errorCode },
+                errorMessage: errorCode
+              })
+              controller.enqueue(encodeSseEvent('error', { error: errorCode }))
+              controller.close()
+            }
+          }
+        })
+
+        return createSseResponse(streamResponse, corsHeaders)
       }
 
       const analysis = await requestAiAnalysis(config.aiConfig, chartPayload, style)
-      return jsonResponse(200, { ok: true, signature, model: config.aiConfig.model, analysis }, corsHeaders)
+      await writeZiweiAiLog({
+        mode: 'analysis',
+        userId: authUser.userId,
+        userEmail: authUser.email,
+        clientIp,
+        payload,
+        chartPayloadLength: chartPayload.length,
+        responseStatus: 200,
+        durationMs: Date.now() - startTime,
+        responseBody: { ok: true },
+        aiRequest,
+        aiRequestUrl,
+        temperature: config.aiConfig.analysisTemperature
+      })
+      return jsonResponse(200, { ok: true, signature, model: config.aiConfig.aiConfig.model, analysis }, corsHeaders)
     } catch (err) {
       const errorCode = normalizeAiErrorCode(err)
       logEdgeError('ziwei-analysis', errorCode, err)
+      await writeZiweiAiLog({
+        mode: mode === 'qa' ? 'qa' : 'analysis',
+        userId: authUser.userId,
+        userEmail: authUser.email,
+        clientIp,
+        payload,
+        chartPayloadLength: chartPayload.length,
+        responseStatus: mapAiErrorStatus(errorCode),
+        durationMs: Date.now() - startTime,
+        responseBody: { ok: false, error: errorCode },
+        errorMessage: errorCode
+      })
       return jsonResponse(mapAiErrorStatus(errorCode), { ok: false, error: errorCode }, corsHeaders)
     }
   } catch (err) {

@@ -455,6 +455,14 @@ assert(
   'Ziwei AI payload builder must live in typed feature module'
 )
 assert(
+  ziweiAiUtils.includes('export function buildZiweiAiPayloadForAnalysis'),
+  'Ziwei AI analysis payload builder must be exported'
+)
+assert(
+  ziweiAiUtils.includes('export function buildZiweiAiPayloadForQa'),
+  'Ziwei AI QA payload builder must be exported'
+)
+assert(
   ziweiHistory.includes('export function loadZiweiHistoryRecords'),
   'Ziwei history persistence must live in typed feature module'
 )

@@ -2,57 +2,45 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import FormSelect from '@/components/common/FormSelect.vue'
+import DatePicker from '@/components/common/DatePicker.vue'
 
 const props = defineProps<{
   operation?: string
-  apiName?: string
   startDate?: string
   endDate?: string
 }>()
 
 const emit = defineEmits<{
-  search: [filters: { operation?: string; apiName?: string; startDate?: string; endDate?: string }]
+  search: [filters: { operation?: string; startDate?: string; endDate?: string }]
 }>()
 
 const localOperation = ref(props.operation || '')
-const localApiName = ref(props.apiName || '')
 const localStartDate = ref(props.startDate || '')
 const localEndDate = ref(props.endDate || '')
 
 const OPERATION_OPTIONS = [
   { value: '', label: '全部' },
-  { value: 'convert_ddl', label: 'DDL 翻译' },
-  { value: 'convert_func', label: '函数翻译' },
-  { value: 'convert_proc', label: '存储过程翻译' },
-  { value: 'convert_verify', label: 'AI 校验' },
-  { value: 'rule_read', label: '读取规则' },
-  { value: 'rule_save', label: '保存规则' },
-  { value: 'rule_reset', label: '重置规则' },
-  { value: 'ziwei_analysis', label: '紫微分析' },
-  { value: 'ziwei_history_list', label: '紫微历史查询' },
-  { value: 'ai_config_create', label: '创建AI配置' },
+  { value: 'sql_convert', label: 'SQL AI转换' },
+  { value: 'id_card_generate', label: '身份证号码生成' },
+  { value: 'id_card_validate', label: '身份证号码校验' },
+  { value: 'uscc_generate', label: '统一社会信用代码生成' },
+  { value: 'uscc_validate', label: '统一社会信用代码校验' },
+  { value: 'ziwei_chart_generate', label: '紫微斗数排盘' },
+  { value: 'ziwei_analysis', label: '命盘AI解读' },
+  { value: 'ziwei_qa', label: '基于AI命盘问答' },
   { value: 'ai_provider_create', label: '新增供应商' },
-  { value: 'feedback_submit', label: '提交建议' },
-  { value: 'ai_chat_message', label: 'AI 对话' },
-  { value: 'ai_chat_delete_session', label: '删除AI会话' }
-]
-
-const API_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'sql-convert', label: 'sql-convert' },
-  { value: 'ziwei-analysis', label: 'ziwei-analysis' },
-  { value: 'ziwei-history', label: 'ziwei-history' },
-  { value: 'feedback', label: 'feedback' },
-  { value: 'ai-config', label: 'ai-config' },
-  { value: 'ai-chat', label: 'ai-chat' },
-  { value: 'app-config', label: 'app-config' },
-  { value: 'operation-logs', label: 'operation-logs' }
+  { value: 'ai_provider_update', label: '编辑供应商' },
+  { value: 'ai_provider_delete', label: '删除供应商' },
+  { value: 'ai_config_create', label: '新增Key' },
+  { value: 'ai_config_append_model', label: '追加模型' },
+  { value: 'ai_config_test', label: '测试Key' },
+  { value: 'ai_config_delete', label: '删除Key' },
+  { value: 'ai_chat_message', label: 'AI助手对话' }
 ]
 
 function handleSearch(): void {
   emit('search', {
     operation: localOperation.value || undefined,
-    apiName: localApiName.value || undefined,
     startDate: localStartDate.value || undefined,
     endDate: localEndDate.value || undefined
   })
@@ -60,7 +48,6 @@ function handleSearch(): void {
 
 function handleReset(): void {
   localOperation.value = ''
-  localApiName.value = ''
   localStartDate.value = ''
   localEndDate.value = ''
   emit('search', {})
@@ -82,17 +69,20 @@ function handleReset(): void {
     <div class="filter-divider"></div>
 
     <div class="filter-group">
-      <span class="filter-label">API 名称</span>
-      <FormSelect v-model="localApiName" :options="API_OPTIONS" placeholder="全部" compact />
-    </div>
-
-    <div class="filter-divider"></div>
-
-    <div class="filter-group">
       <span class="filter-label">日期范围</span>
-      <input v-model="localStartDate" type="date" class="filter-input" style="width: 140px" />
+      <DatePicker
+        v-model="localStartDate"
+        placeholder="开始日期"
+        compact
+        class="filter-date-picker"
+      />
       <span class="filter-separator">至</span>
-      <input v-model="localEndDate" type="date" class="filter-input" style="width: 140px" />
+      <DatePicker
+        v-model="localEndDate"
+        placeholder="结束日期"
+        compact
+        class="filter-date-picker"
+      />
     </div>
 
     <div class="filter-spacer"></div>
@@ -125,19 +115,8 @@ function handleReset(): void {
   color: var(--color-text-subtle);
 }
 
-.filter-input {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-panel);
-  color: var(--color-text);
-  font-size: 12px;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.1);
+.filter-date-picker {
+  width: 144px;
 }
 
 .filter-separator {

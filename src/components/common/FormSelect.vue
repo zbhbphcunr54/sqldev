@@ -66,6 +66,7 @@ onMounted(() => {
   document.addEventListener('click', onDocumentClick, true)
   document.addEventListener('keydown', onDocumentKeydown)
 })
+
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick, true)
   document.removeEventListener('keydown', onDocumentKeydown)
@@ -196,7 +197,7 @@ onUnmounted(() => {
 
 .form-select-dropdown {
   position: fixed;
-  z-index: 10000;
+  z-index: 10060;
   background: var(--color-panel);
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -219,34 +220,27 @@ onUnmounted(() => {
 }
 
 .dropdown-list::-webkit-scrollbar-track {
-  background: var(--scrollbar-track, transparent);
+  background: transparent;
 }
 
 .dropdown-list::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--scrollbar-radius, 3px);
-}
-
-.dropdown-list::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+  background: var(--color-border);
+  border-radius: 999px;
 }
 
 .dropdown-option {
   width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  background: transparent;
+  min-height: 36px;
+  padding: 8px 10px;
   border: none;
   border-radius: 6px;
+  background: transparent;
   color: var(--color-text);
   font-size: 14px;
   font-family: var(--font-body);
-  cursor: pointer;
   text-align: left;
-  transition: background 0.1s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .dropdown-option:hover {
@@ -254,50 +248,35 @@ onUnmounted(() => {
 }
 
 .dropdown-option.selected {
+  background: var(--color-accent-bg);
   color: var(--color-accent);
-  font-weight: 500;
 }
 
-/* ============ Compact variant ============ */
-.form-select-wrapper.compact .form-select-trigger,
-.form-select-trigger.compact {
-  height: 32px;
+.form-select-wrapper.compact .form-select-trigger {
+  height: 34px;
   padding: 0 10px;
-  font-size: 12px;
-  border-radius: 6px;
+  font-size: 13px;
 }
 
-.form-select-trigger.compact .trigger-label {
-  text-align: center;
-}
-
-/* ============ Borderless variant ============ */
-.form-select-wrapper.borderless {
-  flex: 1;
-  min-width: 0;
-}
-
-.form-select-trigger.borderless {
-  height: 100%;
+.form-select-wrapper.borderless .form-select-trigger {
+  border: none;
   background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.form-select-trigger.borderless:hover {
-  border: none;
-}
-
-.form-select-trigger.borderless:focus,
-.form-select-trigger.borderless.open {
-  outline: none;
-  border: none;
   box-shadow: none;
 }
 
 .form-select-trigger.disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .form-select-trigger {
+    min-height: 44px;
+  }
+
+  .dropdown-option {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
 }
 </style>

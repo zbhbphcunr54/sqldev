@@ -1,40 +1,127 @@
 import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
+import { defineStore, getActivePinia } from 'pinia'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { appConfigApi } from '@/api/app-config'
+import { fetchOperationLogs } from '@/api/operation-logs'
 
 async function onUserSignedIn(): Promise<void> {
   try {
-    const [{ syncHistoryFromServer, migrateHistoryToServer }, { useAiStore }] = await Promise.all([
-      import('@/features/ziwei/history-sync'),
-      import('@/stores/ai')
-    ])
-    // AI 预加载与 migration 并行，不要排在后面
+    const { useAiStore } = await import('@/stores/ai')
     useAiStore().preload()
-    // Migrate localStorage → Supabase (one-time, then sync back)
-    await migrateHistoryToServer()
-    // Pull latest from server
-    await syncHistoryFromServer()
   } catch {
-    // Sync failure doesn't block login
+    // Preload failure doesn't block login
+  }
+}
+
+async function resolveAdminStatus(): Promise<boolean> {
+  try {
+    const result = await appConfigApi.getAdminStatus()
+    if (typeof result?.is_admin === 'boolean') {
+      return result.is_admin
+    }
+  } catch {
+    // Fall through to the existing operation-logs capability check.
+  }
+
+  const fallback = await fetchOperationLogs({
+    page: 1,
+    pageSize: 1,
+    withSummary: false,
+    withOptions: false,
+    withTotal: false
+  })
+  return fallback.is_admin === true
+}
+
+async function resetSensitiveClientState(previousUserId?: string | null): Promise<void> {
+  const pinia = getActivePinia()
+  if (!pinia) return
+
+  try {
+    const { useWorkbenchStore } = await import('@/stores/workbench')
+    useWorkbenchStore(pinia).resetSqlConvertWorkspace()
+  } catch {
+    // Reset failure should not block auth state changes.
+  }
+
+  try {
+    const { useAiStore } = await import('@/stores/ai')
+    useAiStore(pinia).$reset(previousUserId)
+  } catch {
+    // Reset failure should not block auth state changes.
   }
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
   const user = ref<User | null>(null)
+  const isAdmin = ref(false)
+  const adminStatusLoading = ref(false)
+  const adminStatusLoaded = ref(false)
   const loading = ref(true)
   const initialized = ref(false)
   const lastEvent = ref<AuthChangeEvent | null>(null)
   let initPromise: Promise<void> | null = null
+  let adminStatusPromise: Promise<void> | null = null
   let authListenerRegistered = false
   let authSubscription: { unsubscribe: () => void } | null = null
 
   const isAuthenticated = computed(() => !!user.value)
+  const canAccessZiweiTool = computed(() => isAuthenticated.value && isAdmin.value)
 
   function applySession(nextSession: Session | null): void {
+    const previousUserId = user.value?.id ?? null
+    const nextUserId = nextSession?.user?.id ?? null
+
     session.value = nextSession
     user.value = nextSession?.user ?? null
+    if (!nextSession?.user) {
+      isAdmin.value = false
+      adminStatusLoading.value = false
+      adminStatusLoaded.value = false
+      adminStatusPromise = null
+    }
+
+    if (previousUserId && previousUserId !== nextUserId) {
+      void resetSensitiveClientState(previousUserId)
+    }
+  }
+
+  async function ensureAdminStatus(force = false): Promise<void> {
+    if (!user.value) {
+      isAdmin.value = false
+      adminStatusLoading.value = false
+      adminStatusLoaded.value = false
+      return
+    }
+    if (adminStatusLoaded.value && !force) return
+    if (adminStatusPromise && !force) return adminStatusPromise
+
+    const currentUserId = user.value.id
+    adminStatusLoading.value = true
+    const request = (async () => {
+      try {
+        const nextIsAdmin = await resolveAdminStatus()
+        if (user.value?.id !== currentUserId) return
+        isAdmin.value = nextIsAdmin
+        adminStatusLoaded.value = true
+      } catch {
+        if (user.value?.id !== currentUserId) return
+        isAdmin.value = false
+        adminStatusLoaded.value = true
+      } finally {
+        if (user.value?.id === currentUserId) {
+          adminStatusLoading.value = false
+        }
+        if (adminStatusPromise === request) {
+          adminStatusPromise = null
+        }
+      }
+    })()
+
+    adminStatusPromise = request
+    return request
   }
 
   async function initAuth(): Promise<void> {
@@ -48,12 +135,14 @@ export const useAuthStore = defineStore('auth', () => {
           data: { session: currentSession }
         } = await supabase.auth.getSession()
         applySession(currentSession)
+        await ensureAdminStatus(true)
 
         if (!authListenerRegistered) {
           authListenerRegistered = true
           const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
             lastEvent.value = event
             applySession(nextSession)
+            void ensureAdminStatus(true)
             if (event === 'SIGNED_IN') {
               onUserSignedIn()
             }
@@ -72,9 +161,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signOut(): Promise<void> {
+    const previousUserId = user.value?.id ?? null
     await supabase.auth.signOut()
-    session.value = null
-    user.value = null
+    applySession(null)
+    void resetSensitiveClientState(previousUserId)
   }
 
   async function signInWithPassword(email: string, password: string): Promise<void> {
@@ -168,7 +258,12 @@ export const useAuthStore = defineStore('auth', () => {
     initialized,
     lastEvent,
     isAuthenticated,
+    isAdmin,
+    adminStatusLoading,
+    adminStatusLoaded,
+    canAccessZiweiTool,
     initAuth,
+    ensureAdminStatus,
     signOut,
     signInWithPassword,
     signUpWithPassword,

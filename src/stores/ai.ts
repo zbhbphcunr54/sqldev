@@ -1,87 +1,125 @@
-// [2026-05-07] AI 配置 Pinia Store - 带 localStorage 缓存
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
 import { aiConfigApi } from '@/api/ai-config'
+import { useAuthStore } from '@/stores/auth'
 import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
-import { getJson, setJson, removeJson } from '@/utils/storage'
+import { getJson, removeJson, setJson } from '@/utils/storage'
 
-const CACHE_KEY = 'ai_config_cache'
-const CACHE_TTL = 30 * 60 * 1000 // 30 分钟缓存，AI 配置不常变
+const CACHE_TTL = 30 * 60 * 1000
 
 interface CacheData {
   providers: AiProviderDef[]
-  configs: AiProviderConfig[]
+  personalConfigs: AiProviderConfig[]
+  globalConfigs: AiProviderConfig[]
+  hasGlobalActive: boolean
   timestamp: number
 }
 
-function getCache(): CacheData | null {
-  const data = getJson<CacheData | null>(CACHE_KEY, null)
+function getCacheKey(userId: string | null): string {
+  return `sqldev:ai_config_cache:${userId ?? 'anonymous'}`
+}
+
+function getSelectedKeyStorageKey(userId: string | null): string {
+  return `sqldev:ai:selected-models:${userId ?? 'anonymous'}`
+}
+
+function getCache(userId: string | null): CacheData | null {
+  const data = getJson<CacheData | null>(getCacheKey(userId), null)
   if (!data) return null
   if (Date.now() - data.timestamp > CACHE_TTL) {
-    removeJson(CACHE_KEY)
+    removeJson(getCacheKey(userId))
     return null
   }
   return data
 }
 
-function setCache(providers: AiProviderDef[], configs: AiProviderConfig[]): void {
-  setJson(CACHE_KEY, { providers, configs, timestamp: Date.now() })
+function setCache(userId: string | null, data: Omit<CacheData, 'timestamp'>): void {
+  setJson(getCacheKey(userId), { ...data, timestamp: Date.now() })
 }
 
-function clearCache(): void {
-  removeJson(CACHE_KEY)
+function clearCache(userId: string | null): void {
+  removeJson(getCacheKey(userId))
+}
+
+function clearSelections(userId: string | null): void {
+  removeJson(getSelectedKeyStorageKey(userId))
+}
+
+function readSelectedFromStorage(userId: string | null): Record<string, string> {
+  return getJson<Record<string, string>>(getSelectedKeyStorageKey(userId), {})
+}
+
+function writeSelectedToStorage(userId: string | null, map: Record<string, string>): void {
+  setJson(getSelectedKeyStorageKey(userId), map)
 }
 
 export const useAiStore = defineStore('ai', () => {
   const providers = ref<AiProviderDef[]>([])
-  const configs = ref<AiProviderConfig[]>([])
+  const personalConfigs = ref<AiProviderConfig[]>([])
+  const globalConfigs = ref<AiProviderConfig[]>([])
   const loading = ref(false)
   const error = ref('')
+  const activeScope = ref<'personal' | 'global'>('personal')
+  const hasGlobalActive = ref(false)
+  const auth = useAuthStore()
 
-  const activeConfig = computed(() => configs.value.find((c) => c.is_active) ?? null)
+  const currentUserId = computed(() => auth.user?.id ?? null)
+
+  const configs = computed(() =>
+    activeScope.value === 'global' ? globalConfigs.value : personalConfigs.value
+  )
+
+  const activeConfig = computed(
+    () =>
+      personalConfigs.value.find((c) => c.is_active) ??
+      globalConfigs.value.find((c) => c.is_active) ??
+      null
+  )
   const hasActiveConfig = computed(() => !!activeConfig.value)
 
-  // 从缓存恢复数据（同步，用于快速渲染）
+  const selectedConfigId = ref<Record<string, string>>(readSelectedFromStorage(currentUserId.value))
+
   function restoreFromCache(): void {
-    const cached = getCache()
-    if (cached) {
-      providers.value = cached.providers
-      configs.value = cached.configs
-    }
+    const cached = getCache(currentUserId.value)
+    if (!cached) return
+    providers.value = cached.providers
+    personalConfigs.value = cached.personalConfigs
+    globalConfigs.value = cached.globalConfigs
+    hasGlobalActive.value = cached.hasGlobalActive
   }
 
-  // 预加载数据（登录后调用，不阻塞 UI）
-  async function preload(): Promise<void> {
-    try {
-      const { providers: provs, configs: cfgs } = await aiConfigApi.fetchAll()
-      providers.value = provs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      configs.value = cfgs
-      setCache(providers.value, cfgs)
-    } catch (err) {
-      console.error('[AiStore] Preload failed:', err)
-    }
+  function persistSelection(): void {
+    writeSelectedToStorage(currentUserId.value, selectedConfigId.value)
   }
 
-  // 初始化（进入页面时调用）
-  // 先显示缓存，再静默刷新
-  async function init(_adminView = false): Promise<void> {
-    // 先尝试从缓存恢复
+  function setScope(scope: 'personal' | 'global'): void {
+    activeScope.value = scope
+  }
+
+  async function fetchAll(): Promise<void> {
+    const { providers: provs, personalConfigs: personal, globalConfigs: global, hasGlobalActive: hasGlobal } =
+      await aiConfigApi.fetchAll(activeScope.value)
+    providers.value = provs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    personalConfigs.value = personal
+    globalConfigs.value = global
+    hasGlobalActive.value = hasGlobal
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
+  }
+
+  async function init(_force?: boolean): Promise<void> {
     restoreFromCache()
-
-    // 如果缓存为空，显示 loading
-    if (providers.value.length === 0) {
+    if (providers.value.length === 0 && personalConfigs.value.length === 0 && globalConfigs.value.length === 0) {
       loading.value = true
       error.value = ''
     }
-
     try {
-      // 静默刷新数据
-      const { providers: provs, configs: cfgs } = await aiConfigApi.fetchAll()
-      providers.value = provs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      configs.value = cfgs
-      setCache(providers.value, cfgs)
+      await fetchAll()
     } catch (e: unknown) {
-      // 如果没有缓存数据，才显示错误
       if (providers.value.length === 0) {
         error.value = e instanceof Error ? e.message : '加载失败'
       }
@@ -90,136 +128,181 @@ export const useAiStore = defineStore('ai', () => {
     }
   }
 
-  async function loadProviders(_adminView = false): Promise<void> {
-    // 保存后必须清除缓存，强制重新获取最新数据
-    clearCache()
-    const { providers: provs } = await aiConfigApi.fetchAll()
+  async function preload(): Promise<void> {
+    try {
+      await fetchAll()
+    } catch (err) {
+      console.error('[AiStore] Preload failed:', err)
+    }
+  }
+
+  async function loadProviders(): Promise<void> {
+    const { providers: provs, hasGlobalActive: hasGlobal } = await aiConfigApi.fetchAll(activeScope.value)
     providers.value = provs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    setCache(providers.value, configs.value)
+    hasGlobalActive.value = hasGlobal
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
   }
 
   async function loadConfigs(): Promise<void> {
-    clearCache()
-    const { configs: cfgs } = await aiConfigApi.fetchAll()
-    configs.value = cfgs
-    setCache(providers.value, cfgs)
+    const result = await aiConfigApi.fetchAll(activeScope.value)
+    personalConfigs.value = result.personalConfigs
+    globalConfigs.value = result.globalConfigs
+    hasGlobalActive.value = result.hasGlobalActive
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
   }
 
   async function activateConfig(id: string): Promise<void> {
-    // 乐观更新：立即切换本地状态，提升响应速度
-    const oldConfigs = configs.value.map((c) => ({ ...c }))
-    configs.value = configs.value.map((c) => ({
-      ...c,
-      is_active: c.id === id
-    }))
+    const target = personalConfigs.value.find((c) => c.id === id) ?? globalConfigs.value.find((c) => c.id === id)
+    if (!target) return
+    const oldPersonal = personalConfigs.value.map((c) => ({ ...c }))
+    const oldGlobal = globalConfigs.value.map((c) => ({ ...c }))
+    if (target.scope === 'global') {
+      globalConfigs.value = globalConfigs.value.map((c) => ({ ...c, is_active: c.id === id }))
+    } else {
+      personalConfigs.value = personalConfigs.value.map((c) => ({ ...c, is_active: c.id === id }))
+    }
     try {
       await aiConfigApi.activate(id)
-      clearCache()
+      if (target.scope === 'global') hasGlobalActive.value = true
+      setCache(currentUserId.value, {
+        providers: providers.value,
+        personalConfigs: personalConfigs.value,
+        globalConfigs: globalConfigs.value,
+        hasGlobalActive: hasGlobalActive.value
+      })
     } catch (err) {
       console.error('[AiStore] Activate config failed:', err)
-      configs.value = oldConfigs
-      throw new Error('激活失败')
+      personalConfigs.value = oldPersonal
+      globalConfigs.value = oldGlobal
+      throw err
     }
   }
 
   async function deactivateConfig(id: string): Promise<void> {
-    // 乐观更新：立即切换本地状态
-    const oldConfigs = configs.value.map((c) => ({ ...c }))
-    const target = configs.value.find((c) => c.id === id)
-    if (target) target.is_active = false
-    configs.value = [...configs.value]
+    const target = personalConfigs.value.find((c) => c.id === id) ?? globalConfigs.value.find((c) => c.id === id)
+    const oldPersonal = personalConfigs.value.map((c) => ({ ...c }))
+    const oldGlobal = globalConfigs.value.map((c) => ({ ...c }))
+    personalConfigs.value = personalConfigs.value.map((c) =>
+      c.id === id ? { ...c, is_active: false } : c
+    )
+    globalConfigs.value = globalConfigs.value.map((c) =>
+      c.id === id ? { ...c, is_active: false } : c
+    )
     try {
       await aiConfigApi.deactivate(id)
-      clearCache()
+      if (target?.scope === 'global' && globalConfigs.value.every((c) => !c.is_active)) {
+        hasGlobalActive.value = false
+      }
+      setCache(currentUserId.value, {
+        providers: providers.value,
+        personalConfigs: personalConfigs.value,
+        globalConfigs: globalConfigs.value,
+        hasGlobalActive: hasGlobalActive.value
+      })
     } catch (err) {
       console.error('[AiStore] Deactivate config failed:', err)
-      configs.value = oldConfigs
-      throw new Error('取消激活失败')
+      personalConfigs.value = oldPersonal
+      globalConfigs.value = oldGlobal
+      throw err
     }
   }
 
   async function removeConfig(id: string): Promise<void> {
-    const oldConfigs = configs.value
-    configs.value = configs.value.filter((c) => c.id !== id)
+    const target = personalConfigs.value.find((c) => c.id === id) ?? globalConfigs.value.find((c) => c.id === id)
+    const oldPersonal = personalConfigs.value
+    const oldGlobal = globalConfigs.value
+    personalConfigs.value = personalConfigs.value.filter((c) => c.id !== id)
+    globalConfigs.value = globalConfigs.value.filter((c) => c.id !== id)
     try {
       await aiConfigApi.remove(id)
-      clearCache()
+      if (target?.scope === 'global' && globalConfigs.value.every((c) => !c.is_active)) {
+        hasGlobalActive.value = false
+      }
+      setCache(currentUserId.value, {
+        providers: providers.value,
+        personalConfigs: personalConfigs.value,
+        globalConfigs: globalConfigs.value,
+        hasGlobalActive: hasGlobalActive.value
+      })
     } catch {
-      configs.value = oldConfigs
+      personalConfigs.value = oldPersonal
+      globalConfigs.value = oldGlobal
       throw new Error('删除失败')
     }
   }
 
   async function addConfig(payload: Parameters<typeof aiConfigApi.create>[0]): Promise<void> {
-    // 追加模型模式：跳过乐观更新，直接等服务端返回后一次性插入
-    // 乐观条目的 api_key_masked 可能与已有组的真实值不一致，导致 groupedConfigs
-    // 按 provider_id + api_key_masked 分组时产生临时分组 → 表格闪现新行
-    if (!payload.api_key) {
-      const newConfig = await aiConfigApi.create(payload)
-      configs.value = [...configs.value, newConfig]
-      clearCache()
-      return
-    }
-
-    // 新增 Key 模式：乐观更新（用户输入了 api_key，可本地算出准确的 api_key_masked）
-    const tempId = `optimistic-${Date.now()}`
-    const optimistic: AiProviderConfig = {
-      id: tempId,
-      provider_id: payload.provider_id,
-      model: payload.model,
-      api_key_masked: payload.api_key!.slice(0, 4) + '****' + payload.api_key!.slice(-4),
-      base_url: payload.base_url || '',
-      name: payload.name || '',
-      is_active: false,
-      timeout_ms: 0,
-      last_test_ok: null,
-      last_test_ms: null,
-      last_test_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }
-    configs.value = [...configs.value, optimistic]
-    try {
-      const newConfig = await aiConfigApi.create(payload)
-      configs.value = configs.value.map((c) => (c.id === tempId ? newConfig : c))
-      clearCache()
-    } catch (e) {
-      configs.value = configs.value.filter((c) => (c.id !== tempId))
-      throw e
-    }
+    const newConfig = await aiConfigApi.create(payload, activeScope.value)
+    if (newConfig.scope === 'global') globalConfigs.value = [...globalConfigs.value, newConfig]
+    else personalConfigs.value = [...personalConfigs.value, newConfig]
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
   }
 
   async function testConfig(id: string): Promise<void> {
     const result = await aiConfigApi.test(id)
-    const cfg = configs.value.find((c) => c.id === id)
+    const cfg =
+      personalConfigs.value.find((c) => c.id === id) ?? globalConfigs.value.find((c) => c.id === id)
     if (cfg) {
       cfg.last_test_ok = result.ok
       cfg.last_test_ms = result.elapsed_ms
       cfg.last_test_at = new Date().toISOString()
     }
-    clearCache()
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
   }
 
-  // 更新 localStorage 缓存（乐观更新后同步，如拖拽排序）
   function persistToCache(): void {
-    setCache(providers.value, configs.value)
+    setCache(currentUserId.value, {
+      providers: providers.value,
+      personalConfigs: personalConfigs.value,
+      globalConfigs: globalConfigs.value,
+      hasGlobalActive: hasGlobalActive.value
+    })
   }
 
-  function $reset(): void {
+  function $reset(userIdToClear?: string | null): void {
     providers.value = []
-    configs.value = []
+    personalConfigs.value = []
+    globalConfigs.value = []
+    hasGlobalActive.value = false
     loading.value = false
     error.value = ''
-    clearCache()
+    activeScope.value = 'personal'
+    const targetUserId = userIdToClear ?? currentUserId.value
+    clearCache(targetUserId)
+    clearSelections(targetUserId)
   }
 
   return {
     providers,
     configs,
+    personalConfigs,
+    globalConfigs,
     loading,
     error,
     activeConfig,
     hasActiveConfig,
+    hasGlobalActive,
+    activeScope,
     init,
     preload,
     loadProviders,
@@ -230,6 +313,7 @@ export const useAiStore = defineStore('ai', () => {
     addConfig,
     testConfig,
     persistToCache,
+    setScope,
     $reset
   }
 })

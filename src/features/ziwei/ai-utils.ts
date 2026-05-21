@@ -200,7 +200,10 @@ export function buildZiweiAiPayload(
   }
 }
 
-function compactPalace(itemValue: unknown, mode: 'legacy' | 'compact' | 'lite'): RecordLike {
+function compactPalace(
+  itemValue: unknown,
+  mode: 'legacy' | 'compact' | 'lite' | 'analysis' | 'qa'
+): RecordLike {
   const item = asRecord(itemValue)
   if (mode === 'legacy') {
     const palace = { ...item }
@@ -222,6 +225,41 @@ function compactPalace(itemValue: unknown, mode: 'legacy' | 'compact' | 'lite'):
       mainStars: asArray(item.mainStars).slice(0, 2),
       assistStars: asArray(item.assistStars).slice(0, 2),
       miscStars: asArray(item.miscStars).slice(0, 2)
+    }
+  }
+
+  if (mode === 'analysis') {
+    return {
+      branch: asString(item.branch),
+      palaceName: asString(item.palaceName),
+      stemBranch: asString(item.stemBranch),
+      area: asString(item.area),
+      changSheng: asString(item.changSheng),
+      daXian: asString(item.daXian),
+      xiaoXian: asString(item.xiaoXian),
+      currentLiuNian: asNumber(item.currentLiuNian),
+      liuNianSeries: asArray(item.liuNianSeries).slice(0, 6),
+      mainStars: asArray(item.mainStars).slice(0, 4),
+      assistStars: asArray(item.assistStars).slice(0, 4),
+      miscStars: asArray(item.miscStars).slice(0, 4),
+      outgoingHuaCount: asNumber(item.outgoingHuaCount),
+      incomingHuaCount: asNumber(item.incomingHuaCount)
+    }
+  }
+
+  if (mode === 'qa') {
+    return {
+      branch: asString(item.branch),
+      palaceName: asString(item.palaceName),
+      stemBranch: asString(item.stemBranch),
+      changSheng: asString(item.changSheng),
+      daXian: asString(item.daXian),
+      xiaoXian: asString(item.xiaoXian),
+      currentLiuNian: asNumber(item.currentLiuNian),
+      liuNianSeries: asArray(item.liuNianSeries).slice(0, 6),
+      mainStars: asArray(item.mainStars).slice(0, 4),
+      assistStars: asArray(item.assistStars).slice(0, 4),
+      miscStars: asArray(item.miscStars).slice(0, 4)
     }
   }
 
@@ -258,8 +296,13 @@ export function buildZiweiAiPayloadCompact(payloadValue: unknown): RecordLike {
   payload.huaTracks = asArray(payload.huaTracks).slice(0, 20)
   payload.liuNianTimeline = asArray(payload.liuNianTimeline).slice(0, 8)
   payload.daXianTimeline = asArray(payload.daXianTimeline).slice(0, 6)
-  const center = asRecord(payload.center)
-  payload.center = {
+  payload.center = trimCenter(asRecord(payload.center))
+  payload.palaces = asArray(payload.palaces).map((item) => compactPalace(item, 'compact'))
+  return payload
+}
+
+function trimCenter(center: RecordLike): RecordLike {
+  return {
     ...center,
     timeCorrectionText: '',
     longitude: 0,
@@ -269,7 +312,31 @@ export function buildZiweiAiPayloadCompact(payloadValue: unknown): RecordLike {
     jieqiPillars: [],
     decadeMarks: []
   }
-  payload.palaces = asArray(payload.palaces).map((item) => compactPalace(item, 'compact'))
+}
+
+export function buildZiweiAiPayloadForAnalysis(payloadValue: unknown): RecordLike {
+  const payload = { ...asRecord(payloadValue) }
+  payload.payloadVersion = 'ziwei-ai-v2-analysis'
+  payload.chartText = ''
+  payload.ruleSummary = asArray(payload.ruleSummary).slice(0, 6)
+  payload.huaTracks = asArray(payload.huaTracks).slice(0, 40)
+  payload.liuNianTimeline = asArray(payload.liuNianTimeline).slice(0, 12)
+  payload.daXianTimeline = asArray(payload.daXianTimeline).slice(0, 8)
+  payload.center = trimCenter(asRecord(payload.center))
+  payload.palaces = asArray(payload.palaces).map((item) => compactPalace(item, 'analysis'))
+  return payload
+}
+
+export function buildZiweiAiPayloadForQa(payloadValue: unknown): RecordLike {
+  const payload = { ...asRecord(payloadValue) }
+  payload.payloadVersion = 'ziwei-ai-v2-qa'
+  payload.chartText = ''
+  payload.ruleSummary = asArray(payload.ruleSummary).slice(0, 4)
+  payload.huaTracks = asArray(payload.huaTracks).slice(0, 20)
+  payload.liuNianTimeline = asArray(payload.liuNianTimeline).slice(0, 8)
+  payload.daXianTimeline = asArray(payload.daXianTimeline).slice(0, 6)
+  payload.center = trimCenter(asRecord(payload.center))
+  payload.palaces = asArray(payload.palaces).map((item) => compactPalace(item, 'qa'))
   return payload
 }
 

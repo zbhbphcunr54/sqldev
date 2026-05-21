@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, nextTick, ref, watch, onUnmounted } from 'vue'
 import { useChat } from '@/composables/useChat'
 import { useConfirm } from '@/composables/useConfirm'
@@ -44,8 +44,8 @@ function toggleExpanded(): void {
 }
 
 const quickPrompts = [
-  { label: '查询用户活跃度', text: '帮我写一个查询用户活跃度的 SQL' },
-  { label: '解释执行计划', text: '解释一下 EXPLAIN 的输出各字段含义' },
+  { label: '查询活跃用户', text: '帮我写一个查询用户活跃度的 SQL' },
+  { label: '解释执行计划', text: '解释一个 EXPLAIN 输出中各字段的含义' },
   { label: '优化慢查询', text: '如何定位和优化慢查询？' },
   { label: '设计索引策略', text: '为一个订单表设计合理的索引策略' }
 ]
@@ -61,7 +61,7 @@ function providerLabel(): string {
   if (provider.value && model.value) {
     return `${provider.value} / ${model.value}`
   }
-  // 从 AI 配置 Store 回退：显示当前激活的模型
+  // 从 AI 配置 Store 回退显示当前激活模型
   const active = aiStore.activeConfig
   if (active) {
     const p = aiStore.providers.find((pv) => pv.id === active.provider_id)
@@ -101,6 +101,17 @@ onUnmounted(() => {
 
 watch(
   () => messages.value.length,
+  () => {
+    nextTick(() => {
+      if (messagesEl.value) {
+        messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+      }
+    })
+  }
+)
+
+watch(
+  () => messages.value.map((msg) => msg.content).join('\n'),
   () => {
     nextTick(() => {
       if (messagesEl.value) {
@@ -154,7 +165,7 @@ async function handleNewChat(): Promise<void> {
 }
 
 async function handleDeleteSession(sid: string): Promise<void> {
-  const ok = await confirm('确定删除该对话？', {
+  const ok = await confirm('确定删除该对话吗？', {
     title: '删除会话',
     confirmText: '删除',
     confirmClass: 'danger'
@@ -370,15 +381,21 @@ function onMaskClick(e: MouseEvent): void {
                 <div class="chat-history-title">历史对话</div>
                 <div v-if="sessions.length === 0" class="chat-history-empty">暂无历史对话</div>
                 <div v-else class="chat-history-list">
-                  <button
+                  <div
                     v-for="s in sessions"
                     :key="s.id"
                     class="chat-history-item"
                     :class="{ active: s.id === sessionId }"
-                    @click="handleSelectSession(s.id)"
                   >
-                    <span class="chat-history-item-text">{{ s.title || '新对话' }}</span>
                     <button
+                      type="button"
+                      class="chat-history-item-main"
+                      @click="handleSelectSession(s.id)"
+                    >
+                      <span class="chat-history-item-text">{{ s.title || '新对话' }}</span>
+                    </button>
+                    <button
+                      type="button"
                       class="chat-history-delete"
                       title="删除"
                       @click.stop="handleDeleteSession(s.id)"
@@ -396,7 +413,7 @@ function onMaskClick(e: MouseEvent): void {
                         <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
                     </button>
-                  </button>
+                  </div>
                 </div>
               </div>
             </Transition>
@@ -429,7 +446,9 @@ function onMaskClick(e: MouseEvent): void {
                 </div>
                 <h4 class="chat-welcome-title">你好，我是 Dev Studio AI 助手</h4>
                 <p class="chat-welcome-desc">
-                  我可以帮你写 SQL、解释执行计划、优化查询、<br />排查数据库问题，或者聊聊数据库设计。
+                  我可以帮你写 SQL、解释执行计划、优化查询。
+                  <br />
+                  也可以一起排查数据库问题，或者聊聊数据库设计。
                 </p>
                 <div class="chat-quick-prompts">
                   <button
@@ -541,7 +560,7 @@ function onMaskClick(e: MouseEvent): void {
 </template>
 
 <style>
-/* ── FAB ── */
+/* 鈹€鈹€ FAB 鈹€鈹€ */
 .ai-chat-root {
   position: fixed;
   right: 24px;
@@ -628,7 +647,7 @@ function onMaskClick(e: MouseEvent): void {
     0 0 24px rgba(var(--color-chat-accent-rgb), 0.15);
 }
 
-/* ── Light theme FAB ── */
+/* 鈹€鈹€ Light theme FAB 鈹€鈹€ */
 [data-theme='light'] .chat-fab {
   border-color: rgba(var(--color-chat-accent-rgb), 0.2);
   background: var(--color-panel);
@@ -662,7 +681,7 @@ function onMaskClick(e: MouseEvent): void {
   fill: var(--color-chat-accent);
 }
 
-/* ── Overlay ── */
+/* 鈹€鈹€ Overlay 鈹€鈹€ */
 .chat-overlay {
   position: fixed;
   inset: 0;
@@ -675,7 +694,7 @@ function onMaskClick(e: MouseEvent): void {
   padding: 20px 24px;
 }
 
-/* ── Panel ── */
+/* 鈹€鈹€ Panel 鈹€鈹€ */
 .chat-panel {
   width: min(420px, 94vw);
   height: min(580px, 72vh);
@@ -697,7 +716,7 @@ function onMaskClick(e: MouseEvent): void {
   width: 280px;
 }
 
-/* ── Header ── */
+/* 鈹€鈹€ Header 鈹€鈹€ */
 .chat-header {
   display: flex;
   align-items: center;
@@ -777,7 +796,7 @@ function onMaskClick(e: MouseEvent): void {
   color: var(--color-text);
 }
 
-/* ── Body ── */
+/* 鈹€鈹€ Body 鈹€鈹€ */
 .chat-body {
   flex: 1;
   display: flex;
@@ -785,7 +804,7 @@ function onMaskClick(e: MouseEvent): void {
   min-height: 0;
 }
 
-/* ── History sidebar ── */
+/* 鈹€鈹€ History sidebar 鈹€鈹€ */
 .chat-history {
   width: 140px;
   flex-shrink: 0;
@@ -824,9 +843,21 @@ function onMaskClick(e: MouseEvent): void {
   background: transparent;
   color: var(--color-text-subtle);
   font-size: var(--text-sm);
-  cursor: pointer;
   transition: background var(--duration-fast);
   text-align: left;
+}
+.chat-history-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .chat-history-item:hover {
   background: var(--color-panel-2);
@@ -865,7 +896,7 @@ function onMaskClick(e: MouseEvent): void {
   color: var(--color-danger);
 }
 
-/* ── Messages ── */
+/* 鈹€鈹€ Messages 鈹€鈹€ */
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -1078,7 +1109,7 @@ function onMaskClick(e: MouseEvent): void {
   }
 }
 
-/* ── Input ── */
+/* 鈹€鈹€ Input 鈹€鈹€ */
 .chat-input-area {
   padding: 10px 14px;
   border-top: 1px solid var(--color-page-border-subtle);
@@ -1157,7 +1188,7 @@ function onMaskClick(e: MouseEvent): void {
   box-shadow: none;
 }
 
-/* ── Footer ── */
+/* 鈹€鈹€ Footer 鈹€鈹€ */
 .chat-footer-text {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
@@ -1166,7 +1197,7 @@ function onMaskClick(e: MouseEvent): void {
   margin: 0;
 }
 
-/* ── Transitions ── */
+/* 鈹€鈹€ Transitions 鈹€鈹€ */
 .chat-fade-enter-active,
 .chat-fade-leave-active {
   transition: opacity var(--duration-normal) var(--ease-apple);
@@ -1188,7 +1219,7 @@ function onMaskClick(e: MouseEvent): void {
   opacity: 0;
 }
 
-/* ── Mobile ── */
+/* 鈹€鈹€ Mobile 鈹€鈹€ */
 @media (max-width: 480px) {
   .chat-overlay {
     padding: 0;
@@ -1223,3 +1254,4 @@ function onMaskClick(e: MouseEvent): void {
   }
 }
 </style>
+

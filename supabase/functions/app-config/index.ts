@@ -31,6 +31,10 @@ function getAdminClient() {
   return createClient(SUPABASE_URL, key)
 }
 
+function handleAdminStatus(isAdmin: boolean) {
+  return jsonResponse(200, { ok: true, is_admin: isAdmin }, defaultCorsHeaders())
+}
+
 // GET /app-config - 列出所有配置（管理员）
 // GET /app-config?category=ziwei - 按分类列出
 async function handleList(
@@ -187,15 +191,22 @@ Deno.serve(async (req) => {
     const adminClient = getAdminClient()
 
     // 检查管理员权限（统一使用 admin_users 表）
-    const isAdmin = await checkIsAdmin(adminClient, sessionState.email)
+    const isAdmin = await checkIsAdmin(adminClient, sessionState.email, {
+      sessionAdminHint: sessionState.isAdminHint
+    })
 
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
+    const lastPathPart = pathParts[pathParts.length - 1] || ''
 
     // 特殊端点：清除缓存
-    if (req.method === 'POST' && pathParts[pathParts.length - 1] === 'clear-cache') {
+    if (req.method === 'POST' && lastPathPart === 'clear-cache') {
       if (!isAdmin) return jsonResponse(403, { error: 'admin_required' }, corsHeaders)
       return handleClearCache()
+    }
+
+    if (req.method === 'GET' && lastPathPart === 'admin-status') {
+      return handleAdminStatus(isAdmin)
     }
 
     // 非管理员只读

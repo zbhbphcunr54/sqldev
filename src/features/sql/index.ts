@@ -1,2 +1,16 @@
-export { formatSqlText, splitSqlStatements }
-export type { FormatSqlOptions } from './sql-format'
+import {
+  formatSqlForDisplay,
+  formatSqlText,
+  splitSqlStatements
+} from './sql-format'
+
+export {
+  formatSqlForDisplay,
+  formatSqlText,
+  splitSqlStatements
+}
+
+export type {
+  FormatSqlDisplayOptions,
+  FormatSqlOptions
+} from './sql-format'

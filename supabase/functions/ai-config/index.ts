@@ -1,18 +1,20 @@
-/**
- * [2026-05-03] AI 配置管理 Edge Function
- * 支持管理员创建、更新、激活、测试 AI 配置
- * 普通用户只能读取脱敏后的配置列表
+﻿/**
+ * [2026-05-03] AI 閰嶇疆绠＄悊 Edge Function
+ * 鏀寔绠＄悊鍛樺垱寤恒€佹洿鏂般€佹縺娲汇€佹祴璇?AI 閰嶇疆
+ * 鏅€氱敤鎴峰彧鑳借鍙栬劚鏁忓悗鐨勯厤缃垪琛?
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
+import { checkIsAdmin, extractBearerToken, validateUserSession } from '../_shared/auth.ts'
 import { createCorsHelpers, initCorsConfig, handleCors } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse, sanitizeError } from '../_shared/response.ts'
-import { logOperation } from '../_shared/operation-logger.ts'
+import { logOperation as baseLogOperation } from '../_shared/operation-logger.ts'
 import { getAppConfig, getDefaultAiTimeoutMs } from '../_shared/app-config.ts'
 import { getClientIp } from '../_shared/request.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { encryptValue, decryptValue, maskApiKeySync } from '../_shared/crypto.ts'
 import type { AiConfigRow, AiProviderRow } from '../_shared/ai-types.ts'
+
+type AiConfigScope = 'personal' | 'global' | 'all'
 
 await initCorsConfig()
 
@@ -23,8 +25,17 @@ const { defaultCorsHeaders, buildCorsHeaders } = corsHelpers
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
+const ALLOWED_OPERATIONS = new Set([
+  'ai_config_create',
+  'ai_config_append_model',
+  'ai_config_test',
+  'ai_config_delete',
+  'ai_provider_create',
+  'ai_provider_update',
+  'ai_provider_delete'
+])
 
-// 全局限流器（延迟初始化，读取统一配置）
+// 鍏ㄥ眬闄愭祦鍣紙寤惰繜鍒濆鍖栵紝璇诲彇缁熶竴閰嶇疆锛?
 let configRateLimiter: ReturnType<typeof createRateLimiter> | null = null
 
 async function getRateLimiter(): Promise<ReturnType<typeof createRateLimiter>> {
@@ -43,22 +54,81 @@ async function getRateLimiter(): Promise<ReturnType<typeof createRateLimiter>> {
   return configRateLimiter
 }
 
-// 全局配置数量上限缓存
-let cachedMaxConfigsGlobal: number | null = null
-let cachedMaxConfigsGlobalTime = 0
+function normalizeAiConfigModel(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase()
+}
 
-async function getMaxConfigsGlobal(): Promise<number> {
-  const now = Date.now()
-  if (cachedMaxConfigsGlobal !== null && now - cachedMaxConfigsGlobalTime < 60_000) {
-    return cachedMaxConfigsGlobal
-  }
-  const result = await getAppConfig<number>('ai_config', 'max_configs_global', {
-    defaultValue: 20,
-    parse: Number
+function formatAiConfigModel(value: unknown): string {
+  return String(value ?? '').trim()
+}
+
+function isAiConfigDuplicateError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: string; message?: string; details?: string }
+  const message = `${candidate.message || ''} ${candidate.details || ''}`.toLowerCase()
+  return (
+    candidate.code === '23505' ||
+    message.includes('uq_ai_configs_provider_model_normalized') ||
+    message.includes('uq_ai_configs_global_provider_model_normalized') ||
+    message.includes('uq_ai_configs_user_provider_model_normalized')
+  )
+}
+
+async function findDuplicateAiConfig(
+  adminClient: ReturnType<typeof createClient>,
+  scope: 'global' | 'user',
+  ownerUserId: string | null,
+  providerId: string,
+  model: string,
+  excludeId?: string
+): Promise<AiConfigRow | null> {
+  const normalizedModel = normalizeAiConfigModel(model)
+  if (!providerId || !normalizedModel) return null
+
+  const { data, error } = await adminClient
+    .from('ai_configs')
+    .select('*')
+    .eq('scope', scope)
+    .eq('provider_id', providerId)
+
+  const scopedData = (data || []).filter((item) => {
+    const row = item as unknown as AiConfigRow
+    if (scope === 'user') return row.owner_user_id === ownerUserId
+    return row.owner_user_id === null
   })
-  cachedMaxConfigsGlobal = result.value
-  cachedMaxConfigsGlobalTime = now
-  return cachedMaxConfigsGlobal
+
+  if (error) return null
+
+  return ((scopedData as unknown as AiConfigRow[]).find((item) => {
+    if (excludeId && item.id === excludeId) return false
+    return normalizeAiConfigModel(item.model) === normalizedModel
+  }) || null)
+}
+
+function logOperation(entry: Parameters<typeof baseLogOperation>[0]): Promise<void> {
+  let operation = entry.operation
+
+  if (operation === 'ai_config_create') {
+    const requestBody =
+      entry.requestBody && typeof entry.requestBody === 'object' && !Array.isArray(entry.requestBody)
+        ? (entry.requestBody as Record<string, unknown>)
+        : {}
+    const providerId =
+      typeof requestBody.provider_id === 'string' ? requestBody.provider_id.trim() : ''
+    const apiKey = typeof requestBody.api_key === 'string' ? requestBody.api_key.trim() : ''
+    if (providerId && !apiKey) {
+      operation = 'ai_config_append_model'
+    }
+  }
+
+  if (!ALLOWED_OPERATIONS.has(operation)) {
+    return Promise.resolve()
+  }
+
+  return baseLogOperation({
+    ...entry,
+    operation
+  }).catch(() => {})
 }
 
 
@@ -78,15 +148,26 @@ async function getAiConfigs(adminClient: ReturnType<typeof createClient>): Promi
   return (data || []) as unknown as AiConfigRow[]
 }
 
-async function getAiProviders(adminClient: ReturnType<typeof createClient>): Promise<AiProviderRow[]> {
-  const { data, error } = await adminClient
-    .from('ai_providers')
-    .select('*')
-    .eq('is_enabled', true)
-    .order('sort_order')
+function normalizeScope(value: unknown): AiConfigScope {
+  if (value === 'global' || value === 'all') return value
+  return 'personal'
+}
 
-  if (error) throw error
-  return (data || []) as unknown as AiProviderRow[]
+function toDbScope(scope: Exclude<AiConfigScope, 'all'>): 'global' | 'user' {
+  return scope === 'global' ? 'global' : 'user'
+}
+
+function canManageScope(scope: Exclude<AiConfigScope, 'all'>, isAdmin: boolean): boolean {
+  return scope === 'personal' || isAdmin
+}
+
+function ensureConfigOwnership(
+  config: AiConfigRow,
+  userId: string,
+  isAdmin: boolean
+): boolean {
+  if (config.scope === 'user') return config.owner_user_id === userId
+  return isAdmin && config.scope === 'global'
 }
 
 async function getAllAiProviders(adminClient: ReturnType<typeof createClient>): Promise<AiProviderRow[]> {
@@ -115,6 +196,8 @@ function buildMaskedResponse(
   return {
     id: config.id,
     created_by: config.created_by,
+    scope: config.scope,
+    owner_user_id: config.owner_user_id,
     provider_id: config.provider_id,
     name: config.name,
     base_url: config.base_url,
@@ -153,91 +236,75 @@ function makeResponse(req: Request) {
 }
 
 async function handleGet(
-  userId: string,
-  isAdmin: boolean,
   adminClient: ReturnType<typeof createClient>,
   req: Request,
-  userEmail: string,
-  clientIp: string
+  userId: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
+  const scope = normalizeScope(new URL(req.url).searchParams.get('scope'))
 
   const [configs, providers] = await Promise.all([
     getAiConfigs(adminClient),
-    isAdmin ? getAllAiProviders(adminClient) : getAiProviders(adminClient)
+    getAllAiProviders(adminClient)
   ])
 
-  if (isAdmin) {
-    // 解密 Key 以获得正确的脱敏显示（如 sk-a***b1c2），而非 [encrypted] ****
-    const configsWithKeys = await Promise.all(configs.map(async (config) => {
+  const configsWithKeys = await Promise.all(
+    configs.map(async (config) => {
       if (config.is_encrypted && config.api_key) {
         try {
           const decrypted = await decryptValue(config.api_key)
           return { ...config, api_key: decrypted, is_encrypted: false }
         } catch {
-          // 解密失败则保留原样
+          // Keep encrypted value and fall back to conservative masked display.
         }
       }
       return config
-    }))
-    const results = configsWithKeys.map((config) => {
-      const provider = providers.find((p) => p.id === config.provider_id)
-      return buildMaskedResponse(config, provider)
     })
-    const resp = { ok: true, providers, configs: results }
-    logOperation({
-      userId, userEmail, clientIp,
-      operation: 'ai_config_list',
-      apiName: 'ai-config',
-      responseBody: resp,
-      responseStatus: 200,
-      durationMs: 0,
-      extra: { provider_count: providers.length, config_count: configs.length, is_admin: isAdmin }
+  )
+
+  const results = configsWithKeys.map((config) => {
+    const provider = providers.find((p) => p.id === config.provider_id)
+    return buildMaskedResponse(config, provider)
+  })
+
+  const personalConfigs = results.filter((config) => config.scope === 'user' && config.owner_user_id === userId)
+  const hasGlobalActive = results.some((config) => config.scope === 'global' && config.is_active)
+  const globalConfigs = isAdmin
+    ? results.filter((config) => config.scope === 'global')
+    : []
+
+  if (scope === 'personal') {
+    return respond(200, {
+      ok: true,
+      providers,
+      configs: personalConfigs,
+      personal_configs: personalConfigs,
+      global_configs: [],
+      has_global_active: hasGlobalActive
     })
-    return respond(200, resp)
-  } else {
-    const results = configs.map((config) => {
-      const provider = providers.find((p) => p.id === config.provider_id)
-      return {
-        id: config.id,
-        created_by: config.created_by,
-        provider_id: config.provider_id,
-        name: config.name,
-        base_url: config.base_url,
-        model: config.model,
-        api_key_masked: '****',
-        timeout_ms: config.timeout_ms,
-        is_active: config.is_active,
-        last_test_ok: null,
-        last_test_ms: null,
-        last_test_at: null,
-        created_at: config.created_at,
-        updated_at: config.updated_at,
-        provider: provider
-          ? {
-              id: provider.id,
-              slug: provider.slug,
-              label: provider.label,
-              region: provider.region,
-              base_url: provider.base_url,
-              models: provider.models,
-              is_enabled: provider.is_enabled
-            }
-          : undefined
-      }
-    })
-    const resp = { ok: true, providers, configs: results }
-    logOperation({
-      userId, userEmail, clientIp,
-      operation: 'ai_config_list',
-      apiName: 'ai-config',
-      responseBody: resp,
-      responseStatus: 200,
-      durationMs: 0,
-      extra: { provider_count: providers.length, config_count: configs.length, is_admin: isAdmin }
-    })
-    return respond(200, resp)
   }
+
+  if (scope === 'global') {
+    if (!isAdmin) return respond(403, { error: 'forbidden' })
+    return respond(200, {
+      ok: true,
+      providers,
+      configs: globalConfigs,
+      personal_configs: personalConfigs,
+      global_configs: globalConfigs,
+      has_global_active: hasGlobalActive
+    })
+  }
+
+  const resp = {
+    ok: true,
+    providers,
+    personal_configs: personalConfigs,
+    global_configs: globalConfigs,
+    has_global_active: hasGlobalActive
+  }
+  return respond(200, resp)
 }
 
 async function handleCreate(
@@ -246,9 +313,19 @@ async function handleCreate(
   adminClient: ReturnType<typeof createClient>,
   req: Request,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
+  const scope = normalizeScope(body.scope)
+  if (scope === 'all') {
+    return respond(400, { error: 'invalid_scope' })
+  }
+  if (!canManageScope(scope, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
+  const dbScope = toDbScope(scope)
+  const ownerUserId = dbScope === 'user' ? userId : null
 
   const providerId = String(body.provider_id || '')
   let apiKey = String(body.api_key || '')
@@ -266,15 +343,33 @@ async function handleCreate(
     })
     return respond(400, resp)
   }
-  // 追加模型：未传 api_key 时自动复用同供应商已有配置的 key
+  // 杩藉姞妯″瀷锛氭湭浼?api_key 鏃惰嚜鍔ㄥ鐢ㄥ悓渚涘簲鍟嗗凡鏈夐厤缃殑 key
   let reusedKey = false
   if (!apiKey) {
-    const { data: existing } = await adminClient
+    const reuseConfigId = typeof body.reuse_config_id === 'string' ? body.reuse_config_id.trim() : ''
+    const apiKeyMaskedHint =
+      typeof body.api_key_masked === 'string' ? body.api_key_masked.trim() : ''
+
+    let existingQuery = adminClient
       .from('ai_configs')
-      .select('api_key')
+      .select('id, api_key, api_key_masked')
+      .eq('scope', dbScope)
       .eq('provider_id', providerId)
-      .limit(1)
-      .single()
+
+    existingQuery =
+      dbScope === 'user'
+        ? existingQuery.eq('owner_user_id', userId)
+        : existingQuery.is('owner_user_id', null)
+
+    if (reuseConfigId) {
+      existingQuery = existingQuery.eq('id', reuseConfigId)
+    } else if (apiKeyMaskedHint) {
+      existingQuery = existingQuery.eq('api_key_masked', apiKeyMaskedHint)
+    } else {
+      existingQuery = existingQuery.limit(1)
+    }
+
+    const { data: existing } = await existingQuery.single()
     if (!existing) {
       const resp = { error: 'provider_id and api_key are required' }
       logOperation({
@@ -289,28 +384,9 @@ async function handleCreate(
       })
       return respond(400, resp)
     }
-    // 复用已有密文，避免二次加密
+    // 澶嶇敤宸叉湁瀵嗘枃锛岄伩鍏嶄簩娆″姞瀵?
     apiKey = (existing as { api_key: string }).api_key
     reusedKey = true
-  }
-
-  const maxConfigs = await getMaxConfigsGlobal()
-  const { count } = await adminClient
-    .from('ai_configs')
-    .select('*', { count: 'exact', head: true })
-  if ((count || 0) >= maxConfigs) {
-    const resp = { error: 'ai_config_limit_exceeded', limit: maxConfigs }
-    logOperation({
-      userId, userEmail, clientIp,
-      operation: 'ai_config_create',
-      apiName: 'ai-config',
-      requestBody: body,
-      responseBody: resp,
-      responseStatus: 400,
-      durationMs: 0,
-      errorMessage: 'ai_config_limit_exceeded'
-    })
-    return respond(400, resp)
   }
 
   const { data: provider, error: providerError } = await adminClient
@@ -335,24 +411,10 @@ async function handleCreate(
   }
 
   const providerData = provider as unknown as AiProviderRow
+  const model = formatAiConfigModel(body.model || providerData.default_model)
 
-  const { data: config, error: createError } = await adminClient
-    .from('ai_configs')
-    .insert({
-      created_by: userId,
-      provider_id: providerId,
-      name: String(body.name || ''),
-      base_url: String(body.base_url || providerData.base_url),
-      model: String(body.model || providerData.default_model),
-      api_key: reusedKey ? apiKey : await encryptValue(apiKey),
-      is_encrypted: true,
-      timeout_ms: Number(body.timeout_ms) || await getDefaultAiTimeoutMs()
-    })
-    .select()
-    .single()
-
-  if (createError) {
-    const resp = { error: sanitizeError(createError) }
+  if (!model) {
+    const resp = { error: 'model_required' }
     logOperation({
       userId, userEmail, clientIp,
       operation: 'ai_config_create',
@@ -361,16 +423,68 @@ async function handleCreate(
       responseBody: resp,
       responseStatus: 400,
       durationMs: 0,
-      errorMessage: sanitizeError(createError)
+      errorMessage: 'model_required'
     })
     return respond(400, resp)
   }
 
-  // 用原始明文（或复用密文）构造正确的 api_key_masked
+  const duplicateConfig = await findDuplicateAiConfig(adminClient, dbScope, ownerUserId, providerId, model)
+  if (duplicateConfig) {
+    const resp = { error: 'ai_config_model_duplicate' }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_create',
+      apiName: 'ai-config',
+      requestBody: body,
+      responseBody: resp,
+      responseStatus: 409,
+      durationMs: 0,
+      errorMessage: 'ai_config_model_duplicate',
+      extra: { provider_id: providerId, model }
+    })
+    return respond(409, resp)
+  }
+
+  const { data: config, error: createError } = await adminClient
+    .from('ai_configs')
+    .insert({
+      created_by: userId,
+      scope: dbScope,
+      owner_user_id: ownerUserId,
+      provider_id: providerId,
+      name: String(body.name || ''),
+      base_url: String(body.base_url || providerData.base_url),
+      model,
+      api_key: reusedKey ? apiKey : await encryptValue(apiKey),
+      is_encrypted: true,
+      timeout_ms: Number(body.timeout_ms) || await getDefaultAiTimeoutMs()
+    })
+    .select()
+    .single()
+
+  if (createError) {
+    const errorCode = isAiConfigDuplicateError(createError)
+      ? 'ai_config_model_duplicate'
+      : sanitizeError(createError)
+    const resp = { error: errorCode }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_create',
+      apiName: 'ai-config',
+      requestBody: body,
+      responseBody: resp,
+      responseStatus: errorCode === 'ai_config_model_duplicate' ? 409 : 400,
+      durationMs: 0,
+      errorMessage: errorCode
+    })
+    return respond(errorCode === 'ai_config_model_duplicate' ? 409 : 400, resp)
+  }
+
+  // 鐢ㄥ師濮嬫槑鏂囷紙鎴栧鐢ㄥ瘑鏂囷級鏋勯€犳纭殑 api_key_masked
   const configRow = config as unknown as AiConfigRow
   let apiKeyMasked: string
   if (reusedKey) {
-    // apiKey 是复用的密文，需先解密才能正确脱敏
+    // apiKey 鏄鐢ㄧ殑瀵嗘枃锛岄渶鍏堣В瀵嗘墠鑳芥纭劚鏁?
     const decrypted = await decryptValue(apiKey)
     apiKeyMasked = maskApiKeySync(decrypted)
   } else {
@@ -400,7 +514,8 @@ async function handleUpdate(
   req: Request,
   userId: string,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
 
@@ -427,12 +542,15 @@ async function handleUpdate(
   }
 
   const existingData = existing as unknown as AiConfigRow
+  if (!ensureConfigOwnership(existingData, userId, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
 
   const updateData: Record<string, unknown> = {}
 
   if (body.name !== undefined) updateData.name = String(body.name)
   if (body.base_url !== undefined) updateData.base_url = String(body.base_url)
-  if (body.model !== undefined) updateData.model = String(body.model)
+  if (body.model !== undefined) updateData.model = formatAiConfigModel(body.model)
   if (body.timeout_ms !== undefined) updateData.timeout_ms = Number(body.timeout_ms)
   if (body.api_key !== undefined && String(body.api_key).length > 0) {
     updateData.api_key = await encryptValue(String(body.api_key))
@@ -455,15 +573,10 @@ async function handleUpdate(
     return respond(400, resp)
   }
 
-  const { data: config, error: updateError } = await adminClient
-    .from('ai_configs')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (updateError) {
-    const resp = { error: sanitizeError(updateError) }
+  const nextModel =
+    updateData.model !== undefined ? String(updateData.model) : formatAiConfigModel(existingData.model)
+  if (!nextModel) {
+    const resp = { error: 'model_required' }
     logOperation({
       userId, userEmail, clientIp,
       operation: 'ai_config_update',
@@ -472,13 +585,63 @@ async function handleUpdate(
       responseBody: resp,
       responseStatus: 400,
       durationMs: 0,
-      errorMessage: sanitizeError(updateError),
+      errorMessage: 'model_required',
       extra: { config_id: id }
     })
     return respond(400, resp)
   }
 
-  const providers = await getAiProviders(adminClient)
+  const duplicateConfig = await findDuplicateAiConfig(
+    adminClient,
+    existingData.scope,
+    existingData.owner_user_id,
+    existingData.provider_id,
+    nextModel,
+    id
+  )
+  if (duplicateConfig) {
+    const resp = { error: 'ai_config_model_duplicate' }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_update',
+      apiName: 'ai-config',
+      requestBody: body,
+      responseBody: resp,
+      responseStatus: 409,
+      durationMs: 0,
+      errorMessage: 'ai_config_model_duplicate',
+      extra: { config_id: id, provider_id: existingData.provider_id, model: nextModel }
+    })
+    return respond(409, resp)
+  }
+
+  const { data: config, error: updateError } = await adminClient
+    .from('ai_configs')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (updateError) {
+    const errorCode = isAiConfigDuplicateError(updateError)
+      ? 'ai_config_model_duplicate'
+      : sanitizeError(updateError)
+    const resp = { error: errorCode }
+    logOperation({
+      userId, userEmail, clientIp,
+      operation: 'ai_config_update',
+      apiName: 'ai-config',
+      requestBody: body,
+      responseBody: resp,
+      responseStatus: errorCode === 'ai_config_model_duplicate' ? 409 : 400,
+      durationMs: 0,
+      errorMessage: errorCode,
+      extra: { config_id: id }
+    })
+    return respond(errorCode === 'ai_config_model_duplicate' ? 409 : 400, resp)
+  }
+
+  const providers = await getAllAiProviders(adminClient)
   const provider = providers.find((p) => p.id === existingData.provider_id)
   const masked = buildMaskedResponse(config as unknown as AiConfigRow, provider)
   logOperation({
@@ -500,9 +663,25 @@ async function handleDelete(
   req: Request,
   userId: string,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
+
+  const { data: existing } = await adminClient
+    .from('ai_configs')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return respond(404, { error: 'config_not_found' })
+  }
+
+  const existingData = existing as unknown as AiConfigRow
+  if (!ensureConfigOwnership(existingData, userId, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
 
   const { data, error } = await adminClient.from('ai_configs').delete().eq('id', id).select('id').single()
   if (error) {
@@ -554,13 +733,14 @@ async function handleActivate(
   req: Request,
   userId: string,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
 
   const { data: target, error: getError } = await adminClient
     .from('ai_configs')
-    .select('id')
+    .select('*')
     .eq('id', id)
     .single()
 
@@ -579,7 +759,23 @@ async function handleActivate(
     return respond(404, resp)
   }
 
-  await adminClient.from('ai_configs').update({ is_active: false }).eq('is_active', true)
+  const targetData = target as unknown as AiConfigRow
+  if (!ensureConfigOwnership(targetData, userId, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
+
+  let clearQuery = adminClient
+    .from('ai_configs')
+    .update({ is_active: false })
+    .eq('scope', targetData.scope)
+    .eq('is_active', true)
+
+  clearQuery =
+    targetData.scope === 'user'
+      ? clearQuery.eq('owner_user_id', userId)
+      : clearQuery.is('owner_user_id', null)
+
+  await clearQuery
 
   const { data: config, error } = await adminClient
     .from('ai_configs')
@@ -622,9 +818,25 @@ async function handleDeactivate(
   req: Request,
   userId: string,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
+
+  const { data: existing } = await adminClient
+    .from('ai_configs')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return respond(404, { error: 'config_not_found' })
+  }
+
+  const existingData = existing as unknown as AiConfigRow
+  if (!ensureConfigOwnership(existingData, userId, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
 
   const { data: config, error } = await adminClient
     .from('ai_configs')
@@ -777,7 +989,7 @@ async function handleUpdateProvider(
   if (body.base_url !== undefined) updateData.base_url = String(body.base_url)
   if (body.region !== undefined) updateData.region = String(body.region)
   if (body.api_format !== undefined) updateData.api_format = String(body.api_format)
-  // 计算需要删除的孤儿模型（在 provider 更新成功后才执行删除）
+  // 璁＄畻闇€瑕佸垹闄ょ殑瀛ゅ効妯″瀷锛堝湪 provider 鏇存柊鎴愬姛鍚庢墠鎵ц鍒犻櫎锛?
   let removedModels: string[] = []
   if (body.models !== undefined) {
     updateData.models = Array.isArray(body.models) ? body.models : []
@@ -825,7 +1037,7 @@ async function handleUpdateProvider(
     return respond(400, resp)
   }
 
-  // 删除已被移除的模型对应的 config（provider 已更新成功，安全删除孤儿数据）
+  // 鍒犻櫎宸茶绉婚櫎鐨勬ā鍨嬪搴旂殑 config锛坧rovider 宸叉洿鏂版垚鍔燂紝瀹夊叏鍒犻櫎瀛ゅ効鏁版嵁锛?
   if (removedModels.length > 0) {
     await adminClient
       .from('ai_configs')
@@ -1029,7 +1241,8 @@ async function handleTest(
   adminClient: ReturnType<typeof createClient>,
   req: Request,
   userEmail: string,
-  clientIp: string
+  clientIp: string,
+  isAdmin: boolean
 ) {
   const respond = makeResponse(req)
 
@@ -1044,7 +1257,7 @@ async function handleTest(
     .single()
 
   if (getError || !config) {
-    const resp = { ok: false, elapsed_ms: 0, error: '配置不存在' }
+    const resp = { ok: false, elapsed_ms: 0, error: 'config_not_found' }
     logOperation({
       userId, userEmail, clientIp,
       operation: 'ai_config_test',
@@ -1059,8 +1272,11 @@ async function handleTest(
   }
 
   const configData = config as unknown as AiConfigRow
+  if (!ensureConfigOwnership(configData, userId, isAdmin)) {
+    return respond(403, { error: 'forbidden' })
+  }
 
-  // 冷却检查：同一 provider + api_key 下所有 config 共享冷却期
+  // 鍐峰嵈妫€鏌ワ細鍚屼竴 provider + api_key 涓嬫墍鏈?config 鍏变韩鍐峰嵈鏈?
   const { data: siblingConfigs } = await adminClient
     .from('ai_configs')
     .select('id, last_test_at')
@@ -1075,7 +1291,12 @@ async function handleTest(
     const elapsed = (now - latest) / 1000
     if (elapsed < cooldown) {
       const wait = Math.ceil(cooldown - elapsed)
-      const resp = { ok: false, elapsed_ms: 0, error: `请等待 ${wait} 秒后再测试`, cooldown_remaining: wait }
+      const resp = {
+        ok: false,
+        elapsed_ms: 0,
+        error: `请等待 ${wait} 秒后再测试`,
+        cooldown_remaining: wait
+      }
       logOperation({
         userId, userEmail, clientIp,
         operation: 'ai_config_test',
@@ -1097,7 +1318,7 @@ async function handleTest(
     .single()
 
   if (providerError || !provider) {
-    const resp = { ok: false, elapsed_ms: 0, error: '供应商不存在' }
+    const resp = { ok: false, elapsed_ms: 0, error: 'provider_not_found' }
     logOperation({
       userId, userEmail, clientIp,
       operation: 'ai_config_test',
@@ -1116,7 +1337,7 @@ async function handleTest(
     ? await decryptValue(configData.api_key)
     : configData.api_key
 
-  // 提前写入 last_test_at 占位，防止竞态（后续请求可以立即看到）
+  // 鎻愬墠鍐欏叆 last_test_at 鍗犱綅锛岄槻姝㈢珵鎬侊紙鍚庣画璇锋眰鍙互绔嬪嵆鐪嬪埌锛?
   await adminClient
     .from('ai_configs')
     .update({ last_test_at: new Date().toISOString() })
@@ -1248,20 +1469,17 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = await getAdminClient()
-    const { data: adminUser } = await adminClient
-      .from('admin_users')
-      .select('email')
-      .eq('email', sessionState.email)
-      .maybeSingle()
-    const isAdmin = !!adminUser
-
+    const isAdmin = await checkIsAdmin(adminClient, sessionState.email, {
+      sessionAdminHint: sessionState.isAdminHint
+    })
+    
     const logCtx = {
       userId: sessionState.userId,
       userEmail: sessionState.email,
       clientIp: getClientIp(req)
     }
 
-    // 写操作限流（POST / PATCH / DELETE，统一全局限流配置）
+    // 鍐欐搷浣滈檺娴侊紙POST / PATCH / DELETE锛岀粺涓€鍏ㄥ眬闄愭祦閰嶇疆锛?
     if (req.method !== 'GET' && req.method !== 'OPTIONS') {
       const rl = await getRateLimiter()
       const rateResult = await rl.consume(`${sessionState.userId}|${logCtx.clientIp}`)
@@ -1274,6 +1492,7 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
+    const scope = normalizeScope(url.searchParams.get('scope'))
     const aiConfigIndex = pathParts.lastIndexOf('ai-config')
     const tail = aiConfigIndex >= 0 ? pathParts.slice(aiConfigIndex + 1) : pathParts
     const isProviders = tail.length === 1 && tail[0] === 'providers'
@@ -1284,9 +1503,8 @@ Deno.serve(async (req) => {
 
     // GET /ai-config/providers
     if (req.method === 'GET' && isProviders) {
-      const providers = isAdmin
-        ? await getAllAiProviders(adminClient)
-        : await getAiProviders(adminClient)
+      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
+      const providers = await getAllAiProviders(adminClient)
       const resp = { ok: true, providers }
       logOperation({
         userId: logCtx.userId, userEmail: logCtx.userEmail, clientIp: logCtx.clientIp,
@@ -1295,7 +1513,7 @@ Deno.serve(async (req) => {
         responseBody: resp,
         responseStatus: 200,
         durationMs: 0,
-        extra: { provider_count: providers.length, is_admin: isAdmin }
+        extra: { provider_count: providers.length }
       })
       return jsonResponse(200, resp, corsHeaders)
     }
@@ -1322,7 +1540,7 @@ Deno.serve(async (req) => {
 
     // GET /ai-config
     if (req.method === 'GET' && !id) {
-      return handleGet(logCtx.userId, isAdmin, adminClient, req, logCtx.userEmail, logCtx.clientIp)
+      return handleGet(adminClient, req, logCtx.userId, isAdmin)
     }
 
     // POST /ai-config/providers/reorder
@@ -1334,40 +1552,35 @@ Deno.serve(async (req) => {
 
     // POST /ai-config
     if (req.method === 'POST' && !id) {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
       const body = await req.json().catch(() => ({}))
-      return handleCreate(logCtx.userId, body, adminClient, req, logCtx.userEmail, logCtx.clientIp)
+      if (scope === 'global' && !isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
+      return handleCreate(logCtx.userId, body, adminClient, req, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     // DELETE /ai-config/:id
     if (req.method === 'DELETE' && id && !action) {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
-      return handleDelete(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp)
+      return handleDelete(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     // PATCH /ai-config/:id
     if (req.method === 'PATCH' && id && !action) {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
       const body = await req.json().catch(() => ({}))
-      return handleUpdate(id, body, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp)
+      return handleUpdate(id, body, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     // POST /ai-config/:id/activate
     if (req.method === 'POST' && id && action === 'activate') {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
-      return handleActivate(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp)
+      return handleActivate(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     // POST /ai-config/:id/deactivate
     if (req.method === 'POST' && id && action === 'deactivate') {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
-      return handleDeactivate(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp)
+      return handleDeactivate(id, adminClient, req, logCtx.userId, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     // POST /ai-config/:id/test
     if (req.method === 'POST' && id && action === 'test') {
-      if (!isAdmin) return jsonResponse(403, { error: 'forbidden' }, corsHeaders)
-      return handleTest(id, logCtx.userId, adminClient, req, logCtx.userEmail, logCtx.clientIp)
+      return handleTest(id, logCtx.userId, adminClient, req, logCtx.userEmail, logCtx.clientIp, isAdmin)
     }
 
     return jsonResponse(404, { error: 'not_found' }, corsHeaders)
@@ -1376,3 +1589,4 @@ Deno.serve(async (req) => {
     return errorResponse(500, sanitizeError(err), corsHeaders)
   }
 })
+

@@ -13,9 +13,9 @@ const feedbackSource = computed<'splash' | 'workbench' | 'ziwei'>(() => {
 </script>
 
 <template>
-  <RouterView v-slot="{ Component, route: viewRoute }">
+  <RouterView v-slot="{ Component }">
     <Transition name="page-soft" mode="out-in">
-      <component :is="Component" :key="viewRoute.fullPath" />
+      <component :is="Component" />
     </Transition>
   </RouterView>
   <FeedbackWidget :source="feedbackSource" />

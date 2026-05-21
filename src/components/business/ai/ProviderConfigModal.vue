@@ -1,6 +1,5 @@
-<!-- [2026-05-07] 供应商配置弹窗 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import type { AiProviderDef } from '@/features/ai'
 
@@ -28,43 +27,40 @@ const emit = defineEmits<{
   ]
 }>()
 
-// Form state
 const formName = ref('')
 const formSlug = ref('')
 const formBaseUrl = ref('')
 const formRegion = ref<'cn' | 'international'>('international')
-const formApiFormat = ref<string>('custom')
+const formApiFormat = ref('custom')
 const formModels = ref<string[]>([])
 const newModel = ref('')
 const saving = ref(false)
 const saveError = ref('')
 
-function setRegion(r: 'cn' | 'international'): void {
-  formRegion.value = r
-}
-
-function setApiFormat(f: string): void {
-  formApiFormat.value = f
-}
-
-// Computed
 const isEditMode = computed(() => !!props.provider)
 
-// Watch open state
 watch(
   () => props.open,
-  (val) => {
-    if (val) {
+  (open) => {
+    if (open) {
       resetForm()
     }
   }
 )
 
-// Reset form
+function setRegion(region: 'cn' | 'international'): void {
+  formRegion.value = region
+}
+
+function setApiFormat(format: string): void {
+  formApiFormat.value = format
+}
+
 function resetForm(): void {
   saveError.value = ''
   saving.value = false
   newModel.value = ''
+
   if (props.provider) {
     formName.value = props.provider.label
     formSlug.value = props.provider.slug
@@ -72,32 +68,31 @@ function resetForm(): void {
     formRegion.value = props.provider.region === 'cn' ? 'cn' : 'international'
     formApiFormat.value = props.provider.api_format || 'custom'
     formModels.value = [...props.provider.models]
-  } else {
-    formName.value = ''
-    formSlug.value = ''
-    formBaseUrl.value = ''
-    formRegion.value = 'international'
-    formApiFormat.value = 'custom'
-    formModels.value = []
+    return
   }
+
+  formName.value = ''
+  formSlug.value = ''
+  formBaseUrl.value = ''
+  formRegion.value = 'international'
+  formApiFormat.value = 'custom'
+  formModels.value = []
 }
 
-// Model management - supports comma-separated batch adding
 function addModel(): void {
   const input = newModel.value.trim()
   if (!input) return
 
-  // Split by comma for batch adding
   const modelsToAdd = input
-    .split(/[,，]/)
-    .map((m) => m.trim())
+    .split(/[,\uFF0C]/)
+    .map((item) => item.trim())
     .filter(Boolean)
-  let added = 0
 
+  let added = 0
   for (const model of modelsToAdd) {
-    if (model && !formModels.value.includes(model)) {
+    if (!formModels.value.includes(model)) {
       formModels.value.push(model)
-      added++
+      added += 1
     }
   }
 
@@ -117,20 +112,22 @@ function handleModelKeydown(e: KeyboardEvent): void {
   }
 }
 
-// Save
 function handleSave(): void {
   const isEdit = !!props.provider
+
   if (!formName.value.trim() || (!isEdit && !formSlug.value.trim())) {
-    saveError.value = '请填写名称和标识'
+    saveError.value = '请填写供应商名称和标识。'
     return
   }
+
   if (!formBaseUrl.value.trim()) {
-    saveError.value = '请填写 API Base URL'
+    saveError.value = '请填写 API Base URL。'
     return
   }
 
   saving.value = true
   saveError.value = ''
+
   emit('save', {
     isEdit,
     providerId: props.provider?.id,
@@ -150,12 +147,10 @@ function handleSave(): void {
   <BaseModal :open="open" @close="emit('close')">
     <template #title>{{ isEditMode ? '编辑供应商' : '新增供应商' }}</template>
     <template #subtitle>
-      {{ isEditMode ? `配置 ${formName} 的基本信息` : '添加新的 AI 服务商' }}
+      {{ isEditMode ? `配置 ${formName} 的基础信息与模型列表。` : '添加新的 AI 供应商。' }}
     </template>
 
-    <!-- Body -->
     <div class="form-body">
-      <!-- 基础信息 -->
       <div class="form-section">
         <h3 class="section-title">基础信息</h3>
 
@@ -165,22 +160,24 @@ function handleSave(): void {
             <input
               v-model="formName"
               type="text"
-              placeholder="例如：OpenAI、阿里云"
+              placeholder="例如 OpenAI、阿里云"
               class="form-input"
             />
           </div>
+
           <div class="form-group">
             <label class="form-label">标识</label>
             <input
               v-model="formSlug"
               type="text"
-              placeholder="例如：openai、qwen"
+              placeholder="例如 openai、qwen"
               class="form-input"
+              :disabled="isEditMode"
             />
           </div>
         </div>
 
-        <div class="form-row form-row-three">
+        <div class="form-row">
           <div class="form-group">
             <label class="form-label">服务区域</label>
             <div class="region-toggle">
@@ -202,6 +199,7 @@ function handleSave(): void {
               </button>
             </div>
           </div>
+
           <div class="form-group">
             <label class="form-label">API 格式</label>
             <div class="region-toggle">
@@ -244,16 +242,15 @@ function handleSave(): void {
         </div>
       </div>
 
-      <!-- 可用免费模型 -->
       <div class="form-section">
-        <h3 class="section-title">可用免费模型</h3>
-        <p class="section-desc">支持批量添加（逗号分隔）</p>
+        <h3 class="section-title">可用模型</h3>
+        <p class="section-desc">支持批量添加，使用英文逗号或中文逗号分隔。</p>
 
         <div class="models-container">
           <div class="models-tags models-tags-grid">
-            <span v-for="(model, idx) in formModels" :key="model" class="model-tag">
+            <span v-for="(model, index) in formModels" :key="model" class="model-tag">
               <code>{{ model }}</code>
-              <button class="tag-remove" @click="removeModel(idx)">
+              <button class="tag-remove" @click="removeModel(index)">
                 <svg
                   width="12"
                   height="12"
@@ -294,7 +291,6 @@ function handleSave(): void {
         </div>
       </div>
 
-      <!-- Error -->
       <p v-if="saveError" class="form-error">{{ saveError }}</p>
     </div>
 
@@ -314,7 +310,6 @@ function handleSave(): void {
   gap: 24px;
 }
 
-/* Form Section */
 .form-section {
   display: flex;
   flex-direction: column;
@@ -345,14 +340,6 @@ function handleSave(): void {
   flex: 1;
 }
 
-.form-row-three .form-group-wide {
-  flex: 2;
-}
-
-.form-row-three .form-group:not(.form-group-wide) {
-  flex: 0 0 auto;
-}
-
 .form-group {
   display: flex;
   flex-direction: column;
@@ -374,7 +361,6 @@ function handleSave(): void {
   color: var(--color-text);
   font-size: 14px;
   font-family: var(--font-body);
-  transition: all 0.15s ease;
 }
 
 .form-input:focus {
@@ -392,7 +378,6 @@ function handleSave(): void {
   box-sizing: border-box;
 }
 
-/* Region Toggle */
 .region-toggle {
   display: flex;
   gap: 0;
@@ -410,7 +395,6 @@ function handleSave(): void {
   font-size: 13px;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .region-btn:not(:last-child) {
@@ -426,7 +410,6 @@ function handleSave(): void {
   background: var(--color-panel-2);
 }
 
-/* Models Container */
 .models-container {
   display: flex;
   flex-direction: column;
@@ -459,18 +442,6 @@ function handleSave(): void {
   border: 1px solid var(--color-accent-border);
   border-radius: 6px;
   font-size: 12px;
-  animation: tagIn 0.15s ease-out;
-}
-
-@keyframes tagIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .model-tag code {
@@ -492,7 +463,6 @@ function handleSave(): void {
   background: transparent;
   color: var(--color-text-subtle);
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .tag-remove:hover {
@@ -533,7 +503,6 @@ function handleSave(): void {
   font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s ease;
   white-space: nowrap;
 }
 
@@ -542,7 +511,6 @@ function handleSave(): void {
   border-style: solid;
 }
 
-/* Error */
 .form-error {
   font-size: 12px;
   color: var(--color-danger);
@@ -553,7 +521,6 @@ function handleSave(): void {
   border-radius: 8px;
 }
 
-/* Footer buttons */
 .btn {
   height: 36px;
   padding: 0 16px;
@@ -562,7 +529,6 @@ function handleSave(): void {
   font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .btn-cancel {

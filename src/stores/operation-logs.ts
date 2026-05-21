@@ -12,7 +12,7 @@ import {
 
 export const useOperationLogsStore = defineStore('operation-logs', () => {
   const defaultSummary: OperationLogSummary = {
-    today_requests: 0,
+    total_requests: 0,
     request_change_rate: null,
     success_rate: 0,
     fail_count: 0,
@@ -30,7 +30,6 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
   const error = ref('')
   const summary = ref<OperationLogSummary>({ ...defaultSummary })
   const operationOptions = ref<OperationLogOption[]>([])
-  const apiOptions = ref<OperationLogOption[]>([])
 
   const filters = ref<OperationLogFilters>({})
 
@@ -41,35 +40,56 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
     return Number.isFinite(n) ? n : fallback
   }
 
-  async function loadLogs(): Promise<void> {
+  interface LoadBehavior {
+    withSummary?: boolean
+    withOptions?: boolean
+    withTotal?: boolean
+  }
+
+  async function loadLogs(behavior: LoadBehavior = {}): Promise<void> {
+    const withSummary = behavior.withSummary ?? true
+    const withOptions = behavior.withOptions ?? false
+    const withTotal = behavior.withTotal ?? true
+
     loading.value = true
     error.value = ''
     try {
       const result = await fetchOperationLogs({
         page: page.value,
         pageSize: pageSize.value,
-        ...filters.value
+        ...filters.value,
+        withSummary,
+        withOptions,
+        withTotal
       })
       items.value = Array.isArray(result.items) ? result.items : []
-      total.value = Number.isFinite(result.total) ? Number(result.total) : 0
-      isAdmin.value = result.is_admin === true
-      const rawSummary = result.summary || {}
-      summary.value = {
-        today_requests: toNumber(rawSummary.today_requests, 0),
-        request_change_rate:
-          rawSummary.request_change_rate === null || rawSummary.request_change_rate === undefined
-            ? null
-            : toNumber(rawSummary.request_change_rate, 0),
-        success_rate: toNumber(rawSummary.success_rate, 0),
-        fail_count: toNumber(rawSummary.fail_count, 0),
-        avg_duration_ms: toNumber(rawSummary.avg_duration_ms, 0),
-        p95_duration_ms: toNumber(rawSummary.p95_duration_ms, 0),
-        active_users: toNumber(rawSummary.active_users, 0)
+      if (result.total !== undefined) {
+        total.value = Number.isFinite(result.total) ? Number(result.total) : 0
       }
-      operationOptions.value = Array.isArray(result.operation_options)
-        ? result.operation_options
-        : []
-      apiOptions.value = Array.isArray(result.api_options) ? result.api_options : []
+      isAdmin.value = result.is_admin === true
+      if (result.summary) {
+        const rawSummary = result.summary
+        const rawSummaryRecord = rawSummary as Record<string, unknown>
+        const totalRequests = rawSummaryRecord.total_requests ?? rawSummaryRecord.today_requests
+        summary.value = {
+          total_requests: toNumber(totalRequests, 0),
+          request_change_rate:
+            rawSummary.request_change_rate === null || rawSummary.request_change_rate === undefined
+              ? null
+              : toNumber(rawSummary.request_change_rate, 0),
+          success_rate: toNumber(rawSummary.success_rate, 0),
+          fail_count: toNumber(rawSummary.fail_count, 0),
+          avg_duration_ms: toNumber(rawSummary.avg_duration_ms, 0),
+          p95_duration_ms: toNumber(rawSummary.p95_duration_ms, 0),
+          active_users: toNumber(rawSummary.active_users, 0)
+        }
+        if (!withTotal) {
+          total.value = toNumber(totalRequests, 0)
+        }
+      }
+      if (Array.isArray(result.operation_options)) {
+        operationOptions.value = result.operation_options
+      }
     } catch (e: unknown) {
       error.value =
         e instanceof Error ? e.message : mapErrorCodeToMessage('operation_logs_load_failed')
@@ -80,13 +100,21 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
 
   async function setPage(p: number): Promise<void> {
     page.value = p
-    await loadLogs()
+    await loadLogs({
+      withSummary: false,
+      withOptions: false,
+      withTotal: false
+    })
   }
 
   async function setFilters(newFilters: OperationLogFilters): Promise<void> {
     filters.value = newFilters
     page.value = 1
-    await loadLogs()
+    await loadLogs({
+      withSummary: true,
+      withOptions: false,
+      withTotal: false
+    })
   }
 
   function $reset(): void {
@@ -98,7 +126,6 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
     error.value = ''
     summary.value = { ...defaultSummary }
     operationOptions.value = []
-    apiOptions.value = []
     filters.value = {}
   }
 
@@ -112,7 +139,6 @@ export const useOperationLogsStore = defineStore('operation-logs', () => {
     error,
     summary,
     operationOptions,
-    apiOptions,
     filters,
     totalPages,
     loadLogs,

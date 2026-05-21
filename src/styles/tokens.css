@@ -198,6 +198,26 @@
   --color-page-info: var(--color-brand-500);
   --color-page-success-alt: #34c759;
   --color-page-warning-alt: #ff9500;
+
+  /* Generic semantic link */
+  --color-link: var(--color-page-link);
+
+  /* === Ziwei (Purple Star Astrology) Colors === */
+  --color-hua-lu: #d4a017;
+  --color-hua-quan: #ff8c00;
+  --color-hua-ke: #0ea5a8;
+  --color-hua-ji: #e5484d;
+
+  --color-star-miao: #d4a017;
+  --color-star-wang: #ff9500;
+  --color-star-de-li: #4f8fe8;
+  --color-star-ping: #8e8e93;
+  --color-star-xian: #d84b4b;
+
+  --color-daxian: #2f6fdd;
+  --color-liunian: #7c58c2;
+  --color-major-star: var(--color-page-warning-alt);
+  --color-daxian-active-bg: rgba(255, 149, 0, 0.08);
 }
 
 /* === Dark Theme === */
@@ -333,6 +353,8 @@
   --color-page-info: var(--color-brand-500);
   --color-page-success-alt: #34c759;
   --color-page-warning-alt: #ffd60a;
+
+  --color-link: var(--color-page-link);
   /* === Ziwei (Purple Star Astrology) Colors === */
   /* 四化颜色 - 需精确色值以区分不同含义 */
   --color-hua-lu: #ffd700;   /* 化禄 - 金色 */

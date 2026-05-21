@@ -1,153 +1,154 @@
-# AI 开发规范（VSCode + AI Coding Agent + Vue + Supabase）
+# AI 开发规范（长期目标）
 
-> 本文档用于约束 AI Coding Agent 在本项目中的代码生成与重构行为。
-> 目标：统一技术栈、减少返工、确保生成代码可直接运行、可验证、可维护。
+> 本文档是本项目的长期目标规范，用于约束 AI Coding Agent 与人工协作时的实现方式、架构边界和交付质量。  
+> 它不是“项目实时快照”，不维护易变的页面清单、完整目录树或一次性事实。
 
----
-
-## 0. 适用环境
+## 0. 适用范围
 
 - IDE：VSCode
-- AI 助手：AI Coding Agent（不绑定具体产品名，Codex / Kilo 等均按本文档执行）
+- AI 助手：AI Coding Agent（不绑定具体产品名）
 - 前端：Vue 3 + TypeScript + Vite
 - 后端能力：Supabase（Auth / Database / Storage / Realtime / Edge Functions）
-- Edge Functions 运行时：Deno（非 Node.js）
+- Edge Functions 运行时：Deno
 - 包管理器：pnpm
 
----
+## 1. Source Of Truth 规则
 
-## 1. 技术栈基线（必须遵守）
+不同类型的信息必须有明确的唯一事实来源：
 
-### 前端
+- 长期工程规则、架构边界、交付标准：本文件 `docs/AI_DEV.md`
+- 当前实现细节、历史沿革、阶段性方案：`docs/CONTEXT_FULL.md`
+- 可执行命令、测试入口、校验脚本：`package.json`
+- 运行时路由、页面注册、状态归属、缓存行为：仓库代码本身
+- 数据库结构：`supabase/migrations/*` + `src/types/database.types.ts`
 
-- Vue 3（仅 Composition API）
-- TypeScript（strict 模式）
+如果本文档与代码冲突：
+
+- 代码是有意演进后的新基线：同一任务内同步更新本文档
+- 代码只是临时例外：在变更说明或 `docs/CONTEXT_FULL.md` 中明确标记，不把临时状态写成规范
+
+## 2. 核心原则
+
+1. 单一事实来源优先，避免同一规则在多处平行维护。
+2. 敏感能力后移到服务端，前端不承担安全边界职责。
+3. 配置优于硬编码，可变参数应可运营、可调试、可灰度。
+4. 纯逻辑与框架/DOM/IO 剥离，优先保持可测试性。
+5. 状态按作用域归属，不把所有状态塞进单一 store。
+6. 先保证正确性与一致性，再追求局部炫技式抽象。
+7. 文档只写稳定规则，不写容易过时的“当前页面名清单”。
+
+## 3. 技术栈基线（必须遵守）
+
+### 3.1 前端
+
+- Vue 3，仅使用 Composition API
+- TypeScript strict 模式
 - Vue Router 4
-- Pinia
-- fetch（统一封装于 `src/api/http.ts`，禁止散写）
-- TailwindCSS + Design Token 混合使用：
-  - **Vue 模板 (`<template>`)**：优先使用 Tailwind 语义类（如 `bg-panel`, `text-brand-500`）
-  - **组件样式 (`<style scoped>` 或 CSS 文件)**：优先使用 CSS 变量（如 `var(--color-border)`）
-  - **全局样式 (`main.css` 的 @layer components)**：使用 Tailwind @apply + CSS 变量混写
-  - **token 文件 (`tokens.css`)**：仅定义 CSS 变量，不使用 Tailwind
+- Pinia，仅使用 setup store，禁止 options store
+- 网络请求统一走 `src/api/http.ts` 或其上层 API 封装，禁止散写 `fetch`
+- TailwindCSS 与 Design Token 混合使用
 - ESLint + Prettier
 
-### Supabase / 后端
+### 3.2 Supabase / 后端
 
-- Supabase JS SDK（`@supabase/supabase-js`）
-- Supabase Auth（邮箱/OTP/OAuth 以项目配置为准）
-- PostgreSQL（通过 Supabase 提供）
-- Row Level Security（RLS）必须启用并配策略
-- Edge Functions 仅处理需要服务端权限、第三方密钥、AI 调用、风控/配额等敏感逻辑
-- Edge Functions 使用 Deno API（如 `Deno.serve`、`Deno.env`、`Deno.openKv`），禁止套用 Node.js 专属 API
-- 必须使用 Supabase CLI 生成的 Database 类型定义（`src/types/database.types.ts`），前端统一从 `@/types` 类型桶导入
+- 前端统一使用 `@supabase/supabase-js`
+- 数据库为 PostgreSQL（由 Supabase 提供）
+- RLS 默认开启，新增表必须配策略
+- Edge Functions 仅处理需要服务端权限、第三方密钥、AI 调用、限流、风控、配置解析等敏感逻辑
+- Edge Functions 使用 Deno API，禁止套用 Node.js 专属运行时能力
+- 数据库类型定义通过 Supabase CLI 生成，禁止手改生成结果
 
----
+## 4. AI Agent 输出与执行规则
 
-## 2. AI 输出与执行规则（必须执行）
+1. 默认使用 `<script setup lang="ts">`。
+2. 涉及 Supabase 的能力必须先判断是用户态查询还是服务端敏感能力。
+3. 执行型任务优先直接改代码并验证，不只停留在方案描述。
+4. 说明型任务至少包含：改动范围、关键实现思路、风险、验证方式。
+5. 响应式状态优先使用 `ref`；仅在对象关系强且整体更新频繁时使用 `reactive`。
+6. Props / Emits 使用泛型声明，避免运行时弱约束写法。
+7. 访问 Pinia store 时，涉及响应式解包统一使用 `storeToRefs()`。
+8. 不允许为了“先跑起来”而绕过错误处理、权限校验、RLS 或类型收窄。
 
-1. 默认使用 `<script setup lang="ts">`，Composition API only。
-2. 涉及 Supabase 的功能，必须区分：
-   - 前端可做：用户态查询（受 RLS 限制）
-   - 服务端做：管理员权限、敏感写操作、第三方密钥、AI 请求（Edge Function）
-3. 实际执行型任务优先直接改代码并验证；总结时说明变更文件、验证结果、是否需要部署。
-4. 方案型/说明型任务需要包含：实现方案、变更文件、关键代码或完整代码、Supabase 变更、验证步骤、风险。
-5. 前端响应式状态优先使用 `ref`，复杂对象再使用 `reactive`，禁止随意解构导致响应式丢失。
-6. 其他代码禁止项详见 [§20 禁止项清单](#20-禁止项清单高优先级)。
+## 5. 架构分层与代码落点
 
----
+### 5.1 稳定分层
 
-## 3. 项目实际目录结构（以此为准）
+以下职责分层是长期稳定规则：
 
-```txt
-.
-├── docs/
-│   ├── AI_DEV.md                  # AI 辅助开发规范（本文件）
-│   ├── AI_DEV_REVIEW.md           # 规范审查建议
-│   └── CONTEXT_FULL.md            # 项目状态快照与变更记录
-├── supabase/
-│   ├── migrations/                # 数据库版本控制
-t│   ├── functions/
-	│   │   ├── _shared/               # 共享工具（auth / cors / rate-limit / ai-resolver / ai-client / app-config / response）
-	│   │   ├── ai-chat/               # AI 对话服务
-	│   │   ├── ai-config/             # AI 配置管理
-	│   │   ├── app-config/            # 应用配置管理
-	│   │   ├── cleanup/               # 数据清理
-	│   │   ├── feedback/              # 反馈提交服务
-	│   │   ├── operation-logs/        # 操作日志查询
-	│   │   ├── rules/                 # 映射规则管理（待废弃）
-	│   │   ├── sql-convert/           # AI 驱动的 SQL 跨数据库转换
-	│   │   ├── ziwei-analysis/        # 紫微 AI 分析服务
-	│   │   └── ziwei-history/         # 紫微历史记录
-│   ├── FUNCTION-AUTH-STRATEGY.md  # 函数鉴权策略说明
-│   ├── SECURITY-CHECKLIST.md      # 安全检查辅助文档
-│   └── config.toml                # Supabase 本地 CLI 配置
-├── src/
-│   ├── api/                       # Edge Function 请求封装
-│   ├── components/
-│   │   ├── common/                # 通用 UI 组件（StatePanel 等）
-│   │   ├── business/              # 业务组件
-│   │   │   ├── ai/               # AI 配置管理
-│   │   │   ├── app-config/       # 应用配置管理
-│   │   │   ├── auth/             # 认证相关
-│   │   │   ├── feedback/         # 反馈组件
-│   │   │   ├── operation-logs/   # 操作日志
-│   │   │   └── workbench/        # 工作台
-│   │   │       ├── components/   # 工作台通用组件（SqlEditor 等）
-│   │   │       ├── modals/       # 工作台弹窗
-│   │   │       └── pages/        # 工作台各功能页
-│   │   └── layout/               # 布局组件
-│   ├── composables/               # Vue 组合式函数
-│   ├── features/                  # 功能模块（优先纯逻辑）
-│   │   ├── ai/                    # AI 配置类型与常量
-│   │   ├── app-config/           # 应用配置类型
-│   │   ├── browser/              # 文件下载与剪贴板
-│   │   ├── id-tools/             # 证件号码工具
-│   │   ├── navigation/           # 路由解析与状态同步
-│   │   ├── preferences/          # 偏好存储
-│   │   ├── shared/               # 共享类型与工具
-│   │   ├── sql/                  # SQL 示例/数据库元数据/格式化
-│   │   └── ziwei/                # 紫微斗数计算与 AI
-│   ├── layouts/                  # 全局布局
-│   ├── lib/                      # 第三方库实例化
-│   ├── pages/                     # 路由页面
-│   │   ├── auth/login.vue        # 登录页
-│   │   ├── operation-logs/       # 操作日志页
-│   │   ├── splash/               # 首页
-│   │   └── workbench/            # 工作台入口
-│   ├── router/                   # 路由配置与守卫
-│   ├── stores/                    # Pinia 状态管理
-│   ├── styles/                    # CSS Token + Tailwind 组件层
-│   ├── types/                     # TypeScript 类型定义
-│   └── utils/                     # 通用工具函数
-├── tests/                         # Node .mjs 测试
-├── scripts/
-│   ├── check-utf8.mjs           # UTF-8 编码校验
-│   └── smoke.mjs                 # Smoke 入口代理
-├── .env.example
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-└── vite.config.mjs
-```
+- `src/api/`：前端 API 封装、协议适配、请求参数与响应结构整理
+- `src/components/`：UI 组件与业务组件
+- `src/composables/`：Vue 响应式逻辑、组件级状态编排
+- `src/features/`：纯业务逻辑、算法、格式化、解析、规则、领域工具
+- `src/layouts/`：全局布局容器
+- `src/pages/`：路由入口页
+- `src/stores/`：跨页面或全局状态
+- `src/styles/`：token、全局样式、主题层
+- `src/types/`：共享类型
+- `src/utils/`：通用工具与类型守卫
+- `supabase/functions/_shared/`：Edge Function 共享能力
 
-### 新代码放置规则
+### 5.2 新代码放置规则
 
-- 纯逻辑（无 DOM / 无 Vue 依赖）：放 `src/features/<module>/`
-- Vue 响应式可复用逻辑：放 `src/composables/`
-- Edge Function 请求封装：放 `src/api/`
-- 页面级组件：放 `src/pages/`
-- 可复用 UI 组件：放 `src/components/`
-- 全局类型：放 `src/types/`
-- DOM / 浏览器副作用：优先放 `composables`、组件或明确的 browser adapter，不应混入 parser/converter 纯逻辑
+- 纯逻辑、无 DOM、无 Vue 依赖：放 `src/features/<domain>/`
+- 可复用的 Vue 响应式逻辑：放 `src/composables/`
+- 所有网络访问封装：放 `src/api/`
+- 路由入口组件：放 `src/pages/`
+- 与具体业务强相关但可复用的 UI：放 `src/components/business/`
+- 通用 UI 基础件：放 `src/components/common/`
+- Edge Function 共享逻辑：放 `supabase/functions/_shared/`
 
----
+### 5.3 Barrel 与依赖边界
 
-## 4. 环境变量规范
+- Feature 模块可通过 `index.ts` 做具名 re-export
+- 禁止无边界的 `export *` 把内部实现细节全部暴露出去
+- `src/features/` 内禁止直接操作 DOM
+- 纯领域逻辑禁止依赖 Vue、Router、Pinia、浏览器 API
 
-### 4.1 前端公开变量
+### 5.4 目录文档策略
 
-前端只允许使用 `VITE_*` 公开变量：
+- 本文档不维护完整目录树，不维护具体页面名列表
+- 易变的目录与文件清单放在 `docs/CONTEXT_FULL.md` 或直接以代码为准
+- 如果必须在规范里给目录示例，必须明确标注“示例，不是完整清单”
+
+## 6. 配置治理
+
+### 6.1 配置分类
+
+可变参数必须落入以下之一：
+
+- 前端公开配置：`VITE_*`
+- 服务端敏感配置：Supabase Secrets
+- 运行时业务配置：`app_configs`
+- 供应商/用户级 AI 配置：`ai_providers` / `ai_configs`
+- 代码默认值：仅作为兜底，不作为主配置来源
+
+### 6.2 优先级原则
+
+每个子系统必须明确自己的配置优先级。未特别说明时，默认遵循：
+
+- 运行时数据库配置 > 服务端 Secret / 环境变量 > 代码默认值
+
+AI 配置解析必须显式声明优先级。长期目标遵循：
+
+- 用户级配置 > 全局配置 > 环境变量兜底 > 代码默认值
+
+### 6.3 Prompt 与 AI 模板规则
+
+- Prompt 不写死在前端页面中
+- Prompt 必须拆分为 `system` 与 `user` 两层
+- Prompt、temperature、建议问题、长度限制等应走可配置渠道
+- 前端只传必要的结构化业务数据，不传密钥、token 或不必要隐私信息
+
+### 6.4 配置命名与维护
+
+- 环境变量名保持语义化、按域分组
+- `app_configs` 使用 `category + key` 命名
+- 同一配置项不得出现多套并行命名方案
+- 配置变更时，需同步更新：读取代码、默认值、测试、运维文档
+
+### 6.5 示例（非穷举）
+
+前端公开变量示例：
 
 ```env
 VITE_SUPABASE_URL=...
@@ -155,208 +156,174 @@ VITE_SUPABASE_ANON_KEY=...
 VITE_API_TIMEOUT_MS=30000
 ```
 
-- `VITE_*` 会进入浏览器产物，绝不能放私密 key。
-- 禁止在前端使用 `service_role` key。
-- 禁止在客户端代码中使用 `process.env`，Vite 客户端只使用 `import.meta.env`。
+服务端环境变量示例：
 
-### 4.2 Supabase Secrets
-
-服务端私密变量通过 Supabase Secrets 设置：
-
-```powershell
-supabase secrets set KEY=value --project-ref <project-ref>
+```env
+SUPABASE_SERVICE_ROLE_KEY=...
+CORS_PRIMARY_ORIGIN=...
+CORS_ALLOWED_ORIGINS=...
+ALLOW_LOCALHOST_ORIGIN=false
+DEFAULT_AI_BASE_URL=...
+DEFAULT_AI_MODEL=...
+DEFAULT_AI_API_KEY=...
+AI_CONFIG_ENCRYPT_KEY=...
 ```
 
-常用变量：
+> 示例只展示命名风格与职责，不表示完整变量清单。
 
-| 变量 | 用途 | 作用域 |
-|------|------|--------|
-| `CORS_PRIMARY_ORIGIN` | 主站 CORS 来源 | convert / feedback / ziwei-analysis |
-| `CORS_ALLOWED_ORIGINS` | 额外允许来源，逗号分隔 | convert / feedback / ziwei-analysis |
-| `ALLOW_LOCALHOST_ORIGIN` | 是否允许 localhost | convert / feedback / ziwei-analysis |
-| `CONVERT_RATE_LIMIT_MAX_REQUESTS` | convert 限流次数 | convert |
-| `CONVERT_RATE_LIMIT_WINDOW_MS` | convert 限流窗口 | convert |
-| `ZIWEI_ALLOWED_EMAILS` | 紫微 AI 邮箱白名单 | ziwei-analysis |
-| `ZIWEI_AI_ANALYSIS_TEMPLATE` | AI 深度解读模板 | ziwei-analysis |
-| `ZIWEI_AI_QA_TEMPLATE` | AI 问答模板 | ziwei-analysis |
-| `ZIWEI_AI_QA_SUGGESTIONS` | AI 问答下拉建议，JSON 数组 | ziwei-analysis |
-| `OPENAI_API_KEY` / 兼容模型 key | AI Provider 密钥 | ziwei-analysis |
+## 7. Supabase 客户端与类型规范
 
-### 4.3 环境变量文件层级
+- 浏览器侧只使用 anon key，禁止暴露 `service_role`
+- 客户端实例统一放在 `src/lib/`
+- 缺失关键环境变量时必须 fail fast
+- 数据库类型统一从 `@/types` 入口导入
+- 每次 migration 变更后，必须重新生成数据库类型并通过类型检查
+- 禁止手改 `src/types/database.types.ts`
 
-| 文件 | 用途 | 是否提交 |
-|------|------|----------|
-| `.env.example` | 变量模板与说明 | 是 |
-| `.env` | 非敏感默认值（按项目约定） | 谨慎 |
-| `.env.local` | 本地真实值与私密配置 | 否 |
-| `.env.*.local` | 模式特定本地覆盖 | 否 |
+## 8. Auth、权限与会话规范
 
----
+1. 登录态来源统一以 `getSession()` + `onAuthStateChange` 为准。
+2. 路由守卫负责拦截受保护页面，UI 隐藏不是安全边界。
+3. 管理员、白名单、配额、供应商可用性等敏感判断以服务端结果为准。
+4. 登出必须清理用户敏感状态与用户级缓存。
+5. 重定向路径必须经过净化，防止 open redirect。
 
-## 5. Supabase 客户端标准写法
+### 8.1 订阅与监听清理
 
-```ts
-// src/lib/supabase.ts
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types'
+- `onAuthStateChange`
+- `matchMedia`
+- `addEventListener`
+- 长生命周期定时器
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+以上资源必须有对应清理逻辑，并考虑 HMR 与测试环境重复挂载。
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase env vars: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY')
-}
+## 9. 数据库、RLS 与迁移规范
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-})
+### 9.1 RLS 与表设计
+
+- 新表默认开启 RLS
+- 用户私有数据必须有 `user_id` 或等价归属字段，并绑定 `auth.uid()`
+- 敏感表不得依赖“前端不显示入口”来做权限控制
+- 所有业务表必须有表注释；非直观字段必须有列注释
+
+### 9.2 Migration 策略
+
+- migration 文件只做增量演进，不作为手工记事本
+- 已进入共享环境的 migration 禁止回写修改，修正必须新建 migration
+- 尚未进入共享环境的本地 migration 可整理，但必须谨慎
+- 破坏性迁移必须提供回滚思路或显式不可回滚说明
+- DDL 与大规模 DML 尽量拆分
+
+### 9.3 Schema 示例规则
+
+- 本文档中的 SQL 示例仅用于说明规范，不作为真实 schema 的复制来源
+- 真实字段、约束、索引、注释以最新 migration 为准
+
+## 10. 前端数据访问与 API 契约
+
+### 10.1 调用边界
+
+- 页面组件不直接拼复杂请求
+- 页面通过 `src/api/*` 或经过封装的 composable 发起请求
+- 所有异步请求必须处理 `loading / success / error / empty`
+
+### 10.2 运行时校验
+
+- TypeScript 只解决编译期问题
+- 关键 API 必须做运行时校验
+- 输入结构、长度、枚举值在前端做最小必要校验，服务端做完整校验
+- 服务端校验失败必须返回结构化 `validation_*` 错误码
+
+### 10.3 HTTP 层能力要求
+
+统一请求层长期应具备以下能力：
+
+- token 缓存与到期前刷新
+- 并发相同请求去重
+- 超时控制
+- 网络错误与 5xx 重试
+- 结构化错误转换
+- 统一的用户提示映射
+
+## 11. Edge Function 设计规范
+
+### 11.1 何时必须使用 Edge Function
+
+- 需要 `service_role`
+- 需要第三方 API Key
+- 需要聚合多张受限表
+- 需要统一限流、配额、白名单、审计
+- 需要对 AI 请求进行模板控制、输出治理或脱敏
+
+### 11.2 分层约束
+
+- 入口只负责：CORS、鉴权、解析、分发、响应
+- 共享逻辑沉淀到 `_shared/`
+- 复杂业务逻辑拆成 handler / service / parser / provider 层
+- 禁止把整段业务写在单文件入口中
+
+### 11.3 标准处理流程
+
+长期统一流程：
+
+```txt
+CORS -> 限流 -> 认证 -> 请求体校验 -> 业务逻辑 -> 结构化响应 -> 审计日志
 ```
 
----
+### 11.4 响应与错误
 
-## 6. Auth 与权限规范
+- 错误响应必须结构化
+- 禁止把上游 AI 原始报文、SQL、stack trace 直接回给用户
+- 需要流式输出时，必须定义稳定事件协议
 
-1. 登录态来源以 `supabase.auth.getSession()` + `onAuthStateChange` 为准。
-2. 用户信息统一放在 Pinia Store / composable，不在多个组件重复维护。
-3. 路由守卫保护需要登录的页面。
-4. 登出必须清理用户相关业务状态；主题等非用户偏好可保留。
-5. 前端菜单隐藏不是安全边界，敏感能力必须在 Edge Function 内二次校验。
-6. 白名单、角色、配额等权限判断必须以服务端结果为准。
+## 12. AI 接入与模型治理
 
-### 6.1 订阅与监听资源管理
+1. AI 请求必须从服务端发起。
+2. Prompt 必须可配置，不允许前端写死核心模板。
+3. 供应商解析优先走用户/全局配置，再走环境变量兜底。
+4. AI Key 必须加密存储或保存在服务端 Secret 中。
+5. 温度、超时、长度限制、建议问题等参数必须可配置。
+6. 复杂输出优先结构化；超长输出优先流式或分段，而不是盲目加大超时。
+7. AI 失败必须有可理解的降级提示，且不暴露 provider 内部细节。
 
-- 全局订阅必须避免重复注册，如 `initPromise` / 标志位串行化。
-- `onAuthStateChange`、`matchMedia`、`addEventListener` 等监听应有清理策略。
-- Pinia store 内长期订阅必须考虑 HMR / 测试环境重复挂载。
+## 13. 页面组织、状态归属与生命周期
 
----
+### 13.1 状态归属规则
 
-## 7. 数据库与 RLS 规范（关键）
+按作用域决定状态放置位置：
 
-1. 新表默认开启 RLS。
-2. 至少按需定义 `select` / `insert` / `update` / `delete` 策略。
-3. 用户私有数据必须包含 `user_id` 并绑定 `auth.uid()`。
-4. 禁止为了"先跑通"而关闭 RLS 作为长期方案。
-5. service_role 只能在 Edge Function / 安全服务器使用。
-6. **建表必须有表注释和列注释**：
-   - 每张表必须使用 `COMMENT ON TABLE` 说明表的业务用途。
-   - 每个非显而易见的列必须使用 `COMMENT ON COLUMN` 说明含义、取值范围或约束。
-   - 示例：
+- 全局导航、跨页面共享状态：Pinia store
+- 单页面或单业务流状态：页面内 composable
+- 纯展示派生状态：`computed`
+- 需要刷新后保留的状态：显式持久化到 storage 或后端
 
-```sql
-CREATE TABLE public.ai_providers (
-  id          text PRIMARY KEY,
-  name        text NOT NULL,
-  region      text NOT NULL DEFAULT 'domestic',
-  protocol    text NOT NULL DEFAULT 'openai',
-  models      jsonb NOT NULL DEFAULT '[]',
-  enabled     boolean NOT NULL DEFAULT true,
-  created_at  timestamptz NOT NULL DEFAULT now()
-);
+禁止把所有页面状态都塞进单一“超级 store”。
 
-COMMENT ON TABLE public.ai_providers IS 'AI 供应商定义表，管理员通过 Dashboard 维护，所有已登录用户可读';
-COMMENT ON COLUMN public.ai_providers.region IS '供应商区域：domestic（国内）/ international（国际）/ custom（自定义）';
-COMMENT ON COLUMN public.ai_providers.protocol IS 'API 协议格式：openai（OpenAI 兼容）/ gemini（Google Gemini API）';
-COMMENT ON COLUMN public.ai_providers.models IS '可用模型列表，JSON 数组，每项含 id/name/free/recommended 字段';
-```
+### 13.2 Page Cache / KeepAlive 规则
 
-### 7.1 数据库类型维护
+当页面在“切换后返回仍应保留状态”时：
 
-- 类型定义文件：`src/types/database.types.ts`
-- 生成命令：
+- 可使用 `KeepAlive`
+- 必须明确缓存边界和失效条件
+- 外层 `RouterView`、布局层 `key`、动态组件 `key` 不得误伤缓存根节点
+- 如果业务要求只是“切页保留”，不要错误承诺“刷新浏览器也保留”
 
-```powershell
-supabase gen types typescript --local > src/types/database.types.ts
-```
+### 13.3 持久化规则
 
-- 每次 migration 变更后必须重新生成类型并运行 `pnpm typecheck`。
-- 禁止手动修改 `database.types.ts`。
+- 需要刷新后保留的状态必须显式设计持久化
+- `localStorage` key 统一命名为 `sqldev:<module>:<key>`
+- 用户相关缓存必须按用户维度隔离
+- 存储结构变更必须有版本或迁移策略
 
-### 7.2 Migration 命名与管理
+## 14. 错误处理与可观测性
 
-- 命名格式：`YYYYMMDDHHMMSS_descriptive_name.sql`（由 Supabase CLI 自动生成，禁止手动重命名）。
-- DDL（结构变更）与 DML（数据迁移）应分文件，不要混在同一个 migration 中。
-- 涉及列删除、类型变更等破坏性操作，必须在 migration 中先备份数据或提供回滚说明。
-- **迁移文件修改策略（分层）**：
-  - **未上线迁移（可改）**：若该 migration 仅在个人本地或临时分支使用、尚未进入共享环境（开发/测试/生产）执行记录，优先直接更新原 SQL 文件，避免碎片化小迁移。
-  - **已上线迁移（不可改）**：只要该 migration 已在任一共享环境执行，禁止修改原文件；修正必须新增增量 migration。
-  - **判定优先级**：以共享环境执行记录/发布记录为准；无法确认时按“已上线”处理。
-- 每个增量迁移应同时准备回滚脚本（或在迁移文件注释中明确回滚方式），确保出问题时能快速恢复。
+### 14.1 错误表达
 
----
+- `src/features/` 中的纯逻辑优先返回 `Result`
+- API 封装层可抛 `ApiError`，但必须有稳定 `code`
+- 禁止用裸字符串作为复杂错误协议
 
-## 8. 前端数据访问规范
-
-1. 所有 Supabase / Edge Function 请求统一封装到 `src/api/*.ts` 或 `src/composables/*.ts`。
-2. 页面组件只调用封装函数，不直接拼复杂查询。
-3. 异步请求必须处理 `loading / success / error` 三态。
-4. 列表页必须考虑空状态（empty state）。
-5. fetch 请求必须使用 `src/api/http.ts` 的统一封装，包含超时与 token 刷新。
-
-### 8.1 API 契约与运行时校验（新增）
-
-1. TypeScript 类型只解决编译期问题，关键接口必须有**运行时 schema 校验**（可使用 zod 或等价方案）。
-2. 前端发送关键请求前应做最小必要校验（结构、长度、枚举值），服务端必须再次完整校验。
-3. Edge Function 对请求体解析失败或字段不合法时，统一返回 `validation_*` 错误码，禁止“容错吞错”继续执行。
-4. 接口字段变更必须同步更新：`src/api/*` 类型定义、Edge Function 入参/出参、测试用例与文档。
-5. 不兼容变更必须采用版本化策略（如新 endpoint 或向后兼容字段），禁止静默破坏旧客户端。
-
----
-
-## 9. Edge Function 设计规范
-
-### 9.1 何时使用 Edge Functions
-
-以下场景必须走 Edge Functions：
-
-- 需要 `service_role` 权限
-- 聚合多个受限表并返回裁剪结果
-- 调用第三方私密 API 或 AI Provider
-- 支付、风控、配额、限流等敏感逻辑
-
-### 9.2 设计约束
-
-- 函数入口（`Deno.serve`）只做 CORS、鉴权、解析、分发，业务逻辑应拆分为 handler / `_shared`。
-- 共享逻辑（认证、CORS、限流、响应封装）统一放 `supabase/functions/_shared/`。
-- `config.toml` 中 `verify_jwt = false` 时，函数内必须自行校验 Bearer token。
-- 错误响应必须结构化且脱敏，禁止把上游 AI 原始报文、SQL、stack trace 返回给用户。
-- 请求体必须做大小、结构、字段类型校验；大型对象必须设置上限。
-- 环境变量通过 `supabase secrets` 管理，禁止硬编码。
-
-### 9.3 CORS 规范
-
-- `CORS_PRIMARY_ORIGIN`：主站 origin，如 `https://gitzhengpeng.github.io`。
-- `CORS_ALLOWED_ORIGINS`：逗号分隔的额外 origin。
-- `ALLOW_LOCALHOST_ORIGIN`：仅本地开发开启，生产关闭。
-- CORS 只识别 origin，不包含路径；`https://gitzhengpeng.github.io/sqldev` 的 origin 是 `https://gitzhengpeng.github.io`。
-
----
-
-## 10. AI 接入规范
-
-1. AI 请求必须走 Edge Function，禁止前端直连模型 API。
-2. Prompt / template 优先通过 Supabase Secrets 配置，不写死在前端。
-3. 前端只传必要的结构化命盘/业务数据；禁止传 token、密钥、无关邮箱等敏感信息。
-4. Edge Function 必须做鉴权、白名单、限流、超时、错误脱敏。
-5. AI 输入与输出长度必须有明确预算；需要完整输出时优先拆阶段或流式/分段，而不是盲目加大超时。
-6. AI 失败必须有可理解降级提示，不暴露 provider 原始错误。
-7. 问答类功能应使用服务端模板控制回答结构，前端只传问题和上下文。
-
----
-
-## 11. 错误处理规范（必须遵守）
-
-### 11.1 函数层错误表达
-
-- `src/features/` 中的纯逻辑函数：优先返回 Result 模式，避免 throw。
-- `src/api/` 中的请求封装：可 throw `ApiError`，但必须包含 `code` 字段（`snake_case`）。
-- 禁止用 `string` 作为错误返回值（如 `return '-- 解析失败'`）。
-
-标准 Result 类型建议：
+建议模式：
 
 ```ts
 export type Result<T, E = AppError> =
@@ -370,686 +337,287 @@ export interface AppError {
 }
 ```
 
-错误码分类（`snake_case`）：
+### 14.2 用户文案
 
-| 前缀 | 含义 | 示例 |
-|------|------|------|
-| `auth_*` | 认证/授权 | `auth_token_expired`, `auth_unauthorized` |
-| `rate_*` | 限流/配额 | `rate_limited`, `rate_quota_exceeded` |
-| `convert_*` | SQL 转换 | `convert_parse_failed`, `convert_unsupported_syntax` |
-| `ai_*` | AI 服务 | `ai_provider_error`, `ai_timeout`, `ai_blocked` |
-| `validation_*` | 输入校验 | `validation_invalid_input`, `validation_too_large` |
-| `network_*` | 网络/请求 | `network_timeout`, `network_offline` |
-| `internal_*` | 内部错误 | `internal_unknown` |
+- 用户侧错误文案集中在 `error-map`
+- 组件和 composable 中禁止散写大量面向用户的错误文案
+- 错误文案应可理解、可操作，不只写“出错了”
 
-> **语义说明**：`code` 字段仅用于程序化错误处理（判断类型、流程分支），**禁止**直接展示给用户。面向用户的错误文案统一使用 `message` 字段，并通过 `error-map.ts` 映射为最终 UI 文案。
+### 14.3 日志与追踪
 
-### 11.2 用户侧错误文案
+- 禁止空 `catch {}`
+- 请求链路应可追踪，建议统一 `request_id`
+- 结构化日志至少包含：时间、服务、操作、状态、耗时、错误码、用户标识（可空）
+- 严禁记录 token、密钥、完整 SQL、上游原始报文、隐私明文
 
-- 面向用户的错误文案集中管理在 `src/utils/error-map.ts` 或各 feature 的 `error-map.ts` 中。
-- 禁止在组件或 composable 中散写错误文案。
-- 错误文案必须告诉用户如何处理，而非只说"出错了"。
+## 15. 测试规范
 
-### 11.3 日志策略
+### 15.1 测试栈策略
 
-- 开发环境：`console.error` 输出完整错误。
-- 生产环境：至少不能静默吞错；后续可接入监控。
-- 禁止空 `catch {}`，至少记录错误或返回结构化失败。
+- 当前仓库允许混合测试栈并存，例如 Node `.mjs` 测试与 Vitest
+- `package.json` 中的脚本是唯一事实来源
+- 规范文档描述的是“应验证什么”，不是替代脚本清单
 
-### 11.4 可观测性与追踪（新增）
+### 15.2 长期要求
 
-1. 前后端请求链路必须可追踪：统一透传 `request_id`（或 `trace_id`），建议通过 `x-request-id` 请求头传递。
-2. Edge Function 入口必须在日志中输出同一 `request_id`，便于跨层排查（前端 -> API 层 -> Edge Function）。
-3. 结构化日志最少字段建议：`timestamp`、`level`、`service`、`operation`、`request_id`、`user_id`（可空）、`status`、`duration_ms`、`error_code`。
-4. 严禁记录敏感信息（token、密钥、完整 SQL、上游原始报文、隐私数据）。
-5. 用户侧错误提示可附短错误 ID（不暴露内部细节），用于快速关联服务端日志排查。
+- 新增纯逻辑必须有自动化测试
+- 复杂 API 协议与错误映射必须有测试
+- 复杂 composable 必须有测试
+- 关键入口、barrel 导出、架构约束必须有 smoke 测试
 
----
+### 15.3 脚本接入规则
 
-## 12. 测试规范（必须遵守）
+- 如果新增新的测试入口，必须纳入 `package.json`
+- `pnpm verify` 必须保持为完整门禁入口
+- CI 至少执行 `verify`，重大改动应附加 `build`
 
-### 12.1 测试框架与断言
+## 16. 代码风格与质量门槛
 
-- 当前使用 `node` 直接执行 `.mjs` 测试文件。
-- TypeScript 模块测试通过 `tests/helpers/load-ts-module.mjs` 转译加载。
-- 断言使用 Node.js 内置 `node:assert/strict`。
-- 后续如迁移 Vitest，以迁移后为准。
+- 函数应短小、职责单一
+- 超长组件优先拆 composable 或无状态子组件
+- 复杂正则、算法分支、时序逻辑必须提取命名常量或加简短 WHY 注释
+- 避免重复实现；出现第二处相同逻辑时，优先抽象
+- 优先使用 `unknown` + 类型守卫，不滥用 `as`
+- 优先复用现有基础件，不制造平行组件体系
+- 编辑器统一遵循 `.editorconfig`
+- 所有源码、文档、脚本与配置文件默认使用 UTF-8 编码，建议无 BOM，禁止提交会导致乱码的其他编码文件
+- 新增或修复文件时，如发现历史遗留的非 UTF-8 文件，应在确认安全后统一转换为 UTF-8
+- 提交前应运行 `pnpm check:utf8`；若校验失败，必须先定位并修复编码问题，再继续提交
 
-### 12.2 必须有测试的模块
+### 16.1 注释原则
 
-- `src/features/` 下所有纯逻辑模块（parser / validator / converter / mapper）。
-- `src/api/` 中的错误映射和复杂请求策略。
-- `src/composables/` 中包含复杂状态逻辑的组合函数。
+注释只写以下内容：
 
-### 12.3 测试文件规范
+- 非直觉技术决策
+- 临时 workaround 与后续清理计划
+- 跨模块协作必须知道的隐含约束
 
-- 存放位置：`tests/<feature-name>.mjs`。
-- 命名规则：与被测模块对应，如 `tests/ddl-column-parsers.mjs`。
-- 每个新增测试必须注册到 `package.json` 的 `scripts` 中，并纳入 `test` 与 `verify`。
-- `tests/smoke.mjs` 必须包含新增 feature bridge / 关键架构约束的存在性断言。
+禁止写重复代码字面意思的注释。
 
-### 12.4 Smoke 测试职责
+## 17. Git、Hooks 与 CI/CD
 
-`tests/smoke.mjs` 是集成冒烟测试，必须覆盖：
+### 17.1 Git 规则
 
-- 关键入口、路由的存在性。
-- `src/features/*/index.ts` 的 barrel 导出完整性。
-- 安全与架构关键约束（如 CORS env、redirect sanitizer）。
+- 分支命名语义化，如 `feat/*`、`fix/*`、`refactor/*`
+- Commit Message 采用 Conventional Commits
+- 除非用户明确要求，提交前先完成本地验证
 
----
+### 17.2 Hooks 原则
 
-## 13. 代码风格与质量门槛
+- 提交规范可通过 Husky、CI 或两者共同保证
+- 如果仓库已经存在 hook，文档与实际行为必须一致
+- 不再把“已存在的 hook”写成“待引入”
 
-- 单个函数建议不超过 80 行；超过必须优先拆分。
-- Vue 组件 `<script>` 部分不超过 150 行；超过必须抽取 composable 或无状态子组件。
-- 复杂正则表达式必须提取为命名常量并添加注释说明意图。
-- 可复用逻辑放 `composables` 或 `features`，可复用类型放 `types`。
-- **去冗余与复用**：
-  - 同一个功能只能有**一个主实现**（Single Source of Truth）。
-  - 新需求先查是否已有通用组件/composable/helper，可复用则禁止重复开发。
-  - 出现 2 处及以上相同逻辑，必须抽离为公共能力（组件、函数、hook、常量）。
-  - UI 控件优先复用现有通用组件，避免"同名不同行为"的平行实现。
-  - 新增代码前先搜同类实现；若必须新建，需说明为何不能复用。
-  - 若复用现有组件需要大量 props 分支或 hack 才能满足差异需求，可新建专用组件，但必须在 PR 中说明不复用的理由，避免为了"统一"而制造难以维护的过度抽象。
-- **变更注释原则**：日常修改依赖 Git commit message 记录变更原因；仅在以下场景添加代码注释：
-  - 非直觉的技术决策（如超时值选择、算法取舍）。
-  - 大规模重构的迁移批次标记。
-  - 临时 workaround 并标注后续清理计划。
-  - 日期注释（`// [YYYY-MM-DD] 说明`）仅用于临时 workaround 或需要定期清理的代码，不作为通用强制规则。
-- 提交前至少通过：
-  - `pnpm typecheck`
-  - `pnpm lint`
-  - `pnpm check:utf8`
-  - `pnpm test`
-- 完整验证使用 `pnpm verify`，CI 应以它作为门禁。
+### 17.3 CI/CD 原则
 
----
+CI 长期至少覆盖：
 
-## 14. Git 工作流规范
+1. 安装依赖
+2. 静态检查
+3. 类型检查
+4. 自动化测试
+5. 构建验证
 
-### 14.1 基本规则
+CD 涉及 Edge Functions 或 migration 时，必须有明确部署步骤与回滚说明。
 
-- 始终先本地 commit，再 push 到 remote。
-- 日常开发操作直接执行，不需要对常规实现细节征求确认。
-- 当设计和交互选择可从已有方向明确推断时，直接执行，不额外提问。
-- 当前协作约定：如用户明确要求"不要代提交"，AI 只提供提交命令，不执行 commit。
+## 18. 性能与缓存规范
 
-### 14.2 分支命名
+- 路由页面默认懒加载
+- 大型第三方依赖按需引入
+- 长列表考虑分页或虚拟滚动
+- 图片与字体有明确加载策略
+- 请求层必须防抖/去重/重试策略清晰
+- storage 缓存必须有大小上限、TTL 或版本
 
-- 功能分支：`feat/<简短描述>`
-- 修复分支：`fix/<简短描述>`
-- 重构分支：`refactor/<简短描述>`
+## 19. 响应式与多端适配规范
 
-### 14.3 Commit Message
+### 19.1 默认原则
 
-```txt
-type(scope): 简短描述
+- 工作台类、信息密度高的页面默认 desktop-first
+- 面向终端用户的页面可按业务目标选择 mobile-first
+- 无论采用哪种策略，手机端与平板端必须保持功能可用，不允许“只缩放桌面布局”
+- 移动端适配范围默认覆盖 Android 手机 / 平板、iPhone / iPad、鸿蒙手机 / 平板上的主流浏览器与 WebView；除非需求明确收窄，不允许只在单一系统验证后视为完成
+- 规则优先基于浏览器能力、视口和交互边界，而不是针对单一机型写硬编码特判；确需特判时必须说明原因、影响范围和后续清理条件
 
-可选的详细说明
-```
+### 19.2 断点与验收
 
-type 取值：`feat` / `fix` / `refactor` / `chore` / `docs` / `test` / `security` / `perf` / `style` / `ci` / `build` / `revert`
+- 手机：375px 起
+- 平板：768px 起
+- 桌面：1024px 起
 
----
+至少验证：
 
-## 15. 性能与缓存规范
+- Android 手机浏览器 / WebView
+- Android 平板浏览器 / WebView
+- iPhone Safari / WKWebView 类环境
+- iPad Safari / WKWebView 类环境
+- 鸿蒙手机浏览器 / WebView
+- 鸿蒙平板浏览器 / WebView
+- 手机竖屏
+- 手机横屏或小高宽比场景
+- 平板竖屏
+- 平板横屏
+- 平板分屏 / 多窗口或近似中等宽度场景
+- 桌面
+- 软键盘弹起后的表单、输入区、底部操作区
+- 长内容滚动、抽屉 / Modal / Bottom Sheet 开关、loading / empty / error 状态
 
-### 15.1 路由与加载
+### 19.3 视口与安全区
 
-- 路由页面应优先懒加载：`() => import(...)`。
-- 第三方库按需引入，禁止全量导入大型库。
-- 列表/表格数据量大时使用虚拟滚动或分页，避免一次性渲染大量 DOM。
-- 图片、字体等静态资源需有合理的加载策略（懒加载、预加载关键资源）。
+- 全屏容器、移动端抽屉、底部弹层优先使用 `100dvh`，可保留 `100vh` 作为兼容 fallback
+- 固定头部、底部操作栏、底部输入区、Bottom Sheet 必须考虑 `env(safe-area-inset-top/bottom/left/right)`，避免被刘海屏、圆角和系统手势区遮挡
+- 不允许假设移动端可视高度恒定；涉及 `fixed` / `sticky` / 全屏容器时必须验证地址栏展开收起后的布局稳定性
+- 平板分屏、多窗口和横竖屏切换时，必须验证 `fixed` / `sticky` / Drawer / Bottom Sheet 的位置与尺寸是否仍然正确
+- 需要沉浸式铺满屏幕时，必须明确是否依赖 `viewport-fit=cover`，并同步处理安全区内边距
 
-### 15.2 localStorage 管理
+### 19.4 交互与表单
 
-- key 命名逐步统一为 `sqldev:<module>:<key>`。
-- `getItem` / `setItem` / `removeItem` 均应包裹 `try-catch`。
-- 单个 key 内容不应超过 100KB。
-- 列表类存储必须设上限。
-- 存储格式变更必须有版本号或迁移逻辑。
+- 热区不小于 44x44px
+- 关键能力不能只依赖 hover
+- 手机端输入控件最小高度建议不低于 44px，输入字体不小于 16px，避免 iOS 自动缩放
+- 表单应按场景补齐 `inputmode`、`autocomplete`、`enterkeyhint` 等移动端输入提示，减少错误输入与键盘切换成本
+- 固定底部 CTA、聊天输入框、Bottom Sheet 内表单必须验证软键盘弹起后仍可见、可点击、可关闭
+- 模态、抽屉、下拉必须考虑小屏可达性与背景滚动锁定
 
-### 15.3 请求优化
+### 19.5 滚动与层级
 
-- fetch 请求必须设置超时（建议 15-30s）。
-- 重复请求必须有防抖/去重机制。
-- 大型请求体必须有体积校验。
+- 页面主纵向滚动容器必须清晰，避免多层 `overflow: hidden` / `overflow: auto` 叠加导致滚动阻断
+- 长内容与嵌套滚动必须避免滚动冲突
+- 横向滚动区、轮播区、卡片滑动区应显式处理 `overscroll-behavior`、滚动穿透与误触问题；必要时启用 `-webkit-overflow-scrolling: touch`
+- `sticky` / `fixed` 元素必须验证与抽屉、遮罩、弹层、系统安全区之间的层级关系，不允许出现操作入口被遮挡或不可点击
 
-### 15.4 响应式设计
+### 19.6 信息密集页面的移动端降级
 
-#### 15.4.1 适配范围与默认原则
+- 桌面双栏 / 三栏 / 工作台页面在 `<=1023px` 时必须提供明确降级方案，如单栏堆叠、Tab、Drawer、折叠区或摘要视图
+- 平板端是否采用桌面布局，必须依据实际可用宽度与交互密度判断，不能仅按“这是平板”就强行复用桌面三栏
+- 表格、代码块、日志流、编辑器类区域必须定义小屏策略：横向滚动、列裁剪、卡片化或只读摘要；不允许默认溢出破版
+- 关键主操作在手机端必须可发现，不得只藏在 hover 工具条、桌面侧栏或首屏外难以理解的位置
 
-- 本项目为 SQL 开发工具，核心用户为桌面端开发者。新页面和组件默认采用 **desktop-first**：优先保证桌面端信息密度与操作效率，同时确保手机端功能完整可用。
-- 面向终端用户的功能（如 splash 首页、反馈组件、紫微斗数页面）可按需采用 mobile-first。
-- 手机端功能必须与桌面端对等，用户可在手机上完成完整的 SQL 编辑、转换、配置等操作；不允许”仅缩放可见”的伪适配或只读降级。
-- 若页面明确仅桌面端使用（如 DDL 编辑页），需在需求与 PR 中写明不适配移动端的业务理由。
+## 20. 编辑器与高复杂度组件规范
 
-#### 15.4.2 断点与视口基线
+- 高复杂度组件必须有明确的状态边界、输入输出契约和销毁清理逻辑
+- SQL 编辑器类组件应支持主题、语法高亮、提交快捷键与只读态
+- 高复杂度组件的键盘、焦点、滚动行为必须有明确约束
+- 复杂组件应优先提供最小稳定 API，避免透传过多内部细节
 
-| 设备层级 | 宽度范围 | 主要目标 |
-|------|------|------|
-| 手机 | `375px~767px` | 核心流程可单手操作、单列信息优先 |
-| 平板 | `768px~1023px` | 双栏/分栏增强、保留触控友好 |
-| 桌面 | `>=1024px` | 信息密度与效率优先（核心按 `1280px+` 优化） |
+## 21. UI/UX 与 Design Token 规范
 
-- 断点优先复用现有 Tailwind 断点与 token，禁止组件内散写”临时 magic breakpoint”。
-- Tailwind 默认断点与本规范三级断点的对应关系：
+### 21.1 视觉方向
 
-| 规范层级 | Tailwind 前缀 | 宽度 | 使用场景 |
-|------|------|------|------|
-| 手机 | 无前缀 / `sm:` | `<768px` | 手机竖/横屏，单列布局 |
-| 平板 | `md:` | `768px-1023px` | 平板，双栏/分栏增强 |
-| 桌面 | `lg:` / `xl:` / `2xl:` | `>=1024px` | 桌面端，信息密度优先 |
+- 简洁、通透、层级清晰、克制动效
+- 中性色为主，品牌色与功能色为辅
+- 通过留白、字重、对比与弱描边建立高级感
 
-- 验收最低视口：`375x812`（手机）、`768x1024`（平板）、`1280x800`（桌面）。
-- 至少覆盖：手机竖屏 + 手机横屏 + 平板竖屏（或横屏）各 1 组。
+### 21.2 Token 规则
 
-#### 15.4.3 布局与容器规范
+- 新样式优先复用 `src/styles/tokens.css`
+- 模板优先使用 Tailwind 语义类
+- 样式文件优先使用 CSS 变量
+- 禁止随意发明新颜色、圆角、阴影、间距体系
 
-- 禁止关键布局依赖固定 `px` 宽高主容器；优先使用 `flex/grid` + `min/max/clamp`。
-- 页面主容器应支持内容自适应换行，避免固定列数导致溢出。
-- 侧边栏在手机端应收敛为抽屉/折叠菜单，不得强占固定宽度造成主区不可读。
-- 顶部/底部固定区域必须考虑安全区域：
-  - 使用 `env(safe-area-inset-top/right/bottom/left)`
-  - 避免刘海屏、手势条遮挡关键按钮。
-- 高度布局优先使用 `dvh/svh` 相关策略，避免移动端浏览器地址栏伸缩导致内容跳动。
+### 21.3 组件规范
 
-#### 15.4.4 组件级适配规范
+- Button：必须有 hover / active / disabled / loading / focus-visible
+- Card：标题区、内容区、操作区结构清晰
+- Form：必须有 label、错误提示、提交反馈
+- Table / List：必须有 loading / empty / error
+- Modal / Drawer：必须支持 ESC、焦点管理、背景滚动控制
+- Dropdown / Select：必须支持外部点击关闭与基础键盘可达
+- Scrollbar：统一视觉风格，避免每页各写一套
 
-- **按钮/可点击元素**：移动端热区不小于 `44x44px`。
-- **表单**：输入框、下拉、日期选择在手机端保证可直接触控，不依赖 hover 提示。
-- **Modal/Drawer**：
-  - 手机端优先全宽弹层或底部抽屉。
-  - 桌面端可居中弹窗。
-  - 打开后必须锁定背景滚动并保证焦点可达。
-- **Dropdown/Popover**：必须防止超出可视区，支持自动翻转或滚动容器。
-- **表格/Table**：手机端必须提供降级方案，禁止出现”列被截断但不可查看”。降级策略按以下优先级选择：
-  - 列数 ≤4 → 横向滚动（保持表格结构，牺牲部分视口宽度）
-  - 每行有明确主体标识（如名称、ID、标题）→ 卡片化（每条记录渲染为独立卡片）
-  - 列有明确主次之分 → 默认折叠次要列，提供展开查看完整信息
-- **卡片/Card**：在小屏下由多列自动降为单列；摘要信息优先展示，次要信息折叠。
-- **代码编辑器（CodeMirror）**：手机端必须支持完整的 SQL 输入与编辑。键盘弹出时编辑器视口自动收缩、保持光标可见，避免被键盘遮挡。语法高亮和代码补全在手机端保持开启；如低端设备性能不足，可降级关闭语法高亮但保留编辑能力。
+### 21.4 可访问性
 
-#### 15.4.5 导航与信息架构
+- 文本对比度满足 WCAG AA
+- 图标按钮必须有 `aria-label`
+- 不能只靠颜色表达状态
+- 动态内容应考虑 `aria-live`
+- 尊重 `prefers-reduced-motion`
 
-- 手机端导航不超过两层可见深度，避免多级悬浮菜单。
-- 桌面端“顶部 + 侧边栏”组合在手机端需简化为单入口导航（抽屉、底栏或分段导航）。
-- 面包屑在手机端可收敛为“返回 + 当前标题”模式，减少首屏占用。
+## 22. 禁止项清单（高优先级）
 
-#### 15.4.6 触控交互与可访问性
+### 22.1 代码层
 
-- 禁止关键功能只绑定 hover；移动端必须有 click/tap 等效路径。
-- 长列表需支持自然滚动与惯性滚动，避免嵌套滚动冲突。
-- 文字、图标、按钮在小屏下仍需满足可读性与对比度要求（遵循 §21.5）。
-- 键盘弹起（输入场景）时，表单底部操作按钮不得被遮挡。
+- 禁止 Vue 2 / Vuex 写法
+- 禁止未收敛的 `any`
+- 禁止页面散写复杂业务 SQL 或请求逻辑
+- 禁止空 `catch {}`
+- 禁止无校验地消费外部输入
 
-#### 15.4.7 移动端性能约束
+### 22.2 安全层
 
-- 移动端首屏优先加载核心路径，非首屏模块延迟加载。
-- 避免在手机端首屏一次性渲染超长列表；使用分页/虚拟列表。
-- 图片资源提供响应式尺寸，避免把桌面大图直接下发到手机。
-- 弱网场景（如 4G）下关键操作必须有 loading 与失败重试提示。
+- 禁止在前端暴露 `service_role`
+- 禁止建议长期关闭 RLS
+- 禁止把服务端敏感能力下放到浏览器
+- 禁止把内部错误细节直接返回给用户
 
-#### 15.4.8 实施与验收清单
+### 22.3 样式层
 
-- PR 描述中必须说明：本次改动影响的断点区间和降级策略。
-- 新增页面或重大布局重构时，附手机、平板、桌面各 1 张截图（共 3 张）。常规 UI 调整（文案、间距、颜色微调）仅需验证实际影响的断点，不强制三端截图。
-- 涉及复杂交互（弹窗、下拉、表格）时，必须说明手机端行为差异。
-- 若明确”仅桌面”，需在需求与 PR 中写明不适配移动端的业务理由。
+- 禁止在新 UI 中大面积硬编码颜色
+- 禁止无 token 支撑的随意 spacing / radius / shadow
+- 禁止复制粘贴出第二套平行设计体系
 
-### 15.5 构建产物与缓存
+### 22.4 配置层
 
-- 使用 Vite hash 文件名作为缓存破坏机制。
-- 禁止手工维护 `app.20260422a.js`、`style.20260422a.css` 等版本文件。
-- 禁止手写资源 `?v=` 版本参数。
-- 发布时以 `pnpm build` 生成的 `dist/` 为准。
-
----
-
-## 16. 编辑器组件规范
-
-### 16.1 SQL 编辑器
-
-SQL 编辑器使用 CodeMirror 6：
-
-```vue
-<!-- src/components/business/workbench/components/SqlEditor.vue -->
-```
-
-**核心特性**：
-- 语法高亮：支持 Oracle/PLSQL、MySQL、PostgreSQL 方言
-- 行号与代码折叠
-- SQL 关键字自动补全（100+ 关键字）
-- 深色/浅色主题自动跟随系统
-- 搜索（Ctrl/Cmd+F）
-- 多选、括号匹配
-
-**依赖**：
-```bash
-pnpm add @codemirror/state @codemirror/view @codemirror/commands \
-  @codemirror/language @codemirror/autocomplete @codemirror/lang-sql \
-  @codemirror/search @codemirror/lint
-```
-
-**Props**：
-| 属性 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `modelValue` | `string` | - | 编辑器内容 |
-| `readonly` | `boolean` | `false` | 只读模式 |
-| `language` | `'oracle' \| 'mysql' \| 'postgresql' \| 'sql'` | `'sql'` | SQL 方言 |
-
-**事件**：
-| 事件 | 参数 | 说明 |
-|------|------|------|
-| `update:modelValue` | `value: string` | 内容变化 |
-| `submit` | - | Ctrl/Cmd+Enter 提交 |
-
-### 16.2 编辑器主题配置
-
-CodeMirror 6 使用 `EditorView.theme()` 自定义样式：
-
-- 浅色主题：`lightTheme`
-- 深色主题：`darkTheme`
-- 主题通过 `prefers-color-scheme` 媒体查询自动跟随系统，同时支持手动覆盖
-
----
-
-## 17. Workbench 模块结构
-
-### 17.1 目录组织
-
-```
-src/components/business/workbench/
-├── WorkbenchApp.vue          # 工作台根容器
-├── WorkbenchSidebar.vue      # 侧边栏导航
-├── WorkbenchHeader.vue       # 顶部栏
-├── WorkbenchActionBar.vue    # 操作工具栏
-├── DbPicker.vue              # 数据库选择器
-├── components/
-│   └── SqlEditor.vue         # SQL 编辑器
-├── modals/
-│   ├── AlertModal.vue        # 提示弹窗
-│   └── ConfirmModal.vue      # 确认弹窗
-└── pages/
-    ├── DdlPage.vue          # DDL 翻译页
-    ├── FunctionPage.vue     # 函数翻译页
-    ├── ProcedurePage.vue    # 存储过程翻译页
-    ├── IdToolPage.vue       # 证件工具页
-    ├── ZiweiPage.vue        # 紫微斗数页
-    └── RulesPage.vue        # 规则管理页
-```
-
-### 17.2 状态管理
-
-工作台状态统一由 `src/stores/workbench.ts` (Pinia) 管理：
-
-```typescript
-// 当前页面
-activePage: WorkbenchPage
-
-// DDL 状态
-sourceDb, targetDb, inputDdl, outputDdl
-
-// 函数/过程状态
-funcSourceDb, funcTargetDb, funcInput, funcOutput
-procSourceDb, procTargetDb, procInput, procOutput
-
-// ID 工具状态
-idProvinceCode, idCityCode, idCountyCode, idGeneratedNumber
-
-// 紫微斗数状态
-ziweiChart, ziweiAiResult, ziweiAiQuestionInput
-
-// Rules 状态
-ddlRules, bodyRules
-```
-
-### 17.3 页面组件约定
-
-- 页面组件放 `pages/` 目录
-- 每个页面使用 `useWorkbenchStore()` 访问状态
-- 复杂交互逻辑抽取为 `composables/`
-- 可复用 UI 抽取为 `components/`
-
----
-
-## 18. Vite 与 TypeScript 规范
-
-- 环境变量必须通过 `import.meta.env.VITE_*` 访问。
-- `src/env.d.ts` 负责扩展 `ImportMetaEnv`（新增变量时同步更新）。
-- 客户端类型引用使用 Vite 推荐方式。
-- 禁止在客户端使用 Node.js 专属全局对象。
-- 静态资源优先使用 Vite 资源导入或 `new URL('./asset', import.meta.url).href`。
-- 优先使用 `unknown` 表达未知输入，再通过类型守卫收窄。
-- 函数参数和导出的返回值必须显式标注类型。
-- 类型断言 `as` 仅在有充分理由时使用，优先写类型守卫。
-
----
-
-## 19. 命名约定
-
-| 类型 | 规则 | 示例 |
-|------|------|------|
-| Vue 组件文件 | PascalCase | `AppHeader.vue` |
-| composable 文件 | camelCase + `use` 前缀 | `useAuth.ts` |
-| feature 文件 | kebab-case | `column-parsers.ts` |
-| 测试文件 | kebab-case | `ddl-column-parsers.mjs` |
-| 组件名 | PascalCase | `FeedbackWidget` |
-| composable 函数 | camelCase + `use` 前缀 | `useAsyncState()` |
-| Pinia store | `use` + 名称 + `Store` | `useAuthStore()` |
-| CSS class | kebab-case | `workbench-container` |
-| Error code | snake_case | `rate_limited` |
-| 环境变量 | SCREAMING_SNAKE | `VITE_SUPABASE_URL` |
-
----
-
-## 20. 禁止项清单（高优先级）
-
-### 代码层
-
-- 禁止输出 Vue 2 语法。
-- 禁止引入 Vuex。
-- 禁止使用裸 `any`。
-- 禁止无类型 API 返回。
-- 禁止把业务 SQL 直接散落在组件内。
-- 禁止跳过错误处理与空状态处理。
-- 禁止空 `catch {}`。
-- 禁止未经评审引入新的第三方依赖。
-
-### 安全层
-
-- 禁止在前端暴露 `service_role`。
-- 禁止建议关闭 RLS 作为长期方案。
-- 禁止在错误响应中泄露内部实现细节。
-- 禁止只做前端权限隐藏而缺少服务端鉴权。
-
-### 样式层
-
-- 禁止在新 Vue UI 中直接写硬编码颜色，应使用 Tailwind token 或 `var(--token)`。
-- 禁止随意新增间距值，优先使用 spacing token。
-- 禁止在组件中硬编码面向用户的错误文案字符串。
-
-### 配置层
-
-- **禁止在代码中硬编码可配置的值**。凡是可以变化的参数，必须优先选择以下方式之一：
-  - **环境变量**（`import.meta.env.VITE_*` / `Deno.env.get()`）：适用于部署时确定的值（URL、密钥、开关）。
-  - **后端配置表**（如 `ai_providers`、`ai_configs`）：适用于需要运行时管理、跨用户共享或用户自定义的值（供应商列表、模型参数、Prompt 模板）。
-  - **Supabase Secrets**：适用于服务端私密配置（API Key、CORS 来源、限流参数）。
-- 以下场景**必须**走配置而非硬编码：
-  - AI 供应商列表、模型列表、默认 Base URL → 后端配置表
-  - System Prompt / AI 模板 → Supabase Secrets 或后端配置表
-  - CORS 来源、限流参数、邮箱白名单 → Supabase Secrets
-  - 超时时间、重试次数、大小限制 → 环境变量或后端配置表
-  - 错误文案、UI 提示语 → `error-map.ts` 集中管理（非硬编码在组件中）
-- 判断标准：**如果一个值在未来可能需要修改，那它就不应该写死在代码里。**
-- **配置优先级**：`app_configs` 表 > Supabase Secrets > 环境变量 > 代码默认值。当同一配置项存在于多处时，以 `app_configs` 表为准。运行时配置统一走 `app_configs` 表读取。
-
----
-
-## 21. UI/UX 视觉与交互规范
-
-> 目标：对齐 2026 年主流 SaaS / AI 产品：简洁、通透、层次清晰、动效克制、信息密度合理。
-
-### 21.1 设计关键词
-
-- 简洁（Simple）
-- 通透（Clean / Airy）
-- 高级灰（Neutral-first）
-- 强层次（Clear hierarchy）
-- 弱分割（少边框，靠留白和对比建立结构）
-- 微动效（Subtle motion）
-- 强可读性（Readable first）
-
-### 21.2 视觉语言基线
-
-- 使用「中性色 + 单一品牌色 + 功能色」体系。
-- 避免大面积高饱和颜色。
-- 支持浅色/深色双主题，跟随系统模式必须监听 `prefers-color-scheme` 变化。
-- 圆角统一：卡片 `14px`，按钮/控件 `10px`（对应 `--radius-card: 14px`, `--radius-control: 10px`）。
-- 采用 8pt 栅格系统（4/8/12/16/24/32/48）。
-- 正文优先 `14px/16px`，行高 `1.5~1.7`。
-
-### 21.3 组件风格要求
-
-> 以下为非穷举列表，其他通用 UI 模式（Toast/Notification、Tooltip、Tabs、Table 等）同样适用本节的统一规范。
-
-- **Button**：必须提供 `hover / active / disabled / loading / focus-visible` 状态。统一尺寸等级（S/M/L）、类型（primary/secondary/danger/ghost）。禁止在业务页面随意新增"特例按钮样式"。
-- **Card**：固定为 `标题区 + 内容区 + 操作区（可选）`。统一边框、背景、圆角、阴影、悬停反馈。卡片交互（可点/不可点）必须有明确视觉区分。
-- **Form**：必须有 label、错误提示、提交反馈。
-- **Table/List**：必须有 loading / empty / error 状态。
-- **Modal/Drawer**：必须支持 ESC 关闭、焦点回收（危险操作除外）。统一复用基础弹窗（如 `BaseModal`），包含遮罩、ESC 关闭、焦点管理、可访问语义。禁止每个业务弹窗重复实现遮罩和关闭逻辑。危险操作需二次确认。
-- **Dropdown/Select**：统一下拉容器、选中态、悬停态、禁用态。必须支持点击外部关闭、键盘可达性（至少 Enter/Escape/上下键）。下拉项文案过长统一省略策略（ellipsis + title）。
-- **Scrollbar**：使用统一 scrollbar token（轨道、滑块、悬停态）。样式需覆盖滚动容器，不允许每页单独定义一套配色。横向滚动仅在确有必要时启用，并给出可见提示。
-
-### 21.4 交互体验
-
-- 动效时长建议 `150ms ~ 280ms`，缓动使用 `ease-out`。
-- 所有用户操作必须有反馈。
-- 危险操作必须二次确认。
-- 点击热区不小于 `44x44px`（详见 §15.4.4）。
-- 键盘可达，焦点样式可见。
-
-### 21.5 可访问性
-
-- 文本与背景对比度满足 WCAG AA（普通文本 ≥ 4.5:1，大文本 ≥ 3:1）。
-- 所有 icon button 必须有 `aria-label`。
-- 表单元素必须绑定 `<label>`，关联 `for` / `id`。
-- 不仅靠颜色传达状态，必须辅以图标、文字或 `aria-live` 提示。
-- 动态内容变化使用 `aria-live="polite"` 区域通知屏幕阅读器。
-- Modal 打开时焦点必须移入，关闭时焦点必须回收到触发元素。
-- 尊重 `prefers-reduced-motion`：当用户开启减弱动态效果时，禁用或简化过渡动画。
-- Tab 顺序必须符合视觉流，禁止正 `tabindex` 值。
-
-### 21.6 视觉硬规格（新增）
-
-#### 21.6.1 字体层级（Typography Scale）
-
-| Token | 建议值 | 用途 |
-|------|--------|------|
-| `--text-xs` | 12px / 1.4 | 辅助说明、元信息 |
-| `--text-sm` | 13px / 1.45 | 次要正文、表格次级文本 |
-| `--text-base` | 14px / 1.5 | 主体正文、表单内容 |
-| `--text-md` | 16px / 1.5 | 强调正文、卡片标题 |
-| `--text-lg` | 18px / 1.4 | 区块标题 |
-| `--text-xl` | 20-24px / 1.3 | 页面主标题 |
-
-#### 21.6.2 间距层级（Spacing Scale）
-
-- 统一 8pt 体系：`4 / 8 / 12 / 16 / 24 / 32 / 48`。
-- 小组件内部间距优先 `8/12`；区块级优先 `16/24`；页面级留白优先 `24/32/48`。
-- 禁止新增“孤立像素值”（如 13px、22px）破坏节奏，除非有明确对齐理由并写注释说明。
-
-#### 21.6.3 层级规范（z-index Ladder）
-
-| 场景 | 推荐层级 |
-|------|---------|
-| 常规内容层 | `0-10` |
-| 吸顶/固定头部 | `100` |
-| 右侧悬浮入口（FAB） | `130` |
-| 下拉菜单/Popover | `1000+` |
-| 全屏遮罩（Overlay） | `10030` |
-| 模态框主体（Modal/Dialog） | `10040+` |
-| 全局通知（Toast） | `11000+` |
-
-> 建议在 `tokens.css` 中定义 `--z-*` 语义变量，组件禁止散写魔法数字层级。
-
-#### 21.6.4 动效规范（Motion Tokens）
-
-| Token | 建议值 | 用途 |
-|------|--------|------|
-| `--duration-fast` | 120-160ms | 按钮 hover、轻量状态反馈 |
-| `--duration-normal` | 180-240ms | 下拉、抽屉、小型过渡 |
-| `--duration-slow` | 280-360ms | 模态、页面切换、结构性动画 |
-| `--ease-standard` | `ease-out` | 默认过渡 |
-| `--ease-emphasis` | `cubic-bezier(0.22, 1, 0.36, 1)` | 强调型入场 |
-
-- 动效优先“短、稳、克制”，避免连续弹跳和眩晕感动画。
-- 必须兼容 `prefers-reduced-motion`，提供降级路径。
-
----
-
-## 22. Design Token 执行规则
-
-1. 新增样式优先使用 `src/styles/tokens.css` 中的 token。
-2. Vue 模板（`<template>`）优先使用 Tailwind 语义类（`bg-panel`, `text-brand-500`, `rounded-control`）；组件样式（`<style>`）优先使用 CSS 变量（`var(--color-border)`）。
-3. 禁止随意新增颜色、圆角、阴影、间距值。
-4. 新组件必须兼容 light/dark。
-5. 所有可交互元素必须有 focus-visible 态。
-6. 页面必须覆盖 loading / empty / error / success 四态。
-7. 高端感优先通过留白、层次、字重、弱边框、克制动效实现。
-
-### 22.1 Canvas / 海报生成例外
-
-- Canvas 无法直接可靠使用 CSS 变量时，必须把颜色提取为文件顶部命名常量。
-- 深浅主题必须有对应常量集。
-- 禁止在绘制函数内部散写 hex 颜色值。
-
----
+- 禁止把未来可能调整的业务参数写死在代码里
+- 禁止同一配置项存在多套命名与多条读取链路
+- 禁止把当前临时默认值写成长期规范
 
 ## 23. 安全检查清单
 
-涉及接口、认证、AI、上传、数据库变更时必须检查：
+涉及接口、认证、AI、上传、数据库变更时，必须检查：
 
-- CORS 是否只放行必要 origin。
-- JWT / token 是否在服务端校验。
-- RLS 是否开启并有策略。
-- 请求体是否有大小、深度、结构校验。
-- 是否有速率限制或配额。
-- 错误是否脱敏。
-- 日志是否避免泄露 token / SQL / 上游原始报文。
-- 前端权限隐藏是否有服务端校验兜底。
-- 是否需要更新 `FUNCTION-AUTH-STRATEGY.md` 或安全文档。
-
----
+- CORS 是否只放行必要 origin
+- JWT / token 是否在服务端校验
+- RLS 是否开启且有策略
+- 请求体是否有大小、深度、结构校验
+- 是否有速率限制或配额控制
+- 是否做了错误脱敏
+- 日志是否避免泄露敏感信息
+- 前端权限隐藏是否有服务端校验兜底
+- AI Key 是否加密存储或保存在安全 Secret 中
+- 重定向路径是否已净化
 
 ## 24. 任务验收标准
 
-### 24.1 每次任务完成后必须输出以下三项
+### 24.1 完成任务后至少应说明
 
-1. **文件清单与概要说明**：新增/修改/删除的文件及其用途。
-2. **前后端部署步骤和 SQL 执行步骤**（如有）。
-3. **更新 `docs/CONTEXT_FULL.md`**：记录本次变更摘要。
+1. 变更了哪些文件，目的是什么
+2. 做了哪些验证，结果是什么
+3. 是否需要部署、执行 migration、更新配置或补充文档
 
-### 24.2 提交前自检清单
+### 24.2 提交前自检
 
-1. 是否出现重复开发（组件/逻辑/样式）？
-2. 是否全部使用了 token 和统一组件规范？
-3. 是否补齐关键注释（复杂逻辑的 WHY）？
-4. SQL 变更是否遵守分层策略：未上线迁移优先更新原文件；已上线迁移只做增量，并准备回滚方案？
-5. 是否保持前后端配置一致、错误提示一致、权限校验一致？
-6. 是否补充了对应的单元测试/集成测试并通过 `pnpm verify`？
-7. 新页面/组件是否支持浅色/深色主题和主流分辨率？
-8. 项目新增或删除文件时，是否同步更新了 `docs/AI_DEV.md` 的目录结构说明？
+1. 是否出现重复实现
+2. 是否遵守状态归属与缓存边界
+3. 是否保持前后端配置、错误文案、权限判断一致
+4. 是否补充了必要测试
+5. 是否影响多端布局、主题或可访问性
+6. 是否需要同步更新文档
 
-### 24.3 验收确认
+## 25. 文档维护与演进规则
 
-- 是否影响现有页面布局和视觉效果。
-- 是否需要部署 Edge Function。
-- 是否需要执行数据库 migration。
-- 是否需要更新 Supabase Secrets。
-- 是否新增/更新测试，并纳入 `pnpm test` / `pnpm verify`。
-- 是否存在回滚风险或缓存发布注意事项。
-- 本地至少运行相关测试；重要改动运行 `pnpm verify` 和 `pnpm build`。
+### 25.1 本文档写什么
 
----
+- 稳定架构边界
+- 长期工程规则
+- 质量与验收标准
+- 应该如何做，而不是今天有哪些具体页面文件
 
-## 25. CSP 与安全运维
+### 25.2 本文档不写什么
 
-- SQL 编辑器使用 CodeMirror 6，无需 `unsafe-eval`。
-- 新增 Vue 页面禁止引入需要 `unsafe-eval` 的依赖。
-- CSP 策略变更必须经过安全评审。
-- Supabase 函数部署后必须用真实登录态验证 2xx / 4xx / CORS 行为。
+- 容易变动的完整目录树
+- 当前所有页面名和组件名清单
+- 某次临时排障结论
+- 可执行脚本的完整复制版
 
----
+### 25.3 更新规则
 
-## 26. 工具链强制执行清单
+- 当代码演进改变了长期基线，必须同步更新本文档
+- 当只是阶段性实现变化，优先更新 `docs/CONTEXT_FULL.md`
+- 如果规范落后于实现，优先修规范，而不是让旧规范继续误导后续开发
 
-| 规范条目 | 当前执行方式 | 配置位置 | 优先级 |
-|---------|-------------|---------|--------|
-| 禁止裸 `any` | ESLint TypeScript 规则 | `eslint.config.mjs` | ✅ 已启用 |
-| TypeScript 严格模式 | `vue-tsc --noEmit` | `tsconfig*.json` | ✅ 已启用 |
-| 代码格式 | Prettier / ESLint | `prettier.config.cjs` / `eslint.config.mjs` | ✅ 已启用 |
-| UTF-8 编码 | `pnpm check:utf8` | `scripts/check-utf8.mjs` | ✅ 已启用 |
-| 完整验证 | `pnpm verify` | `package.json` | ✅ 已启用 |
-| 函数 ≤80 行 | 文档约束，待配置 ESLint `max-lines-per-function` | `eslint.config.mjs` | P1 - 下个迭代 |
-| Commit message 格式 | 文档约束，待引入 commitlint + husky | `commitlint.config.js` | P2 - 择机引入 |
-| CSS 禁止硬编码颜色 | 文档约束，待引入 Stylelint | `.stylelintrc.json` | P2 - 择机引入 |
+### 25.4 演进原则
 
-> P1 = 下个迭代必须落地；P2 = 工程治理阶段择机引入。当前不得误写为已自动执行。
-
-## 27. CI/CD 流程规范
-
-### 27.1 本地开发验证
-
-每次提交前必须运行完整验证：
-
-```bash
-pnpm typecheck    # TypeScript 类型检查
-pnpm lint         # ESLint 代码风格检查
-pnpm check:utf8   # UTF-8 编码校验
-pnpm test         # 单元测试
-pnpm build        # 构建验证
-```
-
-或使用一键验证：
-
-```bash
-pnpm verify
-```
-
-### 27.2 Git Hooks（待引入）
-
-- **pre-commit**：格式化代码、检查 lint（需引入 husky + lint-staged）
-- **commit-msg**：验证 commit message 格式（需引入 commitlint）
-- **pre-push**：运行测试套件（需引入 husky）
-
-### 27.3 CI 门禁（GitHub Actions / GitLab CI）
-
-CI 流水线应包含以下阶段：
-
-1. **Install & Cache**：安装依赖，利用缓存加速
-2. **Lint**：ESLint + Prettier 检查
-3. **Type Check**：TypeScript 类型检查
-4. **Test**：单元测试与集成测试
-5. **Build**：生产构建验证
-6. **Smoke Test**（可选）：关键路径冒烟测试
-
-```yaml
-# .github/workflows/ci.yml 示例结构
-name: CI
-on: [push, pull_request]
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm verify
-```
-
-### 27.4 CD 部署（Edge Functions）
-
-Supabase Edge Functions 部署：
-
-```bash
-# 部署单个函数
-supabase functions deploy <function-name>
-
-# 部署所有函数
-supabase functions deploy
-
-# 部署并设置 secrets
-supabase secrets set KEY=value --project-ref <project-ref>
-```
-
-> **注意**：前端部署使用 Vercel / Netlify / GitHub Pages；Edge Functions 通过 Supabase CLI 管理。
-
----
-
-## 28. 版本演进原则
-
-- 优先兼容当前项目已安装依赖版本。
-- 不随意引入新库，先复用现有栈。
-- 涉及升级（Vue / Supabase SDK / Vite / Tailwind）时，先给迁移清单，再改代码。
-- 引入新依赖必须说明体积、维护状态、安全风险和替代方案。
+- 优先兼容当前已采用的稳定能力
+- 不为了抽象而抽象，不为了统一而制造复杂度
+- 新依赖、新架构、新配置模型的引入，必须说明收益、成本、回滚路径

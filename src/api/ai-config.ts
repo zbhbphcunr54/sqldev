@@ -1,27 +1,48 @@
-// AI 配置 API 层（通过 ai-config Edge Function）
 import { edgeFn } from '@/api/http'
 import type { AiProviderConfig, AiProviderDef, AiConfigPayload, TestResult } from '@/features/ai'
 
 type AiConfigListResponse = { ok: boolean; configs: AiProviderConfig[] }
-type AiConfigAllResponse = { ok: boolean; providers: AiProviderDef[]; configs: AiProviderConfig[] }
+type AiConfigAllResponse = {
+  ok: boolean
+  providers: AiProviderDef[]
+  personal_configs: AiProviderConfig[]
+  global_configs: AiProviderConfig[]
+  has_global_active?: boolean
+}
 type AiConfigSingleResponse = { ok: boolean; config: AiProviderConfig }
 type AiProviderResponse = { ok: boolean; provider: AiProviderDef }
 type AiConfigMutationResponse = { ok: boolean }
 
+export type AiConfigScope = 'personal' | 'global' | 'all'
+
 export const aiConfigApi = {
-  // 一次性获取所有数据（providers + configs）
-  fetchAll: async (): Promise<{ providers: AiProviderDef[]; configs: AiProviderConfig[] }> => {
-    const res = await edgeFn.get<AiConfigAllResponse>('/ai-config')
-    return { providers: res.providers, configs: res.configs }
+  fetchAll: async (
+    scope: AiConfigScope = 'personal'
+  ): Promise<{
+    providers: AiProviderDef[]
+    personalConfigs: AiProviderConfig[]
+    globalConfigs: AiProviderConfig[]
+    hasGlobalActive: boolean
+  }> => {
+    const res = await edgeFn.get<AiConfigAllResponse>(`/ai-config?scope=${scope}`)
+    return {
+      providers: res.providers,
+      personalConfigs: res.personal_configs ?? [],
+      globalConfigs: res.global_configs ?? [],
+      hasGlobalActive: res.has_global_active === true
+    }
   },
 
-  list: async (): Promise<AiProviderConfig[]> => {
-    const res = await edgeFn.get<AiConfigListResponse>('/ai-config')
+  list: async (scope: Exclude<AiConfigScope, 'all'> = 'personal'): Promise<AiProviderConfig[]> => {
+    const res = await edgeFn.get<AiConfigListResponse>(`/ai-config?scope=${scope}`)
     return res.configs
   },
 
-  create: async (payload: AiConfigPayload): Promise<AiProviderConfig> => {
-    const res = await edgeFn.post<AiConfigSingleResponse>('/ai-config', payload)
+  create: async (
+    payload: AiConfigPayload,
+    scope: Exclude<AiConfigScope, 'all'> = 'personal'
+  ): Promise<AiProviderConfig> => {
+    const res = await edgeFn.post<AiConfigSingleResponse>('/ai-config', { ...payload, scope })
     return res.config
   },
 

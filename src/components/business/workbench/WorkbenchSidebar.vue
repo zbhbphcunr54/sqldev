@@ -13,17 +13,21 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWorkbenchStore } from '@/stores/workbench'
+import { useAuth } from '@/composables/useAuth'
 import Icon from '@/components/common/Icon.vue'
 import { buildMenuGroups, SECTION_MAP, type MenuItem, type MenuGroup } from './sidebar-menu'
 
 const store = useWorkbenchStore()
 const route = useRoute()
 const router = useRouter()
+const auth = useAuth()
 
 // ==================== 菜单数据 ====================
 
 const collapsedGroups = ref<Record<string, boolean>>({})
-const menuGroups = computed(() => buildMenuGroups())
+const menuGroups = computed(() =>
+  buildMenuGroups({ canAccessZiweiTool: auth.canAccessZiweiTool.value })
+)
 
 // ==================== 选中状态 ====================
 
@@ -80,6 +84,9 @@ function handleItemClick(item: MenuItem): void {
       router.push(path)
     }
   }
+  if (window.innerWidth < 1024) {
+    store.sidebarOpen = false
+  }
 }
 
 function isActive(key: string): boolean {
@@ -90,6 +97,7 @@ function isActive(key: string): boolean {
 <template>
   <aside
     class="h-screen flex flex-col flex-shrink-0"
+    :class="{ 'sidebar-open': store.sidebarOpen }"
     style="
       width: var(--sidebar-width);
       background: var(--color-page-panel);
@@ -230,5 +238,23 @@ function isActive(key: string): boolean {
 .sidebar-collapse-leave-from {
   max-height: 600px;
   opacity: 1;
+}
+
+@media (max-width: 1023px) {
+  aside {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 90;
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.3s var(--ease-apple, ease);
+    box-shadow: none;
+  }
+
+  aside.sidebar-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
 }
 </style>

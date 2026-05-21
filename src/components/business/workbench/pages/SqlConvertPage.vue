@@ -1,21 +1,19 @@
 <script setup lang="ts">
-// SQL 转换页面 — DDL / 函数 / 存储过程 AI 跨数据库互转
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useWorkbenchStore, type SqlType } from '@/stores/workbench'
+import { useClipboard } from '@/composables/useClipboard'
+import { appConfigApi } from '@/api/app-config'
+import FormSelect from '@/components/common/FormSelect.vue'
 
 const sqlTypes: { label: string; value: SqlType }[] = [
   { label: 'DDL', value: 'ddl' },
   { label: '函数', value: 'function' },
   { label: '存储过程', value: 'procedure' }
 ]
-import { useClipboard } from '@/composables/useClipboard'
-import { appConfigApi } from '@/api/app-config'
-import FormSelect from '@/components/common/FormSelect.vue'
 
 const store = useWorkbenchStore()
 const { copyToClipboard } = useClipboard()
 
-// 本地状态
 const isCopying = ref(false)
 const copySuccess = ref(false)
 const dbOptionsLoading = ref(false)
@@ -23,7 +21,6 @@ const showDetails = ref(false)
 const inputEverUsed = ref(false)
 const outputEverUsed = ref(false)
 
-// 计算属性
 const statusClass = computed(() =>
   store.converting
     ? 'converting'
@@ -34,6 +31,7 @@ const statusClass = computed(() =>
         : 'ready'
 )
 const showAiMeta = computed(() => store.hasOutput && store.aiRatio !== null)
+const directionLabel = computed(() => `${store.sourceLabel} -> ${store.targetLabel}`)
 const accuracyLabel = computed(() =>
   store.accuracy === 'high'
     ? '高'
@@ -47,7 +45,10 @@ const accuracyClass = computed(() => store.accuracy ?? '')
 const hasDetailInfo = computed(
   () =>
     store.status === 'success' &&
-    (store.manualParts.length > 0 || store.notes.length > 0 || store.aiRatio !== null)
+    (store.manualParts.length > 0 ||
+      store.notes.length > 0 ||
+      store.aiRatio !== null ||
+      store.translateTimeMs !== null)
 )
 const dbSelectOptions = computed(() =>
   store.dbOptions.length > 0
@@ -56,12 +57,10 @@ const dbSelectOptions = computed(() =>
 )
 const showInputEmpty = computed(() => !store.hasInput && !inputEverUsed.value)
 const showOutputEmpty = computed(() => !store.hasOutput && !outputEverUsed.value)
-
 const dbFormOptions = computed(() =>
   dbSelectOptions.value.map((o) => ({ value: o.slug, label: o.label }))
 )
 
-// 方法
 function resetOutputFields(): void {
   store.outputSql = ''
   store.aiRatio = null
@@ -69,6 +68,8 @@ function resetOutputFields(): void {
   store.manualParts = []
   store.notes = []
   store.accuracy = null
+  store.translateTimeMs = null
+  outputEverUsed.value = false
   showDetails.value = false
 }
 
@@ -78,7 +79,18 @@ async function loadDbOptions(): Promise<void> {
     const result = await appConfigApi.list('sql_convert')
     const dbConfig = result.configs?.find((c) => c.key === 'databases')
     if (dbConfig?.value) {
-      const slugs = JSON.parse(dbConfig.value) as string[]
+      const parsed = JSON.parse(dbConfig.value) as string[] | Array<{ slug?: string }>
+      const slugs = Array.isArray(parsed)
+        ? parsed
+            .map((item) =>
+              typeof item === 'string'
+                ? item
+                : item && typeof item === 'object' && typeof item.slug === 'string'
+                  ? item.slug
+                  : ''
+            )
+            .filter(Boolean)
+        : []
       store.initDbOptionsFromConfig(slugs)
     }
   } catch {
@@ -90,11 +102,16 @@ async function loadDbOptions(): Promise<void> {
 
 async function handleLoadSample(): Promise<void> {
   inputEverUsed.value = true
+  outputEverUsed.value = false
+  showDetails.value = false
   await store.loadSample()
 }
 
 function handleClear(): void {
   store.clearAll()
+  inputEverUsed.value = false
+  outputEverUsed.value = false
+  showDetails.value = false
 }
 
 function handleUploadFile(): void {
@@ -109,7 +126,7 @@ function handleUploadFile(): void {
       store.inputSql = text
       inputEverUsed.value = true
       resetOutputFields()
-      store.statusText = `已加载文件: ${file.name}`
+      store.statusText = `已加载文件：${file.name}`
     } catch {
       store.showAlert('错误', '文件读取失败')
     }
@@ -149,6 +166,7 @@ async function handleConvert(): Promise<void> {
   if (store.converting) return
   showDetails.value = false
   inputEverUsed.value = true
+  outputEverUsed.value = false
   await store.convert()
   if (store.status === 'success') outputEverUsed.value = true
 }
@@ -160,14 +178,14 @@ function toggleDetails(): void {
 function handleKeydown(e: KeyboardEvent): void {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault()
-    handleConvert()
+    void handleConvert()
   }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  loadDbOptions()
-  store.prefetchSamples()
+  void loadDbOptions()
+  void store.prefetchSamples()
 })
 
 onUnmounted(() => {
@@ -177,32 +195,17 @@ onUnmounted(() => {
 
 <template>
   <div class="sc-page">
-    <!-- ==================== 顶栏（标题双行） ==================== -->
     <div class="sc-top-bar">
       <h1 class="sc-title">SQL 转换</h1>
       <p class="sc-subtitle">DDL / 函数 / 存储过程 AI 跨数据库互转</p>
     </div>
 
-    <!-- ==================== 工具栏（DB选择器居中 + 操作按钮） ==================== -->
     <div class="sc-toolbar">
       <div class="sc-toolbar-left">
         <button class="sc-toolbar-btn" :disabled="store.loadingSample" @click="handleLoadSample">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <rect
-              x="2"
-              y="2"
-              width="12"
-              height="12"
-              rx="2"
-              stroke="currentColor"
-              stroke-width="1.3"
-            />
-            <path
-              d="M5 6H11M5 8H9M5 10H10"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-            />
+            <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3" />
+            <path d="M5 6H11M5 8H9M5 10H10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
           </svg>
           <span>{{ store.loadingSample ? '加载中...' : '加载示例' }}</span>
         </button>
@@ -211,18 +214,12 @@ onUnmounted(() => {
 
         <button class="sc-toolbar-btn" @click="handleUploadFile">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M3 2H13V10L9 14H3V2Z"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linejoin="round"
-            />
+            <path d="M3 2H13V10L9 14H3V2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
             <path d="M9 2V6H13" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
           </svg>
           <span>上传文件</span>
         </button>
 
-        <!-- SQL 类型切换 -->
         <div class="sc-type-seg">
           <button
             v-for="t in sqlTypes"
@@ -238,9 +235,7 @@ onUnmounted(() => {
         <div class="sc-toolbar-spacer"></div>
 
         <div class="sc-db-selector">
-          <span class="sc-db-badge" :style="{ background: `var(--db-${store.sourceDb})` }">{{
-            store.sourceAbbr
-          }}</span>
+          <span class="sc-db-badge" :style="{ background: `var(--db-${store.sourceDb})` }">{{ store.sourceAbbr }}</span>
           <FormSelect
             :model-value="store.sourceDb"
             :options="dbFormOptions"
@@ -258,21 +253,9 @@ onUnmounted(() => {
           @click="handleSwap"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M5 2L2 5L5 8"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+            <path d="M5 2L2 5L5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M2 5H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-            <path
-              d="M11 14L14 11L11 8"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+            <path d="M11 14L14 11L11 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M14 11H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
         </button>
@@ -280,9 +263,7 @@ onUnmounted(() => {
 
       <div class="sc-toolbar-right">
         <div class="sc-db-selector">
-          <span class="sc-db-badge" :style="{ background: `var(--db-${store.targetDb})` }">{{
-            store.targetAbbr
-          }}</span>
+          <span class="sc-db-badge" :style="{ background: `var(--db-${store.targetDb})` }">{{ store.targetAbbr }}</span>
           <FormSelect
             :model-value="store.targetDb"
             :options="dbFormOptions"
@@ -298,51 +279,26 @@ onUnmounted(() => {
 
         <div class="sc-toolbar-spacer"></div>
 
-        <button class="sc-toolbar-btn" :disabled="!store.hasOutput" @click="handleCopy">
+        <button class="sc-toolbar-btn" :disabled="!store.hasOutput || isCopying" @click="handleCopy">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <rect
-              x="5"
-              y="3"
-              width="8"
-              height="10"
-              rx="1.5"
-              stroke="currentColor"
-              stroke-width="1.3"
-            />
-            <path
-              d="M4 12V5C4 4.44772 4.44772 4 5 4H9"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-            />
+            <rect x="5" y="3" width="8" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+            <path d="M4 12V5C4 4.44772 4.44772 4 5 4H9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
           </svg>
           <span>{{ copySuccess ? '已复制' : '复制输出' }}</span>
         </button>
 
         <span class="sc-toolbar-sep"></span>
 
-        <button
-          class="sc-toolbar-btn danger"
-          :disabled="!store.hasInput && !store.hasOutput"
-          @click="handleClear"
-        >
+        <button class="sc-toolbar-btn danger" :disabled="!store.hasInput && !store.hasOutput" @click="handleClear">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M2 4H14M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M12 4V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V4"
-              stroke="currentColor"
-              stroke-width="1.3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+            <path d="M2 4H14M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M12 4V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           <span>清空</span>
         </button>
       </div>
     </div>
 
-    <!-- ==================== 双面板工作区 ==================== -->
     <div class="sc-workspace">
-      <!-- 左面板：输入 -->
       <div class="sc-panel">
         <div class="sc-panel-header">
           <div class="sc-panel-title">
@@ -353,18 +309,13 @@ onUnmounted(() => {
         </div>
 
         <div class="sc-panel-content">
-          <!-- 空状态 — 使用 v-show 确保切换可靠 -->
           <div v-show="showInputEmpty" class="sc-empty" @paste="handlePaste">
             <span class="sc-badge-ready">源 SQL 准备就绪</span>
             <h2 class="sc-empty-title">输入 {{ store.sourceLabel }} SQL</h2>
             <p class="sc-empty-desc">粘贴 DDL、函数或存储过程语句，或直接加载示例开始转换。</p>
             <p class="sc-empty-tip">可粘贴 SQL 至此</p>
             <div class="sc-empty-actions">
-              <button
-                class="sc-btn-accent"
-                :disabled="store.loadingSample"
-                @click="handleLoadSample"
-              >
+              <button class="sc-btn-accent" :disabled="store.loadingSample" @click="handleLoadSample">
                 {{ store.loadingSample ? '加载中...' : '加载示例' }}
               </button>
               <button class="sc-btn-outline" @click="handleUploadFile">上传 SQL</button>
@@ -381,10 +332,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- 分隔线 -->
       <div class="sc-panel-divider"></div>
 
-      <!-- 右面板：输出 -->
       <div class="sc-panel">
         <div class="sc-panel-header">
           <div class="sc-panel-title">
@@ -394,7 +343,6 @@ onUnmounted(() => {
         </div>
 
         <div class="sc-panel-content">
-          <!-- 空状态 -->
           <div v-show="showOutputEmpty" class="sc-empty right">
             <span class="sc-badge-preview">AI 转换预览</span>
             <h2 class="sc-empty-title right">{{ store.targetLabel }} 结果会显示在这里</h2>
@@ -405,9 +353,7 @@ onUnmounted(() => {
               <span class="sc-step">3. 点击转换</span>
             </div>
             <div class="sc-empty-actions">
-              <button class="sc-btn-accent" :disabled="!store.canConvert" @click="handleConvert">
-                开始转换
-              </button>
+              <button class="sc-btn-accent" :disabled="!store.canConvert" @click="handleConvert">开始转换</button>
             </div>
           </div>
 
@@ -422,7 +368,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ==================== 转换详情面板 ==================== -->
     <Transition name="details-slide">
       <div v-if="showDetails && store.status === 'success'" class="sc-details-panel">
         <div class="sc-details-grid">
@@ -432,38 +377,45 @@ onUnmounted(() => {
           </div>
           <div v-if="store.accuracy" class="sc-detail-card">
             <span class="sc-detail-label">准确度评估</span>
-            <span class="sc-detail-value" :class="'accuracy-' + accuracyClass">{{
-              accuracyLabel
-            }}</span>
+            <span class="sc-detail-value" :class="'accuracy-' + accuracyClass">{{ accuracyLabel }}</span>
           </div>
           <div v-if="store.manualNeeded" class="sc-detail-card">
-            <span class="sc-detail-label">状态</span>
+            <span class="sc-detail-label">处理状态</span>
             <span class="sc-detail-value manual">需要人工介入</span>
+          </div>
+          <div class="sc-detail-card sc-detail-card-wide">
+            <span class="sc-detail-label">转换信息</span>
+            <div class="sc-detail-meta-card">
+              <div class="sc-detail-meta-item">
+                <span class="sc-detail-meta-key">转换方向</span>
+                <span class="sc-detail-meta-value">{{ directionLabel }}</span>
+              </div>
+              <div v-if="store.translateTimeMs !== null" class="sc-detail-meta-item">
+                <span class="sc-detail-meta-key">耗时</span>
+                <span class="sc-detail-meta-value">{{ store.translateTimeMs }} ms</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div v-if="store.manualParts.length > 0" class="sc-detail-section">
-          <h4 class="sc-detail-heading">需人工处理的部分</h4>
-          <ul class="sc-detail-list">
-            <li v-for="(item, idx) in store.manualParts" :key="idx">{{ item }}</li>
-          </ul>
-        </div>
+        <div class="sc-detail-sections">
+          <div v-if="store.manualParts.length > 0" class="sc-detail-section-card">
+            <h4 class="sc-detail-heading">需人工处理的部分</h4>
+            <ul class="sc-detail-list">
+              <li v-for="(item, idx) in store.manualParts" :key="idx">{{ item }}</li>
+            </ul>
+          </div>
 
-        <div v-if="store.notes.length > 0" class="sc-detail-section">
-          <h4 class="sc-detail-heading">注意事项</h4>
-          <ul class="sc-detail-list notes">
-            <li v-for="(note, idx) in store.notes" :key="idx">{{ note }}</li>
-          </ul>
-        </div>
-
-        <div v-if="store.translateTimeMs !== null" class="sc-detail-meta">
-          <span>方向：{{ store.sourceLabel }} → {{ store.targetLabel }}</span>
-          <span>耗时：{{ store.translateTimeMs }} ms</span>
+          <div v-if="store.notes.length > 0" class="sc-detail-section-card">
+            <h4 class="sc-detail-heading">注意事项</h4>
+            <ul class="sc-detail-list notes">
+              <li v-for="(note, idx) in store.notes" :key="idx">{{ note }}</li>
+            </ul>
+          </div>
         </div>
       </div>
     </Transition>
 
-    <!-- ==================== 状态栏 ==================== -->
     <div class="sc-status-bar">
       <div class="sc-status-left">
         <span class="sc-status-dot" :class="statusClass"></span>
@@ -472,26 +424,14 @@ onUnmounted(() => {
         <template v-if="showAiMeta">
           <span class="sc-status-sep"></span>
           <span class="sc-status-chip ratio">AI {{ store.aiRatio }}%</span>
-          <span class="sc-status-chip" :class="'accuracy-' + accuracyClass"
-            >准确度 {{ accuracyLabel }}</span
-          >
+          <span class="sc-status-chip" :class="'accuracy-' + accuracyClass">准确度 {{ accuracyLabel }}</span>
           <span v-if="store.manualNeeded" class="sc-status-chip manual">需人工介入</span>
         </template>
       </div>
 
       <div class="sc-status-right">
         <button v-if="hasDetailInfo" class="sc-detail-toggle" @click="toggleDetails">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            class="sc-detail-chevron"
-            :class="{ open: showDetails }"
-            aria-hidden="true"
-          >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="sc-detail-chevron" :class="{ open: showDetails }" aria-hidden="true">
             <path d="M4 6L8 10L12 6" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           <span>{{ showDetails ? '收起详情' : '展开转换详情' }}</span>
@@ -500,9 +440,8 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
 <style scoped>
-/* ==================== 布局 ==================== */
+/* Page */
 .sc-page {
   display: flex;
   flex-direction: column;
@@ -515,7 +454,7 @@ onUnmounted(() => {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ==================== 顶栏 ==================== */
+/* Header */
 .sc-top-bar {
   display: flex;
   flex-direction: column;
@@ -541,7 +480,7 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* ==================== 工具栏 ==================== */
+/* Toolbar */
 .sc-toolbar {
   display: flex;
   align-items: center;
@@ -617,7 +556,7 @@ onUnmounted(() => {
   background: var(--color-danger-bg);
 }
 
-/* === SQL 类型分段控件 === */
+/* SQL type switch */
 .sc-type-seg {
   display: inline-flex;
   gap: 0;
@@ -667,7 +606,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* ==================== 数据库选择器 ==================== */
+/* Database selector */
 .sc-db-selector {
   display: flex;
   align-items: center;
@@ -731,7 +670,7 @@ onUnmounted(() => {
   outline-offset: 2px;
 }
 
-/* ==================== 转换按钮 ==================== */
+/* Convert button */
 .sc-convert-btn {
   display: inline-flex;
   align-items: center;
@@ -782,7 +721,7 @@ onUnmounted(() => {
   line-height: 1.2;
 }
 
-/* ==================== 工作区 ==================== */
+/* Workspace */
 .sc-workspace {
   flex: 1;
   display: flex;
@@ -845,7 +784,7 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* ==================== 空状态 ==================== */
+/* Empty state */
 .sc-empty {
   flex: 1;
   display: flex;
@@ -985,7 +924,7 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* ==================== 代码编辑器 ==================== */
+/* Code editor */
 .sc-code-editor {
   flex: 1;
   width: 100%;
@@ -1007,7 +946,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
 }
 
-/* ==================== 详情面板 ==================== */
+/* Detail cards */
 .sc-details-panel {
   padding: 16px 24px;
   background: var(--color-page-panel);
@@ -1018,28 +957,33 @@ onUnmounted(() => {
 }
 
 .sc-details-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--spacing-16, 16px);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .sc-detail-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 14px 16px;
   background: var(--color-page-bg);
   border: 1px solid var(--color-page-border);
   border-radius: var(--radius-md);
-  min-width: 120px;
+  min-width: 0;
+}
+
+.sc-detail-card-wide {
+  grid-column: span 2;
 }
 
 .sc-detail-label {
   font-size: var(--text-xs);
   font-weight: 500;
   color: var(--color-page-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-body);
+  letter-spacing: var(--tracking-normal, 0);
 }
 
 .sc-detail-value {
@@ -1066,15 +1010,24 @@ onUnmounted(() => {
   font-size: var(--text-sm);
 }
 
-.sc-detail-section {
-  margin-bottom: 10px;
+.sc-detail-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.sc-detail-section-card {
+  padding: 14px 16px;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-md);
 }
 
 .sc-detail-heading {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-page-text);
-  margin: 0 0 6px;
+  margin: 0 0 10px;
   font-family: var(--font-body);
 }
 
@@ -1091,12 +1044,48 @@ onUnmounted(() => {
   color: var(--color-warning);
 }
 
-.sc-detail-meta {
+.sc-detail-meta-card {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sc-detail-meta-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sc-detail-meta-key {
   font-size: var(--text-xs);
   color: var(--color-page-text-muted);
   font-family: var(--font-body);
+  flex-shrink: 0;
+}
+
+.sc-detail-meta-value {
+  font-size: var(--text-sm);
+  color: var(--color-page-text);
+  font-family: var(--font-body);
+  text-align: right;
+  line-height: 1.6;
+}
+
+@media (max-width: 960px) {
+  .sc-detail-card-wide {
+    grid-column: span 1;
+  }
+
+  .sc-detail-meta-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .sc-detail-meta-value {
+    text-align: left;
+  }
 }
 
 .details-slide-enter-active,
@@ -1120,7 +1109,7 @@ onUnmounted(() => {
   }
 }
 
-/* ==================== 状态栏 ==================== */
+/* Status bar */
 .sc-status-bar {
   display: flex;
   align-items: center;

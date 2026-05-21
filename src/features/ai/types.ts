@@ -1,6 +1,4 @@
-// [2026-04-30] 新增：AI 模块类型定义
-
-/** 供应商定义（来自 ai_providers 表） */
+/** Provider definition from `ai_providers`. */
 export interface AiProviderDef {
   id: string
   slug: string
@@ -18,10 +16,12 @@ export interface AiProviderDef {
   updated_at: string
 }
 
-/** 全局配置摘要（来自 ai-config Edge Function，api_key 已脱敏） */
+/** Masked AI config summary returned by the edge function. */
 export interface AiProviderConfig {
   id: string
   created_by?: string | null
+  scope?: 'global' | 'user'
+  owner_user_id?: string | null
   provider_id: string
   name: string
   base_url: string
@@ -37,7 +37,7 @@ export interface AiProviderConfig {
   provider?: AiProviderDef
 }
 
-/** 创建/更新配置的请求体 */
+/** Payload used to create or update an AI config. */
 export interface AiConfigPayload {
   provider_id: string
   name?: string
@@ -46,9 +46,10 @@ export interface AiConfigPayload {
   api_key?: string
   timeout_ms?: number
   api_key_masked?: string
+  reuse_config_id?: string
 }
 
-/** 测试结果 */
+/** Connectivity test result. */
 export interface TestResult {
   ok: boolean
   elapsed_ms: number
@@ -57,8 +58,6 @@ export interface TestResult {
   cooldown_remaining?: number
 }
 
-/** 供应商筛选 Tab */
 export type ProviderFilterTab = '全部' | '国内' | '国际'
 
-/** 配置状态 */
 export type ConfigStatus = 'active' | 'tested_ok' | 'tested_fail' | 'untested'

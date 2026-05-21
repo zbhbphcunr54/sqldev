@@ -4,12 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthModal } from '@/composables/useAuthModal'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import SkinPicker from '@/components/common/SkinPicker.vue'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuth()
 const authModal = useAuthModal()
-const { isAuthenticated, user } = auth
+const { isAuthenticated, user, canAccessZiweiTool } = auth
 
 const showUserMenu = ref(false)
 
@@ -62,6 +63,7 @@ onBeforeUnmount(() => {
         <RouterLink
           v-for="item in navItems"
           :key="item.to"
+          v-show="item.to !== '/workbench/ziwei' || canAccessZiweiTool"
           :to="item.to"
           class="nav-link"
           :class="{ active: isNavActive(item.to) }"
@@ -72,6 +74,7 @@ onBeforeUnmount(() => {
 
       <!-- Actions -->
       <div class="header-actions">
+        <SkinPicker />
         <!-- Theme Switch -->
         <ThemeToggle variant="text" />
 
@@ -112,8 +115,10 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <!-- 主题切换 -->
-              <div class="dropdown-section-title">主题</div>
+              <div class="dropdown-section-row">
+                <span class="dropdown-section-title">外观</span>
+                <SkinPicker />
+              </div>
               <ThemeToggle variant="icon" />
 
               <div class="dropdown-divider"></div>
@@ -347,13 +352,20 @@ onBeforeUnmount(() => {
   word-break: break-all;
 }
 
+.dropdown-section-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+
 .dropdown-section-title {
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 12px 12px 6px;
+  white-space: nowrap;
 }
 
 .dropdown-divider {

@@ -1,69 +1,201 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { extractBearerToken, validateUserSession } from '../_shared/auth.ts'
+import { extractBearerToken } from '../_shared/auth.ts'
 import { createCorsHelpers, initCorsConfig } from '../_shared/cors.ts'
 import { createRateLimiter } from '../_shared/rate-limit.ts'
 import { getClientIp } from '../_shared/request.ts'
-import { jsonResponse, errorResponse, logEdgeError } from '../_shared/response.ts'
+import { errorResponse, jsonResponse, logEdgeError } from '../_shared/response.ts'
+import { logOperation } from '../_shared/operation-logger.ts'
 import { parsePositiveInt } from '../_shared/utils.ts'
-import { getAppConfig } from '../_shared/app-config.ts'
 
 const { defaultCorsHeaders, buildCorsHeaders } = createCorsHelpers({})
 
 await initCorsConfig()
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ''
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 100
+const SUMMARY_CACHE_MAX_ENTRIES = 100
+const SUMMARY_CACHE_TTL_MS = 60_000
+const RATE_LIMIT_CONFIG_TTL_MS = 60_000
+const ADMIN_CACHE_TTL_MS = 300_000
+const ADMIN_CACHE_MAX_ENTRIES = 500
+const STATIC_ADMIN_EMAILS = new Set(
+  String(Deno.env.get('OPLOGS_ADMIN_EMAILS') || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+)
 
 const OPERATION_LABELS: Record<string, string> = {
-  convert_ddl: 'DDL 翻译',
-  convert_func: '函数翻译',
-  convert_proc: '存储过程翻译',
-  convert_error: 'SQL 转换异常',
-  convert_verify: 'AI 校验',
-  convert_verify_error: 'AI 校验异常',
-  rule_read: '读取规则',
-  rule_save: '保存规则',
-  rule_reset: '重置规则',
-  rules_error: '规则服务异常',
-  ziwei_history_list: '紫微历史查询',
-  ziwei_history_create: '紫微历史保存',
-  ziwei_history_delete: '紫微历史删除'
+  sql_convert: 'SQL AI转换',
+  id_card_generate: '身份证号码生成',
+  id_card_validate: '身份证号码校验',
+  uscc_generate: '统一社会信用代码生成',
+  uscc_validate: '统一社会信用代码校验',
+  ziwei_chart_generate: '紫微斗数排盘',
+  ziwei_analysis: '命盘AI解读',
+  ziwei_qa: '基于AI命盘问答',
+  ai_provider_create: '新增供应商',
+  ai_provider_update: '编辑供应商',
+  ai_provider_delete: '删除供应商',
+  ai_config_create: '新增Key',
+  ai_config_append_model: '追加模型',
+  ai_config_test: '测试Key',
+  ai_config_delete: '删除Key',
+  ai_chat_message: 'AI助手对话'
 }
 
-const API_LABELS: Record<string, string> = {
-  convert: 'SQL 转换',
-  'convert-verify': 'AI 校验',
-  rules: '规则服务',
-  'ziwei-history': '紫微历史',
-  'ziwei-analysis': '紫微分析',
-  feedback: '用户反馈',
-  'ai-config': 'AI 配置',
-  'app-config': '应用配置',
-  'operation-logs': '操作日志'
-}
+const CLIENT_LOG_OPERATIONS = new Set([
+  'id_card_generate',
+  'id_card_validate',
+  'uscc_generate',
+  'uscc_validate',
+  'ziwei_chart_generate'
+])
 
 type StatusFilter = '' | 'success' | 'fail'
-type LogRowLite = {
-  response_status: number | null
-  duration_ms: number | null
-  user_email: string | null
+
+interface LogFilterParams {
+  isAdmin: boolean
+  userId: string
+  searchUserId: string
+  status: StatusFilter
+  operation: string
+  startDate: string
+  endDate: string
 }
 
-async function loadRateLimitConfig() {
-  const [maxRequests, windowMs, trackMax, storeMode] = await Promise.all([
-    getAppConfig<number>('rate_limit', 'oplogs_requests', { envVar: 'OPLOGS_RATE_LIMIT_MAX_REQUESTS', defaultValue: 30, parse: Number }),
-    getAppConfig<number>('rate_limit', 'oplogs_window_ms', { envVar: 'OPLOGS_RATE_LIMIT_WINDOW_MS', defaultValue: 60000, parse: Number }),
-    getAppConfig<number>('rate_limit', 'oplogs_track_max', { envVar: 'OPLOGS_RATE_LIMIT_TRACK_MAX', defaultValue: 2000, parse: Number }),
-    getAppConfig('rate_limit', 'store_mode', { envVar: 'OPLOGS_RATE_LIMIT_STORE', defaultValue: 'kv' })
-  ])
-  return {
-    maxRequests: maxRequests.value,
-    windowMs: windowMs.value,
-    trackMax: trackMax.value,
-    storeMode: String(storeMode.value || 'kv').toLowerCase()
+interface LogSummary {
+  total_requests: number
+  success_rate: number
+  fail_count: number
+  avg_duration_ms: number
+  p95_duration_ms: number
+  active_users: number
+}
+
+interface SummaryCacheEntry {
+  data: LogSummary
+  accessedAt: number
+  expiresAt: number
+}
+
+interface RateLimitConfig {
+  maxRequests: number
+  windowMs: number
+  trackMax: number
+  storeMode: string
+}
+
+interface JwtClaims {
+  userId: string
+  email: string
+}
+
+interface ClientLogRequest {
+  operation: string
+  api_name?: unknown
+  request_body?: unknown
+  response_body?: unknown
+  response_status?: unknown
+  duration_ms?: unknown
+  error_message?: unknown
+  extra?: unknown
+}
+
+type RateLimiterInstance = ReturnType<typeof createRateLimiter>
+
+const summaryCache = new Map<string, SummaryCacheEntry>()
+let rateLimitConfigCache: { data: RateLimitConfig; expiresAt: number } | null = null
+let rateLimiterCache: { key: string; limiter: RateLimiterInstance; expiresAt: number } | null =
+  null
+const adminCheckCache = new Map<string, { isAdmin: boolean; expiresAt: number }>()
+
+function parseIncludeFlag(value: string | null, defaultValue: boolean): boolean {
+  if (value === null) return defaultValue
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
+    return true
   }
+  if (
+    normalized === 'false' ||
+    normalized === '0' ||
+    normalized === 'no' ||
+    normalized === 'off'
+  ) {
+    return false
+  }
+  return defaultValue
+}
+
+function parseRateLimitNumber(value: string | undefined, fallback: number): number {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
+}
+
+function decodeJwtClaims(token: string): JwtClaims | null {
+  const parts = token.split('.')
+  if (parts.length < 2) return null
+  const payloadPart = parts[1]
+  if (!payloadPart) return null
+
+  try {
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+    const decoded = JSON.parse(atob(padded)) as { sub?: unknown; email?: unknown }
+    const userId = typeof decoded.sub === 'string' ? decoded.sub.trim() : ''
+    if (!userId) return null
+    const email = typeof decoded.email === 'string' ? decoded.email.trim().toLowerCase() : ''
+    return { userId, email }
+  } catch {
+    return null
+  }
+}
+
+function getRateLimiter(config: RateLimitConfig): RateLimiterInstance {
+  const key = `${config.windowMs}:${config.maxRequests}:${config.trackMax}:${config.storeMode}`
+  if (rateLimiterCache && rateLimiterCache.key === key && rateLimiterCache.expiresAt > Date.now()) {
+    return rateLimiterCache.limiter
+  }
+
+  const limiter = createRateLimiter({
+    scope: 'operation-logs',
+    windowMs: config.windowMs,
+    maxRequests: config.maxRequests,
+    trackMax: config.trackMax,
+    storeMode: config.storeMode
+  })
+
+  rateLimiterCache = {
+    key,
+    limiter,
+    expiresAt: Date.now() + RATE_LIMIT_CONFIG_TTL_MS
+  }
+
+  return limiter
+}
+
+async function loadRateLimitConfig(): Promise<RateLimitConfig> {
+  if (rateLimitConfigCache && rateLimitConfigCache.expiresAt > Date.now()) {
+    return rateLimitConfigCache.data
+  }
+
+  const config: RateLimitConfig = {
+    maxRequests: parseRateLimitNumber(
+      Deno.env.get('OPLOGS_RATE_LIMIT_MAX_REQUESTS') || undefined,
+      30
+    ),
+    windowMs: parseRateLimitNumber(Deno.env.get('OPLOGS_RATE_LIMIT_WINDOW_MS') || undefined, 60_000),
+    trackMax: parseRateLimitNumber(Deno.env.get('OPLOGS_RATE_LIMIT_TRACK_MAX') || undefined, 2000),
+    storeMode: String(Deno.env.get('OPLOGS_RATE_LIMIT_STORE') || 'memory').toLowerCase()
+  }
+
+  rateLimitConfigCache = {
+    data: config,
+    expiresAt: Date.now() + RATE_LIMIT_CONFIG_TTL_MS
+  }
+
+  return config
 }
 
 function toDateRangeStart(dateText: string): string {
@@ -72,6 +204,95 @@ function toDateRangeStart(dateText: string): string {
 
 function toDateRangeEnd(dateText: string): string {
   return `${dateText}T23:59:59.999+08:00`
+}
+
+function getCacheKey(filters: LogFilterParams): string {
+  return JSON.stringify(filters)
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function getCachedSummary(cacheKey: string): LogSummary | null {
+  const entry = summaryCache.get(cacheKey)
+  if (!entry) return null
+  if (entry.expiresAt <= Date.now()) {
+    summaryCache.delete(cacheKey)
+    return null
+  }
+  entry.accessedAt = Date.now()
+  summaryCache.set(cacheKey, entry)
+  return entry.data
+}
+
+function setCachedSummary(cacheKey: string, summary: LogSummary): void {
+  if (!summaryCache.has(cacheKey) && summaryCache.size >= SUMMARY_CACHE_MAX_ENTRIES) {
+    let oldestKey: string | null = null
+    let oldestAccessedAt = Number.POSITIVE_INFINITY
+    for (const [key, value] of summaryCache.entries()) {
+      if (value.accessedAt < oldestAccessedAt) {
+        oldestAccessedAt = value.accessedAt
+        oldestKey = key
+      }
+    }
+    if (oldestKey) summaryCache.delete(oldestKey)
+  }
+
+  const now = Date.now()
+  summaryCache.set(cacheKey, {
+    data: summary,
+    accessedAt: now,
+    expiresAt: now + SUMMARY_CACHE_TTL_MS
+  })
+}
+
+async function fetchLogSummary(
+  adminClient: ReturnType<typeof createClient>,
+  filters: LogFilterParams
+): Promise<LogSummary> {
+  const cacheKey = getCacheKey(filters)
+  const cached = getCachedSummary(cacheKey)
+  if (cached) return cached
+
+  const { data, error } = await adminClient.rpc('compute_operation_log_summary', {
+    p_is_admin: filters.isAdmin,
+    p_user_id: filters.userId,
+    p_search_user_id: filters.searchUserId || null,
+    p_status: filters.status || null,
+    p_operation: filters.operation || null,
+    p_start_date: filters.startDate ? toDateRangeStart(filters.startDate) : null,
+    p_end_date: filters.endDate ? toDateRangeEnd(filters.endDate) : null
+  })
+
+  if (error) {
+    logEdgeError('operation-logs', 'summary_rpc_failed', error)
+    throw error
+  }
+
+  const row = (Array.isArray(data) ? data[0] : null) as
+    | {
+        total_requests: number | null
+        success_rate: number | null
+        fail_count: number | null
+        avg_duration_ms: number | null
+        p95_duration_ms: number | null
+        active_users: number | null
+      }
+    | null
+
+  const result: LogSummary = {
+    total_requests: toFiniteNumber(row?.total_requests, 0),
+    success_rate: toFiniteNumber(row?.success_rate, 0),
+    fail_count: toFiniteNumber(row?.fail_count, 0),
+    avg_duration_ms: toFiniteNumber(row?.avg_duration_ms, 0),
+    p95_duration_ms: toFiniteNumber(row?.p95_duration_ms, 0),
+    active_users: toFiniteNumber(row?.active_users, 0)
+  }
+
+  setCachedSummary(cacheKey, result)
+  return result
 }
 
 function applyStatusFilter<T extends { gte: Function; lt: Function; or: Function }>(
@@ -89,42 +310,54 @@ function applyStatusFilter<T extends { gte: Function; lt: Function; or: Function
 
 function normalizeOperationLabel(operation: string): string {
   if (OPERATION_LABELS[operation]) return OPERATION_LABELS[operation]
-
-  if (operation.startsWith('convert_')) {
-    const kind = operation.slice('convert_'.length)
-    if (kind === 'ddl') return 'DDL 翻译'
-    if (kind === 'func' || kind === 'function') return '函数翻译'
-    if (kind === 'proc' || kind === 'procedure') return '存储过程翻译'
-    if (kind === 'verify') return 'AI 校验'
-    if (kind === 'verify_error' || kind.endsWith('_error')) return 'SQL 转换异常'
-    return `SQL 转换（${kind}）`
-  }
-
-  if (operation.startsWith('rule_')) {
-    const action = operation.slice('rule_'.length)
-    if (action === 'read') return '读取规则'
-    if (action === 'save') return '保存规则'
-    if (action === 'reset') return '重置规则'
-  }
-
-  if (operation.startsWith('ziwei_history_')) {
-    const action = operation.slice('ziwei_history_'.length)
-    if (action === 'list') return '紫微历史查询'
-    if (action === 'create') return '紫微历史保存'
-    if (action === 'delete') return '紫微历史删除'
-  }
-
-  if (operation.endsWith('_error')) {
-    const base = operation.slice(0, -'_error'.length).replaceAll('_', ' ')
-    return `${base} 异常`
-  }
-
+  if (operation === 'sql-convert' || operation.startsWith('convert_')) return 'SQL AI转换'
   return operation.replaceAll('_', ' ')
 }
 
-function normalizeApiLabel(apiName: string): string {
-  if (API_LABELS[apiName]) return API_LABELS[apiName]
-  return apiName.replaceAll('-', ' ')
+function toRecordLike(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
+async function writeClientOperationLog(
+  userId: string,
+  userEmail: string,
+  clientIp: string,
+  payload: ClientLogRequest
+): Promise<void> {
+  const operation = String(payload.operation || '').trim()
+  if (!CLIENT_LOG_OPERATIONS.has(operation)) {
+    throw new Error('invalid_operation')
+  }
+
+  const responseStatusRaw = Number(payload.response_status)
+  const durationMsRaw = Number(payload.duration_ms)
+
+  await logOperation({
+    userId,
+    userEmail,
+    clientIp,
+    operation,
+    apiName:
+      typeof payload.api_name === 'string' && payload.api_name.trim()
+        ? payload.api_name.trim()
+        : 'client',
+    requestBody: toRecordLike(payload.request_body),
+    responseBody: toRecordLike(payload.response_body),
+    responseStatus:
+      Number.isFinite(responseStatusRaw) && responseStatusRaw >= 100 && responseStatusRaw <= 599
+        ? responseStatusRaw
+        : 200,
+    durationMs:
+      Number.isFinite(durationMsRaw) && durationMsRaw >= 0 && durationMsRaw <= 600_000
+        ? Math.round(durationMsRaw)
+        : 0,
+    errorMessage:
+      typeof payload.error_message === 'string' && payload.error_message.trim()
+        ? payload.error_message.trim().slice(0, 500)
+        : undefined,
+    extra: toRecordLike(payload.extra)
+  })
 }
 
 async function buildFilterOptions(
@@ -135,7 +368,7 @@ async function buildFilterOptions(
 ) {
   let optionQuery = adminClient
     .from('operation_logs')
-    .select('operation, api_name')
+    .select('operation')
     .order('created_at', { ascending: false })
     .limit(1000)
 
@@ -148,115 +381,49 @@ async function buildFilterOptions(
   const { data: optionRows, error: optionError } = await optionQuery
   if (optionError) throw optionError
 
-  const operationValues = new Set<string>()
-  const apiValues = new Set<string>()
-
+  const operationValues = new Set<string>(Object.keys(OPERATION_LABELS))
   for (const row of optionRows || []) {
-    if (row.operation) operationValues.add(row.operation)
-    if (row.api_name) apiValues.add(row.api_name)
+    if (row.operation && OPERATION_LABELS[row.operation]) operationValues.add(row.operation)
   }
 
-  for (const key of Object.keys(OPERATION_LABELS)) operationValues.add(key)
-  for (const key of Object.keys(API_LABELS)) apiValues.add(key)
-
-  const operation_options = [
-    { value: '', label: '全部操作' },
-    ...Array.from(operationValues)
-      .sort((a, b) => a.localeCompare(b))
-      .map((value) => ({ value, label: normalizeOperationLabel(value) }))
-  ]
-
-  const api_options = [
-    { value: '', label: '全部接口' },
-    ...Array.from(apiValues)
-      .sort((a, b) => a.localeCompare(b))
-      .map((value) => ({ value, label: normalizeApiLabel(value) }))
-  ]
-
-  return { operation_options, api_options }
-}
-
-function computeSummary(items: LogRowLite[]): {
-  total_requests: number
-  success_rate: number
-  fail_count: number
-  avg_duration_ms: number
-  p95_duration_ms: number
-  active_users: number
-} {
-  const totalCount = items.length
-  const successCount = items.filter(
-    (item) => item.response_status !== null && item.response_status >= 200 && item.response_status < 400
-  ).length
-  const failCount = Math.max(0, totalCount - successCount)
-  const successRate = totalCount > 0 ? Number(((successCount / totalCount) * 100).toFixed(1)) : 0
-
-  const durations = items
-    .map((item) => item.duration_ms)
-    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
-    .sort((a, b) => a - b)
-
-  const avgDuration =
-    durations.length > 0
-      ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
-      : 0
-  const p95Duration =
-    durations.length > 0
-      ? durations[Math.min(durations.length - 1, Math.floor(durations.length * 0.95))]
-      : 0
-
-  const activeUsers = new Set(
-    items
-      .map((item) => (item.user_email || '').trim().toLowerCase())
-      .filter(Boolean)
-  ).size
-
   return {
-    total_requests: totalCount,
-    success_rate: successRate,
-    fail_count: failCount,
-    avg_duration_ms: avgDuration,
-    p95_duration_ms: Math.round(p95Duration),
-    active_users: activeUsers
+    operation_options: [
+      { value: '', label: '全部操作' },
+      ...Array.from(operationValues)
+        .sort((a, b) => a.localeCompare(b))
+        .map((value) => ({ value, label: normalizeOperationLabel(value) }))
+    ]
   }
 }
 
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req)
   if (req.method === 'OPTIONS') {
-    if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+    if (!corsHeaders) {
+      return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+    }
     return new Response('ok', { headers: corsHeaders })
   }
-  if (!corsHeaders) return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+  if (!corsHeaders) {
+    return jsonResponse(403, { error: 'CORS origin not allowed' }, defaultCorsHeaders())
+  }
 
   const clientIp = getClientIp(req)
 
   try {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!SUPABASE_URL) {
       return jsonResponse(500, { error: 'server_not_ready' }, corsHeaders)
     }
 
     const token = extractBearerToken(req.headers.get('authorization'))
     if (!token) return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
 
-    const sessionState = await validateUserSession(token, {
-      supabaseUrl: SUPABASE_URL,
-      supabaseAnonKey: SUPABASE_ANON_KEY
-    })
-    if (sessionState.state !== 'valid') {
-      return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
-    }
-    const { userId, email } = sessionState
+    const claims = decodeJwtClaims(token)
+    if (!claims) return jsonResponse(401, { error: 'unauthorized' }, corsHeaders)
 
-    // 异步加载限流配置
+    const { userId, email } = claims
     const rateLimitConfig = await loadRateLimitConfig()
-    const rateLimiter = createRateLimiter({
-      scope: 'operation-logs',
-      windowMs: rateLimitConfig.windowMs,
-      maxRequests: rateLimitConfig.maxRequests,
-      trackMax: rateLimitConfig.trackMax,
-      storeMode: rateLimitConfig.storeMode
-    })
+    const rateLimiter = getRateLimiter(rateLimitConfig)
 
     let limit
     try {
@@ -265,46 +432,95 @@ Deno.serve(async (req) => {
       logEdgeError('operation-logs', 'rate_limit_failed', err)
       limit = { ok: true, remaining: rateLimitConfig.maxRequests }
     }
+
     if (!limit.ok) {
       return jsonResponse(429, { error: 'rate_limited' }, corsHeaders, {
         'Retry-After': String(limit.retryAfter)
       })
     }
 
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const adminClient = createClient(SUPABASE_URL, serviceRoleKey)
+
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => null)
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return jsonResponse(400, { error: 'invalid_payload' }, corsHeaders)
+      }
+
+      try {
+        await writeClientOperationLog(userId, email, clientIp, body as ClientLogRequest)
+        return jsonResponse(200, { ok: true }, corsHeaders)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (message === 'invalid_operation') {
+          return jsonResponse(400, { error: 'invalid_operation' }, corsHeaders)
+        }
+        logEdgeError('operation-logs', 'write_failed', err)
+        return errorResponse(500, 'logs_write_failed', corsHeaders)
+      }
+    }
+
     if (req.method !== 'GET') {
       return jsonResponse(405, { error: 'method_not_allowed' }, corsHeaders)
     }
 
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    const adminClient = createClient(SUPABASE_URL, serviceRoleKey)
+    let isAdmin = false
+    if (email) {
+      if (STATIC_ADMIN_EMAILS.size > 0) {
+        isAdmin = STATIC_ADMIN_EMAILS.has(email)
+      } else {
+        const cached = adminCheckCache.get(email)
+        if (cached && cached.expiresAt > Date.now()) {
+          isAdmin = cached.isAdmin
+        } else {
+          const { data: adminCheck } = await adminClient
+            .from('admin_users')
+            .select('email')
+            .eq('email', email)
+            .maybeSingle()
 
-    // Check if user is admin
-    const { data: adminCheck } = await adminClient
-      .from('admin_users')
-      .select('email')
-      .eq('email', email)
-      .maybeSingle()
-
-    const isAdmin = !!adminCheck
+          isAdmin = !!adminCheck
+          if (!adminCheckCache.has(email) && adminCheckCache.size >= ADMIN_CACHE_MAX_ENTRIES) {
+            for (const [key, value] of adminCheckCache.entries()) {
+              if (value.expiresAt <= Date.now()) adminCheckCache.delete(key)
+            }
+            if (adminCheckCache.size >= ADMIN_CACHE_MAX_ENTRIES) {
+              const oldestKey = adminCheckCache.keys().next().value
+              if (oldestKey) adminCheckCache.delete(oldestKey)
+            }
+          }
+          adminCheckCache.set(email, {
+            isAdmin,
+            expiresAt: Date.now() + ADMIN_CACHE_TTL_MS
+          })
+        }
+      }
+    }
 
     const url = new URL(req.url)
     const page = Math.max(1, parsePositiveInt(url.searchParams.get('page'), 1))
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, parsePositiveInt(url.searchParams.get('page_size'), DEFAULT_PAGE_SIZE)))
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, parsePositiveInt(url.searchParams.get('page_size'), DEFAULT_PAGE_SIZE))
+    )
     const status = String(url.searchParams.get('status') || '').trim() as StatusFilter
     const operation = url.searchParams.get('operation') || ''
-    const apiName = url.searchParams.get('api_name') || ''
     const startDate = url.searchParams.get('start_date') || ''
     const endDate = url.searchParams.get('end_date') || ''
     const searchUserId = url.searchParams.get('user_id') || ''
-
+    const withSummary = parseIncludeFlag(url.searchParams.get('with_summary'), true)
+    const withOptions = parseIncludeFlag(url.searchParams.get('with_options'), true)
+    const withTotal = parseIncludeFlag(url.searchParams.get('with_total'), true)
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
-    let query = adminClient
-      .from('operation_logs')
-      .select('id, created_at, user_id, user_email, client_ip, operation, api_name, request_body, response_body, response_status, duration_ms, error_message, extra', { count: 'exact' })
+    const selectColumns =
+      'id, created_at, user_id, user_email, client_ip, operation, api_name, request_body, response_body, response_status, duration_ms, error_message, extra'
+    let query = withTotal
+      ? adminClient.from('operation_logs').select(selectColumns, { count: 'exact' })
+      : adminClient.from('operation_logs').select(selectColumns)
 
-    // Non-admin users can only see their own logs
     if (!isAdmin) {
       query = query.eq('user_id', userId)
     } else if (searchUserId) {
@@ -315,77 +531,55 @@ Deno.serve(async (req) => {
       query = applyStatusFilter(query, status)
     }
     if (operation) query = query.eq('operation', operation)
-    if (apiName) query = query.eq('api_name', apiName)
     if (startDate) query = query.gte('created_at', toDateRangeStart(startDate))
     if (endDate) query = query.lte('created_at', toDateRangeEnd(endDate))
 
     query = query.order('created_at', { ascending: false }).range(from, to)
 
     const { data, error: dbError, count } = await query
-
     if (dbError) {
       logEdgeError('operation-logs', 'query_failed', dbError)
       return errorResponse(500, 'logs_query_failed', corsHeaders)
     }
 
-    // Summary cards (按当前筛选范围)
-    let summaryQuery = adminClient
-      .from('operation_logs')
-      .select('response_status, duration_ms, user_email')
-    if (startDate) summaryQuery = summaryQuery.gte('created_at', toDateRangeStart(startDate))
-    if (endDate) summaryQuery = summaryQuery.lte('created_at', toDateRangeEnd(endDate))
-
-    if (!isAdmin) {
-      summaryQuery = summaryQuery.eq('user_id', userId)
-    } else if (searchUserId) {
-      summaryQuery = summaryQuery.eq('user_id', searchUserId)
+    const filters: LogFilterParams = {
+      isAdmin,
+      userId,
+      searchUserId,
+      status,
+      operation,
+      startDate,
+      endDate
     }
 
-    if (status === 'success' || status === 'fail') {
-      summaryQuery = applyStatusFilter(summaryQuery, status)
-    }
-    if (operation) {
-      summaryQuery = summaryQuery.eq('operation', operation)
-    }
-    if (apiName) {
-      summaryQuery = summaryQuery.eq('api_name', apiName)
-    }
+    const [summary, options] = await Promise.all([
+      withSummary ? fetchLogSummary(adminClient, filters) : Promise.resolve(null),
+      withOptions ? buildFilterOptions(adminClient, isAdmin, userId, searchUserId) : Promise.resolve(null)
+    ])
 
-    const [{ data: summaryRows, error: summaryError }, options] =
-      await Promise.all([
-        summaryQuery,
-        buildFilterOptions(adminClient, isAdmin, userId, searchUserId)
-      ])
-
-    if (summaryError) {
-      logEdgeError('operation-logs', 'summary_failed', summaryError)
-      return errorResponse(500, 'logs_summary_failed', corsHeaders)
-    }
-
-    const summaryItems = (summaryRows || []) as LogRowLite[]
-    const summaryStats = computeSummary(summaryItems)
-
-    const requestChangeRate = null
-
-    return jsonResponse(200, {
+    const responseData: Record<string, unknown> = {
       ok: true,
       items: data || [],
-      total: count || 0,
       page,
       page_size: pageSize,
-      is_admin: isAdmin,
-      summary: {
-        today_requests: summaryStats.total_requests,
-        request_change_rate: requestChangeRate,
-        success_rate: summaryStats.success_rate,
-        fail_count: summaryStats.fail_count,
-        avg_duration_ms: summaryStats.avg_duration_ms,
-        p95_duration_ms: summaryStats.p95_duration_ms,
-        active_users: summaryStats.active_users
-      },
-      operation_options: options.operation_options,
-      api_options: options.api_options
-    }, corsHeaders)
+      is_admin: isAdmin
+    }
+
+    if (withTotal) responseData.total = count || 0
+    if (summary) {
+      responseData.summary = {
+        total_requests: summary.total_requests,
+        request_change_rate: null,
+        success_rate: summary.success_rate,
+        fail_count: summary.fail_count,
+        avg_duration_ms: summary.avg_duration_ms,
+        p95_duration_ms: summary.p95_duration_ms,
+        active_users: summary.active_users
+      }
+    }
+    if (options) responseData.operation_options = options.operation_options
+
+    return jsonResponse(200, responseData, corsHeaders)
   } catch (err) {
     logEdgeError('operation-logs', 'internal_error', err)
     return errorResponse(500, 'internal_error', corsHeaders)

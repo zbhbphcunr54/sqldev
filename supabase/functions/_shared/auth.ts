@@ -1,6 +1,33 @@
 export type SessionValidationResult =
-  | { state: 'valid'; userId: string; email: string }
+  | {
+      state: 'valid'
+      userId: string
+      email: string
+      appMetadata: Record<string, unknown>
+      userMetadata: Record<string, unknown>
+      isAdminHint: boolean
+    }
   | { state: 'invalid' | 'error' }
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function toBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'true' || normalized === '1' || normalized === 'yes'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
+}
+
+function hasAdminRole(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => String(item).trim().toLowerCase() === 'admin')
+}
 
 function buildAuthUserEndpoint(supabaseUrl: string): string {
   return supabaseUrl ? `${supabaseUrl}/auth/v1/user` : ''
@@ -31,8 +58,15 @@ export async function validateUserSession(
       const payload = await res.json().catch(() => null)
       const userId = typeof payload?.id === 'string' ? payload.id : ''
       const email = typeof payload?.email === 'string' ? payload.email.trim().toLowerCase() : ''
+      const appMetadata = toRecord(payload?.app_metadata)
+      const userMetadata = toRecord(payload?.user_metadata)
+      const isAdminHint =
+        toBoolean(appMetadata.is_admin) ||
+        toBoolean(userMetadata.is_admin) ||
+        hasAdminRole(appMetadata.roles) ||
+        hasAdminRole(userMetadata.roles)
       if (!userId) return { state: 'error' }
-      return { state: 'valid', userId, email }
+      return { state: 'valid', userId, email, appMetadata, userMetadata, isAdminHint }
     }
     if (res.status === 401 || res.status === 403) return { state: 'invalid' }
     return { state: 'error' }
@@ -58,8 +92,12 @@ export async function validateBearerToken(
  */
 export async function checkIsAdmin(
   adminClient: { from: (table: string) => { select: (columns: string) => { eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: unknown }> } } } },
-  email: string
+  email: string,
+  options?: { sessionAdminHint?: boolean }
 ): Promise<boolean> {
+  if (options?.sessionAdminHint) {
+    return true
+  }
   try {
     const { data } = await adminClient
       .from('admin_users')
@@ -68,6 +106,6 @@ export async function checkIsAdmin(
       .maybeSingle()
     return !!data
   } catch {
-    return false
+    return Boolean(options?.sessionAdminHint)
   }
 }

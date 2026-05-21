@@ -21,7 +21,10 @@ const category = ref<FeedbackRequest['category']>('feature')
 const content = ref('')
 const contact = ref('')
 const loading = ref(false)
-const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({ type: 'idle', text: '' })
+const status = ref<{ type: 'idle' | 'success' | 'error'; text: string }>({
+  type: 'idle',
+  text: ''
+})
 
 const MAX_LENGTH = 1200
 const charCount = computed(() => content.value.length)
@@ -41,11 +44,9 @@ watch(open, (isOpen) => {
   document.body.classList.toggle('feedback-open', isOpen)
   if (isOpen) {
     status.value = { type: 'idle', text: '' }
-    // 预热 Edge Function，用户填表单期间完成冷启动
     if (supabaseUrl) {
-      // Warm Edge Function to overlap user typing with cold start
       fetch(`${supabaseUrl}/functions/v1/feedback`, { method: 'OPTIONS' }).catch(() => {
-        // Warmup failure is non-critical — user may still submit successfully
+        // Warmup failure is non-critical; user may still submit successfully
       })
     }
   }
@@ -79,7 +80,7 @@ async function handleSubmit(): Promise<void> {
     await submitFeedback({
       category: category.value,
       content: contact.value
-        ? content.value.trim() + '\n\n联系方式：' + contact.value.trim()
+        ? `${content.value.trim()}\n\n联系方式：${contact.value.trim()}`
         : content.value.trim(),
       source: props.source
     })
@@ -101,7 +102,6 @@ function closeFeedback(): void {
 
 <template>
   <aside>
-    <!-- FAB -->
     <button
       class="feedback-fab"
       :class="{ 'feedback-fab--active': open }"
@@ -131,7 +131,6 @@ function closeFeedback(): void {
       </span>
     </button>
 
-    <!-- Overlay -->
     <Transition name="feedback-fade">
       <div
         v-if="open"
@@ -146,7 +145,6 @@ function closeFeedback(): void {
           aria-modal="true"
           aria-labelledby="feedback-title"
         >
-          <!-- Header -->
           <div class="feedback-modal-head">
             <h3 id="feedback-title">产品建议</h3>
             <button class="feedback-close" type="button" aria-label="关闭" @click="closeFeedback">
@@ -164,28 +162,27 @@ function closeFeedback(): void {
               </svg>
             </button>
           </div>
-          <p class="feedback-modal-desc">告诉我们你希望改进的功能、体验或问题，我们会持续优化。</p>
+          <p class="feedback-modal-desc">
+            告诉我们你希望改进的功能、体验或问题，我们会持续优化。
+          </p>
 
-          <!-- Category -->
           <label class="feedback-label">建议类型</label>
           <FormSelect v-model="category" :options="categoryOptions" placeholder="选择建议类型" />
 
-          <!-- Content -->
           <label class="feedback-label" for="feedback-content">建议内容</label>
           <textarea
             id="feedback-content"
             v-model="content"
             class="feedback-textarea"
-            placeholder="例如：希望增加批量翻译、结果差异对比、规则模板共享..."
+            placeholder="例如：希望增加批量转换、结果差异对比、规则模板共享..."
           ></textarea>
           <div class="feedback-meta-row">
-            <span class="feedback-hint">请尽量描述场景和期望结果，便于我们快速落地。</span>
-            <span class="feedback-count" :class="{ over: isOverLimit }"
-              >{{ charCount }}/{{ MAX_LENGTH }}</span
-            >
+            <span class="feedback-hint">请尽量描述使用场景和期望结果，便于我们更快落地。</span>
+            <span class="feedback-count" :class="{ over: isOverLimit }">
+              {{ charCount }}/{{ MAX_LENGTH }}
+            </span>
           </div>
 
-          <!-- Contact -->
           <label class="feedback-label" for="feedback-contact">联系方式（选填）</label>
           <input
             id="feedback-contact"
@@ -194,7 +191,6 @@ function closeFeedback(): void {
             placeholder="邮箱 / 微信 / 其他联系方式"
           />
 
-          <!-- Status -->
           <p
             v-if="status.text"
             class="feedback-status"
@@ -205,7 +201,6 @@ function closeFeedback(): void {
             {{ status.text }}
           </p>
 
-          <!-- Actions -->
           <div class="feedback-actions">
             <button class="feedback-btn" type="button" @click="closeFeedback">取消</button>
             <button
@@ -224,7 +219,7 @@ function closeFeedback(): void {
 </template>
 
 <style>
-/* ── FAB ── */
+/* FAB */
 .feedback-fab {
   position: fixed;
   left: 0;
@@ -270,7 +265,7 @@ function closeFeedback(): void {
   border-radius: 0 6px 6px 0;
   background: linear-gradient(160deg, var(--color-brand-600), var(--color-brand-500));
   box-shadow:
-    0 4px 16px rgba(0, 113, 227, 0.25),
+    var(--shadow-brand),
     0 1px 3px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition:
@@ -279,7 +274,7 @@ function closeFeedback(): void {
 }
 .feedback-fab:hover .feedback-fab__inner {
   box-shadow:
-    0 8px 28px rgba(0, 113, 227, 0.35),
+    var(--shadow-brand-hover),
     0 2px 6px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
   background: linear-gradient(160deg, var(--color-accent-hover), var(--color-brand-500));
@@ -288,7 +283,7 @@ function closeFeedback(): void {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--color-btn-primary-text);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .feedback-fab:hover .feedback-fab__icon {
@@ -297,7 +292,7 @@ function closeFeedback(): void {
 .feedback-fab__text {
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  color: #fff;
+  color: var(--color-btn-primary-text);
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
@@ -312,14 +307,14 @@ function closeFeedback(): void {
 }
 .feedback-fab:focus-visible .feedback-fab__inner {
   box-shadow:
-    0 0 0 3px rgba(0, 113, 227, 0.3),
-    0 4px 16px rgba(0, 113, 227, 0.25);
+    var(--shadow-focus-ring),
+    var(--shadow-brand);
 }
 
-/* ── Dark theme adjustments ── */
+/* Dark theme adjustments */
 [data-theme='dark'] .feedback-fab__inner {
   box-shadow:
-    0 4px 16px rgba(0, 113, 227, 0.35),
+    var(--shadow-brand),
     0 1px 3px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -328,7 +323,7 @@ body.feedback-open {
   overflow: hidden;
 }
 
-/* ── Overlay ── */
+/* Overlay */
 .feedback-overlay {
   position: fixed;
   inset: 0;
@@ -341,7 +336,7 @@ body.feedback-open {
   backdrop-filter: blur(4px);
 }
 
-/* ── Modal ── */
+/* Modal */
 .feedback-modal {
   width: min(480px, 96vw);
   border: 1px solid var(--color-border);
@@ -406,7 +401,7 @@ body.feedback-open {
   font-size: var(--text-base);
 }
 
-/* ── Form ── */
+/* Form */
 .feedback-label {
   display: block;
   margin: 14px 0 6px;
@@ -451,7 +446,7 @@ body.feedback-open {
   box-shadow: var(--shadow-focus-ring);
 }
 
-/* ── Meta row ── */
+/* Meta row */
 .feedback-meta-row {
   display: flex;
   align-items: center;
@@ -473,7 +468,7 @@ body.feedback-open {
   color: var(--color-danger);
 }
 
-/* ── Status ── */
+/* Status */
 .feedback-status {
   min-height: 18px;
   margin: 10px 0 0;
@@ -487,7 +482,7 @@ body.feedback-open {
   color: var(--color-success);
 }
 
-/* ── Actions ── */
+/* Actions */
 .feedback-actions {
   display: flex;
   justify-content: flex-end;
@@ -517,19 +512,19 @@ body.feedback-open {
 }
 .feedback-btn.primary {
   border: none;
-  color: #fff;
+  color: var(--color-btn-primary-text);
   background: linear-gradient(135deg, var(--color-brand-600), var(--color-brand-500));
-  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.3);
+  box-shadow: var(--shadow-brand);
   font-weight: 600;
 }
 .feedback-btn.primary:hover {
-  box-shadow: 0 6px 20px rgba(0, 113, 227, 0.4);
+  box-shadow: var(--shadow-brand-hover);
   transform: translateY(-1px);
   background: linear-gradient(135deg, var(--color-accent-hover), var(--color-brand-500));
 }
 .feedback-btn.primary:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+  box-shadow: var(--shadow-brand);
 }
 .feedback-btn:disabled {
   cursor: not-allowed;
@@ -538,7 +533,7 @@ body.feedback-open {
   box-shadow: none;
 }
 
-/* ── Transition ── */
+/* Transition */
 .feedback-fade-enter-active,
 .feedback-fade-leave-active {
   transition: opacity var(--duration-normal) var(--ease-apple);
@@ -548,7 +543,7 @@ body.feedback-open {
   opacity: 0;
 }
 
-/* ── Scrollbar ── */
+/* Scrollbar */
 .feedback-modal::-webkit-scrollbar {
   width: 5px;
 }
@@ -560,7 +555,7 @@ body.feedback-open {
   border-radius: var(--scrollbar-radius);
 }
 
-/* ── Mobile ── */
+/* Mobile */
 @media (max-width: 480px) {
   .feedback-modal {
     padding: 20px 16px;

@@ -7,6 +7,10 @@
         "/^node -v$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^cmd\\.exe /c \"cd /d D:\\\\codextest\\\\sqldev && pnpm verify\"$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

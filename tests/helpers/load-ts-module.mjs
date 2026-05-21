@@ -45,6 +45,24 @@ function loadInternal(relativePath, root) {
     exports: module.exports,
     module,
     require(request) {
+      if (typeof request === 'string' && request.startsWith('@/')) {
+        const aliasedRelative = 'src/' + request.slice(2)
+        const candidates = [
+          aliasedRelative,
+          `${aliasedRelative}.ts`,
+          `${aliasedRelative}.js`,
+          path.join(aliasedRelative, 'index.ts'),
+          path.join(aliasedRelative, 'index.js')
+        ]
+        const resolved = candidates.find((c) => {
+          const full = path.join(root, c)
+          return fs.existsSync(full) && fs.statSync(full).isFile()
+        })
+        if (!resolved) {
+          throw new Error(`Cannot resolve alias require "${request}" from ${normalizedPath}`)
+        }
+        return loadInternal(resolved.replace(/\\/g, '/'), root)
+      }
       if (typeof request === 'string' && (request.startsWith('./') || request.startsWith('../'))) {
         const resolved = resolveLocalModulePath(root, normalizedPath, request)
         if (!resolved) {

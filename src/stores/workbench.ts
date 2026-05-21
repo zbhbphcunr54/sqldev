@@ -1,14 +1,16 @@
-import { computed, ref } from 'vue'
+﻿import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { requestSqlConvert } from '@/api/sql-convert'
+import { requestSqlConvertStream } from '@/api/sql-convert'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import { ApiError } from '@/lib/edge'
 import { DB_META_MAP, type DbMeta } from '@/features/sql/db-meta'
+import { formatSqlForDisplay } from '@/features/sql/sql-format'
 import { appConfigApi } from '@/api/app-config'
 import { getJson, setJson } from '@/utils/storage'
 
 const SAMPLE_CACHE_KEY = 'sqldev:workbench:sample_cache'
 const SAMPLE_CACHE_TTL = 30 * 60 * 1000
+const STREAM_PREVIEW_FLUSH_MS = 120
 
 interface SampleCacheData {
   version: number
@@ -93,6 +95,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     message: '',
     _resolve: null as ((value: boolean) => void) | null
   })
+  let previewBuffer = ''
+  let previewTimer: ReturnType<typeof setTimeout> | null = null
 
   // === Computed ===
   const isWorkbenchPage = computed(() => NAV_PAGES.includes(activePage.value))
@@ -122,12 +126,34 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     manualParts.value = []
     notes.value = []
     accuracy.value = null
+    previewBuffer = ''
+    if (previewTimer) {
+      clearTimeout(previewTimer)
+      previewTimer = null
+    }
+  }
+
+  function formatOutputPreview(text: string): string {
+    return formatSqlForDisplay(text, { sqlType: sqlType.value })
+  }
+
+  function flushPreviewBuffer(): void {
+    if (!previewBuffer) return
+    outputSql.value = formatOutputPreview(previewBuffer)
+    previewTimer = null
+  }
+
+  function schedulePreviewFlush(): void {
+    if (previewTimer) return
+    previewTimer = setTimeout(() => {
+      flushPreviewBuffer()
+    }, STREAM_PREVIEW_FLUSH_MS)
   }
 
   // === Actions ===
   function setPage(page: WorkbenchPage): void {
     activePage.value = page
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 1024) {
       sidebarOpen.value = false
     }
   }
@@ -164,28 +190,40 @@ export const useWorkbenchStore = defineStore('workbench', () => {
 
     const startTime = Date.now()
     converting.value = true
+    resetOutputState()
+    translateTimeMs.value = null
     status.value = 'loading'
-    statusText.value = 'AI 正在转换...'
+    statusText.value = 'AI 正在建立连接...'
 
     try {
-      const result = await requestSqlConvert({
+      const result = await requestSqlConvertStream({
         sourceDb: sourceDb.value,
         targetDb: targetDb.value,
         sqlType: sqlType.value,
         inputSql: inputSql.value
+      }, {
+        onMeta: ({ model }) => {
+          statusText.value = model ? `AI 正在流式生成 - ${model}` : 'AI 正在流式生成...'
+        },
+        onDelta: ({ text, replace }) => {
+          previewBuffer = replace ? text : previewBuffer + text
+          schedulePreviewFlush()
+          statusText.value = 'AI 正在流式生成...'
+        }
       })
 
       translateTimeMs.value = Date.now() - startTime
 
       if (result.ok) {
-        outputSql.value = result.outputSql || ''
+        flushPreviewBuffer()
+        outputSql.value = formatOutputPreview(result.outputSql || previewBuffer || outputSql.value)
         aiRatio.value = result.aiRatio ?? null
         manualNeeded.value = result.manualNeeded ?? false
         manualParts.value = result.manualParts ?? []
         notes.value = result.notes ?? []
         accuracy.value = result.accuracy ?? null
         status.value = 'success'
-        statusText.value = result.model ? `转换完成 — ${result.model}` : '转换完成'
+        statusText.value = result.model ? `转换完成 - ${result.model}` : '转换完成'
       } else {
         resetOutputState()
         status.value = 'error'
@@ -251,7 +289,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
       return
     }
 
-    // 未配置
+    // 未配置示例
     status.value = 'idle'
     const dbLabel = dbMetaMap[db]?.label ?? db
     statusText.value = `"${dbLabel}" 数据库示例尚未配置，请在 app_configs 表中添加 sql_convert_sample 配置项`
@@ -281,6 +319,16 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     status.value = 'idle'
     statusText.value = '已清空'
     translateTimeMs.value = null
+  }
+
+  function resetSqlConvertWorkspace(): void {
+    inputSql.value = ''
+    resetOutputState()
+    converting.value = false
+    status.value = 'idle'
+    statusText.value = '工作台已就绪'
+    translateTimeMs.value = null
+    loadingSample.value = false
   }
 
   function setDbOptions(options: DbOption[]): void {
@@ -399,6 +447,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     loadSample,
     prefetchSamples,
     clearAll,
+    resetSqlConvertWorkspace,
     setDbOptions,
     initDbOptionsFromConfig,
     showAlert,

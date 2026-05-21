@@ -1,8 +1,7 @@
-<!-- [2026-05-07] 新增 Key / 追加模型弹窗 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
+import type { AiProviderConfig, AiProviderDef } from '@/features/ai'
 import FormSelect from '@/components/common/FormSelect.vue'
 
 const props = defineProps<{
@@ -10,7 +9,7 @@ const props = defineProps<{
   providers: AiProviderDef[]
   existingConfigs: AiProviderConfig[]
   prefillProviderId?: string
-  prefillApiKey?: string
+  prefillApiKeyMasked?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,11 +21,12 @@ const emit = defineEmits<{
       api_key: string
       base_url?: string
       name?: string
+      api_key_masked?: string
+      reuse_config_id?: string
     }
   ]
 }>()
 
-// Form state
 const selectedProviderId = ref('')
 const selectedModel = ref('')
 const apiKey = ref('')
@@ -34,45 +34,66 @@ const baseUrl = ref('')
 const note = ref('')
 const submitting = ref(false)
 
-// Append mode
 const isAppendMode = computed(() => !!props.prefillProviderId)
 
-// Computed
 const selectedProvider = computed(() =>
-  props.providers.find((p) => p.id === selectedProviderId.value)
+  props.providers.find((provider) => provider.id === selectedProviderId.value)
 )
+
+const reusableConfig = computed(() => {
+  if (!isAppendMode.value) return null
+  return (
+    props.existingConfigs.find(
+      (config) =>
+        config.provider_id === selectedProviderId.value &&
+        config.api_key_masked === props.prefillApiKeyMasked
+    ) ?? null
+  )
+})
 
 const availableModels = computed(() => {
   if (!selectedProvider.value) return []
+
   if (isAppendMode.value) {
     const existing = props.existingConfigs
-      .filter((c) => c.provider_id === selectedProviderId.value)
-      .map((c) => c.model)
-    return selectedProvider.value.models.filter((m) => !existing.includes(m))
+      .filter(
+        (config) =>
+          config.provider_id === selectedProviderId.value &&
+          config.api_key_masked === props.prefillApiKeyMasked
+      )
+      .map((config) => config.model)
+    return selectedProvider.value.models.filter((model) => !existing.includes(model))
   }
+
   return selectedProvider.value.models
 })
 
 const providerOptions = computed(() =>
-  props.providers.map((p) => ({ value: p.id, label: p.label }))
+  props.providers.map((provider) => ({
+    value: provider.id,
+    label: provider.label
+  }))
 )
 
-const modelOptions = computed(() => availableModels.value.map((m) => ({ value: m, label: m })))
+const modelOptions = computed(() =>
+  availableModels.value.map((model) => ({
+    value: model,
+    label: model
+  }))
+)
 
-// Watch provider change to auto-fill URL and default model
-watch(selectedProviderId, (newId) => {
-  const p = props.providers.find((pr) => pr.id === newId)
-  if (p) {
-    baseUrl.value = p.base_url
-    selectedModel.value = availableModels.value[0] ?? ''
-  }
+watch(selectedProviderId, (providerId) => {
+  const provider = props.providers.find((item) => item.id === providerId)
+  if (!provider) return
+
+  baseUrl.value = provider.base_url
+  selectedModel.value = availableModels.value[0] ?? ''
 })
 
-// Reset form when modal opens
 watch(
   () => props.open,
-  (val) => {
-    if (val) {
+  (open) => {
+    if (open) {
       resetForm()
     }
   }
@@ -82,31 +103,35 @@ function resetForm(): void {
   if (isAppendMode.value) {
     selectedProviderId.value = props.prefillProviderId ?? ''
     apiKey.value = ''
-    const p = props.providers.find((pr) => pr.id === selectedProviderId.value)
-    baseUrl.value = p?.base_url ?? ''
+    const provider = props.providers.find((item) => item.id === selectedProviderId.value)
+    baseUrl.value = provider?.base_url ?? ''
     selectedModel.value = availableModels.value[0] ?? ''
   } else {
-    selectedProviderId.value = props.providers[0]?.id ?? ''
-    selectedModel.value = props.providers[0]?.models[0] ?? ''
+    const firstProvider = props.providers[0]
+    selectedProviderId.value = firstProvider?.id ?? ''
+    selectedModel.value = firstProvider?.models[0] ?? ''
     apiKey.value = ''
-    baseUrl.value = props.providers[0]?.base_url ?? ''
+    baseUrl.value = firstProvider?.base_url ?? ''
   }
+
   note.value = ''
   submitting.value = false
 }
 
-// Submit
 function handleSubmit(): void {
   if (!selectedProviderId.value || !selectedModel.value) return
-  if (!isAppendMode.value && !apiKey.value) return
+  if (!isAppendMode.value && !apiKey.value.trim()) return
+
   submitting.value = true
   try {
     emit('save', {
       provider_id: selectedProviderId.value,
       model: selectedModel.value,
-      api_key: apiKey.value,
-      base_url: baseUrl.value || undefined,
-      name: note.value || undefined
+      api_key: apiKey.value.trim(),
+      base_url: baseUrl.value.trim() || undefined,
+      name: note.value.trim() || undefined,
+      api_key_masked: isAppendMode.value ? props.prefillApiKeyMasked : undefined,
+      reuse_config_id: isAppendMode.value ? reusableConfig.value?.id : undefined
     })
   } finally {
     submitting.value = false
@@ -118,31 +143,36 @@ function handleSubmit(): void {
   <BaseModal :open="open" @close="emit('close')">
     <template #title>{{ isAppendMode ? '追加模型' : '新增 API Key' }}</template>
     <template #subtitle>
-      {{ isAppendMode ? '为该 Key 添加新的模型' : '添加新的 AI 服务密钥配置' }}
+      {{
+        isAppendMode
+          ? '为当前这组 Key 追加新的模型配置。'
+          : '新增一条 AI Key 配置，用于页面内 AI 调用。'
+      }}
     </template>
 
     <div class="form-body">
-      <!-- Provider & Model -->
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">选择供应商</label>
           <FormSelect
             v-model="selectedProviderId"
             :options="providerOptions"
-            placeholder="选择供应商"
+            placeholder="请选择供应商"
+            :disabled="isAppendMode"
           />
         </div>
+
         <div class="form-group">
-          <label class="form-label">{{ isAppendMode ? '可用模型' : '选择模型' }}</label>
+          <label class="form-label">{{ isAppendMode ? '可追加模型' : '选择模型' }}</label>
           <FormSelect
             v-model="selectedModel"
             :options="modelOptions"
-            :placeholder="availableModels.length === 0 ? '无可用模型' : '选择模型'"
+            :disabled="availableModels.length === 0"
+            :placeholder="availableModels.length === 0 ? '没有可选模型' : '请选择模型'"
           />
         </div>
       </div>
 
-      <!-- API Key -->
       <div v-if="!isAppendMode" class="form-group">
         <label class="form-label">API Key</label>
         <input
@@ -152,23 +182,24 @@ function handleSubmit(): void {
           class="form-input form-input-full"
         />
       </div>
+
       <div v-else class="form-group">
-        <label class="form-label">API Key</label>
-        <p class="form-hint">自动复用该供应商已有 Key</p>
+        <label class="form-label">复用 Key</label>
+        <p class="form-hint">
+          当前会复用这组配置对应的 Key：{{ prefillApiKeyMasked || '已隐藏' }}
+        </p>
       </div>
 
-      <!-- Base URL -->
       <div class="form-group">
         <label class="form-label">接口地址</label>
         <input
           v-model="baseUrl"
           type="text"
           placeholder="https://api.example.com/v1"
-          class="form-input form-input-mono form-input-full"
+          class="form-input form-input-full"
         />
       </div>
 
-      <!-- Note -->
       <div class="form-group">
         <label class="form-label">备注</label>
         <input
@@ -185,11 +216,14 @@ function handleSubmit(): void {
       <button
         class="btn btn-primary"
         :disabled="
-          submitting || (!isAppendMode && !apiKey) || !selectedModel || availableModels.length === 0
+          submitting ||
+          (!isAppendMode && !apiKey.trim()) ||
+          !selectedModel ||
+          availableModels.length === 0
         "
         @click="handleSubmit"
       >
-        {{ submitting ? '添加中...' : isAppendMode ? '添加模型' : '添加 Key' }}
+        {{ submitting ? '提交中...' : isAppendMode ? '追加模型' : '新增 Key' }}
       </button>
     </template>
   </BaseModal>
@@ -223,8 +257,7 @@ function handleSubmit(): void {
   font-weight: 500;
 }
 
-.form-input,
-.form-select {
+.form-input {
   height: 42px;
   padding: 0 14px;
   background: var(--color-panel-2);
@@ -233,11 +266,9 @@ function handleSubmit(): void {
   color: var(--color-text);
   font-size: 14px;
   font-family: var(--font-body);
-  transition: all 0.15s ease;
 }
 
-.form-input:focus,
-.form-select:focus {
+.form-input:focus {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-bg);
@@ -271,7 +302,6 @@ function handleSubmit(): void {
   font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .btn-cancel {

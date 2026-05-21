@@ -110,7 +110,7 @@
   width: 200px;
   height: 200px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(47, 107, 255, 0.1), transparent);
+  background: radial-gradient(circle, var(--color-accent-bg), transparent);
   pointer-events: none;
 }
 
@@ -126,7 +126,7 @@
 
 .nf-tag {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-btn-primary-text);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
@@ -184,16 +184,16 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: #fff;
+  background: var(--gradient-brand-primary);
+  color: var(--color-btn-primary-text);
   box-shadow:
-    0 4px 16px rgba(37, 99, 235, 0.2),
+    var(--shadow-brand),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.3);
+  box-shadow: var(--shadow-brand-hover);
 }
 
 .btn-secondary {

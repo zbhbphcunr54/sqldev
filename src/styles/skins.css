@@ -1,0 +1,548 @@
+/* ============================================
+   Skin System - 5 Skins x 2 Modes
+   Each skin overrides the full visual token set
+   ============================================ */
+
+/* ═══════════════════════════════════════════
+   Skin: violet-midnight (午夜薰紫)
+   Primary: Violet → Secondary: Pink
+   ═══════════════════════════════════════════ */
+
+[data-skin="violet-midnight"] {
+  --color-bg: #e8deff;
+  --color-panel: #f3edff;
+  --color-panel-2: #ddd0f5;
+  --color-panel-3: #ece4ff;
+
+  --color-text: #1a1525;
+  --color-text-subtle: #5c4d7a;
+  --color-text-muted: #9585b2;
+
+  --color-border: #cebde6;
+  --color-border-hover: #b8a5d4;
+
+  --glass-bg: rgba(232, 222, 255, 0.78);
+
+  --color-brand-50:  #faf5ff;
+  --color-brand-100: #f3e8ff;
+  --color-brand-200: #e9d5ff;
+  --color-brand-300: #d8b4fe;
+  --color-brand-400: #c084fc;
+  --color-brand-500: #a855f7;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(124, 58, 237, 0.08);
+  --color-accent-border: rgba(124, 58, 237, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, #7c3aed, #db2777);
+  --shadow-brand: 0 4px 16px rgba(124, 58, 237, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(124, 58, 237, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.15);
+
+  --color-chat-accent: #7c3aed;
+  --color-chat-accent-rgb: 124, 58, 237;
+  --color-chat-accent-light: #a78bfa;
+  --color-chat-glow: rgba(124, 58, 237, 0.5);
+  --color-chat-gradient-start: #db2777;
+  --color-chat-gradient-start-rgb: 219, 39, 119;
+  --gradient-chat-avatar: linear-gradient(135deg, #7c3aed, #db2777);
+  --color-btn-primary-text: #ffffff;
+
+  --scrollbar-thumb: #c4b5d8;
+  --scrollbar-thumb-hover: #a99bc5;
+}
+
+[data-skin="violet-midnight"][data-theme="dark"] {
+  --color-bg: #110e18;
+  --color-panel: #1a1725;
+  --color-panel-2: #15121e;
+  --color-panel-3: #1e1b2a;
+
+  --color-text: #f2eeff;
+  --color-text-subtle: #a99bc5;
+  --color-text-muted: #5c4d73;
+
+  --color-border: rgba(167, 139, 250, 0.16);
+  --color-border-hover: rgba(167, 139, 250, 0.3);
+
+  --glass-bg: rgba(26, 23, 37, 0.72);
+
+  --color-brand-50:  #1a0a2e;
+  --color-brand-100: #2e1065;
+  --color-brand-200: #3b0764;
+  --color-brand-300: #6d28d9;
+  --color-brand-400: #7c3aed;
+  --color-brand-500: #a78bfa;
+  --color-brand-600: #a78bfa;
+  --color-brand-700: #c4b5fd;
+  --color-brand-800: #ddd6fe;
+
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(167, 139, 250, 0.15);
+  --color-accent-border: rgba(167, 139, 250, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, #a78bfa, #f472b6);
+  --shadow-brand: 0 4px 16px rgba(167, 139, 250, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(167, 139, 250, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(167, 139, 250, 0.25);
+
+  --color-chat-accent: #a78bfa;
+  --color-chat-accent-rgb: 167, 139, 250;
+  --color-chat-accent-light: #c4b5fd;
+  --color-chat-glow: rgba(167, 139, 250, 0.5);
+  --color-chat-gradient-start: #f472b6;
+  --color-chat-gradient-start-rgb: 244, 114, 182;
+  --gradient-chat-avatar: linear-gradient(135deg, #a78bfa, #f472b6);
+  --color-btn-primary-text: #1a1528;
+
+  --scrollbar-thumb: rgba(167, 139, 250, 0.25);
+  --scrollbar-thumb-hover: rgba(167, 139, 250, 0.4);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}
+
+
+/* ═══════════════════════════════════════════
+   Skin: cyber-ocean (深海赛博)
+   Primary: Cyan → Secondary: Violet
+   ═══════════════════════════════════════════ */
+
+[data-skin="cyber-ocean"] {
+  --color-bg: #d8eff5;
+  --color-panel: #eaf6f9;
+  --color-panel-2: #cce6ee;
+  --color-panel-3: #e0f2f6;
+
+  --color-text: #0e1a1e;
+  --color-text-subtle: #3c5a60;
+  --color-text-muted: #7a9aa2;
+
+  --color-border: #b8d4de;
+  --color-border-hover: #98beca;
+
+  --glass-bg: rgba(216, 239, 245, 0.78);
+
+  --color-brand-50:  #ecfeff;
+  --color-brand-100: #cffafe;
+  --color-brand-200: #a5f3fc;
+  --color-brand-300: #67e8f9;
+  --color-brand-400: #22d3ee;
+  --color-brand-500: #06b6d4;
+  --color-brand-600: #0891b2;
+  --color-brand-700: #0e7490;
+  --color-brand-800: #155e75;
+
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(8, 145, 178, 0.08);
+  --color-accent-border: rgba(8, 145, 178, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, #0891b2, #7c3aed);
+  --shadow-brand: 0 4px 16px rgba(8, 145, 178, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(8, 145, 178, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(8, 145, 178, 0.15);
+
+  --color-chat-accent: #0891b2;
+  --color-chat-accent-rgb: 8, 145, 178;
+  --color-chat-accent-light: #22d3ee;
+  --color-chat-glow: rgba(8, 145, 178, 0.5);
+  --color-chat-gradient-start: #7c3aed;
+  --color-chat-gradient-start-rgb: 124, 58, 237;
+  --gradient-chat-avatar: linear-gradient(135deg, #0891b2, #7c3aed);
+  --color-btn-primary-text: #ffffff;
+
+  --scrollbar-thumb: #a8c4cc;
+  --scrollbar-thumb-hover: #7a9aa2;
+}
+
+[data-skin="cyber-ocean"][data-theme="dark"] {
+  --color-bg: #0c1418;
+  --color-panel: #121e24;
+  --color-panel-2: #0f1a1e;
+  --color-panel-3: #162428;
+
+  --color-text: #e8f4f8;
+  --color-text-subtle: #8abbc8;
+  --color-text-muted: #4a7a88;
+
+  --color-border: rgba(34, 211, 238, 0.14);
+  --color-border-hover: rgba(34, 211, 238, 0.28);
+
+  --glass-bg: rgba(12, 20, 24, 0.72);
+
+  --color-brand-50:  #042f2e;
+  --color-brand-100: #083344;
+  --color-brand-200: #164e63;
+  --color-brand-300: #0e7490;
+  --color-brand-400: #0891b2;
+  --color-brand-500: #22d3ee;
+  --color-brand-600: #22d3ee;
+  --color-brand-700: #67e8f9;
+  --color-brand-800: #a5f3fc;
+
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(34, 211, 238, 0.15);
+  --color-accent-border: rgba(34, 211, 238, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, #22d3ee, #a78bfa);
+  --shadow-brand: 0 4px 16px rgba(34, 211, 238, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(34, 211, 238, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(34, 211, 238, 0.25);
+
+  --color-chat-accent: #22d3ee;
+  --color-chat-accent-rgb: 34, 211, 238;
+  --color-chat-accent-light: #67e8f9;
+  --color-chat-glow: rgba(34, 211, 238, 0.5);
+  --color-chat-gradient-start: #a78bfa;
+  --color-chat-gradient-start-rgb: 167, 139, 250;
+  --gradient-chat-avatar: linear-gradient(135deg, #22d3ee, #a78bfa);
+  --color-btn-primary-text: #0a1418;
+
+  --scrollbar-thumb: rgba(34, 211, 238, 0.22);
+  --scrollbar-thumb-hover: rgba(34, 211, 238, 0.38);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}
+
+
+/* ═══════════════════════════════════════════
+   Skin: coral-sunset (落日珊瑚)
+   Primary: Orange → Secondary: Yellow
+   ═══════════════════════════════════════════ */
+
+[data-skin="coral-sunset"] {
+  --color-bg: #f5e0cc;
+  --color-panel: #faf0e4;
+  --color-panel-2: #eed5bd;
+  --color-panel-3: #f7e8d6;
+
+  --color-text: #1c1510;
+  --color-text-subtle: #6b4e38;
+  --color-text-muted: #a08470;
+
+  --color-border: #dcc8b0;
+  --color-border-hover: #c8ae92;
+
+  --glass-bg: rgba(245, 224, 204, 0.78);
+
+  --color-brand-50:  #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #e8590c;
+  --color-brand-700: #c2410c;
+  --color-brand-800: #9a3412;
+
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(232, 89, 12, 0.08);
+  --color-accent-border: rgba(232, 89, 12, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, #e8590c, #eab308);
+  --shadow-brand: 0 4px 16px rgba(232, 89, 12, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(232, 89, 12, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(232, 89, 12, 0.15);
+
+  --color-chat-accent: #e8590c;
+  --color-chat-accent-rgb: 232, 89, 12;
+  --color-chat-accent-light: #fb923c;
+  --color-chat-glow: rgba(232, 89, 12, 0.5);
+  --color-chat-gradient-start: #eab308;
+  --color-chat-gradient-start-rgb: 234, 179, 8;
+  --gradient-chat-avatar: linear-gradient(135deg, #e8590c, #eab308);
+  --color-btn-primary-text: #ffffff;
+
+  --scrollbar-thumb: #d0bca8;
+  --scrollbar-thumb-hover: #a08470;
+}
+
+[data-skin="coral-sunset"][data-theme="dark"] {
+  --color-bg: #1a1410;
+  --color-panel: #221c16;
+  --color-panel-2: #1e1810;
+  --color-panel-3: #28201a;
+
+  --color-text: #f5ede6;
+  --color-text-subtle: #c0a890;
+  --color-text-muted: #6b5840;
+
+  --color-border: rgba(251, 146, 60, 0.14);
+  --color-border-hover: rgba(251, 146, 60, 0.28);
+
+  --glass-bg: rgba(26, 20, 16, 0.72);
+
+  --color-brand-50:  #431407;
+  --color-brand-100: #7c2d12;
+  --color-brand-200: #9a3412;
+  --color-brand-300: #c2410c;
+  --color-brand-400: #e8590c;
+  --color-brand-500: #fb923c;
+  --color-brand-600: #fb923c;
+  --color-brand-700: #fdba74;
+  --color-brand-800: #fed7aa;
+
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(251, 146, 60, 0.15);
+  --color-accent-border: rgba(251, 146, 60, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, #fb923c, #fbbf24);
+  --shadow-brand: 0 4px 16px rgba(251, 146, 60, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(251, 146, 60, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(251, 146, 60, 0.25);
+
+  --color-chat-accent: #fb923c;
+  --color-chat-accent-rgb: 251, 146, 60;
+  --color-chat-accent-light: #fdba74;
+  --color-chat-glow: rgba(251, 146, 60, 0.5);
+  --color-chat-gradient-start: #fbbf24;
+  --color-chat-gradient-start-rgb: 251, 191, 36;
+  --gradient-chat-avatar: linear-gradient(135deg, #fb923c, #fbbf24);
+  --color-btn-primary-text: #1a0e06;
+
+  --scrollbar-thumb: rgba(251, 146, 60, 0.22);
+  --scrollbar-thumb-hover: rgba(251, 146, 60, 0.38);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}
+
+
+/* ═══════════════════════════════════════════
+   Skin: indigo-aurora (极光靛蓝)
+   Primary: Indigo → Secondary: Cyan
+   ═══════════════════════════════════════════ */
+
+[data-skin="indigo-aurora"] {
+  --color-bg: #dfe0fb;
+  --color-panel: #ededff;
+  --color-panel-2: #d3d5f4;
+  --color-panel-3: #e6e7fd;
+
+  --color-text: #111327;
+  --color-text-subtle: #484a72;
+  --color-text-muted: #8688a8;
+
+  --color-border: #c2c4e2;
+  --color-border-hover: #a8aad0;
+
+  --glass-bg: rgba(223, 224, 251, 0.78);
+
+  --color-brand-50:  #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #5865f2;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(88, 101, 242, 0.08);
+  --color-accent-border: rgba(88, 101, 242, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, #5865f2, #06b6d4);
+  --shadow-brand: 0 4px 16px rgba(88, 101, 242, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(88, 101, 242, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(88, 101, 242, 0.15);
+
+  --color-chat-accent: #5865f2;
+  --color-chat-accent-rgb: 88, 101, 242;
+  --color-chat-accent-light: #818cf8;
+  --color-chat-glow: rgba(88, 101, 242, 0.5);
+  --color-chat-gradient-start: #06b6d4;
+  --color-chat-gradient-start-rgb: 6, 182, 212;
+  --gradient-chat-avatar: linear-gradient(135deg, #5865f2, #06b6d4);
+  --color-btn-primary-text: #ffffff;
+
+  --scrollbar-thumb: #b8bad4;
+  --scrollbar-thumb-hover: #8688a8;
+}
+
+[data-skin="indigo-aurora"][data-theme="dark"] {
+  --color-bg: #111225;
+  --color-panel: #191a30;
+  --color-panel-2: #14152a;
+  --color-panel-3: #1e1f38;
+
+  --color-text: #edeeff;
+  --color-text-subtle: #9a9cc8;
+  --color-text-muted: #545680;
+
+  --color-border: rgba(129, 140, 248, 0.14);
+  --color-border-hover: rgba(129, 140, 248, 0.28);
+
+  --glass-bg: rgba(17, 18, 37, 0.72);
+
+  --color-brand-50:  #1e1b4b;
+  --color-brand-100: #312e81;
+  --color-brand-200: #3730a3;
+  --color-brand-300: #4338ca;
+  --color-brand-400: #5865f2;
+  --color-brand-500: #818cf8;
+  --color-brand-600: #818cf8;
+  --color-brand-700: #a5b4fc;
+  --color-brand-800: #c7d2fe;
+
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(129, 140, 248, 0.15);
+  --color-accent-border: rgba(129, 140, 248, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, #818cf8, #22d3ee);
+  --shadow-brand: 0 4px 16px rgba(129, 140, 248, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(129, 140, 248, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.25);
+
+  --color-chat-accent: #818cf8;
+  --color-chat-accent-rgb: 129, 140, 248;
+  --color-chat-accent-light: #a5b4fc;
+  --color-chat-glow: rgba(129, 140, 248, 0.5);
+  --color-chat-gradient-start: #22d3ee;
+  --color-chat-gradient-start-rgb: 34, 211, 238;
+  --gradient-chat-avatar: linear-gradient(135deg, #818cf8, #22d3ee);
+  --color-btn-primary-text: #0e0f20;
+
+  --scrollbar-thumb: rgba(129, 140, 248, 0.22);
+  --scrollbar-thumb-hover: rgba(129, 140, 248, 0.38);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}
+
+
+/* ═══════════════════════════════════════════
+   Skin: teal-neutral (翡翠中性)
+   Primary: Teal → Secondary: Blue
+   ═══════════════════════════════════════════ */
+
+[data-skin="teal-neutral"] {
+  --color-bg: #daf0ec;
+  --color-panel: #eaf7f4;
+  --color-panel-2: #cce8e2;
+  --color-panel-3: #e2f3ee;
+
+  --color-text: #111816;
+  --color-text-subtle: #3e5854;
+  --color-text-muted: #7a9692;
+
+  --color-border: #b6d2cc;
+  --color-border-hover: #98beb6;
+
+  --glass-bg: rgba(218, 240, 236, 0.78);
+
+  --color-brand-50:  #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(13, 148, 136, 0.08);
+  --color-accent-border: rgba(13, 148, 136, 0.2);
+  --gradient-brand-primary: linear-gradient(135deg, #0d9488, #3b82f6);
+  --shadow-brand: 0 4px 16px rgba(13, 148, 136, 0.2);
+  --shadow-brand-hover: 0 6px 24px rgba(13, 148, 136, 0.3);
+  --shadow-focus-ring: 0 0 0 3px rgba(13, 148, 136, 0.15);
+
+  --color-chat-accent: #0d9488;
+  --color-chat-accent-rgb: 13, 148, 136;
+  --color-chat-accent-light: #2dd4bf;
+  --color-chat-glow: rgba(13, 148, 136, 0.5);
+  --color-chat-gradient-start: #3b82f6;
+  --color-chat-gradient-start-rgb: 59, 130, 246;
+  --gradient-chat-avatar: linear-gradient(135deg, #0d9488, #3b82f6);
+  --color-btn-primary-text: #ffffff;
+
+  --scrollbar-thumb: #a8c0bc;
+  --scrollbar-thumb-hover: #7a9692;
+}
+
+[data-skin="teal-neutral"][data-theme="dark"] {
+  --color-bg: #111816;
+  --color-panel: #19221e;
+  --color-panel-2: #151e1a;
+  --color-panel-3: #1e2824;
+
+  --color-text: #ecf5f3;
+  --color-text-subtle: #8abcb4;
+  --color-text-muted: #4a7a72;
+
+  --color-border: rgba(45, 212, 191, 0.14);
+  --color-border-hover: rgba(45, 212, 191, 0.28);
+
+  --glass-bg: rgba(17, 24, 22, 0.72);
+
+  --color-brand-50:  #042f2e;
+  --color-brand-100: #134e4a;
+  --color-brand-200: #115e59;
+  --color-brand-300: #0f766e;
+  --color-brand-400: #0d9488;
+  --color-brand-500: #2dd4bf;
+  --color-brand-600: #2dd4bf;
+  --color-brand-700: #5eead4;
+  --color-brand-800: #99f6e4;
+
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-bg: rgba(45, 212, 191, 0.15);
+  --color-accent-border: rgba(45, 212, 191, 0.3);
+  --gradient-brand-primary: linear-gradient(135deg, #2dd4bf, #60a5fa);
+  --shadow-brand: 0 4px 16px rgba(45, 212, 191, 0.3);
+  --shadow-brand-hover: 0 6px 24px rgba(45, 212, 191, 0.4);
+  --shadow-focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.25);
+
+  --color-chat-accent: #2dd4bf;
+  --color-chat-accent-rgb: 45, 212, 191;
+  --color-chat-accent-light: #5eead4;
+  --color-chat-glow: rgba(45, 212, 191, 0.5);
+  --color-chat-gradient-start: #60a5fa;
+  --color-chat-gradient-start-rgb: 96, 165, 250;
+  --gradient-chat-avatar: linear-gradient(135deg, #2dd4bf, #60a5fa);
+  --color-btn-primary-text: #0a1412;
+
+  --scrollbar-thumb: rgba(45, 212, 191, 0.22);
+  --scrollbar-thumb-hover: rgba(45, 212, 191, 0.38);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+}

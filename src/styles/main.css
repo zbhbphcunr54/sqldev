@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './skins.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -49,6 +50,7 @@
     focus-visible:ring-2;
     focus-visible:ring-offset-bg;
   }
+
 }
 
 @layer components {
@@ -136,7 +138,7 @@
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium;
     background: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-btn-primary-text);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-button), 0 0 0 0 var(--color-accent-bg);
     transition: all var(--duration-normal) var(--ease-apple);
@@ -230,7 +232,7 @@
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium;
     background: var(--color-danger);
-    color: #ffffff;
+    color: var(--color-btn-primary-text);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-button);
     transition: all var(--duration-normal) var(--ease-apple);
@@ -434,5 +436,12 @@
   .collapse-leave-from {
     opacity: 1;
     max-height: 500px;
+  }
+}
+
+@media (max-width: 600px) {
+  .input-control {
+    min-height: 44px;
+    font-size: 16px;
   }
 }

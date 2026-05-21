@@ -3,7 +3,325 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-13
+Last updated: 2026-05-21
+
+---
+
+## 2026-05-21: 皮肤系统实施 — 5 套可切换皮肤 × 2 种模式
+
+### 背景
+基于 `theme-preview.html` 中设计的 5 套主题，实现网站级可切换皮肤系统，同时保留每套皮肤的深色/浅色模式独立切换。
+
+### 架构
+- `<html data-skin="..." data-theme="...">` 双属性机制
+- 皮肤 CSS 通过 `[data-skin="x"]` / `[data-skin="x"][data-theme="dark"]` 选择器覆盖全套 token（表面色、文字色、边框色、毛玻璃、品牌色阶、阴影、聊天强调色、滚动条）
+- `themeTouched` 标记用户是否手动切换过深浅模式，避免换肤时意外覆盖用户偏好
+
+### 皮肤 ID
+| ID | 名称 | 推荐模式 |
+|---|---|---|
+| `violet-midnight` | 午夜薰紫 | 深色 |
+| `cyber-ocean` | 深海赛博 | 深色 |
+| `coral-sunset` | 落日珊瑚 | 浅色 |
+| `indigo-aurora` | 极光靛蓝 | 浅色 |
+| `teal-neutral` | 翡翠中性 | 浅色（默认）|
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/styles/skins.css` | **新建** — 5 皮肤 × 2 模式 = 10 个 CSS 选择器块 |
+| `src/styles/main.css` | 新增 `@import './skins.css'` |
+| `src/stores/app.ts` | 新增 `SkinId` 类型、`skinId`/`themeTouched` 状态、`setSkin()`/`setThemeTouched()` |
+| `src/composables/useThemeRuntime.ts` | 新增皮肤持久化、`SKIN_DEFAULT_THEME` 映射、DOM watcher |
+| `index.html` | FOUC 防闪烁脚本扩展：验证皮肤、读取 `theme-touched`、优先级 存储>皮肤推荐>系统偏好 |
+| `src/components/common/SkinPicker.vue` | **新建** — 渐变色块选择器，compact/labeled 两种变体 |
+| `src/components/layout/AppHeader.vue` | 导入 SkinPicker，dropdown 新增"皮肤"区，header-actions 区新增桌面皮肤选择器 |
+
+### localStorage 键
+- `sqldev:app:skin` — 当前皮肤 ID
+- `sqldev:app:theme-touched` — 用户是否手动设置过深浅模式
+
+### 硬编码颜色清理
+皮肤系统要求所有视觉颜色通过 CSS 自定义属性（design token）引用。以下文件中的硬编码颜色已替换为 token：
+
+| 文件 | 修改内容 |
+|---|---|
+| `src/styles/main.css` | `.btn-primary`/`.btn-danger` `color: #ffffff` → `var(--color-btn-primary-text)` |
+| `src/features/sql/editor-themes.ts` | 全部 `rgba(59,130,246,...)` / `rgba(137,180,250,...)` 蓝色 → `var(--color-accent-*)` 系列 |
+| `src/components/business/feedback/FeedbackWidget.vue` | 6 处 `rgba(0,113,227,...)` 蓝色阴影 → `var(--shadow-brand*)` / `var(--shadow-focus-ring)` |
+| `src/pages/not-found.vue` | gradient/shadow/color 硬编码蓝色 → `var(--gradient-brand-primary)` / `var(--shadow-brand*)` / `var(--color-btn-primary-text)` |
+| `src/components/business/auth/AuthModal.vue` | `color: #fff/#ffffff` → `var(--color-btn-primary-text)` |
+| `src/components/business/workbench/WorkbenchHeader.vue` | `color: #fff` → `var(--color-btn-primary-text)` |
+| `src/pages/operation-logs/index.vue` | `color: #ffffff` → `var(--color-btn-primary-text)` |
+| `src/components/common/DatePicker.vue` | `.day-cell--selected color: #ffffff` → `var(--color-btn-primary-text)` |
+| `src/components/business/workbench/pages/ZiweiPage.vue` | button `color: #fff` → `var(--color-btn-primary-text)` |
+| `src/pages/splash/splash.css` | **重大清理**：删除 953 行死/硬编码 CSS（旧工作台布局 + 重复深浅模式覆盖），scrollbar `rgba(0,113,227,...)` → `var(--scrollbar-thumb*)`, `color: #fff` → `var(--color-btn-primary-text)`, light 覆盖 `#ffffff` → `var(--color-panel)` |
+| `src/components/business/workbench/modals/SharePosterModal.vue` | QR 色从硬编码改为读取 `--color-text-subtle`，暗色光晕 `rgba(10,132,255,0.08)` → `var(--color-accent-bg)` |
+| `src/styles/skins.css` | 补全 FloatingChat 依赖的 RGB 分解 token：`--color-chat-accent-rgb`、`--color-chat-accent-light`、`--color-chat-gradient-start`、`--color-chat-gradient-start-rgb`（10 个皮肤块各增 4 个变量） |
+| `src/components/business/workbench/WorkbenchHeaderActions.vue` | 导入 SkinPicker；已登录下拉菜单新增"皮肤"分区（SkinPicker compact）+ 原"主题"改为"模式"；未登录视图新增 `.wb-guest-actions` 容器包含 SkinPicker + ThemeToggle + 登录按钮 |
+
+### 浅色皮肤区分度 + SkinPicker 下拉选择器
+
+**问题 1**：浅色模式下 5 套皮肤的 `--color-bg` 全在 97-98% 亮度、`--color-panel` 全为 `#ffffff`，肉眼几乎无差异。
+
+**修复**：`skins.css` 中 5 套皮肤的浅色 `--color-bg`、`--color-panel`、`--color-panel-2`、`--color-panel-3`、`--glass-bg` 全部加深，色相差异肉眼可见（~93-95% 亮度），`--color-panel` 保留极浅着色确保卡片仍近白。
+
+**问题 2**：SkinPicker 仅为纯色圆点，无中文说明，体验粗糙。
+
+**修复**：`SkinPicker.vue` 重写为下拉选择器。Trigger 显示渐变圆点 + 四字中文名 + chevron；Dropdown 列表每行显示渐变圆点 + 中文全名 + 色调描述 + 选中 ✓。移除 `variant` prop，统一下拉样式。
+
+| 文件 | 变更 |
+|---|---|
+| `src/styles/skins.css` | 5 套浅色皮肤表面色加深（bg/panel/panel-2/panel-3/glass-bg） |
+| `src/components/common/SkinPicker.vue` | 重写：圆点 → 下拉选择器，新增四字中文名 + 色调描述 + ✓ 选中标记 |
+| `src/components/layout/AppHeader.vue` | 移除 `variant="compact"`、`header-skin-picker` CSS、dropdown 皮肤/模式分区简化为"外观" |
+| `src/components/business/workbench/WorkbenchHeaderActions.vue` | 移除 `variant="compact"` 和分区标题，简化为 `<SkinPicker />` |
+
+### 设计文档
+完整设计方案见 `docs/SKIN_SYSTEM_PLAN.md`
+
+---
+
+## 2026-05-20: 紫微分享海报重构 — 匹配页面风格
+
+### 问题
+原海报使用紫色渐变背景 + emoji 图标 + 独立配色，与主应用的 Apple HIG glassmorphism 风格不一致。
+
+### 方案
+完全重写 `SharePosterModal.vue`，对齐紫微页面的视觉体系：
+- **背景**：`var(--color-panel)` 纯白/纯黑 + 顶部 accent 渐变条 + `radial-gradient` 光晕（hero-panel 风格）
+- **卡片**：`var(--color-panel-2)` + `1px solid var(--color-border)` + shine 伪层（与 AI 分析卡相同的 glassmorphic `::before`）
+- **四化标签**：pill 形 + `color-mix()` 半透明底色 + 四化变量色
+- **宫位卡**：`inset box-shadow` + `color-mix()` tone 色调顶部高亮
+- **功能列表**：6px 色点替代 emoji，色点颜色来自 accent/hua-lu/purple/hua-ke
+- **排版**：kicker 标签（10px/700/uppercase/0.08em tracking）、13px/600 标题、11px/subtle 描述
+- **所有颜色/圆角/阴影/字体/动画**：100% tokens.css 变量，深色自动适配
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/modals/SharePosterModal.vue` | 完全重写 |
+
+---
+
+## 2026-05-20: 紫微页面移动端布局全面重做（Round 2）
+
+### 问题
+Round 1 适配存在严重缺陷：`overflow: hidden` 链阻断滚动、汉堡按钮与 header 重叠、AI Tab 同时显示中栏和右栏、摘要卡 1 列过长、视觉粗糙。
+
+### 方案
+仅通过 `@media` 和 `lg:hidden` 修改，桌面端零影响：
+
+1. **滚动修复**：为主 grid 添加 `.zw-main-grid` 类，中栏添加 `.zw-center-panel` 类，在 ≤1023px 下 override `overflow-hidden` 为 `overflow-y: auto`，`height: 100%` 为 `height: auto`
+2. **Header 精简**：68px→48px，`padding-left: 56px` 为汉堡按钮留位，隐藏副标题
+3. **Tab/Switch 触控**：Tab 栏 `font-size: 13px`，view-switch 按钮 `min-height: 36px / font-size: 13px`
+4. **摘要卡布局**：≤1023px 2 列，≤600px 1 列
+5. **AI Tab 布局**：右栏改为 `hidden lg:flex` 始终隐藏，移动端在中栏内联 AI 按钮（`.zw-mobile-ai-ctrl`）
+6. **汉堡按钮**：≤1023px 下 `top:4px left:8px 40×40px`，transparent 无边框
+7. **分割线**：`.wb-global-divider` 移动端 `display: none`
+8. **手机间距**：≤600px `gap: 6px`、`border-radius: 10px`、中栏 `padding: 10px`
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | CSS class 添加、media query 重写、移动端 AI 控制内联 |
+| `src/components/business/workbench/WorkbenchApp.vue` | 汉堡按钮重定位 + 分割线隐藏 |
+
+---
+
+## 2026-05-19: 紫微页面手机/平板适配
+
+### 问题
+紫微页面在手机端基本不可用：侧边栏固定 240px 不隐藏、QA 卡片 2 列过窄、表单控件触摸热区不足。
+
+### 方案
+所有改动仅通过 `@media (max-width: ...)` 和 `lg:hidden` 生效，桌面端零影响：
+
+1. **侧边栏抽屉化**：≤1023px 下变为 fixed 定位 + `translateX(-100%)` 隐藏，通过汉堡按钮打开，点击遮罩层或菜单项后自动关闭
+2. **QA 卡片单列**：≤1023px 下 `.zw-qa-card-grid` 从 2 列变 1 列
+3. **触摸友好化**：≤600px 下排盘按钮 44px、input-control 44px + font-size 16px（防 iOS 缩放）、FormSelect 选项 44px
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/stores/workbench.ts` | `setPage` 阈值 768→1024，对齐 Tailwind lg 断点 |
+| `src/components/business/workbench/WorkbenchSidebar.vue` | 移动端 fixed 抽屉 + 自动关闭 |
+| `src/components/business/workbench/WorkbenchApp.vue` | 汉堡按钮 + 遮罩层（均 lg:hidden） |
+| `src/components/business/workbench/pages/ZiweiPage.vue` | QA 网格单列 + 按钮 44px |
+| `src/styles/main.css` | input-control 移动端 44px + 16px 字号 |
+| `src/components/common/FormSelect.vue` | 触摸热区 44px |
+
+---
+
+## 2026-05-19: 问答卡片解析器补充命盘证据关键词
+
+### 问题
+新 QA system prompt 输出结构包含「命盘证据」段落，但卡片解析器 `splitInlineQaSections` 的 markers 列表中缺少该关键词，导致该段落无法被切分为独立卡片。
+
+### 方案
+在 `ZiweiPage.vue` 的四处关键词列表中补充 `命盘证据`：
+- `isStandaloneQaLabel` 正则
+- `splitInlineQaSections` markers 数组
+- `parseQaBlockAsCards` firstLine 关键词正则
+- `parseQaStreamingTailCard` firstLine 关键词正则
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | 四处关键词列表补充 `命盘证据` |
+
+---
+
+## 2026-05-19: 紫微命盘数据分层压缩
+
+### 问题
+解读（analysis）和问答（QA）共用同一个 `buildZiweiAiPayloadCompact`，压缩过度导致 AI 丢失关键数据：ruleSummary（格局判断）、changSheng（长生十二神）、liuNianSeries（流年序列）、area（宫位四正/四马分类）。
+
+### 方案
+为两种模式建立差异化压缩策略：
+- **解读模式** `buildZiweiAiPayloadForAnalysis`：保留 ruleSummary(≤6)、changSheng、area、liuNianSeries(≤6)、huaTracks(≤40)、huaCount
+- **问答模式** `buildZiweiAiPayloadForQa`：保留 ruleSummary(≤4)、changSheng、liuNianSeries(≤6)，不保留 area / huaCount
+- maxChartChars 默认值从 12000 提升到 15000
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/features/ziwei/ai-utils.ts` | 新增 `buildZiweiAiPayloadForAnalysis`、`buildZiweiAiPayloadForQa`；扩展 `compactPalace` 新增 `analysis`/`qa` 模式；提取 `trimCenter` 复用 |
+| `src/features/ziwei/index.ts` | 导出新函数 |
+| `src/api/ziwei-analysis.ts` | 拆分 `buildChartPayload` 为 `buildAnalysisChartPayload` / `buildQaChartPayload` |
+| `supabase/functions/ziwei-analysis/handler.ts` | maxChartChars 默认值 12000 → 15000 |
+| `tests/ziwei-ai-utils.mjs` | 补充 ForAnalysis / ForQa 测试断言 |
+| `tests/smoke.mjs` | 补充导出存在性断言 |
+| `tests/helpers/load-ts-module.mjs` | 修复 `@/` 路径别名解析（预存 bug） |
+
+### 部署步骤
+1. 前端正常构建部署
+2. 重新部署 `ziwei-analysis` Edge Function
+
+---
+
+## 2026-05-19: AI_DEV.md 规范补全
+
+### 变更概要
+对照项目实际代码中已落地的最佳实践，对 `docs/AI_DEV.md` 进行 11 处规范补充（仅补缺，已有部分不重复）。
+
+### 新增规范内容
+1. **§1**：Pinia 强制 setup store 语法
+2. **§2**：`defineProps<{}>()` / `defineEmits<{}>()` 类型化声明 + `storeToRefs()` 解包规则
+3. **§3**：Feature 模块桶导出规范（具名 re-export、DOM 委托）
+4. **§6.2**：Pinia Store 编码规范（乐观更新+回滚、用户隔离缓存、$reset 清理、循环依赖处理）
+5. **§8.2**：API 请求层实现模式（Token 缓存+主动刷新、请求去重、指数退避重试、统一错误转换）
+6. **§9.4**：Edge Function 标准处理流程（统一管线、多层配置解析、app-config TTL 缓存）
+7. **§13**：EditorConfig 编辑器配置规范
+8. **§17.0**：路由布局系统（meta.layout 布局切换、页面过渡动效）
+9. **§18**：type-guards 运行时类型收窄
+10. **§23**：安全补充（AES-256-GCM 密钥加密、重定向净化、操作日志敏感字段剥离）
+11. **§26**：更新 commitlint + husky 状态为「已启用」
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `docs/AI_DEV.md` | 11 处规范补充 |
+
+---
+
+## 2026-05-14: 操作日志指标与查询一致性修复
+
+### 关键修复
+1. 指标聚合改为 DB 端 RPC `compute_operation_log_summary`，不再在 Edge 内存中分批拉全量数据计算。
+2. 指标缓存增加 **TTL + LRU 上限**，避免长期陈旧与内存无限增长。
+3. 移除 `api_name` 在指标与查询链路中的无效透传（前后端类型与响应字段同步精简）。
+4. 指标字段由 `today_requests` 统一为 `total_requests`（并在前端保留兼容读取）。
+5. 页面默认日期与首屏/重置查询条件对齐为“今日”，修复显示与实际查询不一致。
+6. 分页请求默认不再重复计算 summary / options / total（通过 `with_summary/with_options/with_total` 控制）。
+7. 新增 `operation_logs` 复合/部分索引，优化状态+操作+日期范围下的查询性能。
+8. 进一步排查慢请求：增加会话校验缓存、限流器实例缓存。
+9. 针对 `auth/ratelimit` 耗时继续优化：`operation-logs` 在 `verify_jwt=true` 下改为本地解析 JWT claims，且限流存储默认切换为 `oplogs_store_mode`（默认 `memory`）。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `supabase/functions/operation-logs/index.ts` | 重构聚合逻辑、缓存策略、响应字段，会话/限流缓存 |
+| `supabase/migrations/202605140001_compute_operation_log_summary.sql` | 新增 DB 聚合函数 |
+| `supabase/migrations/202605140002_operation_logs_perf_indexes.sql` | 新增性能索引 |
+| `src/api/operation-logs.ts` | 更新筛选与响应类型 |
+| `src/stores/operation-logs.ts` | 更新 summary 字段映射，移除无效字段 |
+| `src/pages/operation-logs/index.vue` | 修复默认日期查询一致性 |
+| `src/components/business/operation-logs/OperationLogFilters.vue` | 移除 `apiName` 相关字段 |
+
+---
+
+## 2026-05-13: 操作日志查询优化
+
+### 需求
+1. **总记录数不一致**：指标栏的`today_requests`和分页的`total`使用不同查询条件
+2. **查询慢、翻页慢**：`summaryQuery`没有LIMIT，加载全部匹配数据到内存计算P95/平均值
+
+### 根因
+- `summaryQuery` 缺少 `operation` 和 `api_name` 的过滤条件（与 mainQuery 不一致）
+- `summaryQuery` 无 LIMIT，数据量大时加载全部到内存计算统计
+- 翻页时每次都重新执行整个查询流程
+
+### 实现方案
+1. **新建 RPC 聚合函数** `compute_log_summary`：
+   - 使用 PostgreSQL 聚合查询替代内存计算
+   - `PERCENTILE_CONT(0.95)` 计算 P95
+   - `COUNT(*) FILTER (WHERE ...)` 条件计数
+   - `COUNT(DISTINCT user_email)` 活跃用户数
+
+2. **统一过滤条件**：`status`、`operation`、`start_date`、`end_date`、`user_id`（不含 api_name）
+
+3. **添加缓存**：30 秒 TTL 缓存统计结果
+
+4. **移除 api_name 过滤**：用户确认指标统计不包含 api_name 条件
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `supabase/migrations/202605130003_compute_log_summary.sql` | 新建 RPC 函数 |
+| `supabase/functions/operation-logs/index.ts` | 重构查询逻辑：移除 computeSummary() 内存计算，使用 RPC 聚合 + 缓存 |
+
+### 权限模型
+- 非管理员：只看自己的日志
+- 管理员 + 无 searchUserId：看所有日志
+- 管理员 + 有 searchUserId：看指定用户的日志
+
+### 性能提升预期
+| 场景 | 优化前 | 优化后 |
+|------|--------|--------|
+| 10万条数据首次加载 | ~3-5s | ~0.5-1s |
+| 翻页 | ~3-5s | ~50-100ms |
+
+### 部署
+```bash
+# 执行新迁移
+supabase db push
+
+# 部署 Edge Function
+supabase functions deploy operation-logs
+
+# 构建前端
+pnpm build
+```
+
+### 调试记录 (2026-05-13)
+**问题**：部署后用户反馈切换操作类型时，指标栏数值不变。
+
+**排查过程**：
+1. 确认 RPC 调用返回数据正确（`total_requests` 随过滤条件变化）
+2. 在 Edge Function 添加日志：
+   ```typescript
+   console.log('[operation-logs] RPC params:', ...)
+   console.log('[operation-logs] RPC data:', ...)
+   ```
+3. 在前端 store 添加日志：
+   ```typescript
+   console.log('[operation-logs store] setFilters called with:', ...)
+   console.log('[operation-logs store] API response summary:', ...)
+   ```
+4. 确认问题原因：用户可能未重新部署 Edge Function，或浏览器缓存
+
+**结论**：过滤逻辑正确工作，数据随过滤条件变化。调试日志已移除。
 
 ---
 

@@ -1,25 +1,18 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useZiweiForm } from '@/composables/useZiweiForm'
 import { useZiweiAI } from '@/composables/useZiweiAI'
 import { useZiweiChart } from '@/composables/useZiweiChart'
-import {
-  getStarColorClass,
-  getHuaTagClass,
-  getPalaceLevelClass
-} from '@/features/ziwei/star-classifier'
 import { UI_LABELS } from '@/features/ziwei/ui-constants'
 import FormSelect from '@/components/common/FormSelect.vue'
-import ChartLegend from '@/components/business/ziwei/ChartLegend.vue'
+import SharePosterModal from '../modals/SharePosterModal.vue'
 
 /* ---------- 移动端 Tab 切换 ---------- */
 const mobileTab = ref<'input' | 'chart' | 'ai'>('input')
-
-/* ---------- 命盘宫位选中态 ---------- */
-const selectedPalaceIdx = ref<number | null>(null)
-function togglePalace(idx: number): void {
-  selectedPalaceIdx.value = selectedPalaceIdx.value === idx ? null : idx
-}
+const aiReadingTab = ref<'analysis' | 'qa'>('analysis')
+const showSharePoster = ref(false)
+const mobileActivePalaceIndex = ref<number | null>(null)
+const activeMobileAnalysisId = ref<string>('')
 
 const {
   calendarType,
@@ -31,6 +24,7 @@ const {
   lunarDay,
   birthHour,
   birthMinute,
+  birthShiChen,
   gender,
   birthProvince,
   birthCity,
@@ -43,51 +37,693 @@ const {
   correctionText,
   shiChenCorrectionNotice,
   yearFormOptions,
-  monthOptions,
-  dayOptions,
-  hourOptions,
+  solarMonthOptions,
+  solarDayOptions,
+  solarHourOptions,
   minuteOptions,
+  lunarMonthOptions,
+  lunarDayOptions,
+  birthShiChenOptions,
   provinceOptions,
   cityOptions,
   selectedLongitudeText,
   calendarTypeOptions,
   toggleUserMenu,
   closeUserMenu,
-  handleGenerate
+  clearChart: resetChart,
+  handleGenerate: runGenerate
 } = useZiweiForm()
 
 const {
   aiLoading,
   aiError,
+  aiAnalysisReady,
+  aiStreamingText,
   aiResult,
   aiQuestionInput,
   aiQuestionLoading,
+  aiQuestionStreaming,
   aiQuestionAnswer,
   aiQuestionError,
+  lastAiQuestion,
   currentStep,
   aiButtonLabel,
-  handleAiAnalysis,
-  handleAiQuestion
+  clearAiState,
+  handleAiAnalysis: runAiAnalysis,
+  handleAiQuestion: runAiQuestion
 } = useZiweiAI(chart, profileName, gender, school)
 
-const { palaceGrid, centerInfo, chartMeta, daXianTimeline, liuNianTimeline } = useZiweiChart(
-  chart,
-  calendarType,
-  solarYear,
-  lunarYear
-)
+const { palaceGrid, centerInfo, chartMeta } = useZiweiChart(chart, calendarType, solarYear, lunarYear)
 
 const stepLabels = [UI_LABELS.STEP_1, UI_LABELS.STEP_2, UI_LABELS.STEP_3]
+const analysisSectionIconClasses = [
+  'zw-analysis-icon--star',
+  'zw-analysis-icon--triangle',
+  'zw-analysis-icon--diamond',
+  'zw-analysis-icon--sun',
+  'zw-analysis-icon--spark',
+  'zw-analysis-icon--moon'
+]
+const analysisSectionColorClasses = [
+  'zw-analysis-section-title--blue',
+  'zw-analysis-section-title--orange',
+  'zw-analysis-section-title--green',
+  'zw-analysis-section-title--purple',
+  'zw-analysis-section-title--red',
+  'zw-analysis-section-title--gold'
+]
+const analysisCardToneClasses = [
+  'zw-analysis-card--tone-blue',
+  'zw-analysis-card--tone-orange',
+  'zw-analysis-card--tone-green',
+  'zw-analysis-card--tone-purple',
+  'zw-analysis-card--tone-red',
+  'zw-analysis-card--tone-gold'
+]
 
-/* 排盘完成后自动切换到命盘 Tab（移动端） */
-watch(chart, (v) => {
-  if (v) mobileTab.value = 'chart'
+function compactSummaryText(items: Array<{ label: string }>, limit = 2): string {
+  if (!items.length) return '--'
+  const visible = items.slice(0, limit).map((item) => item.label)
+  const extra = items.length - visible.length
+  return extra > 0 ? `${visible.join('、')} 等${items.length}项` : visible.join('、')
+}
+
+function compactTextList(items: string[], limit = 3): string {
+  if (!items.length) return '无'
+  const visible = items.slice(0, limit)
+  return items.length > limit ? `${visible.join('、')} 等${items.length}项` : visible.join('、')
+}
+
+function formatMainStarText(stars: Array<{ name: string; level?: string }>): string {
+  return compactTextList(
+    stars.map((star) => (star.level ? `${star.name}[${star.level}]` : star.name))
+  )
+}
+
+function formatStarNameText(stars: Array<{ name: string }>): string {
+  return compactTextList(stars.map((star) => star.name))
+}
+
+function formatBirthHuaText(items: Array<{ label: string }>): string {
+  return compactTextList(items.map((item) => item.label), 3)
+}
+
+function formatTransitHuaText(items: Array<{ star: string; type: string }>): string {
+  return compactTextList(items.map((item) => `${item.star}${item.type}`), 3)
+}
+
+function getAnalysisSectionIconClass(index: number): string {
+  return analysisSectionIconClasses[index % analysisSectionIconClasses.length]
+}
+
+function getAnalysisSectionTitleClass(index: number): string {
+  return analysisSectionColorClasses[index % analysisSectionColorClasses.length]
+}
+
+function getAnalysisSectionToneClass(index: number): string {
+  return analysisCardToneClasses[index % analysisCardToneClasses.length]
+}
+
+type DisplayTextLine = {
+  label: string
+  body: string
+}
+
+function splitDisplayText(text: string): DisplayTextLine[] {
+  const raw = String(text || '')
+  if (!raw.trim()) return []
+
+  return raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^([^：:\n]{2,24})[：:]\s*(.+)$/)
+      if (match) {
+        const label = match[1].trim()
+        const body = match[2].trim()
+        if (label && body && !/[，。；！？,.!?]/.test(label)) {
+          return { label, body }
+        }
+      }
+
+      return {
+        label: '',
+        body: line
+      }
+    })
+}
+
+function normalizeQaAnswerText(text: string): string {
+  return String(text || '')
+    .replace(/\r/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .trim()
+}
+
+function toQaCardTitle(rawTitle: string, index: number): string {
+  const title = rawTitle
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[-*]\s+/, '')
+    .replace(/^\d+\.\s+/, '')
+    .replace(/[:：]$/, '')
+    .trim()
+
+  return title || `问答要点 ${index + 1}`
+}
+
+function compactQaText(text: string): string {
+  return normalizeQaAnswerText(text)
+    .replace(/[：:]/g, '')
+    .replace(/[，。！？；、,.!?;()[\]{}【】「」"'`~\-—_]/g, '')
+    .replace(/\s+/g, '')
+    .trim()
+}
+
+function hasMeaningfulQaBody(body: string, title = ''): boolean {
+  const compactBody = compactQaText(body)
+  if (!compactBody) return false
+
+  const compactTitle = compactQaText(title)
+  if (compactTitle && compactBody === compactTitle) return false
+
+  return true
+}
+
+function isStandaloneQaLabel(text: string): boolean {
+  const normalized = normalizeQaAnswerText(text).replace(/[：:]/g, '').trim()
+  if (!normalized) return false
+
+  return /^(核心结论|总体判断|整体判断|核心性格|命盘证据|事业|财运|感情|婚姻|健康|学业|人际|家庭|时机|建议|提醒|风险|方向|结论|总结|补充)$/.test(normalized)
+}
+
+function splitInlineQaSections(text: string): Array<{ title: string; body: string }> {
+  const normalized = normalizeQaAnswerText(text)
+  if (!normalized) return []
+
+  const markers = [
+    '核心结论',
+    '总体判断',
+    '整体判断',
+    '核心性格',
+    '命盘证据',
+    '事业',
+    '财运',
+    '感情',
+    '婚姻',
+    '健康',
+    '学业',
+    '人际',
+    '家庭',
+    '时机',
+    '建议',
+    '提醒',
+    '风险',
+    '方向',
+    '结论'
+  ]
+  const markerPattern = new RegExp(`(${markers.join('|')})[:：]`, 'g')
+  const matches = Array.from(normalized.matchAll(markerPattern))
+  if (matches.length < 2) return []
+
+  return matches
+    .map((match, index) => {
+      const start = match.index ?? 0
+      const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length
+      const chunk = normalized.slice(start, end).trim()
+      const separatorIndex = chunk.search(/[:：]/)
+      if (separatorIndex <= 0) return null
+
+      return {
+        title: toQaCardTitle(chunk.slice(0, separatorIndex), index),
+        body: chunk.slice(separatorIndex + 1).trim()
+      }
+    })
+    .filter((item): item is { title: string; body: string } => Boolean(item?.body))
+    .filter((item) => hasMeaningfulQaBody(item.body, item.title))
+}
+
+function parseQaBlockAsCards(block: string, index: number): Array<{ title: string; body: string }> {
+  const inlineCards = splitInlineQaSections(block)
+  if (inlineCards.length > 1) {
+    return inlineCards
+  }
+
+  const lines = block
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const firstLine = lines[0] || ''
+  const rest = lines.slice(1).join('\n').trim()
+  const separatorIndex = firstLine.search(/[:：]/)
+  const hasInlinePair = separatorIndex > 0
+
+  if (hasInlinePair) {
+    const title = toQaCardTitle(firstLine.slice(0, separatorIndex), index)
+    const firstLineBody = firstLine.slice(separatorIndex + 1).trim()
+    const body = [firstLineBody, rest].filter(Boolean).join('\n').trim()
+    return hasMeaningfulQaBody(body, title)
+      ? [{
+          title,
+          body
+        }]
+      : []
+  }
+
+  const hasStandaloneTitleHint =
+    lines.length > 1 &&
+    (
+      firstLine.length <= 18 ||
+      /建议|结论|提醒|重点|事业|财运|感情|健康|时间|原因|方向|命盘证据/.test(firstLine)
+    )
+
+  if (hasStandaloneTitleHint) {
+    const title = toQaCardTitle(firstLine, index)
+    return hasMeaningfulQaBody(rest, title)
+      ? [{
+          title,
+          body: rest
+        }]
+      : []
+  }
+
+  if (lines.length === 1 && isStandaloneQaLabel(firstLine)) {
+    return []
+  }
+
+  return hasMeaningfulQaBody(block)
+    ? [{
+        title: `问答要点 ${index + 1}`,
+        body: block.trim()
+      }]
+    : []
+}
+
+function parseQaStreamingTailCard(block: string, index: number): { title: string; body: string } | null {
+  const lines = block
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const firstLine = lines[0] || ''
+  const rest = lines.slice(1).join('\n').trim()
+  const separatorIndex = firstLine.search(/[:：]/)
+  const hasInlinePair = separatorIndex > 0
+
+  if (hasInlinePair) {
+    const title = toQaCardTitle(firstLine.slice(0, separatorIndex), index)
+    const firstLineBody = firstLine.slice(separatorIndex + 1).trim()
+    const body = [firstLineBody, rest].filter(Boolean).join('\n').trim()
+    return hasMeaningfulQaBody(body, title) ? { title, body } : null
+  }
+
+  const hasStandaloneTitleHint =
+    lines.length > 1 &&
+    (
+      firstLine.length <= 18 ||
+      /建议|结论|提醒|重点|事业|财运|感情|健康|时间|原因|方向|命盘证据/.test(firstLine)
+    )
+
+  if (hasStandaloneTitleHint) {
+    const title = toQaCardTitle(firstLine, index)
+    return hasMeaningfulQaBody(rest, title) ? { title, body: rest } : null
+  }
+
+  if (lines.length === 1 && isStandaloneQaLabel(firstLine)) {
+    return null
+  }
+
+  return hasMeaningfulQaBody(block)
+    ? {
+        title: `问答要点 ${index + 1}`,
+        body: block.trim()
+      }
+    : null
+}
+
+function splitQaAnswerCards(text: string, streaming = false): Array<{ title: string; body: string }> {
+  const sections = splitQuestionBlocks(text)
+  if (!sections.length) return []
+
+  if (!streaming) {
+    return sections
+      .flatMap((block, index) => parseQaBlockAsCards(block, index))
+      .filter((item) => hasMeaningfulQaBody(item.body, item.title))
+      .filter((item) => !isGenericQaFallbackTitle(item.title))
+  }
+
+  const stableBlocks = sections.slice(0, -1)
+  const stableCards = stableBlocks
+    .flatMap((block, index) => parseQaBlockAsCards(block, index))
+    .filter((item) => hasMeaningfulQaBody(item.body, item.title))
+
+  const tailBlock = sections[sections.length - 1]
+  const tailCard = tailBlock ? parseQaStreamingTailCard(tailBlock, stableCards.length) : null
+
+  return (tailCard ? [...stableCards, tailCard] : stableCards)
+    .filter((item) => !isGenericQaFallbackTitle(item.title))
+}
+
+function splitQuestionBlocks(text: string): string[] {
+  const normalized = normalizeQaAnswerText(text)
+  if (!normalized) return []
+  return normalized
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+}
+
+function isGenericQaFallbackTitle(title: string): boolean {
+  return /^问答要点\s*\d+$/.test(normalizeQaAnswerText(title))
+}
+
+const qaAnswerCards = computed(() => splitQaAnswerCards(aiQuestionAnswer.value, aiQuestionStreaming))
+
+function isQaLeadTitle(title: string): boolean {
+  const normalized = normalizeQaAnswerText(title).replace(/[：:\s]/g, '')
+  return /^(问题判断|核心判断|核心结论|总体判断|整体判断|结论|总结)$/.test(normalized)
+}
+
+const qaLeadCard = computed(() => {
+  const cards = qaAnswerCards.value
+  if (!cards.length) return null
+
+  const leadCandidates = cards.filter((card) => isQaLeadTitle(card.title))
+  if (!leadCandidates.length) return cards[0]
+
+  const mergedBodies = leadCandidates
+    .map((card) => card.body.trim())
+    .filter(Boolean)
+    .filter((body, idx, list) => list.indexOf(body) === idx)
+
+  return {
+    title: leadCandidates[0].title,
+    body: mergedBodies.join('\n\n').trim()
+  }
 })
+
+const qaFollowCards = computed(() => {
+  const cards = qaAnswerCards.value
+  if (!cards.length) return []
+
+  const hasExplicitLead = cards.some((card) => isQaLeadTitle(card.title))
+  if (hasExplicitLead) {
+    return cards.filter((card) => !isQaLeadTitle(card.title))
+  }
+
+  return cards.slice(1)
+})
+const hasYearFocus = computed(() => {
+  const summary = aiResult.value?.yearFocus?.summary?.trim()
+  return Boolean(summary)
+})
+const hasNextActions = computed(() => (aiResult.value?.nextActions?.length ?? 0) > 0)
+const showDeferredAnalysisCards = computed(() => Boolean(aiResult.value) && !aiLoading.value)
+const analysisDisclaimer = computed(
+  () => aiResult.value?.disclaimer?.trim() || UI_LABELS.AI_DISCLAIMER
+)
+
+function hasItems(items?: string[]): boolean {
+  return Array.isArray(items) && items.length > 0
+}
+
+function shouldSpanFullWidth(index: number, total: number): boolean {
+  return total % 2 === 1 && index === total - 1
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined
+}
+
+const mobilePalaceCells = computed(() => palaceGrid.value.filter(isPresent))
+
+const activeMobilePalace = computed(() => {
+  if (mobileActivePalaceIndex.value === null) return null
+  return mobilePalaceCells.value[mobileActivePalaceIndex.value] ?? null
+})
+
+const mobileChartHighlights = computed(() => [
+  { label: '命主', value: centerInfo.value?.mingZhu || '--' },
+  { label: '身主', value: centerInfo.value?.shenZhu || '--' },
+  { label: '五行局', value: centerInfo.value?.bureau || '--' },
+  { label: '当前大限', value: centerInfo.value?.currentDaXianLabel || '--' },
+  { label: '流年', value: centerInfo.value?.currentYearGanZhiLabel || '--' },
+  { label: '虚岁', value: centerInfo.value?.age ? `${centerInfo.value.age}岁` : '--' }
+])
+
+function formatMobilePalaceLabel(branch?: string, palaceName?: string): string {
+  if (branch && palaceName) return `${branch}（${palaceName}）`
+  return branch || palaceName || '--'
+}
+
+const mobileChartBasicFacts = computed(() => [
+  { label: '性别', value: centerInfo.value?.gender || '--' },
+  { label: '农历', value: centerInfo.value?.lunar || '--' },
+  { label: '公历', value: centerInfo.value?.solarText || '--' },
+  { label: '时辰', value: centerInfo.value?.shichenLabel || '--' },
+  {
+    label: '出生地',
+    value: [birthProvince.value, birthCity.value].filter(Boolean).join(' ') || '--',
+    wide: true
+  },
+  { label: '经度', value: selectedLongitudeText.value || '--', wide: true }
+])
+
+const mobileChartElementFacts = computed(() => [
+  {
+    label: '命宫',
+    value: formatMobilePalaceLabel(centerInfo.value?.mingBranch, centerInfo.value?.mingPalaceName)
+  },
+  {
+    label: '身宫',
+    value: formatMobilePalaceLabel(centerInfo.value?.shenBranch, centerInfo.value?.shenPalaceName)
+  },
+  { label: '流年命宫', value: centerInfo.value?.currentLiuNianPalaceLabel || '--' },
+  { label: '起运', value: centerInfo.value?.qiYunText || '--' },
+  { label: '顺逆', value: centerInfo.value?.daXianDirectionLabel || '--' }
+])
+
+const mobileChartHuaFacts = computed(() => [
+  { label: '生年四化', value: compactSummaryText(centerInfo.value?.huaSummary || [], 3) },
+  { label: '大限四化', value: compactSummaryText(centerInfo.value?.daxianHuaSummary || [], 3) },
+  { label: '流年四化', value: compactSummaryText(centerInfo.value?.liunianHuaSummary || [], 3) }
+])
+
+const mobileAnalysisEntries = computed(() => {
+  const entries: Array<{
+    id: string
+    title: string
+    summary: string
+    kind: 'section' | 'yearFocus' | 'actions'
+    indexLabel: string
+    iconClass: string
+    titleClass: string
+    toneClass: string
+    evidence?: string[]
+    advice?: string[]
+    opportunities?: string[]
+    risks?: string[]
+    actions?: string[]
+  }> = []
+
+  aiResult.value?.sections.forEach((section, idx) => {
+    entries.push({
+      id: `section-${idx}`,
+      title: section.title,
+      summary: section.summary,
+      kind: 'section',
+      indexLabel: `0${idx + 1}`,
+      iconClass: getAnalysisSectionIconClass(idx),
+      titleClass: getAnalysisSectionTitleClass(idx),
+      toneClass: getAnalysisSectionToneClass(idx),
+      evidence: section.evidence,
+      advice: section.advice
+    })
+  })
+
+  if (showDeferredAnalysisCards.value && hasYearFocus.value) {
+    entries.push({
+      id: 'year-focus',
+      title: '当前阶段重点',
+      summary: aiResult.value?.yearFocus?.summary || '',
+      kind: 'yearFocus',
+      indexLabel: 'YR',
+      iconClass: 'zw-analysis-icon--moon',
+      titleClass: 'zw-analysis-section-title--purple',
+      toneClass: 'zw-analysis-card--tone-purple',
+      opportunities: aiResult.value?.yearFocus?.opportunities,
+      risks: aiResult.value?.yearFocus?.risks
+    })
+  }
+
+  if (showDeferredAnalysisCards.value && hasNextActions.value) {
+    entries.push({
+      id: 'next-actions',
+      title: '接下来怎么做',
+      summary: '',
+      kind: 'actions',
+      indexLabel: 'DO',
+      iconClass: 'zw-analysis-icon--spark',
+      titleClass: 'zw-analysis-section-title--green',
+      toneClass: 'zw-analysis-card--tone-green',
+      actions: aiResult.value?.nextActions
+    })
+  }
+
+  return entries
+})
+
+const activeMobileAnalysisEntry = computed(() => {
+  if (!mobileAnalysisEntries.value.length) return null
+  return (
+    mobileAnalysisEntries.value.find((entry) => entry.id === activeMobileAnalysisId.value) ||
+    mobileAnalysisEntries.value[0]
+  )
+})
+
+const mobileQaFlowBlocks = computed(() => {
+  const blocks: Array<{
+    id: string
+    title: string
+    body: string
+    indexLabel: string
+    toneClass: string
+    titleClass: string
+    iconClass: string
+  }> = []
+
+  if (qaLeadCard.value) {
+    blocks.push({
+      id: 'qa-lead',
+      title: qaLeadCard.value.title || '问题判断',
+      body: qaLeadCard.value.body,
+      indexLabel: 'A1',
+      toneClass: 'zw-analysis-card--tone-blue',
+      titleClass: 'zw-analysis-section-title--blue',
+      iconClass: 'zw-analysis-icon--chat'
+    })
+  }
+
+  qaFollowCards.value.forEach((card, idx) => {
+    const offset = idx + (qaLeadCard.value ? 2 : 1)
+    blocks.push({
+      id: `qa-follow-${idx}`,
+      title: card.title,
+      body: card.body,
+      indexLabel: `A${offset}`,
+      toneClass: getAnalysisSectionToneClass(idx + 2),
+      titleClass: getAnalysisSectionTitleClass(idx + 2),
+      iconClass: getAnalysisSectionIconClass(idx + 2)
+    })
+  })
+
+  if (!qaLeadCard.value && aiQuestionStreaming.value && aiQuestionAnswer.value) {
+    blocks.push({
+      id: 'qa-stream',
+      title: '问题判断',
+      body: aiQuestionAnswer.value,
+      indexLabel: 'A1',
+      toneClass: 'zw-analysis-card--tone-blue',
+      titleClass: 'zw-analysis-section-title--blue',
+      iconClass: 'zw-analysis-icon--chat'
+    })
+  }
+
+  return blocks
+})
+
+watch(
+  () => mobileAnalysisEntries.value.map((entry) => entry.id).join('|'),
+  () => {
+    const firstId = mobileAnalysisEntries.value[0]?.id || ''
+    if (!activeMobileAnalysisId.value || !mobileAnalysisEntries.value.some((entry) => entry.id === activeMobileAnalysisId.value)) {
+      activeMobileAnalysisId.value = firstId
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => mobilePalaceCells.value.length,
+  (length) => {
+    if (mobileActivePalaceIndex.value !== null && mobileActivePalaceIndex.value >= length) {
+      mobileActivePalaceIndex.value = null
+    }
+  }
+)
+
+watch(
+  () => mobileTab.value,
+  (tab) => {
+    if (tab !== 'chart') {
+      mobileActivePalaceIndex.value = null
+    }
+  }
+)
+
+function openMobilePalace(index: number): void {
+  mobileActivePalaceIndex.value = index
+}
+
+function closeMobilePalace(): void {
+  mobileActivePalaceIndex.value = null
+}
+
+function selectMobileAnalysisEntry(id: string): void {
+  activeMobileAnalysisId.value = id
+}
+
+function handleClearChart(): void {
+  resetChart()
+  clearAiState()
+  mobileTab.value = 'chart'
+}
+
+async function handleGenerate(): Promise<void> {
+  await runGenerate()
+  if (chart.value) {
+    mobileTab.value = 'chart'
+  }
+}
+
+function showChartView(): void {
+  mobileTab.value = 'chart'
+}
+
+function showAnalysisView(): void {
+  if (!chart.value) return
+  mobileTab.value = 'ai'
+  aiReadingTab.value = 'analysis'
+}
+
+function showQaView(): void {
+  if (!chart.value) return
+  mobileTab.value = 'ai'
+  aiReadingTab.value = 'qa'
+}
+
+async function handleAiAnalysis(): Promise<void> {
+  if (!chart.value) return
+  mobileTab.value = 'ai'
+  aiReadingTab.value = 'analysis'
+  await runAiAnalysis()
+}
+
+async function handleAiQuestion(): Promise<void> {
+  mobileTab.value = 'ai'
+  aiReadingTab.value = 'qa'
+  await runAiQuestion()
+}
+
 </script>
 
 <template>
   <div class="flex flex-col min-h-full bg-bg text-text">
-    <!-- 顶部导航栏 -->
+    <!-- 椤堕儴瀵艰埅鏍?-->
     <header
       class="flex items-center justify-between shrink-0 px-6 ziwei-header bg-panel"
     >
@@ -182,7 +818,7 @@ watch(chart, (v) => {
       </div>
     </header>
 
-    <!-- 移动端 Tab 栏 -->
+    <!-- 绉诲姩绔?Tab 鏍?-->
     <nav class="mobile-tab-bar flex lg:hidden border-b border-border bg-panel shrink-0">
       <button
         class="flex-1 py-2.5 text-xs font-medium text-center transition-colors duration-150"
@@ -208,17 +844,26 @@ watch(chart, (v) => {
     </nav>
 
     <!-- 主内容区 -->
-    <main class="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr_280px] overflow-hidden">
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-[300px_1fr] overflow-hidden zw-main-grid">
       <!-- 左栏：输入面板 -->
       <aside
         class="flex-col p-4 bg-panel border-r border-border overflow-y-auto"
         :class="mobileTab === 'input' ? 'flex' : 'hidden lg:flex'"
       >
-        <div class="flex flex-col gap-2 mb-4">
-          <button class="btn-primary w-full" :disabled="generating" @click="handleGenerate">
+        <div class="zw-action-row mb-3">
+          <button class="btn-primary zw-generate-btn" :disabled="generating" @click="handleGenerate">
             {{ UI_LABELS.BTN_GENERATE }}
           </button>
-          <button class="ziwei-btn-outline w-full gap-1.5 text-xs" :disabled="!chart">
+          <button
+            class="ziwei-btn-outline zw-clear-btn"
+            :disabled="!chart && !aiResult"
+            @click="handleClearChart"
+          >
+            清除
+          </button>
+        </div>
+        <div class="flex flex-col gap-2 mb-4">
+          <button class="ziwei-btn-outline w-full gap-1.5 text-xs" @click="showSharePoster = true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <rect
                 x="8"
@@ -247,10 +892,10 @@ watch(chart, (v) => {
           </button>
         </div>
 
-        <!-- 步骤指引 -->
-        <div class="flex items-center justify-between p-3 bg-bg rounded-lg mb-4">
+        <!-- 姝ラ鎸囧紩 -->
+        <div class="zw-step-card flex items-center justify-between p-3 bg-bg rounded-lg mb-4">
           <template v-for="(label, idx) in stepLabels" :key="'step-' + idx">
-            <div class="flex flex-col items-center gap-1">
+            <div class="zw-step-item flex flex-col items-center gap-1">
               <span
                 class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-all duration-200"
                 :class="{
@@ -261,12 +906,12 @@ watch(chart, (v) => {
                 >{{ idx + 1 }}</span
               >
               <span
-                class="text-[10px] text-center"
+                class="zw-step-label text-[10px] text-center"
                 :class="currentStep >= idx + 1 ? 'text-text' : 'text-subtle'"
                 >{{ label }}</span
               >
             </div>
-            <div v-if="idx < 2" class="flex-1 h-px mx-1 mb-4 bg-border"></div>
+            <div v-if="idx < 2" class="zw-step-divider flex-1 h-px mx-1 mb-4 bg-border"></div>
           </template>
         </div>
 
@@ -300,7 +945,7 @@ watch(chart, (v) => {
             <FormSelect v-else v-model="lunarYear" :options="yearFormOptions" />
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div class="zw-form-grid-two grid grid-cols-2 gap-2">
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-subtle">{{
                 calendarType === 'solar' ? UI_LABELS.LABEL_MONTH : UI_LABELS.LABEL_LUNAR_MONTH
@@ -308,9 +953,9 @@ watch(chart, (v) => {
               <FormSelect
                 v-if="calendarType === 'solar'"
                 v-model="solarMonth"
-                :options="monthOptions"
+                :options="solarMonthOptions"
               />
-              <FormSelect v-else v-model="lunarMonth" :options="monthOptions" />
+              <FormSelect v-else v-model="lunarMonth" :options="lunarMonthOptions" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-subtle">{{
@@ -319,16 +964,16 @@ watch(chart, (v) => {
               <FormSelect
                 v-if="calendarType === 'solar'"
                 v-model="solarDay"
-                :options="dayOptions"
+                :options="solarDayOptions"
               />
-              <FormSelect v-else v-model="lunarDay" :options="dayOptions" />
+              <FormSelect v-else v-model="lunarDay" :options="lunarDayOptions" />
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div v-if="calendarType === 'solar'" class="zw-form-grid-two grid grid-cols-2 gap-2">
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_BIRTH_HOUR }}</label>
-              <FormSelect v-model="birthHour" :options="hourOptions" />
+              <FormSelect v-model="birthHour" :options="solarHourOptions" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_BIRTH_MINUTE }}</label>
@@ -336,7 +981,12 @@ watch(chart, (v) => {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div v-else class="flex flex-col gap-1.5">
+            <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_BIRTH_HOUR }}</label>
+            <FormSelect v-model="birthShiChen" :options="birthShiChenOptions" />
+          </div>
+
+          <div class="zw-form-grid-two grid grid-cols-2 gap-2">
             <div class="flex flex-col gap-1.5">
               <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_PROVINCE }}</label>
               <FormSelect v-model="birthProvince" :options="provinceOptions" />
@@ -354,9 +1004,9 @@ watch(chart, (v) => {
 
           <div class="flex flex-col gap-1.5">
             <label class="text-xs text-subtle">{{ UI_LABELS.LABEL_GENDER }}</label>
-            <div class="flex gap-2">
+            <div class="zw-gender-group flex gap-2">
               <label
-                class="flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
+                class="zw-gender-option flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
                 :class="
                   gender === 'male'
                     ? 'border-accent bg-accentBg text-accent'
@@ -377,7 +1027,7 @@ watch(chart, (v) => {
                 <span>{{ UI_LABELS.LABEL_MALE }}</span>
               </label>
               <label
-                class="flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
+                class="zw-gender-option flex items-center gap-2 px-4 py-2 bg-bg border rounded-md text-sm cursor-pointer transition-all duration-150"
                 :class="
                   gender === 'female'
                     ? 'border-accent bg-accentBg text-accent'
@@ -428,8 +1078,8 @@ watch(chart, (v) => {
 
       <!-- 中栏：命盘主区域 -->
       <main
-        class="flex-col items-center justify-center p-5 bg-bg overflow-y-auto"
-        :class="mobileTab === 'chart' ? 'flex' : 'hidden lg:flex'"
+        class="flex-col items-stretch p-4 bg-bg overflow-hidden zw-center-panel"
+        :class="mobileTab === 'chart' || mobileTab === 'ai' ? 'flex' : 'hidden lg:flex'"
       >
         <div
           v-if="!chart"
@@ -456,304 +1106,1017 @@ watch(chart, (v) => {
           </p>
         </div>
 
-        <div v-else class="flex flex-col gap-4 w-full">
-          <div class="flex items-center gap-3">
-            <h2 class="text-base font-semibold text-text">{{ UI_LABELS.CHART_TITLE }}</h2>
-            <span class="text-sm text-subtle">{{ chartMeta }}</span>
-          </div>
-          <p v-if="centerInfo?.timeCorrectionText" class="text-xs text-subtle">
-            {{ centerInfo.timeCorrectionText }}
-          </p>
-
-          <!-- 命盘核心信息卡 -->
-          <div class="zw-summary-card">
-            <div v-if="centerInfo" class="zw-summary-inner">
-              <!-- 左侧：纳音 + 五行局 -->
-              <div class="zw-summary-left">
-                <span class="zw-nayin">{{ centerInfo.yinYang?.charAt(0) || '阴' }}</span>
-                <div class="zw-summary-meta">
-                  <span class="zw-bureau">{{ centerInfo.bureau }}</span>
-                  <span class="zw-gender-tag">{{ centerInfo.gender }}命</span>
-                </div>
-              </div>
-              <div class="zw-summary-divider"></div>
-              <!-- 中间：关键要素 -->
-              <div class="zw-summary-grid">
-                <div class="zw-kv"><span class="zw-k">命宫</span><span class="zw-v">{{ centerInfo.mingBranch || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">身宫</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}{{ centerInfo.shenPalaceName ? '(' + centerInfo.shenPalaceName + ')' : '' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">命主</span><span class="zw-v">{{ centerInfo.mingZhu || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">身主</span><span class="zw-v">{{ centerInfo.shenZhu || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">时辰</span><span class="zw-v">{{ centerInfo.shichenLabel || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">起运</span><span class="zw-v">{{ centerInfo.qiYunText || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">出生</span><span class="zw-v">{{ centerInfo.inputClockText || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">公历</span><span class="zw-v">{{ centerInfo.solarText || '--' }}</span></div>
-                <div class="zw-kv"><span class="zw-k">顺逆</span><span class="zw-v">{{ centerInfo.daXianDirectionLabel || '--' }}</span></div>
-              </div>
-              <div class="zw-summary-divider"></div>
-              <!-- 右侧：时间 + 流年 -->
-              <div class="zw-summary-right">
-                <span class="zw-lunar-text">{{ centerInfo.lunar || '--' }}</span>
-                <span class="zw-age-text">{{ centerInfo.currentYear }}年 · {{ centerInfo.age }}岁</span>
-                <span v-if="centerInfo.longitude != null" class="zw-age-text">经度 {{ centerInfo.longitude }}°</span>
-                <span class="zw-daxian-info">大限：{{ centerInfo.currentDaXianLabel || '--' }}</span>
-                <span class="zw-liunian-info">流年：{{ centerInfo.currentYearGanZhiLabel || '--' }} · {{ centerInfo.currentLiuNianPalaceLabel || '--' }}</span>
-                <span v-if="profileName" class="zw-profile-name">{{ profileName }}</span>
-              </div>
+        <div v-else class="zw-main-stage">
+          <div class="zw-main-head">
+            <div class="zw-main-head-copy">
+              <h2 class="text-base font-semibold text-text">
+                {{ mobileTab === 'ai' ? UI_LABELS.AI_TITLE : UI_LABELS.CHART_TITLE }}
+              </h2>
+              <span class="text-sm text-subtle">
+                {{ mobileTab === 'ai' ? '阅读模式' : chartMeta }}
+              </span>
             </div>
-            <!-- 三层四化摘要 -->
-            <div v-if="centerInfo?.huaSummary?.length" class="zw-hua-section">
-              <div class="zw-hua-row">
-                <span class="zw-hua-label">生年四化</span>
-                <div class="zw-hua-items">
-                  <span v-for="h in centerInfo.huaSummary" :key="'yh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
-                </div>
-              </div>
-              <div v-if="centerInfo.daxianHuaSummary?.length" class="zw-hua-row">
-                <span class="zw-hua-label">大限四化</span>
-                <div class="zw-hua-items">
-                  <span v-for="h in centerInfo.daxianHuaSummary" :key="'dh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
-                </div>
-              </div>
-              <div v-if="centerInfo.liunianHuaSummary?.length" class="zw-hua-row">
-                <span class="zw-hua-label">流年四化</span>
-                <div class="zw-hua-items">
-                  <span v-for="h in centerInfo.liunianHuaSummary" :key="'lh-' + h.tag" class="zw-hua-item" :class="'zw-hua--' + h.tag">{{ h.label }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 十二宫位卡片 -->
-          <div class="zw-palace-ring">
-            <template v-for="(cell, index) in palaceGrid" :key="'pc-' + index">
-              <div
-                v-if="cell"
-                class="zw-card"
-                :class="{
-                  'zw-card--ming': cell.isMing,
-                  'zw-card--shen': cell.isShen,
-                  'zw-card--daxian': cell.isCurrentDaXian,
-                  'zw-card--selected': selectedPalaceIdx === index
-                }"
-                @click="togglePalace(index)"
+            <div class="zw-view-switch">
+              <button
+                type="button"
+                class="zw-view-switch-btn"
+                :class="{ 'zw-view-switch-btn--active': mobileTab !== 'ai' }"
+                @click="showChartView"
               >
-                <!-- 卡片头部 -->
-                <div class="zw-card-head">
-                  <div class="zw-card-title">
-                    <span class="zw-palace-name">{{ cell.palace }}</span>
-                    <span v-if="cell.isMing" class="zw-tag zw-tag--ming">命</span>
-                    <span v-if="cell.isShen" class="zw-tag zw-tag--shen">身</span>
-                    <span v-if="cell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
-                  </div>
-                  <span class="zw-ganzhi">{{ cell.ganzhi }}</span>
-                </div>
-                <!-- 主星区 -->
-                <div class="zw-stars-main">
-                  <div
-                    v-for="(star, sIdx) in cell.mainStars.slice(0, 4)"
-                    :key="'ms-' + sIdx"
-                    class="zw-star-row"
-                  >
-                    <span class="zw-star-name zw-star--major">
-                      {{ star.name }}
-                      <span
-                        v-if="star.hua"
-                        class="zw-hua-pill"
-                        :class="getHuaTagClass(star.hua)"
-                      >{{ star.hua }}</span>
-                    </span>
-                    <span
-                      v-if="star.level"
-                      class="zw-level"
-                      :class="getPalaceLevelClass(star.level)"
-                    >{{ star.level }}</span>
-                  </div>
-                </div>
-                <!-- 辅星区（折叠态只显示计数，展开态显示全部） -->
-                <div class="zw-stars-aux">
-                  <template v-if="selectedPalaceIdx === index">
-                    <div v-for="(star, sIdx) in cell.luckyStars" :key="'lk-' + sIdx" class="zw-star-row">
-                      <span class="zw-star-name zw-star--luck">{{ star.name }}</span>
-                    </div>
-                    <div v-for="(star, sIdx) in cell.evilStars" :key="'ev-' + sIdx" class="zw-star-row">
-                      <span class="zw-star-name zw-star--harm">{{ star.name }}</span>
-                    </div>
-                    <div v-for="(star, sIdx) in cell.miscStars" :key="'mi-' + sIdx" class="zw-star-row">
-                      <span class="zw-star-name zw-star--misc">{{ star.name }}</span>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="zw-aux-summary">
-                      <span v-if="cell.luckyStars.length" class="zw-aux-dot zw-dot--luck" :title="cell.luckyStars.map(s => s.name).join(' ')">{{ cell.luckyStars.length }}吉</span>
-                      <span v-if="cell.evilStars.length" class="zw-aux-dot zw-dot--harm" :title="cell.evilStars.map(s => s.name).join(' ')">{{ cell.evilStars.length }}煞</span>
-                      <span v-if="cell.miscStars.length" class="zw-aux-dot zw-dot--misc">{{ cell.miscStars.length }}辅</span>
-                    </div>
-                  </template>
-                </div>
-                <!-- 大限/流年四化落宫 -->
-                <div v-if="cell.daxianSiHua?.length || cell.liunianSiHua?.length" class="zw-cell-hua">
-                  <div v-for="(h, hIdx) in cell.daxianSiHua" :key="'dxh-' + hIdx" class="zw-cell-hua-row">
-                    <span class="zw-cell-hua-prefix zw-cell-hua-prefix--dx">限</span>
-                    <span class="zw-cell-hua-text">{{ h.star }}{{ h.type }}</span>
-                  </div>
-                  <div v-for="(h, hIdx) in cell.liunianSiHua" :key="'lnh-' + hIdx" class="zw-cell-hua-row">
-                    <span class="zw-cell-hua-prefix zw-cell-hua-prefix--ln">年</span>
-                    <span class="zw-cell-hua-text">{{ h.star }}{{ h.type }}</span>
-                  </div>
-                </div>
-                <!-- 底部信息 -->
-                <div class="zw-card-foot">
-                  <span class="zw-changsheng">{{ cell.changSheng }}</span>
-                  <span class="zw-daxian-age">{{ cell.daXianAge }}</span>
-                </div>
-                <div v-if="cell.liuNianPalaceName" class="zw-liunian-label">
-                  {{ cell.liuNianPalaceName }}
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <!-- 大限/流年时间轴 -->
-          <div class="zw-timeline-section">
-            <div class="zw-timeline-row">
-              <span class="zw-timeline-label">{{ UI_LABELS.TIMELINE_DAXIAN }}</span>
-              <div class="zw-timeline-track">
-                <div
-                  v-for="(item, idx) in daXianTimeline"
-                  :key="'dx-' + idx"
-                  class="zw-timeline-item"
-                >
-                  <span class="zw-tl-range">{{ item.range }}</span>
-                  <span class="zw-tl-branch">{{ item.branch }}</span>
-                </div>
-              </div>
+                命盘
+              </button>
+              <button
+                type="button"
+                class="zw-view-switch-btn"
+                :class="{ 'zw-view-switch-btn--active': mobileTab === 'ai' && aiReadingTab === 'analysis' }"
+                :disabled="!chart"
+                @click="showAnalysisView"
+              >
+                AI 解读
+              </button>
+              <button
+                type="button"
+                class="zw-view-switch-btn"
+                :class="{ 'zw-view-switch-btn--active': mobileTab === 'ai' && aiReadingTab === 'qa' }"
+                :disabled="!chart"
+                @click="showQaView"
+              >
+                问答
+              </button>
             </div>
-            <div class="zw-timeline-row">
-              <span class="zw-timeline-label">{{ UI_LABELS.TIMELINE_LIUNIAN }}</span>
-              <div class="zw-timeline-track">
-                <div
-                  v-for="(item, idx) in liuNianTimeline"
-                  :key="'ln-' + idx"
-                  class="zw-timeline-item"
-                >
-                  <span class="zw-tl-range">{{ item.year }}年</span>
-                  <span class="zw-tl-branch">{{ item.ganzhi }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <ChartLegend />
-        </div>
-      </main>
-
-      <!-- 右栏：AI 功能面板 -->
-      <aside
-        class="flex-col p-4 bg-panel border-l border-border overflow-y-auto"
-        :class="mobileTab === 'ai' ? 'flex' : 'hidden lg:flex'"
-      >
-        <span
-          class="inline-block self-start mb-4 px-2.5 py-1 bg-accentBg text-accent text-[10px] font-bold rounded tracking-wider"
-        >
-          {{ UI_LABELS.AI_BADGE }}
-        </span>
-
-        <div class="flex flex-col gap-2.5">
-          <h3 class="text-[15px] font-semibold text-text">{{ UI_LABELS.AI_TITLE }}</h3>
-          <p class="text-xs text-subtle">
-            {{ aiResult ? UI_LABELS.AI_DESC_GENERATED : UI_LABELS.AI_DESC_NOT_GENERATED }}
-          </p>
-
-          <button
-            class="ziwei-btn-outline w-full gap-2 text-sm"
-            :disabled="!chart || aiLoading"
-            @click="handleAiAnalysis"
-          >
-            <span v-if="aiLoading" class="w-2 h-2 bg-accent rounded-full loading-dot"></span>
-            {{ aiButtonLabel }}
-          </button>
-
-          <div
-            v-if="aiError"
-            class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
-            role="alert"
-          >
-            {{ aiError }}
           </div>
 
           <p
-            class="p-2.5 bg-accentBg border border-accentBorder rounded-md text-[11px] text-text leading-relaxed"
+            v-if="mobileTab !== 'ai' && centerInfo?.timeCorrectionText"
+            class="zw-chart-stage-note text-xs text-subtle"
           >
-            {{ UI_LABELS.AI_DISCLAIMER }}
+            {{ centerInfo.timeCorrectionText }}
           </p>
-        </div>
-
-        <hr class="border-panel2 my-4" />
-
-        <div class="flex flex-col gap-2.5">
-          <h4 class="text-sm font-semibold text-text">{{ UI_LABELS.QA_TITLE }}</h4>
-          <p class="text-xs text-subtle">{{ UI_LABELS.QA_DESC }}</p>
-
-          <div class="flex gap-2">
-            <input
-              v-model="aiQuestionInput"
-              type="text"
-              :placeholder="UI_LABELS.PLACEHOLDER_AI_QUESTION"
-              :disabled="!aiResult"
-              class="input-control flex-1"
-            />
-            <button
-              class="w-10 bg-accent border-none rounded-md text-white cursor-pointer transition-colors duration-150 hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="{
-                'opacity-50 cursor-not-allowed':
-                  !aiResult || !aiQuestionInput.trim() || aiQuestionLoading
-              }"
-              :disabled="!aiResult || !aiQuestionInput.trim() || aiQuestionLoading"
-              aria-label="发送问题"
-              @click="handleAiQuestion"
+          <div v-if="mobileTab === 'ai'" class="zw-analysis-stage">
+            <div
+              v-if="aiError"
+              class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
+              role="alert"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="mx-auto">
-                <path
-                  d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
+              {{ aiError }}
+            </div>
+
+            <template
+              v-if="
+                aiReadingTab === 'qa' ||
+                aiLoading ||
+                aiResult ||
+                lastAiQuestion ||
+                qaAnswerCards.length ||
+                aiQuestionAnswer
+              "
+            >
+              <section v-if="aiReadingTab === 'analysis'" class="zw-analysis-panel zw-analysis-panel--analysis">
+                <div class="zw-analysis-panel-head">
+                  <div class="zw-analysis-panel-title">
+                    <span class="zw-analysis-panel-kicker">深度解读</span>
+                    <h3 class="text-sm font-semibold text-text">AI 解读</h3>
+                  </div>
+                  <span class="zw-analysis-panel-chip">结构化阅读模式</span>
+                </div>
+
+                <div class="zw-analysis-panel-body">
+                  <div v-if="aiLoading" class="zw-mobile-analysis-stream lg:hidden">
+                    <article class="zw-analysis-card zw-analysis-card--hero zw-mobile-flow-hero">
+                      <div class="zw-analysis-card-head">
+                        <h3 class="text-sm font-semibold text-text">AI 正在解读</h3>
+                        <span class="text-[11px] text-accent">流式输出中</span>
+                      </div>
+                      <div class="zw-analysis-badge-row">
+                        <span class="zw-analysis-badge zw-analysis-badge--blue">稳定阅读</span>
+                        <span class="zw-analysis-badge zw-analysis-badge--purple">完成后分卡</span>
+                      </div>
+                      <div class="zw-analysis-card-text zw-analysis-card-text--stream">
+                        <template
+                          v-for="(line, lineIdx) in splitDisplayText(aiStreamingText || 'AI 正在整理命盘结构，请稍候...')"
+                          :key="`mobile-analysis-stream-${lineIdx}`"
+                        >
+                          <p class="zw-analysis-text-line">
+                            <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                            <span>{{ line.body }}</span>
+                          </p>
+                        </template>
+                      </div>
+                    </article>
+                  </div>
+
+                  <div v-if="aiLoading && !aiResult" class="zw-analysis-stream-card hidden lg:block">
+                    <div class="zw-analysis-card-head">
+                      <h3 class="text-sm font-semibold text-text">AI 正在解读</h3>
+                      <span class="text-[11px] text-accent">流式输出中</span>
+                    </div>
+                    <div class="zw-analysis-badge-row">
+                      <span class="zw-analysis-badge zw-analysis-badge--blue">结构化输出</span>
+                      <span class="zw-analysis-badge zw-analysis-badge--purple">结论优先</span>
+                      <span class="zw-analysis-badge zw-analysis-badge--green">逐步展开</span>
+                    </div>
+                    <p class="zw-analysis-card-text">
+                      {{ aiStreamingText || 'AI 正在整理命盘结构，请稍候...' }}
+                    </p>
+                  </div>
+
+                  <div v-if="aiResult" class="zw-analysis-result-wrap">
+                    <div v-if="!aiLoading" class="zw-mobile-analysis-flow lg:hidden">
+                      <article
+                        v-if="aiResult.overview"
+                        class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--hero zw-mobile-flow-hero"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h3 class="text-sm font-semibold text-text">总体结论</h3>
+                          <span class="text-[11px] text-subtle">先看结论</span>
+                        </div>
+                        <div class="zw-analysis-badge-row">
+                          <span class="zw-analysis-badge zw-analysis-badge--blue">长期倾向</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--purple">阶段表现</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--gold">行动导向</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--hero">
+                          <template v-for="(line, lineIdx) in splitDisplayText(aiResult.overview)" :key="`overview-mobile-${lineIdx}`">
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                      </article>
+
+                      <div v-if="mobileAnalysisEntries.length" class="zw-mobile-analysis-tabs">
+                        <button
+                          v-for="entry in mobileAnalysisEntries"
+                          :key="`mobile-analysis-tab-${entry.id}`"
+                          type="button"
+                          class="zw-mobile-analysis-tab"
+                          :class="{ 'zw-mobile-analysis-tab--active': activeMobileAnalysisEntry?.id === entry.id }"
+                          @click="selectMobileAnalysisEntry(entry.id)"
+                        >
+                          <span>{{ entry.indexLabel }}</span>
+                          <strong>{{ entry.title }}</strong>
+                        </button>
+                      </div>
+
+                      <article
+                        v-if="activeMobileAnalysisEntry"
+                        class="zw-analysis-card zw-mobile-reader-card"
+                        :class="activeMobileAnalysisEntry.toneClass"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4 class="zw-analysis-section-title" :class="activeMobileAnalysisEntry.titleClass">
+                            <span class="zw-analysis-section-icon" :class="activeMobileAnalysisEntry.iconClass"></span>
+                            <span>{{ activeMobileAnalysisEntry.title }}</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">{{ activeMobileAnalysisEntry.indexLabel }}</span>
+                        </div>
+
+                        <div
+                          v-if="activeMobileAnalysisEntry.summary"
+                          class="zw-analysis-card-text zw-analysis-card-text--subtle"
+                          :class="{ 'zw-analysis-card-text--feature': activeMobileAnalysisEntry.kind === 'yearFocus' }"
+                        >
+                          <template
+                            v-for="(line, lineIdx) in splitDisplayText(activeMobileAnalysisEntry.summary)"
+                            :key="`${activeMobileAnalysisEntry.id}-summary-mobile-${lineIdx}`"
+                          >
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+
+                        <div
+                          v-if="
+                            hasItems(activeMobileAnalysisEntry.evidence) ||
+                            hasItems(activeMobileAnalysisEntry.advice) ||
+                            hasItems(activeMobileAnalysisEntry.opportunities) ||
+                            hasItems(activeMobileAnalysisEntry.risks) ||
+                            hasItems(activeMobileAnalysisEntry.actions)
+                          "
+                          class="zw-analysis-meta-grid"
+                        >
+                          <section v-if="hasItems(activeMobileAnalysisEntry.evidence)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--evidence">命盘依据</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in activeMobileAnalysisEntry.evidence"
+                                :key="`${activeMobileAnalysisEntry.id}-evidence-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${activeMobileAnalysisEntry.id}-evidence-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+
+                          <section v-if="hasItems(activeMobileAnalysisEntry.advice)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--advice">行动建议</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in activeMobileAnalysisEntry.advice"
+                                :key="`${activeMobileAnalysisEntry.id}-advice-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${activeMobileAnalysisEntry.id}-advice-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+
+                          <section v-if="hasItems(activeMobileAnalysisEntry.opportunities)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--opportunities">可把握机会</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in activeMobileAnalysisEntry.opportunities"
+                                :key="`${activeMobileAnalysisEntry.id}-opportunity-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${activeMobileAnalysisEntry.id}-opportunity-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+
+                          <section v-if="hasItems(activeMobileAnalysisEntry.risks)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--risks">需要留意</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in activeMobileAnalysisEntry.risks"
+                                :key="`${activeMobileAnalysisEntry.id}-risk-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${activeMobileAnalysisEntry.id}-risk-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+
+                          <section v-if="hasItems(activeMobileAnalysisEntry.actions)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--advice">接下来怎么做</h5>
+                            <ol class="zw-analysis-meta-list zw-analysis-meta-list--ordered">
+                              <li
+                                v-for="(item, itemIdx) in activeMobileAnalysisEntry.actions"
+                                :key="`${activeMobileAnalysisEntry.id}-action-${itemIdx}`"
+                                class="zw-analysis-action-item"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${activeMobileAnalysisEntry.id}-action-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ol>
+                          </section>
+                        </div>
+                      </article>
+                    </div>
+
+                    <div class="zw-analysis-desktop-grid">
+                      <article v-if="aiResult.overview" class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--hero">
+                        <div class="zw-analysis-card-head">
+                          <h3 class="text-sm font-semibold text-text">总体结论</h3>
+                          <span class="text-[11px]" :class="aiLoading ? 'text-accent' : 'text-subtle'">
+                            {{ aiLoading ? '流式输出中' : 'AI 结构化解读' }}
+                          </span>
+                        </div>
+                        <div class="zw-analysis-badge-row">
+                          <span class="zw-analysis-badge zw-analysis-badge--blue">主结论</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--purple">阶段判断</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--gold">行动导向</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--hero">
+                          <template v-for="(line, lineIdx) in splitDisplayText(aiResult.overview)" :key="`overview-${lineIdx}`">
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                      </article>
+
+                      <article
+                        v-for="(section, idx) in aiResult.sections"
+                        :key="`${section.title}-${idx}`"
+                        class="zw-analysis-card zw-analysis-card--insight"
+                        :class="[
+                          getAnalysisSectionToneClass(idx),
+                          { 'zw-analysis-card--span-full': shouldSpanFullWidth(idx, aiResult.sections.length) }
+                        ]"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4 class="zw-analysis-section-title" :class="getAnalysisSectionTitleClass(idx)">
+                            <span class="zw-analysis-section-icon" :class="getAnalysisSectionIconClass(idx)"></span>
+                            <span>{{ section.title }}</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">0{{ idx + 1 }}</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--subtle">
+                          <template
+                            v-for="(line, lineIdx) in splitDisplayText(section.summary)"
+                            :key="`${section.title}-summary-${lineIdx}`"
+                          >
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                        <div
+                          v-if="hasItems(section.evidence) || hasItems(section.advice)"
+                          class="zw-analysis-meta-grid"
+                        >
+                          <section v-if="hasItems(section.evidence)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--evidence">命盘依据</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in section.evidence"
+                                :key="`${section.title}-evidence-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${section.title}-evidence-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+                          <section v-if="hasItems(section.advice)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--advice">行动建议</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in section.advice"
+                                :key="`${section.title}-advice-${itemIdx}`"
+                              >
+                                <template
+                                  v-for="(line, lineIdx) in splitDisplayText(item)"
+                                  :key="`${section.title}-advice-${itemIdx}-${lineIdx}`"
+                                >
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+                        </div>
+                      </article>
+
+                      <article
+                        v-if="showDeferredAnalysisCards && hasYearFocus"
+                        class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--focus"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4 class="zw-analysis-section-title zw-analysis-section-title--purple">
+                            <span class="zw-analysis-section-icon zw-analysis-icon--moon"></span>
+                            <span>当前阶段重点</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">YR</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--subtle zw-analysis-card-text--feature">
+                          <template
+                            v-for="(line, lineIdx) in splitDisplayText(aiResult.yearFocus?.summary || '')"
+                            :key="`year-focus-${lineIdx}`"
+                          >
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                        <div class="zw-analysis-meta-grid">
+                          <section v-if="hasItems(aiResult.yearFocus?.opportunities)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--opportunities">可把握机会</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in aiResult.yearFocus?.opportunities"
+                                :key="`year-opportunity-${itemIdx}`"
+                              >
+                                <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`year-opportunity-${itemIdx}-${lineIdx}`">
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+                          <section v-if="hasItems(aiResult.yearFocus?.risks)" class="zw-analysis-meta-block">
+                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--risks">需留意风险</h5>
+                            <ul class="zw-analysis-meta-list">
+                              <li
+                                v-for="(item, itemIdx) in aiResult.yearFocus?.risks"
+                                :key="`year-risk-${itemIdx}`"
+                              >
+                                <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`year-risk-${itemIdx}-${lineIdx}`">
+                                  <p class="zw-analysis-list-line">
+                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                    <span>{{ line.body }}</span>
+                                  </p>
+                                </template>
+                              </li>
+                            </ul>
+                          </section>
+                        </div>
+                      </article>
+
+                      <article
+                        v-if="showDeferredAnalysisCards && hasNextActions"
+                        class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--actions"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4 class="zw-analysis-section-title zw-analysis-section-title--green">
+                            <span class="zw-analysis-section-icon zw-analysis-icon--spark"></span>
+                            <span>接下来怎么做</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">DO</span>
+                        </div>
+                        <ol class="zw-analysis-meta-list zw-analysis-meta-list--ordered">
+                          <li
+                            v-for="(item, itemIdx) in aiResult.nextActions"
+                            :key="`next-action-${itemIdx}`"
+                            class="zw-analysis-action-item"
+                          >
+                            <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`next-action-${itemIdx}-${lineIdx}`">
+                              <p class="zw-analysis-list-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
+                              </p>
+                            </template>
+                          </li>
+                        </ol>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section v-else class="zw-analysis-panel zw-analysis-panel--qa">
+                <div class="zw-analysis-panel-head">
+                  <div class="zw-analysis-panel-title">
+                    <span class="zw-analysis-panel-kicker">问题拆解</span>
+                    <h3 class="text-sm font-semibold text-text">问答</h3>
+                  </div>
+                  <span class="zw-analysis-panel-chip zw-analysis-panel-chip--ghost">{{ lastAiQuestion || '等待提问' }}</span>
+                </div>
+
+                <div class="zw-analysis-panel-body">
+                  <div class="zw-qa-compose-card">
+                    <div class="zw-qa-compose-head">
+                      <p class="text-xs text-subtle leading-relaxed">{{ UI_LABELS.QA_DESC }}</p>
+                      <span class="zw-analysis-badge zw-analysis-badge--blue">
+                        {{ aiAnalysisReady ? '可继续追问' : '可直接基于命盘提问' }}
+                      </span>
+                    </div>
+
+                    <div class="zw-qa-compose-row">
+                      <input
+                        v-model="aiQuestionInput"
+                        type="text"
+                        :placeholder="UI_LABELS.PLACEHOLDER_AI_QUESTION"
+                        :disabled="!chart || aiQuestionLoading"
+                        class="input-control flex-1"
+                        @keydown.enter="handleAiQuestion"
+                      />
+                      <button
+                        class="zw-qa-send-btn"
+                        :class="{
+                          'opacity-50 cursor-not-allowed':
+                            !chart || !aiQuestionInput.trim() || aiQuestionLoading
+                        }"
+                        :disabled="!chart || !aiQuestionInput.trim() || aiQuestionLoading"
+                        aria-label="发送问题"
+                        @click="handleAiQuestion"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="mx-auto">
+                          <path
+                            d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div v-if="aiQuestionLoading" class="text-xs text-subtle">
+                      {{ UI_LABELS.HINT_AI_QA_LOADING }}
+                    </div>
+
+                    <div
+                      v-if="aiQuestionError"
+                      class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
+                      role="alert"
+                    >
+                      {{ aiQuestionError }}
+                    </div>
+
+                    <p class="text-[11px] text-subtle">
+                      {{ aiAnalysisReady ? UI_LABELS.HINT_AI_QA_READY : UI_LABELS.HINT_AI_QA_NOT_READY }}
+                    </p>
+                  </div>
+
+                  <template v-if="lastAiQuestion || qaAnswerCards.length">
+                    <div class="zw-mobile-qa-flow lg:hidden">
+                      <article
+                        v-for="block in mobileQaFlowBlocks"
+                        :key="block.id"
+                        class="zw-analysis-card zw-analysis-card--qa zw-mobile-flow-card"
+                        :class="block.toneClass"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4 class="zw-analysis-section-title zw-analysis-section-title--qa" :class="block.titleClass">
+                            <span class="zw-analysis-section-icon" :class="block.iconClass"></span>
+                            <span>{{ block.title }}</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">{{ block.indexLabel }}</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--subtle">
+                          <template v-for="(line, lineIdx) in splitDisplayText(block.body)" :key="`${block.id}-${lineIdx}`">
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                      </article>
+                    </div>
+
+                    <div class="hidden lg:block">
+                      <article
+                        v-if="qaLeadCard"
+                        class="zw-analysis-card zw-analysis-card--qa zw-analysis-card--qa-lead zw-analysis-card--tone-blue"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4
+                            class="zw-analysis-section-title zw-analysis-section-title--qa zw-analysis-section-title--blue"
+                          >
+                            <span class="zw-analysis-section-icon zw-analysis-icon--chat"></span>
+                            <span>问题判断</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">A1</span>
+                        </div>
+                        <div class="zw-analysis-badge-row zw-analysis-badge-row--compact">
+                          <span class="zw-analysis-badge zw-analysis-badge--blue">先给答案</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--purple">再给依据</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--green">最后给提醒</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--subtle zw-analysis-card-text--lead">
+                          <template v-for="(line, lineIdx) in splitDisplayText(qaLeadCard.body)" :key="`qa-lead-${lineIdx}`">
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                      </article>
+
+                      <div v-if="qaFollowCards.length" class="zw-qa-card-grid">
+                        <article
+                          v-for="(card, qaIdx) in qaFollowCards"
+                          :key="`qa-card-${qaIdx + 1}`"
+                          class="zw-analysis-card zw-analysis-card--qa zw-analysis-card--qa-detail"
+                          :class="[
+                            getAnalysisSectionToneClass(qaIdx + (aiResult?.sections.length ?? 0) + 2),
+                            { 'zw-analysis-card--span-full': shouldSpanFullWidth(qaIdx, qaFollowCards.length) }
+                          ]"
+                        >
+                          <div class="zw-analysis-card-head">
+                            <h4
+                              class="zw-analysis-section-title zw-analysis-section-title--qa"
+                              :class="getAnalysisSectionTitleClass(qaIdx + (aiResult?.sections.length ?? 0) + 2)"
+                            >
+                              <span
+                                class="zw-analysis-section-icon"
+                                :class="getAnalysisSectionIconClass(qaIdx + (aiResult?.sections.length ?? 0) + 2)"
+                              ></span>
+                              <span>{{ card.title }}</span>
+                            </h4>
+                            <span class="zw-analysis-section-index">A{{ qaIdx + 2 }}</span>
+                          </div>
+                          <div class="zw-analysis-card-text zw-analysis-card-text--subtle">
+                            <template v-for="(line, lineIdx) in splitDisplayText(card.body)" :key="`qa-follow-${qaIdx}-${lineIdx}`">
+                              <p class="zw-analysis-text-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
+                              </p>
+                            </template>
+                          </div>
+                        </article>
+                      </div>
+
+                      <article
+                        v-else-if="aiQuestionStreaming && aiQuestionAnswer && !qaLeadCard"
+                        class="zw-analysis-card zw-analysis-card--qa zw-analysis-card--tone-blue"
+                      >
+                        <div class="zw-analysis-card-head">
+                          <h4
+                            class="zw-analysis-section-title zw-analysis-section-title--qa"
+                            :class="getAnalysisSectionTitleClass((aiResult?.sections.length ?? 0) + 1)"
+                          >
+                            <span
+                              class="zw-analysis-section-icon"
+                              :class="getAnalysisSectionIconClass((aiResult?.sections.length ?? 0) + 1)"
+                            ></span>
+                            <span>问题判断</span>
+                          </h4>
+                          <span class="zw-analysis-section-index">A1</span>
+                        </div>
+                        <div class="zw-analysis-badge-row zw-analysis-badge-row--compact">
+                          <span class="zw-analysis-badge zw-analysis-badge--blue">先给答案</span>
+                          <span class="zw-analysis-badge zw-analysis-badge--green">再给证据</span>
+                        </div>
+                        <div class="zw-analysis-card-text zw-analysis-card-text--subtle">
+                          <template v-for="(line, lineIdx) in splitDisplayText(aiQuestionAnswer)" :key="`qa-stream-${lineIdx}`">
+                            <p class="zw-analysis-text-line">
+                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                              <span>{{ line.body }}</span>
+                            </p>
+                          </template>
+                        </div>
+                      </article>
+                    </div>
+                  </template>
+
+                  <div v-else class="zw-analysis-panel-empty">
+                    <p class="text-xs text-subtle leading-relaxed">
+                      提交问题后，问答卡片会在这里按阅读模式分块展示。
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <section
+              v-else
+              class="zw-analysis-empty zw-analysis-empty--full"
+            >
+              <div class="text-muted">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 3C7.02944 3 3 6.58172 3 11C3 13.0808 3.89941 14.9757 5.38463 16.4117C5.17118 17.4794 4.73212 18.6407 4 20C5.70683 19.7164 7.11718 19.2844 8.23549 18.7362C9.41518 19.185 10.677 19.4167 12 19.4167C16.9706 19.4167 21 15.835 21 11.4167C21 6.99839 16.9706 3 12 3Z"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-sm font-semibold text-text">AI 解读还未生成</h3>
+              <p class="text-xs text-subtle leading-relaxed">
+                点击上方按钮后，AI 解读会在这里以完整阅读布局展示。
+              </p>
+              <button
+                type="button"
+                class="ziwei-btn-outline"
+                :disabled="!chart || aiLoading"
+                @click="handleAiAnalysis"
+              >
+                {{ aiButtonLabel }}
+              </button>
+            </section>
+
+            <p class="zw-analysis-disclaimer">
+              {{ analysisDisclaimer }}
+            </p>
           </div>
 
-          <div v-if="aiQuestionLoading" class="text-xs text-subtle">
-            {{ UI_LABELS.HINT_AI_QA_LOADING }}
-          </div>
+          <div v-else class="zw-chart-stage">
+            <div class="zw-mobile-chart-layout lg:hidden">
+              <section class="zw-mobile-hero-card">
+                <div class="zw-mobile-hero-head">
+                  <div>
+                    <p class="zw-mobile-kicker">命盘概览</p>
+                    <h3 class="zw-mobile-hero-title">{{ profileName || '当前命盘' }}</h3>
+                  </div>
+                  <span class="zw-mobile-hero-side">{{ centerInfo?.age ? `${centerInfo.age}岁` : '--' }}</span>
+                </div>
 
-          <div
-            v-if="aiQuestionError"
-            class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
-            role="alert"
-          >
-            {{ aiQuestionError }}
-          </div>
+                <div class="zw-mobile-highlight-grid">
+                  <div v-for="item in mobileChartHighlights" :key="item.label" class="zw-mobile-highlight-item">
+                    <span class="zw-mobile-highlight-label">{{ item.label }}</span>
+                    <span class="zw-mobile-highlight-value">{{ item.value }}</span>
+                  </div>
+                </div>
 
-          <p class="text-[11px] text-subtle">
-            {{ aiResult ? UI_LABELS.HINT_AI_QA_READY : UI_LABELS.HINT_AI_QA_NOT_READY }}
-          </p>
+                <div class="zw-mobile-info-group">
+                  <div class="zw-mobile-info-head">
+                    <span class="zw-mobile-info-title">基础信息</span>
+                  </div>
+                  <div class="zw-mobile-fact-list">
+                    <div
+                      v-for="item in mobileChartBasicFacts"
+                      :key="item.label"
+                      class="zw-mobile-fact-item"
+                      :class="{ 'zw-mobile-fact-item--wide': item.wide }"
+                    >
+                      <span class="zw-mobile-fact-label">{{ item.label }}</span>
+                      <span class="zw-mobile-fact-value">{{ item.value }}</span>
+                    </div>
+                  </div>
+                </div>
 
-          <div
-            v-if="aiQuestionAnswer"
-            class="mt-3 p-3 bg-bg border border-border rounded-md text-xs text-text leading-relaxed"
-          >
-            <p>{{ aiQuestionAnswer }}</p>
+                <div class="zw-mobile-info-group zw-mobile-info-group--elements">
+                  <div class="zw-mobile-info-head">
+                    <span class="zw-mobile-info-title">命盘要素</span>
+                  </div>
+                  <div class="zw-mobile-fact-list">
+                    <div v-for="item in mobileChartElementFacts" :key="item.label" class="zw-mobile-fact-item">
+                      <span class="zw-mobile-fact-label">{{ item.label }}</span>
+                      <span class="zw-mobile-fact-value">{{ item.value }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="zw-mobile-info-group zw-mobile-info-group--hua">
+                  <div class="zw-mobile-info-head">
+                    <span class="zw-mobile-info-title">三层四化</span>
+                  </div>
+                  <div class="zw-mobile-hua-list">
+                    <div v-for="item in mobileChartHuaFacts" :key="item.label" class="zw-mobile-hua-item">
+                      <span class="zw-mobile-fact-label">{{ item.label }}</span>
+                      <span class="zw-mobile-fact-value">{{ item.value }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="centerInfo?.timeCorrectionText" class="zw-mobile-chart-note">
+                  {{ centerInfo.timeCorrectionText }}
+                </p>
+              </section>
+
+              <section class="zw-mobile-palace-section">
+                <div class="zw-mobile-section-head">
+                  <div>
+                    <p class="zw-mobile-kicker">十二宫位</p>
+                    <h3 class="zw-mobile-section-title">点按宫位查看详情</h3>
+                  </div>
+                  <span class="zw-mobile-section-side">{{ chartMeta }}</span>
+                </div>
+
+                <div class="zw-mobile-palace-grid">
+                  <button
+                    v-for="(cell, index) in mobilePalaceCells"
+                    :key="`mobile-palace-${index}`"
+                    type="button"
+                    class="zw-mobile-palace-card"
+                    :class="{
+                      'zw-mobile-palace-card--ming': cell.isMing,
+                      'zw-mobile-palace-card--shen': cell.isShen,
+                      'zw-mobile-palace-card--daxian': cell.isCurrentDaXian
+                    }"
+                    @click="openMobilePalace(index)"
+                  >
+                    <div class="zw-mobile-palace-card-head">
+                      <span class="zw-mobile-palace-name">{{ cell.palace }}</span>
+                      <span class="zw-mobile-palace-branch">{{ cell.ganzhi }}</span>
+                    </div>
+                    <div class="zw-mobile-palace-tags">
+                      <span v-if="cell.isMing" class="zw-tag zw-tag--ming">命</span>
+                      <span v-if="cell.isShen" class="zw-tag zw-tag--shen">身</span>
+                      <span v-if="cell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
+                    </div>
+                    <p class="zw-mobile-palace-stars">{{ formatMainStarText(cell.mainStars) }}</p>
+                    <p class="zw-mobile-palace-meta">
+                      {{ cell.changSheng || '--' }} · {{ cell.daXianAge || '--' }}
+                    </p>
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <div class="hidden lg:grid zw-chart-desktop-layout">
+            <div class="zw-summary-card">
+              <div v-if="centerInfo" class="zw-summary-board">
+                <section class="zw-summary-panel">
+                  <h3 class="zw-panel-title">基本信息</h3>
+                  <div class="zw-panel-list">
+                    <div class="zw-kv"><span class="zw-k">姓名</span><span class="zw-v">{{ profileName || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">性别</span><span class="zw-v">{{ centerInfo.gender || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">农历</span><span class="zw-v">{{ centerInfo.lunar || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">公历</span><span class="zw-v">{{ centerInfo.solarText || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">出生时辰</span><span class="zw-v">{{ centerInfo.shichenLabel || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">出生地</span><span class="zw-v">{{ birthProvince }} {{ birthCity }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">经度</span><span class="zw-v">{{ selectedLongitudeText }}</span></div>
+                  </div>
+                </section>
+
+                <section class="zw-summary-panel">
+                  <h3 class="zw-panel-title">命盘要素</h3>
+                  <div class="zw-panel-list">
+                    <div class="zw-kv"><span class="zw-k">五行局</span><span class="zw-v">{{ centerInfo.bureau || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">命主星</span><span class="zw-v">{{ centerInfo.mingZhu || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">身主星</span><span class="zw-v">{{ centerInfo.shenZhu || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">命宫地支</span><span class="zw-v">{{ centerInfo.mingBranch || '--' }}{{ centerInfo.mingPalaceName ? '（' + centerInfo.mingPalaceName + '）' : '' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">身宫地支</span><span class="zw-v">{{ centerInfo.shenBranch || '--' }}{{ centerInfo.shenPalaceName ? '（' + centerInfo.shenPalaceName + '）' : '' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">起运岁数</span><span class="zw-v">{{ centerInfo.qiYunText || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">大限顺逆</span><span class="zw-v">{{ centerInfo.daXianDirectionLabel || '--' }}</span></div>
+                  </div>
+                </section>
+
+                <section class="zw-summary-panel">
+                  <h3 class="zw-panel-title">三层四化</h3>
+                  <div class="zw-panel-list zw-panel-list--dense">
+                    <div class="zw-kv zw-kv--stack">
+                      <span class="zw-k">生年四化</span>
+                      <span class="zw-v">{{ compactSummaryText(centerInfo.huaSummary) }}</span>
+                    </div>
+                    <div class="zw-kv zw-kv--stack">
+                      <span class="zw-k">大限四化</span>
+                      <span class="zw-v">{{ compactSummaryText(centerInfo.daxianHuaSummary) }}</span>
+                    </div>
+                    <div class="zw-kv zw-kv--stack">
+                      <span class="zw-k">流年四化</span>
+                      <span class="zw-v">{{ compactSummaryText(centerInfo.liunianHuaSummary) }}</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="zw-summary-panel">
+                  <h3 class="zw-panel-title">流年信息</h3>
+                  <div class="zw-panel-list">
+                    <div class="zw-kv"><span class="zw-k">流年干支</span><span class="zw-v">{{ centerInfo.currentYearGanZhiLabel || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">流年命宫</span><span class="zw-v">{{ centerInfo.currentLiuNianPalaceLabel || '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">虚岁</span><span class="zw-v">{{ centerInfo.age ? centerInfo.age + '岁' : '--' }}</span></div>
+                    <div class="zw-kv"><span class="zw-k">当前大限</span><span class="zw-v">{{ centerInfo.currentDaXianLabel || '--' }}</span></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <div class="zw-palace-ring">
+              <template v-for="(cell, index) in palaceGrid" :key="'pc-' + index">
+                <div
+                  v-if="cell"
+                  class="zw-card"
+                  :class="{
+                    'zw-card--ming': cell.isMing,
+                    'zw-card--shen': cell.isShen,
+                    'zw-card--daxian': cell.isCurrentDaXian
+                  }"
+                >
+                  <div class="zw-card-head">
+                    <div class="zw-card-title">
+                      <span class="zw-palace-name">{{ cell.palace }}</span>
+                      <span v-if="cell.isMing" class="zw-tag zw-tag--ming">命</span>
+                      <span v-if="cell.isShen" class="zw-tag zw-tag--shen">身</span>
+                      <span v-if="cell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
+                    </div>
+                    <span class="zw-ganzhi">{{ cell.ganzhi }}</span>
+                  </div>
+
+                  <div class="zw-stars-main">
+                    <div class="zw-star-primary">
+                      <span class="zw-star-primary-k">主星</span>
+                      <span class="zw-star-primary-v">{{ formatMainStarText(cell.mainStars) }}</span>
+                    </div>
+                    <div v-if="!cell.mainStars.length" class="zw-card-empty">
+                      无主星
+                    </div>
+                  </div>
+
+                  <div class="zw-card-info-grid">
+                    <div class="zw-card-info-item"><span class="zw-card-info-k">地支</span><span class="zw-card-info-v">{{ cell.branch }}</span></div>
+                    <div class="zw-card-info-item"><span class="zw-card-info-k">长生</span><span class="zw-card-info-v">{{ cell.changSheng || '--' }}</span></div>
+                    <div class="zw-card-info-item"><span class="zw-card-info-k">大限</span><span class="zw-card-info-v">{{ cell.daXianAge || '--' }}</span></div>
+                    <div class="zw-card-info-item"><span class="zw-card-info-k">流年</span><span class="zw-card-info-v">{{ cell.liuNianPalaceName || '--' }}</span></div>
+                  </div>
+
+                  <div class="zw-card-lines">
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">吉</span>
+                      <span class="zw-card-line-v">{{ formatStarNameText(cell.luckyStars) }}</span>
+                    </div>
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">煞</span>
+                      <span class="zw-card-line-v">{{ formatStarNameText(cell.evilStars) }}</span>
+                    </div>
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">辅</span>
+                      <span class="zw-card-line-v">{{ formatStarNameText(cell.miscStars) }}</span>
+                    </div>
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">生</span>
+                      <span class="zw-card-line-v">{{ formatBirthHuaText(cell.birthHuaStars) }}</span>
+                    </div>
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">限</span>
+                      <span class="zw-card-line-v">{{ formatTransitHuaText(cell.daxianSiHua) }}</span>
+                    </div>
+                    <div class="zw-card-line">
+                      <span class="zw-card-line-k">年</span>
+                      <span class="zw-card-line-v">{{ formatTransitHuaText(cell.liunianSiHua) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+            </div>
+
+            <div
+              v-if="activeMobilePalace"
+              class="zw-mobile-sheet-backdrop lg:hidden"
+              @click="closeMobilePalace"
+            >
+              <section class="zw-mobile-sheet" @click.stop>
+                <div class="zw-mobile-sheet-handle"></div>
+                <div class="zw-mobile-sheet-head">
+                  <div>
+                    <p class="zw-mobile-kicker">宫位详情</p>
+                    <h3 class="zw-mobile-sheet-title">{{ activeMobilePalace.palace }}</h3>
+                  </div>
+                  <button type="button" class="zw-mobile-sheet-close" @click="closeMobilePalace">
+                    关闭
+                  </button>
+                </div>
+
+                <div class="zw-mobile-sheet-scroll">
+                  <div class="zw-mobile-sheet-tags">
+                    <span class="zw-mobile-sheet-chip">{{ activeMobilePalace.ganzhi }}</span>
+                    <span v-if="activeMobilePalace.isMing" class="zw-tag zw-tag--ming">命宫</span>
+                    <span v-if="activeMobilePalace.isShen" class="zw-tag zw-tag--shen">身宫</span>
+                    <span v-if="activeMobilePalace.isCurrentDaXian" class="zw-tag zw-tag--daxian">当前大限</span>
+                  </div>
+
+                  <section class="zw-mobile-detail-block">
+                    <h4 class="zw-mobile-detail-title">主星</h4>
+                    <p class="zw-mobile-detail-text">{{ formatMainStarText(activeMobilePalace.mainStars) }}</p>
+                  </section>
+
+                  <section class="zw-mobile-detail-block">
+                    <h4 class="zw-mobile-detail-title">基础信息</h4>
+                    <div class="zw-mobile-detail-grid">
+                      <div class="zw-mobile-detail-item"><span>地支</span><strong>{{ activeMobilePalace.branch }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span>长生</span><strong>{{ activeMobilePalace.changSheng || '--' }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span>大限</span><strong>{{ activeMobilePalace.daXianAge || '--' }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span>流年</span><strong>{{ activeMobilePalace.liuNianPalaceName || '--' }}</strong></div>
+                    </div>
+                  </section>
+
+                  <section class="zw-mobile-detail-block">
+                    <h4 class="zw-mobile-detail-title">辅佐与四化</h4>
+                    <div class="zw-mobile-detail-list">
+                      <div class="zw-mobile-detail-row"><span>吉曜</span><p>{{ formatStarNameText(activeMobilePalace.luckyStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span>煞曜</span><p>{{ formatStarNameText(activeMobilePalace.evilStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span>杂曜</span><p>{{ formatStarNameText(activeMobilePalace.miscStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span>生年四化</span><p>{{ formatBirthHuaText(activeMobilePalace.birthHuaStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span>大限四化</span><p>{{ formatTransitHuaText(activeMobilePalace.daxianSiHua) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span>流年四化</span><p>{{ formatTransitHuaText(activeMobilePalace.liunianSiHua) }}</p></div>
+                    </div>
+                  </section>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
-      </aside>
+      </main>
+
     </main>
+
+    <SharePosterModal
+      :visible="showSharePoster"
+      @close="showSharePoster = false"
+    />
   </div>
 </template>
 
 <style scoped>
-/* 紫微专用描边按钮 — 使用柔和的边框色和文字色，避免强对比 */
+/* 紫微专用描边按钮，使用柔和的边框色和文字色，避免强对比 */
 .ziwei-btn-outline {
   display: inline-flex;
   align-items: center;
@@ -782,7 +2145,56 @@ watch(chart, (v) => {
   box-shadow: var(--shadow-focus-ring);
 }
 
-/* 标题栏高度与全局分割线对齐（56px header + 12px gap = 68px，与全局分割线同一水平线） */
+.zw-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.zw-generate-btn,
+.zw-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.zw-generate-btn {
+  gap: 0;
+  box-shadow: var(--shadow-button);
+}
+
+.zw-step-card,
+.zw-step-item,
+.zw-form-grid-two,
+.zw-gender-group {
+  min-width: 0;
+}
+
+.zw-step-item {
+  flex: 0 0 auto;
+}
+
+.zw-step-label {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.zw-gender-option {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* 标题栏高度与全局分割线对齐（56px header + 12px gap = 68px） */
 .ziwei-header {
   height: calc(var(--header-height) + 12px);
 }
@@ -798,246 +2210,848 @@ watch(chart, (v) => {
 }
 
 /* ============================================
-   Modern Ziwei Chart — Card-based Layout
+   Modern Ziwei Chart 鈥?Card-based Layout
    Apple HIG inspired, glassmorphism cards
    ============================================ */
 
 /* --- Summary Card --- */
-.zw-summary-card {
+.zw-main-stage {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding-bottom: 3px;
+}
+
+.zw-main-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+}
+
+.zw-main-head-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.zw-view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
   background: var(--color-panel);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  border-radius: var(--radius-pill);
   box-shadow: var(--shadow-sm);
 }
 
-.zw-summary-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+.zw-view-switch-btn {
+  min-height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-subtle);
+  font: 500 var(--text-xs) / 1 var(--font-body);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-apple);
 }
 
-.zw-summary-left {
+.zw-view-switch-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-panel-2);
+}
+
+.zw-view-switch-btn--active {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.zw-view-switch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.zw-chart-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.zw-chart-stage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+}
+
+.zw-chart-stage-note {
+  margin: 0;
+  line-height: 1.35;
+  font-family: var(--font-body);
+}
+
+.zw-analysis-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+  align-content: start;
+  box-sizing: border-box;
+  padding-bottom: 3px;
+}
+
+.zw-analysis-split {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+}
+
+.zw-analysis-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+  border-radius: calc(var(--radius-lg) + 6px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, white), color-mix(in srgb, var(--color-panel) 99%, white));
+  border: 1px solid color-mix(in srgb, var(--color-border) 76%, white);
+  box-shadow:
+    0 24px 56px rgba(29, 39, 67, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.zw-analysis-panel--qa {
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.zw-analysis-panel--analysis {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, white), color-mix(in srgb, var(--color-panel) 99%, white));
+}
+
+.zw-analysis-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 2px;
+}
+
+.zw-analysis-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zw-analysis-panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent-bg) 92%, white);
+  color: var(--color-accent);
+  font: 700 10px / 1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.zw-analysis-panel-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 280px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-panel) 84%, white);
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, white);
+  color: var(--color-text-subtle);
+  font: 500 11px / 1.2 var(--font-body);
+  box-shadow: none;
+}
+
+.zw-analysis-panel-chip--ghost {
+  background: color-mix(in srgb, var(--color-panel) 88%, var(--color-panel-2));
+}
+
+.zw-analysis-panel-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 2px;
+  padding-right: 4px;
+}
+
+.zw-analysis-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 16px;
+  border: 1px dashed color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-panel) 86%, transparent);
+}
+
+.zw-analysis-stream-card,
+.zw-analysis-card,
+.zw-analysis-empty {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-body);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.zw-analysis-stream-card,
+.zw-analysis-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.zw-analysis-stream-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.zw-analysis-stream-card::before,
+.zw-analysis-card--hero::before,
+.zw-analysis-card--focus::before,
+.zw-analysis-card--actions::before,
+.zw-analysis-card--qa::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 30%);
+}
+
+.zw-analysis-result-wrap {
+  min-height: 0;
+}
+
+.zw-analysis-desktop-grid {
+  display: none;
+  min-height: 0;
+}
+
+.zw-analysis-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  transition:
+    transform var(--duration-normal) var(--ease-apple),
+    box-shadow var(--duration-normal) var(--ease-apple),
+    border-color var(--duration-normal) var(--ease-apple);
+}
+
+.zw-analysis-card:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 30px rgba(30, 39, 64, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.zw-analysis-card--overview {
+  grid-column: 1 / -1;
+}
+
+.zw-analysis-card--span-full {
+  grid-column: 1 / -1;
+}
+
+.zw-analysis-card--qa {
+  background: color-mix(in srgb, var(--color-panel) 82%, var(--color-panel-2));
+}
+
+.zw-analysis-card--qa-lead {
+  margin-bottom: 8px;
+}
+
+.zw-analysis-card--hero {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.995), color-mix(in srgb, var(--color-panel) 95%, white));
+  border-color: color-mix(in srgb, var(--color-accent) 14%, var(--color-border));
+  box-shadow:
+    0 18px 42px color-mix(in srgb, var(--color-accent-bg) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.zw-analysis-card--focus {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, white), var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-liunian) 14%, var(--color-border));
+}
+
+.zw-analysis-card--actions {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, white), var(--color-panel));
+  border-color: color-mix(in srgb, var(--color-success) 14%, var(--color-border));
+}
+
+.zw-analysis-card--insight {
+  min-height: 226px;
+}
+
+.zw-analysis-card--qa-detail {
+  min-height: 172px;
+}
+
+.zw-analysis-card--question {
+  background: color-mix(in srgb, var(--color-panel) 72%, var(--color-accent-bg));
+}
+
+.zw-analysis-question-text {
+  margin: 0;
+  font: 600 var(--text-base) / 1.6 var(--font-body);
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+}
+
+.zw-analysis-empty--full {
+  min-height: 0;
+}
+
+.zw-qa-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.zw-qa-compose-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-accent-border) 58%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, var(--color-accent-bg)), var(--color-panel));
+  box-shadow: var(--shadow-sm);
+}
+
+.zw-qa-compose-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.zw-qa-compose-head p {
+  margin: 0;
+}
+
+.zw-qa-compose-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.zw-nayin {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-warning);
-  line-height: 1;
+.zw-qa-send-btn {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-btn-primary-text);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-apple), transform var(--duration-fast) var(--ease-apple);
 }
 
-.zw-summary-meta {
+.zw-qa-send-btn:hover {
+  background: var(--color-brand);
+  transform: translateY(-1px);
+}
+
+.zw-qa-send-btn:disabled {
+  transform: none;
+}
+
+.zw-analysis-card-head {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.zw-bureau {
-  font-size: 14px;
-  font-weight: 600;
+.zw-analysis-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 600 var(--text-sm) / 1.3 var(--font-body);
   color: var(--color-text);
 }
 
-.zw-gender-tag {
+.zw-analysis-section-title--qa {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.zw-analysis-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zw-analysis-badge-row--compact {
+  gap: 6px;
+}
+
+.zw-analysis-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.zw-analysis-badge--blue {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent-bg) 88%, transparent);
+}
+
+.zw-analysis-badge--orange {
+  color: var(--color-major-star);
+  background: color-mix(in srgb, var(--color-major-star) 16%, transparent);
+}
+
+.zw-analysis-badge--green {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success-bg) 88%, transparent);
+}
+
+.zw-analysis-badge--purple {
+  color: var(--color-liunian);
+  background: color-mix(in srgb, var(--color-liunian) 16%, transparent);
+}
+
+.zw-analysis-badge--red {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger-bg) 88%, transparent);
+}
+
+.zw-analysis-badge--gold {
+  color: var(--color-hua-lu);
+  background: color-mix(in srgb, var(--color-hua-lu) 18%, transparent);
+}
+
+.zw-analysis-card--tone-blue {
+  border-color: color-mix(in srgb, var(--color-accent-border) 45%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, var(--color-accent-bg)), var(--color-panel));
+}
+
+.zw-analysis-card--tone-orange {
+  border-color: color-mix(in srgb, var(--color-major-star) 16%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, color-mix(in srgb, var(--color-major-star) 4%, transparent)), var(--color-panel));
+}
+
+.zw-analysis-card--tone-green {
+  border-color: color-mix(in srgb, var(--color-success) 16%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, var(--color-success-bg)), var(--color-panel));
+}
+
+.zw-analysis-card--tone-purple {
+  border-color: color-mix(in srgb, var(--color-liunian) 16%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, color-mix(in srgb, var(--color-liunian) 4%, transparent)), var(--color-panel));
+}
+
+.zw-analysis-card--tone-red {
+  border-color: color-mix(in srgb, var(--color-danger) 16%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, var(--color-danger-bg)), var(--color-panel));
+}
+
+.zw-analysis-card--tone-gold {
+  border-color: color-mix(in srgb, var(--color-hua-lu) 16%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 96%, color-mix(in srgb, var(--color-hua-lu) 4%, transparent)), var(--color-panel));
+}
+
+.zw-analysis-section-title--blue {
+  color: var(--color-accent);
+}
+
+.zw-analysis-section-title--orange {
+  color: var(--color-major-star);
+}
+
+.zw-analysis-section-title--green {
+  color: var(--color-success);
+}
+
+.zw-analysis-section-title--purple {
+  color: var(--color-liunian);
+}
+
+.zw-analysis-section-title--red {
+  color: var(--color-danger);
+}
+
+.zw-analysis-section-title--gold {
+  color: var(--color-hua-lu);
+}
+
+.zw-analysis-section-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+}
+
+.zw-analysis-icon--star {
+  clip-path: polygon(50% 0%, 61% 36%, 98% 36%, 68% 58%, 79% 95%, 50% 72%, 21% 95%, 32% 58%, 2% 36%, 39% 36%);
+}
+
+.zw-analysis-icon--triangle {
+  clip-path: polygon(50% 6%, 94% 88%, 6% 88%);
+}
+
+.zw-analysis-icon--diamond {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.zw-analysis-icon--sun {
+  clip-path: polygon(50% 0%, 60% 24%, 86% 14%, 76% 40%, 100% 50%, 76% 60%, 86% 86%, 60% 76%, 50% 100%, 40% 76%, 14% 86%, 24% 60%, 0% 50%, 24% 40%, 14% 14%, 40% 24%);
+}
+
+.zw-analysis-icon--spark {
+  clip-path: polygon(48% 0%, 58% 34%, 86% 18%, 68% 48%, 100% 52%, 66% 64%, 80% 100%, 48% 76%, 18% 100%, 30% 64%, 0% 52%, 28% 48%, 12% 18%, 40% 34%);
+}
+
+.zw-analysis-icon--moon {
+  clip-path: polygon(58% 4%, 42% 10%, 28% 22%, 20% 38%, 20% 56%, 28% 72%, 42% 84%, 58% 90%, 48% 78%, 42% 64%, 40% 50%, 42% 36%, 48% 22%);
+}
+
+.zw-analysis-icon--chat {
+  clip-path: polygon(8% 12%, 92% 12%, 92% 68%, 58% 68%, 40% 88%, 42% 68%, 8% 68%);
+}
+
+.zw-analysis-section-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent-bg) 94%, white), rgba(255, 255, 255, 0.78));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font: 600 10px / 1 var(--font-body);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
+.zw-analysis-card-text {
+  margin: 0;
+  font: 500 var(--text-sm) / 1.75 var(--font-body);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.zw-analysis-text-line,
+.zw-analysis-list-line {
+  margin: 0;
+}
+
+.zw-analysis-text-line + .zw-analysis-text-line,
+.zw-analysis-list-line + .zw-analysis-list-line {
+  margin-top: 4px;
+}
+
+.zw-analysis-inline-label {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.zw-analysis-card-text--subtle {
   color: var(--color-text-subtle);
 }
 
-.zw-summary-divider {
-  width: 1px;
-  height: 36px;
-  background: var(--color-border);
+.zw-analysis-card-text--hero {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--color-text);
+}
+
+.zw-analysis-card-text--feature {
+  font-size: 13px;
+  line-height: 1.84;
+}
+
+.zw-analysis-card-text--lead {
+  font-size: 13px;
+  line-height: 1.84;
+  color: color-mix(in srgb, var(--color-text) 88%, var(--color-accent));
+}
+
+.zw-analysis-meta-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.zw-analysis-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+}
+
+.zw-analysis-meta-title {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  background: color-mix(in srgb, var(--color-panel-2) 82%, transparent);
+}
+
+.zw-analysis-meta-title--evidence {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent-bg) 88%, transparent);
+}
+
+.zw-analysis-meta-title--advice {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success-bg) 88%, transparent);
+}
+
+.zw-analysis-meta-title--opportunities {
+  color: var(--color-hua-lu);
+  background: color-mix(in srgb, var(--color-success-bg) 72%, transparent);
+}
+
+.zw-analysis-meta-title--risks {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger-bg) 88%, transparent);
+}
+
+.zw-analysis-meta-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: var(--text-xs);
+  line-height: 1.62;
+  color: var(--color-text-subtle);
+  font-family: var(--font-body);
+}
+
+.zw-analysis-meta-list--ordered {
+  padding-left: 18px;
+}
+
+.zw-analysis-action-item::marker {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.zw-analysis-disclaimer {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 11px;
+  margin-bottom: 1px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-accent-bg);
+  color: var(--color-text);
+  font: 500 11px / 1.2 var(--font-body);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: visible;
   flex-shrink: 0;
 }
 
-.zw-summary-grid {
+.zw-summary-card {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  font-family: var(--font-body);
+}
+
+.zw-chart-desktop-layout {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+}
+
+.zw-summary-board {
   display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: 4px 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.zw-summary-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 14px;
+  background: var(--color-panel-2);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.zw-summary-panel:last-child {
+  border-right: none;
+}
+
+.zw-panel-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.25;
+}
+
+.zw-summary-panel:nth-child(1) .zw-panel-title {
+  color: var(--color-accent);
+}
+
+.zw-summary-panel:nth-child(1) .zw-k {
+  color: var(--color-accent);
+}
+
+.zw-summary-panel:nth-child(2) .zw-panel-title {
+  color: var(--color-major-star);
+}
+
+.zw-summary-panel:nth-child(2) .zw-k {
+  color: var(--color-major-star);
+}
+
+.zw-summary-panel:nth-child(3) .zw-panel-title {
+  color: var(--color-hua-lu);
+}
+
+.zw-summary-panel:nth-child(3) .zw-k {
+  color: var(--color-hua-quan);
+}
+
+.zw-summary-panel:nth-child(4) .zw-panel-title {
+  color: var(--color-liunian);
+}
+
+.zw-summary-panel:nth-child(4) .zw-k {
+  color: var(--color-liunian);
+}
+
+.zw-panel-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.zw-panel-list--dense {
+  grid-template-columns: 1fr;
+  gap: 6px;
 }
 
 .zw-kv {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  font-family: var(--font-body);
+  min-width: 0;
 }
 
 .zw-k {
   color: var(--color-text-muted);
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .zw-v {
   color: var(--color-text);
   font-weight: 500;
+  min-width: 0;
+  font-family: var(--font-body);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.zw-summary-right {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-left: auto;
-  text-align: right;
-}
-
-.zw-lunar-text {
-  font-size: 12px;
-  color: var(--color-text);
-}
-
-.zw-age-text {
-  font-size: 11px;
-  color: var(--color-text-subtle);
-}
-
-.zw-profile-name {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.zw-daxian-info {
-  font-size: 11px;
-  color: var(--color-daxian);
-}
-
-.zw-liunian-info {
-  font-size: 11px;
-  color: var(--color-liunian);
-}
-
-/* --- 三层四化摘要区 --- */
-.zw-hua-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-border);
-}
-
-.zw-hua-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.zw-hua-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-subtle);
-  width: 56px;
-  flex-shrink: 0;
-}
-
-.zw-hua-items {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.zw-hua-item {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 1px 6px;
-  border-radius: var(--radius-xs);
-}
-
-.zw-hua--禄 {
-  color: var(--color-hua-lu);
-  background: color-mix(in srgb, var(--color-hua-lu) 14%, transparent);
-}
-
-.zw-hua--权 {
-  color: var(--color-hua-quan);
-  background: color-mix(in srgb, var(--color-hua-quan) 14%, transparent);
-}
-
-.zw-hua--科 {
-  color: var(--color-hua-ke);
-  background: color-mix(in srgb, var(--color-hua-ke) 14%, transparent);
-}
-
-.zw-hua--忌 {
-  color: var(--color-hua-ji);
-  background: color-mix(in srgb, var(--color-hua-ji) 14%, transparent);
-}
-
-/* --- 宫位卡内 大限/流年四化 --- */
-.zw-cell-hua {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed color-mix(in srgb, var(--color-border) 60%, transparent);
-}
-
-.zw-cell-hua-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-}
-
-.zw-cell-hua-prefix {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 0 3px;
-  border-radius: 2px;
-  line-height: 14px;
-}
-
-.zw-cell-hua-prefix--dx {
-  color: var(--color-daxian);
-  background: color-mix(in srgb, var(--color-daxian) 14%, transparent);
-}
-
-.zw-cell-hua-prefix--ln {
-  color: var(--color-liunian);
-  background: color-mix(in srgb, var(--color-liunian) 14%, transparent);
-}
-
-.zw-cell-hua-text {
-  color: var(--color-text-subtle);
+.zw-kv--stack {
+  grid-template-columns: 52px minmax(0, 1fr);
 }
 
 /* --- Palace Card Ring (3-col grid) --- */
 .zw-palace-ring {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
 }
 
 /* --- Single Palace Card --- */
 .zw-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 10px 12px 8px;
+  gap: 5px;
+  padding: 8px 10px;
   background: var(--color-panel);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  cursor: pointer;
   transition:
     box-shadow var(--duration-normal) var(--ease-apple),
     border-color var(--duration-normal) var(--ease-apple),
     transform var(--duration-fast) var(--ease-apple);
-  min-height: 96px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
 }
 
 .zw-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
-}
-
-.zw-card--selected {
-  border-color: var(--color-accent-border);
-  box-shadow: var(--shadow-md), 0 0 0 2px var(--color-accent-bg);
 }
 
 .zw-card--ming {
@@ -1059,32 +3073,36 @@ watch(chart, (v) => {
 .zw-card-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .zw-card-title {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .zw-palace-name {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text);
-  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-body);
+  line-height: 1.2;
 }
 
 .zw-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 1px 5px;
   border-radius: var(--radius-xs);
   line-height: 14px;
+  font-family: var(--font-body);
 }
 
 .zw-tag--ming {
@@ -1103,127 +3121,165 @@ watch(chart, (v) => {
 }
 
 .zw-ganzhi {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
+  flex-shrink: 0;
+  line-height: 1.2;
 }
 
-/* Stars */
 .zw-stars-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
+  min-width: 0;
 }
 
-.zw-star-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+.zw-star-primary {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
 }
 
-.zw-star-name {
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
+.zw-star-primary-k {
+  color: var(--color-major-star);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  line-height: 1.35;
 }
 
-.zw-star--major {
+.zw-star-primary-v {
+  min-width: 0;
+  font-size: 11px;
   color: var(--color-major-star);
   font-weight: 600;
-}
-
-.zw-star--luck {
-  color: var(--color-success);
-  font-size: 11px;
-}
-
-.zw-star--harm {
-  color: var(--color-danger);
-  font-size: 11px;
-}
-
-.zw-star--misc {
-  color: var(--color-text-subtle);
-  font-size: 11px;
+  font-family: var(--font-body);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .zw-hua-pill {
-  font-size: 9px;
+  font-size: var(--text-xs);
   padding: 0 4px;
   border-radius: var(--radius-xs);
   margin-left: 2px;
   font-weight: 600;
+  font-family: var(--font-body);
 }
 
 .zw-level {
-  font-size: 9px;
+  font-size: var(--text-xs);
   padding: 0 4px;
   border-radius: 3px;
   flex-shrink: 0;
+  font-family: var(--font-body);
 }
 
-/* Aux stars collapsed view */
-.zw-stars-aux {
-  margin-top: 4px;
-  min-height: 16px;
-}
-
-.zw-aux-summary {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.zw-aux-dot {
-  font-size: 10px;
-  font-weight: 500;
-  padding: 0 5px;
-  border-radius: var(--radius-pill);
-  line-height: 18px;
-}
-
-.zw-dot--luck {
-  color: var(--color-success);
-  background: var(--color-success-bg);
-}
-
-.zw-dot--harm {
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-}
-
-.zw-dot--misc {
-  color: var(--color-text-subtle);
-  background: var(--color-panel-2);
-}
-
-/* Card Footer */
-.zw-card-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
-  padding-top: 4px;
-}
-
-.zw-changsheng {
-  font-size: 10px;
+.zw-star-more,
+.zw-card-empty {
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
+  line-height: 1.3;
+  font-family: var(--font-body);
 }
 
-.zw-daxian-age {
+.zw-card-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 8px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+}
+
+.zw-card-info-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
   font-size: 10px;
-  color: var(--color-daxian);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
+  line-height: 1.3;
 }
 
-.zw-liunian-label {
-  font-size: 9px;
+.zw-card-info-k {
+  font-weight: 600;
+}
+
+.zw-card-info-item:nth-child(1) .zw-card-info-k {
+  color: var(--color-accent);
+}
+
+.zw-card-info-item:nth-child(2) .zw-card-info-k {
+  color: var(--color-success);
+}
+
+.zw-card-info-item:nth-child(3) .zw-card-info-k {
+  color: var(--color-daxian);
+}
+
+.zw-card-info-item:nth-child(4) .zw-card-info-k {
   color: var(--color-liunian);
-  text-align: right;
-  margin-top: 2px;
+}
+
+.zw-card-info-v {
+  color: var(--color-text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.zw-card-lines {
+  display: grid;
+  gap: 3px;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 66%, transparent);
+}
+
+.zw-card-line {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.3;
+  font-family: var(--font-body);
+}
+
+.zw-card-line-k {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.zw-card-line:nth-child(1) .zw-card-line-k {
+  color: var(--color-success);
+}
+
+.zw-card-line:nth-child(2) .zw-card-line-k {
+  color: var(--color-danger);
+}
+
+.zw-card-line:nth-child(3) .zw-card-line-k {
+  color: var(--color-link);
+}
+
+.zw-card-line:nth-child(4) .zw-card-line-k {
+  color: var(--color-hua-quan);
+}
+
+.zw-card-line:nth-child(5) .zw-card-line-k {
+  color: var(--color-daxian);
+}
+
+.zw-card-line:nth-child(6) .zw-card-line-k {
+  color: var(--color-liunian);
+}
+
+.zw-card-line-v {
+  color: var(--color-text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* --- Timeline Section --- */
@@ -1279,7 +3335,7 @@ watch(chart, (v) => {
 .zw-tl-branch {
   font-size: 10px;
   color: var(--color-text-muted);
-  font-family: var(--font-code);
+  font-family: var(--font-body);
   margin-top: 2px;
 }
 
@@ -1329,7 +3385,7 @@ watch(chart, (v) => {
   }
 }
 
-/* Nav button borders via color-mix — removed (old 4×4 grid) */
+/* Nav button borders via color-mix 鈥?removed (old 4脳4 grid) */
 
 /* Star level backgrounds via color-mix */
 .level-miao {
@@ -1381,43 +3437,886 @@ watch(chart, (v) => {
   transform: translateY(-4px);
 }
 
-/* 移动端 Tab 栏按钮热区 ≥ 44px（§15.4.4） */
+/* 移动端 Tab 栏按钮热区 >= 44px（WCAG 2.5.5） */
 .mobile-tab-bar button {
   min-height: 44px;
 }
 
 @media (max-width: 1023px) {
-  /* 平板端：宫位卡片 2 列 */
-  .zw-palace-ring {
+  /* 解除滚动阻塞 */
+  .zw-main-grid {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .zw-center-panel {
+    overflow-y: auto;
+  }
+
+  .zw-main-stage {
+    height: auto;
+  }
+
+  /* 精简 header */
+  .ziwei-header {
+    height: 48px !important;
+    padding-left: 56px;
+    padding-right: 12px;
+  }
+
+  .ziwei-header h1 {
+    font-size: 14px;
+  }
+
+  .ziwei-header .text-xs {
+    display: none;
+  }
+
+  /* tab bar 触控 */
+  .mobile-tab-bar button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  /* view-switch 触控 */
+  .zw-view-switch-btn {
+    min-height: 36px;
+    font-size: 13px;
+    flex: 1;
+  }
+
+  .zw-view-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    padding: 3px;
+    gap: 3px;
+  }
+
+  /* 摘要卡 2 列 */
+  .zw-summary-board {
     grid-template-columns: repeat(2, 1fr);
   }
-  .zw-summary-right {
-    margin-left: 0;
+
+  /* 平板端：宫位卡片 2 列 */
+  .zw-main-head,
+  .zw-main-head-copy {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .zw-main-head {
+    gap: 8px;
+  }
+
+  .zw-main-head-copy {
+    width: 100%;
+    gap: 4px;
+  }
+
+  .zw-main-head-copy > span {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .zw-chart-stage {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+  }
+
+  .zw-palace-ring {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(6, minmax(96px, auto));
+    height: auto;
+  }
+
+  .zw-analysis-stage {
+    grid-template-rows: auto auto;
+    height: auto;
+  }
+
+  .zw-analysis-split {
+    grid-template-rows: auto auto;
+  }
+
+  .zw-analysis-panel {
+    grid-template-rows: auto auto;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .zw-analysis-panel-body {
+    overflow-y: visible;
+    padding-right: 0;
+  }
+
+  .zw-analysis-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .zw-analysis-panel-title {
+    gap: 3px;
+  }
+
+  .zw-analysis-panel-chip {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    white-space: normal;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .zw-mobile-chart-layout {
+    display: grid;
+    gap: 12px;
+  }
+
+  .zw-mobile-hero-card,
+  .zw-mobile-palace-section {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 88%, white);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at top right, color-mix(in srgb, var(--color-accent-bg) 68%, transparent), transparent 42%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 97%, white), var(--color-panel));
+    box-shadow:
+      0 14px 28px rgba(30, 39, 64, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+
+  .zw-mobile-hero-head,
+  .zw-mobile-section-head,
+  .zw-mobile-sheet-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .zw-mobile-kicker {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  .zw-mobile-hero-title,
+  .zw-mobile-section-title,
+  .zw-mobile-sheet-title {
+    margin: 0;
+    font: 600 16px/1.35 var(--font-body);
+    color: var(--color-text);
+  }
+
+  .zw-mobile-hero-side,
+  .zw-mobile-section-side {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent-bg) 78%, transparent);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--color-accent);
+  }
+
+  .zw-mobile-section-side {
+    max-width: 42%;
+    line-height: 1.3;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .zw-mobile-highlight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .zw-mobile-highlight-item,
+  .zw-mobile-fact-item {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-panel) 92%, white);
+  }
+
+  .zw-mobile-highlight-label,
+  .zw-mobile-fact-label {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--color-subtle);
+  }
+
+  .zw-mobile-highlight-value,
+  .zw-mobile-fact-value {
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+  }
+
+  .zw-mobile-fact-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .zw-mobile-info-group {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 70%, white);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-panel) 68%, white);
+  }
+
+  .zw-mobile-info-group--elements {
+    border-color: color-mix(in srgb, var(--color-hua-ke) 16%, var(--color-border));
+    background: color-mix(in srgb, var(--color-hua-ke) 5%, var(--color-panel));
+  }
+
+  .zw-mobile-info-group--hua {
+    border-color: color-mix(in srgb, var(--color-accent) 14%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent-bg) 38%, var(--color-panel));
+  }
+
+  .zw-mobile-info-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 18px;
+  }
+
+  .zw-mobile-info-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-info-title::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-accent);
+  }
+
+  .zw-mobile-fact-item--wide {
+    grid-column: 1 / -1;
+  }
+
+  .zw-mobile-hua-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .zw-mobile-hua-item {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 10%, var(--color-border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-accent-bg) 58%, white);
+  }
+
+  .zw-mobile-chart-note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-accent-bg) 62%, white);
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-palace-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .zw-mobile-palace-card {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 88%, white);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-panel) 94%, white);
     text-align: left;
+    cursor: pointer;
+    transition:
+      transform var(--duration-fast) var(--ease-apple),
+      box-shadow var(--duration-fast) var(--ease-apple),
+      border-color var(--duration-fast) var(--ease-apple);
+  }
+
+  .zw-mobile-palace-card:active {
+    transform: scale(0.985);
+  }
+
+  .zw-mobile-palace-card--ming {
+    border-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
+    box-shadow: 0 10px 18px color-mix(in srgb, var(--color-accent-bg) 26%, transparent);
+  }
+
+  .zw-mobile-palace-card--shen {
+    border-color: color-mix(in srgb, var(--color-hua-ke) 24%, var(--color-border));
+  }
+
+  .zw-mobile-palace-card--daxian {
+    border-color: color-mix(in srgb, var(--color-success) 24%, var(--color-border));
+  }
+
+  .zw-mobile-palace-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .zw-mobile-palace-name {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-palace-branch {
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--color-subtle);
+  }
+
+  .zw-mobile-palace-tags,
+  .zw-mobile-sheet-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .zw-mobile-palace-stars,
+  .zw-mobile-palace-meta,
+  .zw-mobile-detail-text,
+  .zw-mobile-detail-row p {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zw-mobile-palace-stars {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-palace-meta {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--color-subtle);
+  }
+
+  .zw-mobile-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 16px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(12, 18, 30, 0.32);
+    backdrop-filter: blur(6px);
+  }
+
+  .zw-mobile-sheet {
+    width: 100%;
+    max-height: min(82vh, 720px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px 14px 14px;
+    border-radius: 22px 22px 18px 18px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 88%, white);
+    background:
+      radial-gradient(circle at top center, color-mix(in srgb, var(--color-accent-bg) 50%, transparent), transparent 44%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-panel) 98%, white), var(--color-panel));
+    box-shadow: 0 -8px 34px rgba(14, 24, 43, 0.16);
+  }
+
+  .zw-mobile-sheet-handle {
+    width: 42px;
+    height: 4px;
+    margin: 0 auto;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-border) 74%, var(--color-subtle));
+  }
+
+  .zw-mobile-sheet-close {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--color-accent-bg) 76%, white);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-accent);
+    cursor: pointer;
+  }
+
+  .zw-mobile-sheet-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: 12px;
+    padding-right: 2px;
+  }
+
+  .zw-mobile-sheet-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-panel-2) 92%, white);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-detail-block {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 78%, white);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-panel) 94%, white);
+  }
+
+  .zw-mobile-detail-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-accent);
+  }
+
+  .zw-mobile-detail-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .zw-mobile-detail-item {
+    display: grid;
+    gap: 4px;
+    padding: 10px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--color-bg) 60%, white);
+  }
+
+  .zw-mobile-detail-item span,
+  .zw-mobile-detail-row span {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--color-subtle);
+  }
+
+  .zw-mobile-detail-item strong {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-text);
+  }
+
+  .zw-mobile-detail-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .zw-mobile-detail-row {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+  }
+
+  .zw-mobile-analysis-flow,
+  .zw-mobile-analysis-stream,
+  .zw-mobile-qa-flow {
+    display: grid;
+    gap: 12px;
+  }
+
+  .zw-mobile-flow-hero {
+    padding: 16px;
+  }
+
+  .zw-mobile-analysis-stream .zw-mobile-flow-hero {
+    max-height: min(58vh, 520px);
+  }
+
+  .zw-analysis-card-text--stream {
+    max-height: min(42vh, 380px);
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .zw-mobile-analysis-tabs {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .zw-mobile-analysis-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .zw-mobile-analysis-tab {
+    flex: 0 0 auto;
+    display: inline-grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    gap: 6px;
+    max-width: 168px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 82%, white);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-panel) 94%, white);
+    color: var(--color-subtle);
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
+  .zw-mobile-analysis-tab span {
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-accent);
+  }
+
+  .zw-mobile-analysis-tab strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .zw-mobile-analysis-tab--active {
+    border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent-bg) 72%, white);
+    color: var(--color-text);
+  }
+
+  .zw-mobile-reader-card {
+    min-height: min(48vh, 460px);
+    max-height: none;
+  }
+
+  .zw-mobile-flow-card {
+    min-height: auto;
+  }
+
+  .zw-analysis-card-head {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .zw-analysis-section-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .zw-analysis-section-title span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .zw-analysis-section-index {
+    flex-shrink: 0;
+  }
+
+  .zw-analysis-card--insight,
+  .zw-analysis-card--qa-detail {
+    min-height: auto;
+  }
+
+  .zw-analysis-disclaimer {
+    min-height: auto;
+    padding: 8px 10px;
+    align-items: flex-start;
+    white-space: normal;
+    line-height: 1.45;
+  }
+
+  .zw-summary-panel {
+    padding: 10px 12px;
+  }
+
+  .zw-panel-list,
+  .zw-panel-list--dense {
+    gap: 7px;
+  }
+
+  .zw-kv {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .zw-kv--stack {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .zw-card-info-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .zw-card-info-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .zw-card-lines {
+    gap: 4px;
+  }
+
+  .zw-card-line {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .zw-qa-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zw-qa-compose-head,
+  .zw-qa-compose-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .zw-qa-send-btn {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .zw-chart-stage {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .zw-analysis-desktop-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    min-height: 0;
+  }
+
+  .zw-palace-ring {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    height: 100%;
+  }
+
+  .zw-chart-desktop-layout {
+    overflow: hidden;
   }
 }
 
 @media (max-width: 600px) {
-  /* 手机端：宫位卡片 2 列紧凑 */
+  /* 手机端：宫位卡片 2 列紧凑布局 */
+  .zw-action-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zw-step-card {
+    padding: 10px;
+  }
+
+  .zw-step-item {
+    max-width: 68px;
+  }
+
+  .zw-step-label {
+    font-size: 9px;
+  }
+
+  .zw-step-divider {
+    margin-left: 6px;
+    margin-right: 6px;
+  }
+
+  .zw-form-grid-two {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .zw-gender-group {
+    flex-direction: column;
+  }
+
+  .zw-gender-option {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .zw-generate-btn,
+  .zw-clear-btn {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 10px;
+    line-height: 44px;
+  }
+
   .zw-palace-ring {
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
+    grid-template-rows: repeat(6, minmax(92px, auto));
   }
   .zw-card {
-    padding: 8px 10px 6px;
-    min-height: 80px;
+    padding: 7px 8px 6px;
   }
   .zw-palace-name {
+    font-size: var(--text-xs);
+  }
+  .zw-summary-board {
+    grid-template-columns: 1fr;
+  }
+
+  .zw-view-switch-btn {
+    min-height: 34px;
     font-size: 12px;
+    padding: 0 6px;
   }
-  .zw-star-name {
-    font-size: 11px;
+
+  .zw-analysis-stream-card,
+  .zw-analysis-card,
+  .zw-analysis-empty {
+    padding: 12px;
   }
-  .zw-summary-inner {
-    gap: 10px;
+
+  .zw-analysis-panel {
+    padding: 10px;
   }
-  .zw-summary-divider {
-    display: none;
+
+  .zw-analysis-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .zw-analysis-section-index {
+    align-self: flex-start;
+  }
+
+  .zw-analysis-panel-chip {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+
+  .zw-analysis-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .zw-summary-panel {
+    padding: 9px 10px;
+  }
+
+  .zw-kv,
+  .zw-kv--stack {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .zw-card-info-item {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  /* 手机端间距 */
+  .zw-main-stage {
+    gap: 6px;
+  }
+
+  .zw-analysis-card {
+    border-radius: 10px;
+  }
+
+  .zw-center-panel {
+    padding: 10px;
+  }
+
+  .zw-mobile-hero-card,
+  .zw-mobile-palace-section,
+  .zw-mobile-sheet,
+  .zw-mobile-flow-hero,
+  .zw-mobile-flow-card {
+    border-radius: 16px;
+  }
+
+  .zw-mobile-hero-card,
+  .zw-mobile-palace-section,
+  .zw-mobile-flow-hero {
+    padding: 12px;
+  }
+
+  .zw-mobile-highlight-grid,
+  .zw-mobile-palace-grid,
+  .zw-mobile-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zw-mobile-fact-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .zw-mobile-detail-row {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .zw-mobile-sheet-backdrop {
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .zw-mobile-sheet {
+    padding: 10px 12px 12px;
   }
 }
 </style>
+

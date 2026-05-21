@@ -2,6 +2,7 @@
 import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import WorkbenchApp from '@/components/business/workbench/WorkbenchApp.vue'
+import { useAuth } from '@/composables/useAuth'
 import {
   buildWorkbenchPath,
   normalizeWorkbenchSection
@@ -9,14 +10,21 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuth()
+
+function isZiweiShareMode(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('ziwei_share') === '1'
+}
 
 watch(
-  () => route.params.section,
-  (section) => {
+  () => [route.params.section, auth.canAccessZiweiTool.value] as const,
+  ([section, canAccessZiweiTool]) => {
+    if (isZiweiShareMode()) return
     const rawSection = Array.isArray(section) ? section[0] : section
-    const normalized = normalizeWorkbenchSection(section)
+    const normalized = normalizeWorkbenchSection(section, { canAccessZiweiTool })
     if (rawSection !== normalized) {
-      void router.replace(buildWorkbenchPath(normalized))
+      void router.replace(buildWorkbenchPath(normalized, { canAccessZiweiTool }))
     }
   },
   { immediate: true }

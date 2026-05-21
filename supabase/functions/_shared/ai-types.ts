@@ -3,6 +3,8 @@
 export interface AiConfigRow {
   id: string
   created_by: string | null
+  scope: 'global' | 'user'
+  owner_user_id: string | null
   provider_id: string
   name: string
   base_url: string

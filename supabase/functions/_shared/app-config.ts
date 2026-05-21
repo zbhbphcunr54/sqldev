@@ -226,6 +226,7 @@ export async function getDefaultAiTimeoutMs(): Promise<number> {
   }
   const result = await getAppConfig<number>('ai', 'default_timeout_ms', {
     envVar: 'DEFAULT_AI_TIMEOUT_MS',
+    defaultValue: 45000,
     parse: Number
   })
   _cachedDefaultAiTimeoutMs = result.value

@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>整站主题系统预览</title>
+<style>
+:root {
+  color-scheme: dark;
+  --page-bg: #0a0d12;
+  --page-text: #f2f5f9;
+  --page-muted: rgba(236, 241, 248, 0.72);
+  --page-dim: rgba(236, 241, 248, 0.46);
+  --page-line: rgba(255, 255, 255, 0.08);
+  --page-panel: rgba(14, 18, 27, 0.76);
+  --page-shadow: 0 30px 90px rgba(0, 0, 0, 0.32);
+  --radius-xl: 34px;
+  --radius-lg: 26px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Avenir Next", "Segoe UI Variable Text", "PingFang SC", "Source Han Sans SC", sans-serif;
+  color: var(--page-text);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(59, 130, 246, 0.18), transparent 28%),
+    radial-gradient(circle at 88% 8%, rgba(244, 114, 182, 0.14), transparent 24%),
+    linear-gradient(180deg, #0a0d12 0%, #090b10 100%);
+  padding: 36px 20px 54px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 30px 30px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 88%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 88%);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero { animation: fadeUp 0.7s ease-out both; }
+.grid { animation: fadeUp 0.7s 0.15s ease-out both; }
+.footnotes { animation: fadeUp 0.7s 0.3s ease-out both; }
+
+.shell {
+  position: relative;
+  max-width: 1520px;
+  margin: 0 auto;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.hero-main,
+.hero-side {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--page-line);
+  background: var(--page-panel);
+  box-shadow: var(--page-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.hero-main::before,
+.hero-side::before,
+.theme-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 22%);
+}
+
+.hero-main {
+  padding: 30px 32px;
+}
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero-kicker::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #38bdf8, #60a5fa);
+  box-shadow: 0 0 16px rgba(96, 165, 250, 0.55);
+}
+
+h1 {
+  margin: 0 0 14px;
+  font-family: "Canela", "Iowan Old Style", "Baskerville", "Songti SC", serif;
+  font-size: clamp(36px, 4.8vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+}
+
+.hero-main p {
+  margin: 0;
+  max-width: 780px;
+  color: var(--page-muted);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.hero-tag {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.hero-tag:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.hero-side {
+  padding: 24px;
+}
+
+.hero-side h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.criteria {
+  display: grid;
+  gap: 12px;
+}
+
+.criterion {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.criterion:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.criterion-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(34, 197, 94, 0.08));
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.criterion strong {
+  display: block;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+}
+
+.criterion span {
+  display: block;
+  color: var(--page-dim);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px;
+}
+
+.theme-card {
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --line: rgba(255, 255, 255, 0.11);
+  --text-main: #fff;
+  --text-soft: rgba(255, 255, 255, 0.72);
+  --accent: #fff;
+  --accent-2: #fff;
+  --accent-gradient: linear-gradient(135deg, var(--accent), var(--accent-2));
+  --accent-soft: rgba(255, 255, 255, 0.12);
+  --accent-strong: rgba(255, 255, 255, 0.22);
+  --button-text: #0b1020;
+  --preview-bg: #111827;
+  --sidebar-bg: #101622;
+  --hero-glow: rgba(255, 255, 255, 0.16);
+  --hero-glow-2: transparent;
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+  box-shadow: var(--page-shadow);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.theme-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.42);
+}
+
+.theme-card::after {
+  content: "";
+  position: absolute;
+  top: -34px;
+  left: -14px;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--hero-glow), transparent 66%);
+  pointer-events: none;
+}
+
+.theme-card::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 22%),
+    radial-gradient(circle at 90% 10%, var(--hero-glow-2), transparent 40%);
+}
+
+.theme-head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 26px 16px;
+}
+
+.theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-gradient, currentColor);
+}
+
+.theme-head h3 {
+  margin: 0 0 8px;
+  font-family: "Canela", "Iowan Old Style", "Baskerville", "Songti SC", serif;
+  font-size: 29px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.theme-head p {
+  margin: 0;
+  max-width: 470px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.theme-score {
+  flex-shrink: 0;
+  min-width: 118px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  text-align: right;
+}
+
+.theme-score span {
+  display: block;
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.theme-score strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-main);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.theme-score em {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.score-bar {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-gradient, var(--accent));
+  transition: width 1s ease-out;
+}
+
+.recommend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(34, 197, 94, 0.12));
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  color: #6ee7b7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.preview {
+  position: relative;
+  margin: 0 18px 18px;
+  min-height: 584px;
+  border-radius: 28px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 38%),
+    radial-gradient(circle at 90% 85%, color-mix(in srgb, var(--accent-2, var(--accent)) 12%, transparent), transparent 34%),
+    radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 55%),
+    var(--preview-bg);
+  border: 1px solid var(--line);
+}
+
+.preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, color-mix(in srgb, var(--accent-2, var(--accent)) 14%, transparent), transparent 45%),
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 12%);
+}
+
+.workspace {
+  position: relative;
+  display: grid;
+  grid-template-columns: 186px minmax(0, 1fr);
+  min-height: 584px;
+}
+
+.sidebar {
+  padding: 20px 18px;
+  background:
+    radial-gradient(circle at 50% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
+    radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--accent-2, var(--accent)) 6%, transparent), transparent 45%),
+    var(--sidebar-bg);
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--accent-gradient, linear-gradient(135deg, var(--accent), rgba(255, 255, 255, 0.55)));
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.brand-copy strong {
+  display: block;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.brand-copy span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
+.side-title {
+  margin: 18px 0 8px;
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: grid;
+  gap: 6px;
+}
+
+.nav-item {
+  padding: 11px 12px;
+  border-radius: 14px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav-item:not(.active):hover {
+  background: var(--surface);
+  color: var(--text-main);
+}
+
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-strong);
+  border-left: 2px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-gradient, var(--accent));
+}
+
+.main {
+  padding: 18px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+  position: relative;
+}
+
+.main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 80% 10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 45%),
+    radial-gradient(circle at 15% 90%, color-mix(in srgb, var(--accent-2, var(--accent)) 10%, transparent), transparent 40%);
+  z-index: 0;
+}
+
+.main > * {
+  position: relative;
+  z-index: 1;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--accent-gradient, var(--accent));
+  border: none;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.topbar strong {
+  display: block;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.topbar span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.84);
+  font-size: 11px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-pill,
+.tiny-badge,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.status-pill {
+  padding: 7px 12px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric,
+.panel,
+.widget,
+.table-card {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::after,
+.widget::after,
+.table-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-gradient, var(--accent));
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.metric {
+  padding: 14px 15px;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.metric:first-child {
+  background: var(--accent-soft);
+  border-color: var(--accent-strong);
+}
+
+.metric:first-child em {
+  color: var(--accent-2, var(--accent));
+}
+
+.metric:hover {
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+
+.metric span {
+  display: block;
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.metric em {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+}
+
+.panel,
+.widget,
+.table-card {
+  padding: 16px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-head h4 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.panel-head span,
+.table-card p,
+.widget p,
+.panel p {
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.68;
+}
+
+.hero-copyline {
+  margin-top: 10px;
+  font-size: 20px;
+  line-height: 1.44;
+  letter-spacing: -0.03em;
+  background: var(--accent-gradient, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tiny-badge {
+  padding: 6px 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background: var(--accent-gradient, var(--accent));
+  color: var(--button-text);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--accent) 38%, transparent);
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-main);
+  transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: var(--surface);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.table {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.table-row,
+.list-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.8fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+
+.table-row:not(.header):hover,
+.list-row:hover {
+  background: var(--accent-soft);
+}
+
+.table-row.header {
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tag-row,
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.swatch-row {
+  padding-bottom: 22px;
+}
+
+.tag {
+  padding: 7px 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag:nth-child(even) {
+  color: var(--accent-2, var(--accent));
+  background: color-mix(in srgb, var(--accent-2, var(--accent)) 10%, transparent);
+}
+
+.swatch {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.swatch::after {
+  content: attr(data-color);
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--page-dim);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.swatch:hover::after {
+  opacity: 1;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.mode-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--page-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--page-dim);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--page-text);
+}
+
+.mode-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--page-text);
+}
+
+.swatch-set {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  min-width: 32px;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.list-row {
+  grid-template-columns: 1fr auto;
+}
+
+.footnotes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.footnote {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid var(--page-line);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(14px);
+  transition: background 0.3s, border-color 0.3s, transform 0.3s;
+}
+
+.footnote:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-2px);
+}
+
+.footnote h5 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.footnote h5::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.footnote:nth-child(1) h5::before { background: linear-gradient(135deg, #d4944a, #d4627a); }
+.footnote:nth-child(2) h5::before { background: linear-gradient(135deg, #5865f2, #06b6d4); }
+.footnote:nth-child(3) h5::before { background: linear-gradient(135deg, #a78bfa, #f472b6); }
+.footnote:nth-child(4) h5::before { background: linear-gradient(135deg, #0d9488, #3b82f6); }
+.footnote:nth-child(5) h5::before { background: linear-gradient(135deg, #c2566e, #d97706); }
+.footnote:nth-child(6) h5::before { background: linear-gradient(135deg, #22d3ee, #a78bfa); }
+.footnote:nth-child(7) h5::before { background: linear-gradient(135deg, #6b7280, #a855f7); }
+.footnote:nth-child(8) h5::before { background: linear-gradient(135deg, #e8590c, #eab308); }
+
+.footnote p {
+  margin: 0;
+  color: var(--page-muted);
+  font-size: 12px;
+  line-height: 1.72;
+}
+
+.theme-a {
+  --preview-bg:
+    radial-gradient(circle at 20% 8%, rgba(194, 140, 86, 0.1), transparent 28%),
+    radial-gradient(circle at 85% 75%, rgba(212, 98, 122, 0.06), transparent 24%),
+    linear-gradient(180deg, #faf7f3 0%, #f3ede5 100%);
+  --sidebar-bg: linear-gradient(180deg, #f1eae0 0%, #ebe3d7 100%);
+  --surface: rgba(100, 78, 52, 0.06);
+  --surface-soft: rgba(255, 252, 247, 0.84);
+  --line: rgba(100, 78, 52, 0.09);
+  --text-main: #1c1612;
+  --text-soft: rgba(58, 44, 32, 0.64);
+  --accent: #b07a3b;
+  --accent-2: #d4627a;
+  --accent-gradient: linear-gradient(135deg, #d4944a, #d4627a);
+  --accent-soft: rgba(176, 122, 59, 0.1);
+  --accent-strong: rgba(176, 122, 59, 0.18);
+  --button-text: #fffaf4;
+  --hero-glow: rgba(194, 148, 92, 0.28);
+  --hero-glow-2: rgba(212, 98, 122, 0.12);
+}
+.theme-a.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 20% 8%, rgba(212, 148, 74, 0.08), transparent 28%),
+    radial-gradient(circle at 85% 75%, rgba(240, 132, 154, 0.05), transparent 24%),
+    linear-gradient(180deg, #1a1610 0%, #14110c 100%);
+  --sidebar-bg: linear-gradient(180deg, #181410 0%, #13100b 100%);
+  --surface: rgba(255, 235, 205, 0.055);
+  --surface-soft: rgba(26, 22, 16, 0.9);
+  --line: rgba(255, 235, 205, 0.07);
+  --text-main: #f5efe6;
+  --text-soft: rgba(230, 215, 195, 0.66);
+  --accent: #d4944a;
+  --accent-2: #f0849a;
+  --accent-gradient: linear-gradient(135deg, #d4944a, #f0849a);
+  --accent-soft: rgba(212, 148, 74, 0.11);
+  --accent-strong: rgba(212, 148, 74, 0.2);
+  --button-text: #1a1408;
+  --hero-glow: rgba(212, 148, 74, 0.2);
+  --hero-glow-2: rgba(240, 132, 154, 0.1);
+}
+
+.theme-b {
+  --preview-bg:
+    radial-gradient(circle at 80% 6%, rgba(88, 101, 242, 0.1), transparent 28%),
+    radial-gradient(circle at 15% 80%, rgba(6, 182, 212, 0.06), transparent 24%),
+    linear-gradient(180deg, #f6f7fd 0%, #edeef8 100%);
+  --sidebar-bg: linear-gradient(180deg, #e9ebf7 0%, #e2e4f1 100%);
+  --surface: rgba(55, 58, 108, 0.05);
+  --surface-soft: rgba(252, 252, 255, 0.82);
+  --line: rgba(60, 64, 120, 0.09);
+  --text-main: #111327;
+  --text-soft: rgba(40, 42, 78, 0.66);
+  --accent: #5865f2;
+  --accent-2: #06b6d4;
+  --accent-gradient: linear-gradient(135deg, #5865f2, #06b6d4);
+  --accent-soft: rgba(88, 101, 242, 0.09);
+  --accent-strong: rgba(88, 101, 242, 0.18);
+  --button-text: #f8f9ff;
+  --hero-glow: rgba(88, 101, 242, 0.24);
+  --hero-glow-2: rgba(6, 182, 212, 0.12);
+}
+.theme-b.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 80% 6%, rgba(129, 140, 248, 0.08), transparent 28%),
+    radial-gradient(circle at 15% 80%, rgba(34, 211, 238, 0.05), transparent 24%),
+    linear-gradient(180deg, #111225 0%, #0d0e1e 100%);
+  --sidebar-bg: linear-gradient(180deg, #0f1022 0%, #0b0c1b 100%);
+  --surface: rgba(140, 150, 255, 0.055);
+  --surface-soft: rgba(17, 18, 37, 0.9);
+  --line: rgba(140, 150, 255, 0.07);
+  --text-main: #edeeff;
+  --text-soft: rgba(195, 200, 245, 0.66);
+  --accent: #818cf8;
+  --accent-2: #22d3ee;
+  --accent-gradient: linear-gradient(135deg, #818cf8, #22d3ee);
+  --accent-soft: rgba(129, 140, 248, 0.11);
+  --accent-strong: rgba(129, 140, 248, 0.2);
+  --button-text: #0e0f20;
+  --hero-glow: rgba(129, 140, 248, 0.2);
+  --hero-glow-2: rgba(34, 211, 238, 0.1);
+}
+
+.theme-c {
+  --preview-bg:
+    radial-gradient(circle at 25% 10%, rgba(167, 139, 250, 0.1), transparent 26%),
+    radial-gradient(circle at 80% 70%, rgba(244, 114, 182, 0.06), transparent 24%),
+    linear-gradient(180deg, #15131e 0%, #100e18 100%);
+  --sidebar-bg: linear-gradient(180deg, #12101b 0%, #0e0d15 100%);
+  --surface: rgba(255, 255, 255, 0.055);
+  --surface-soft: rgba(22, 20, 32, 0.9);
+  --line: rgba(255, 255, 255, 0.07);
+  --text-main: #f2eeff;
+  --text-soft: rgba(196, 186, 232, 0.7);
+  --accent: #a78bfa;
+  --accent-2: #f472b6;
+  --accent-gradient: linear-gradient(135deg, #a78bfa, #f472b6);
+  --accent-soft: rgba(167, 139, 250, 0.11);
+  --accent-strong: rgba(167, 139, 250, 0.2);
+  --button-text: #1a1528;
+  --hero-glow: rgba(167, 139, 250, 0.24);
+  --hero-glow-2: rgba(244, 114, 182, 0.14);
+}
+.theme-c.mode-light {
+  --preview-bg:
+    radial-gradient(circle at 25% 10%, rgba(124, 58, 237, 0.07), transparent 26%),
+    radial-gradient(circle at 80% 70%, rgba(219, 39, 119, 0.04), transparent 24%),
+    linear-gradient(180deg, #f8f5ff 0%, #f0ecfa 100%);
+  --sidebar-bg: linear-gradient(180deg, #ede7f6 0%, #e6e0f0 100%);
+  --surface: rgba(80, 50, 140, 0.05);
+  --surface-soft: rgba(255, 252, 255, 0.86);
+  --line: rgba(80, 50, 140, 0.08);
+  --text-main: #1a1525;
+  --text-soft: rgba(55, 40, 85, 0.64);
+  --accent: #7c3aed;
+  --accent-2: #db2777;
+  --accent-gradient: linear-gradient(135deg, #7c3aed, #db2777);
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --accent-strong: rgba(124, 58, 237, 0.18);
+  --button-text: #faf5ff;
+  --hero-glow: rgba(124, 58, 237, 0.2);
+  --hero-glow-2: rgba(219, 39, 119, 0.1);
+}
+
+.theme-d {
+  --preview-bg:
+    radial-gradient(circle at 50% 6%, rgba(20, 184, 166, 0.08), transparent 28%),
+    radial-gradient(circle at 10% 80%, rgba(59, 130, 246, 0.05), transparent 24%),
+    linear-gradient(180deg, #f8f9fa 0%, #f1f3f4 100%);
+  --sidebar-bg: linear-gradient(180deg, #eef0f2 0%, #e7eaec 100%);
+  --surface: rgba(36, 48, 52, 0.05);
+  --surface-soft: rgba(255, 255, 255, 0.86);
+  --line: rgba(42, 56, 60, 0.08);
+  --text-main: #111816;
+  --text-soft: rgba(34, 50, 48, 0.66);
+  --accent: #0d9488;
+  --accent-2: #3b82f6;
+  --accent-gradient: linear-gradient(135deg, #0d9488, #3b82f6);
+  --accent-soft: rgba(13, 148, 136, 0.09);
+  --accent-strong: rgba(13, 148, 136, 0.18);
+  --button-text: #f0fdf9;
+  --hero-glow: rgba(20, 184, 166, 0.22);
+  --hero-glow-2: rgba(59, 130, 246, 0.1);
+}
+.theme-d.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 50% 6%, rgba(45, 212, 191, 0.07), transparent 28%),
+    radial-gradient(circle at 10% 80%, rgba(96, 165, 250, 0.04), transparent 24%),
+    linear-gradient(180deg, #111816 0%, #0d1412 100%);
+  --sidebar-bg: linear-gradient(180deg, #101714 0%, #0c1210 100%);
+  --surface: rgba(180, 240, 230, 0.05);
+  --surface-soft: rgba(17, 24, 22, 0.9);
+  --line: rgba(180, 240, 230, 0.06);
+  --text-main: #ecf5f3;
+  --text-soft: rgba(190, 225, 220, 0.66);
+  --accent: #2dd4bf;
+  --accent-2: #60a5fa;
+  --accent-gradient: linear-gradient(135deg, #2dd4bf, #60a5fa);
+  --accent-soft: rgba(45, 212, 191, 0.1);
+  --accent-strong: rgba(45, 212, 191, 0.18);
+  --button-text: #0a1412;
+  --hero-glow: rgba(45, 212, 191, 0.18);
+  --hero-glow-2: rgba(96, 165, 250, 0.08);
+}
+
+.theme-a .btn-primary,
+.theme-b .btn-primary,
+.theme-d .btn-primary { color: #fff; }
+.theme-a.mode-dark .btn-primary,
+.theme-b.mode-dark .btn-primary,
+.theme-d.mode-dark .btn-primary { color: #fff; }
+.theme-c.mode-light .btn-primary { color: #fff; }
+
+.theme-e {
+  --preview-bg:
+    radial-gradient(circle at 30% 8%, rgba(194, 86, 110, 0.06), transparent 28%),
+    radial-gradient(circle at 80% 75%, rgba(217, 119, 6, 0.04), transparent 24%),
+    linear-gradient(180deg, #fdf6f7 0%, #f7eef0 100%);
+  --sidebar-bg: linear-gradient(180deg, #f3e8ec 0%, #ede1e5 100%);
+  --surface: rgba(140, 60, 80, 0.045);
+  --surface-soft: rgba(255, 250, 252, 0.85);
+  --line: rgba(140, 60, 80, 0.07);
+  --text-main: #1e1418;
+  --text-soft: rgba(60, 38, 48, 0.62);
+  --accent: #c2566e;
+  --accent-2: #d97706;
+  --accent-gradient: linear-gradient(135deg, #c2566e, #d97706);
+  --accent-soft: rgba(194, 86, 110, 0.09);
+  --accent-strong: rgba(194, 86, 110, 0.17);
+  --button-text: #fff5f7;
+  --hero-glow: rgba(219, 130, 155, 0.24);
+  --hero-glow-2: rgba(217, 119, 6, 0.1);
+}
+.theme-e.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 30% 8%, rgba(240, 132, 154, 0.07), transparent 28%),
+    radial-gradient(circle at 80% 75%, rgba(251, 191, 36, 0.04), transparent 24%),
+    linear-gradient(180deg, #1a1214 0%, #140f10 100%);
+  --sidebar-bg: linear-gradient(180deg, #171012 0%, #120d0e 100%);
+  --surface: rgba(255, 200, 215, 0.05);
+  --surface-soft: rgba(26, 18, 20, 0.9);
+  --line: rgba(255, 200, 215, 0.06);
+  --text-main: #f5eef0;
+  --text-soft: rgba(235, 210, 220, 0.66);
+  --accent: #f0849a;
+  --accent-2: #fbbf24;
+  --accent-gradient: linear-gradient(135deg, #f0849a, #fbbf24);
+  --accent-soft: rgba(240, 132, 154, 0.11);
+  --accent-strong: rgba(240, 132, 154, 0.2);
+  --button-text: #1a0e12;
+  --hero-glow: rgba(240, 132, 154, 0.18);
+  --hero-glow-2: rgba(251, 191, 36, 0.08);
+}
+.theme-e .btn-primary,
+.theme-e.mode-dark .btn-primary { color: #fff; }
+
+.theme-f {
+  --preview-bg:
+    radial-gradient(circle at 60% 8%, rgba(34, 211, 238, 0.08), transparent 28%),
+    radial-gradient(circle at 20% 80%, rgba(167, 139, 250, 0.05), transparent 24%),
+    linear-gradient(180deg, #0c1418 0%, #0a1014 100%);
+  --sidebar-bg: linear-gradient(180deg, #0b1216 0%, #091012 100%);
+  --surface: rgba(120, 220, 240, 0.05);
+  --surface-soft: rgba(12, 20, 24, 0.9);
+  --line: rgba(120, 220, 240, 0.06);
+  --text-main: #e8f4f8;
+  --text-soft: rgba(180, 220, 235, 0.66);
+  --accent: #22d3ee;
+  --accent-2: #a78bfa;
+  --accent-gradient: linear-gradient(135deg, #22d3ee, #a78bfa);
+  --accent-soft: rgba(34, 211, 238, 0.1);
+  --accent-strong: rgba(34, 211, 238, 0.18);
+  --button-text: #0a1418;
+  --hero-glow: rgba(34, 211, 238, 0.2);
+  --hero-glow-2: rgba(167, 139, 250, 0.12);
+}
+.theme-f.mode-light {
+  --preview-bg:
+    radial-gradient(circle at 60% 8%, rgba(8, 145, 178, 0.06), transparent 28%),
+    radial-gradient(circle at 20% 80%, rgba(124, 58, 237, 0.04), transparent 24%),
+    linear-gradient(180deg, #f4fafb 0%, #ecf4f6 100%);
+  --sidebar-bg: linear-gradient(180deg, #e6f1f4 0%, #dfebed 100%);
+  --surface: rgba(20, 80, 100, 0.045);
+  --surface-soft: rgba(250, 254, 255, 0.85);
+  --line: rgba(20, 80, 100, 0.07);
+  --text-main: #0e1a1e;
+  --text-soft: rgba(30, 60, 72, 0.64);
+  --accent: #0891b2;
+  --accent-2: #7c3aed;
+  --accent-gradient: linear-gradient(135deg, #0891b2, #7c3aed);
+  --accent-soft: rgba(8, 145, 178, 0.09);
+  --accent-strong: rgba(8, 145, 178, 0.17);
+  --button-text: #f0fdff;
+  --hero-glow: rgba(8, 145, 178, 0.2);
+  --hero-glow-2: rgba(124, 58, 237, 0.08);
+}
+.theme-f.mode-light .btn-primary { color: #fff; }
+
+.theme-g {
+  --preview-bg:
+    radial-gradient(circle at 30% 15%, rgba(168, 85, 247, 0.04), transparent 24%),
+    radial-gradient(circle at 75% 80%, rgba(59, 130, 246, 0.03), transparent 24%),
+    linear-gradient(180deg, #f7f7f7 0%, #f0f0f0 100%);
+  --sidebar-bg: linear-gradient(180deg, #ebebeb 0%, #e5e5e5 100%);
+  --surface: rgba(0, 0, 0, 0.035);
+  --surface-soft: rgba(255, 255, 255, 0.86);
+  --line: rgba(0, 0, 0, 0.06);
+  --text-main: #171717;
+  --text-soft: rgba(23, 23, 23, 0.52);
+  --accent: #525252;
+  --accent-2: #a855f7;
+  --accent-gradient: linear-gradient(135deg, #6b7280, #a855f7, #3b82f6);
+  --accent-soft: rgba(64, 64, 64, 0.07);
+  --accent-strong: rgba(64, 64, 64, 0.14);
+  --button-text: #fafafa;
+  --hero-glow: rgba(168, 85, 247, 0.1);
+  --hero-glow-2: rgba(59, 130, 246, 0.06);
+}
+.theme-g.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 30% 15%, rgba(168, 85, 247, 0.05), transparent 24%),
+    radial-gradient(circle at 75% 80%, rgba(59, 130, 246, 0.04), transparent 24%),
+    linear-gradient(180deg, #171717 0%, #131313 100%);
+  --sidebar-bg: linear-gradient(180deg, #151515 0%, #111111 100%);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-soft: rgba(23, 23, 23, 0.9);
+  --line: rgba(255, 255, 255, 0.06);
+  --text-main: #ededed;
+  --text-soft: rgba(220, 220, 220, 0.58);
+  --accent: #a3a3a3;
+  --accent-2: #c084fc;
+  --accent-gradient: linear-gradient(135deg, #a3a3a3, #c084fc, #60a5fa);
+  --accent-soft: rgba(163, 163, 163, 0.09);
+  --accent-strong: rgba(163, 163, 163, 0.16);
+  --button-text: #171717;
+  --hero-glow: rgba(168, 85, 247, 0.08);
+  --hero-glow-2: rgba(59, 130, 246, 0.06);
+}
+.theme-g .btn-primary { color: #fff; }
+.theme-g.mode-dark .btn-primary { color: var(--button-text); }
+
+.theme-h {
+  --preview-bg:
+    radial-gradient(circle at 40% 8%, rgba(232, 89, 12, 0.05), transparent 28%),
+    radial-gradient(circle at 75% 75%, rgba(234, 179, 8, 0.04), transparent 24%),
+    linear-gradient(180deg, #fdf8f5 0%, #f8f0eb 100%);
+  --sidebar-bg: linear-gradient(180deg, #f4ebe4 0%, #efe5dc 100%);
+  --surface: rgba(140, 60, 20, 0.04);
+  --surface-soft: rgba(255, 252, 249, 0.85);
+  --line: rgba(140, 60, 20, 0.06);
+  --text-main: #1c1510;
+  --text-soft: rgba(60, 42, 28, 0.62);
+  --accent: #e8590c;
+  --accent-2: #eab308;
+  --accent-gradient: linear-gradient(135deg, #e8590c, #eab308);
+  --accent-soft: rgba(232, 89, 12, 0.08);
+  --accent-strong: rgba(232, 89, 12, 0.15);
+  --button-text: #fff8f5;
+  --hero-glow: rgba(232, 120, 50, 0.22);
+  --hero-glow-2: rgba(234, 179, 8, 0.1);
+}
+.theme-h.mode-dark {
+  --preview-bg:
+    radial-gradient(circle at 40% 8%, rgba(251, 146, 60, 0.07), transparent 28%),
+    radial-gradient(circle at 75% 75%, rgba(251, 191, 36, 0.04), transparent 24%),
+    linear-gradient(180deg, #1a1410 0%, #14110c 100%);
+  --sidebar-bg: linear-gradient(180deg, #17130e 0%, #120f0b 100%);
+  --surface: rgba(255, 200, 160, 0.05);
+  --surface-soft: rgba(26, 20, 16, 0.9);
+  --line: rgba(255, 200, 160, 0.06);
+  --text-main: #f5ede6;
+  --text-soft: rgba(235, 215, 190, 0.66);
+  --accent: #fb923c;
+  --accent-2: #fbbf24;
+  --accent-gradient: linear-gradient(135deg, #fb923c, #fbbf24);
+  --accent-soft: rgba(251, 146, 60, 0.1);
+  --accent-strong: rgba(251, 146, 60, 0.18);
+  --button-text: #1a0e06;
+  --hero-glow: rgba(251, 146, 60, 0.18);
+  --hero-glow-2: rgba(251, 191, 36, 0.08);
+}
+.theme-h .btn-primary,
+.theme-h.mode-dark .btn-primary { color: #fff; }
+
+@media (max-width: 1260px) {
+  .hero,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footnotes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 880px) {
+  body {
+    padding: 18px 12px 40px;
+  }
+
+  .hero-main,
+  .hero-side {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .theme-head {
+    flex-direction: column;
+  }
+
+  .theme-score {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+
+  .preview {
+    margin: 0 12px 12px;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .overview,
+  .layout,
+  .footnotes {
+    grid-template-columns: 1fr;
+  }
+
+  .button-row {
+    width: 100%;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    flex: 1;
+    text-align: center;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <section class="hero">
+    <div class="hero-main">
+      <div class="hero-kicker">Sitewide Design System</div>
+      <h1>这次预览不再围着紫微页，而是面向整个网站的统一风格</h1>
+      <p>
+        我把预览目标改成“整站主题系统评审”，让每套方案都同时覆盖首页概览、数据工作台、AI 面板、设置页、
+        表格信息和操作按钮。这样你看到的是网站整体人格，而不是紫微页单页氛围。
+      </p>
+      <div class="hero-tags">
+        <span class="hero-tag">首页可用</span>
+        <span class="hero-tag">工作台可用</span>
+        <span class="hero-tag">AI 面板可用</span>
+        <span class="hero-tag">设置页可用</span>
+        <span class="hero-tag">不会只服务紫微页面</span>
+      </div>
+    </div>
+
+    <aside class="hero-side">
+      <h2>这次的审美原则</h2>
+      <div class="criteria">
+        <div class="criterion">
+          <div class="criterion-index">01</div>
+          <div>
+            <strong>主题要先服务全站，再反哺单页</strong>
+            <span>不再用“命理气质”绑死整站视觉，而是先建立足够通用的产品气质。</span>
+          </div>
+        </div>
+        <div class="criterion">
+          <div class="criterion-index">02</div>
+          <div>
+            <strong>每套主题都必须有明确的网站人格</strong>
+            <span>我把四套方案分别拉成编辑感、专业感、品牌感和现代企业感，而不是仅仅换主色。</span>
+          </div>
+        </div>
+        <div class="criterion">
+          <div class="criterion-index">03</div>
+          <div>
+            <strong>预览内容必须覆盖多页面语义</strong>
+            <span>所以我加入了概览卡、列表表格、AI 摘要、按钮区、设置项和色板，而不是只摆命盘宫位。</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="grid">
+    <article class="theme-card theme-a">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme A</div>
+          <h3>琥珀书房</h3>
+          <p>灵感来自 Aesop 与高端编辑杂志。克制的暖调让全站既不冰冷也不随意，适合承载长文本、AI 解读和知识内容，带有安静的高级感。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>9.2</strong>
+          <em>阅读体验最佳</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:92%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Amber Studio</strong>
+                <span>Editorial System</span>
+              </div>
+            </div>
+            <p class="side-title">Navigation</p>
+            <div class="nav">
+              <div class="nav-item active">首页概览</div>
+              <div class="nav-item">紫微排盘</div>
+              <div class="nav-item">SQL 转换</div>
+              <div class="nav-item">AI 控制台</div>
+            </div>
+            <p class="side-title">Library</p>
+            <div class="nav">
+              <div class="nav-item">提示模板</div>
+              <div class="nav-item">发布配置</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>全站概览面板</strong>
+                <span>适合内容、工具、AI 和配置页共存的温润型系统</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Published</span>
+                <span class="status-pill">Readable UI</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>活跃模块</span><strong>12</strong><em>站点统一感强</em></div>
+              <div class="metric"><span>阅读体验</span><strong>优秀</strong><em>长文本友好</em></div>
+              <div class="metric"><span>品牌氛围</span><strong>温润</strong><em>不刻板</em></div>
+              <div class="metric"><span>落地风险</span><strong>低</strong><em>最稳方案</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>首页 Hero 与品牌导语</h4>
+                    <span class="tiny-badge">Content First</span>
+                  </div>
+                  <p>像翻开一本精装产品手册——安静、可信、不张扬。首页能承载品牌叙事，工作台能承载长时间使用，帮助中心也不会显得突兀。</p>
+                  <div class=”hero-copyline”>”让复杂工具看起来像你信赖的老朋友。”</div>
+                  <div class="button-row">
+                    <div class="btn-primary">开始使用</div>
+                    <div class="btn-secondary">查看案例</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>最近任务</h4>
+                    <span>适合列表页 / 历史记录 / 工作流页</span>
+                  </div>
+                  <div class="table">
+                    <div class="table-row header"><div>任务</div><div>状态</div><div>更新时间</div></div>
+                    <div class="table-row"><div>紫微排盘历史</div><div>已同步</div><div>09:21</div></div>
+                    <div class="table-row"><div>AI 规则配置</div><div>待审核</div><div>08:54</div></div>
+                    <div class="table-row"><div>SQL 转换模板</div><div>已发布</div><div>昨天</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 摘要面板</h4>
+                    <span>适合右侧概览、问答提示、洞察卡</span>
+                  </div>
+                  <p>琥珀调的 AI 面板不会抢视觉焦点，却能让解读内容显得更值得阅读——像手写批注而不是机器输出。</p>
+                  <div class="tag-row">
+                    <span class="tag">结构清晰</span>
+                    <span class="tag">大段中文友好</span>
+                    <span class="tag">全站适配高</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>色彩气质</h4>
+                    <span>Aesop 式质感</span>
+                  </div>
+                  <p>去掉了上一版过于偏黄的倾向，琥珀色更沉稳、更有质感，不会让人联想到"咖啡馆模板"。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#faf7f3" data-color="#faf7f3"></div>
+                      <div class="swatch" style="background:#d4944a" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#d4627a" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#1c1612" data-color="#1c1612"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#1a1610" data-color="#1a1610"></div>
+                      <div class="swatch" style="background:#d4944a" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#f0849a" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#f5efe6" data-color="#f5efe6"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-b">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme B</div>
+          <h3>极光靛蓝</h3>
+          <p>灵感来自 Linear 和 Discord 的视觉语言。靛蓝紫替代了传统蓝灰，让专业软件不再无聊——既有科技感又有辨识度，适合控制台和工具链统一。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>9.0</strong>
+          <em>科技辨识度最高</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:90%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Indigo Flow</strong>
+                <span>Productive Suite</span>
+              </div>
+            </div>
+            <p class="side-title">Modules</p>
+            <div class="nav">
+              <div class="nav-item active">工作台首页</div>
+              <div class="nav-item">数据库工具</div>
+              <div class="nav-item">AI 配置</div>
+              <div class="nav-item">发布中心</div>
+            </div>
+            <p class="side-title">System</p>
+            <div class="nav">
+              <div class="nav-item">权限与审计</div>
+              <div class="nav-item">通知中心</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>产品级控制面板</strong>
+                <span>更像现代企业软件，但仍保留轻盈和精致感</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">System Healthy</span>
+                <span class="status-pill">Team Ready</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>协作能力</span><strong>高</strong><em>团队工具友好</em></div>
+              <div class="metric"><span>配置复杂度</span><strong>可控</strong><em>表单兼容性强</em></div>
+              <div class="metric"><span>视觉气质</span><strong>专业</strong><em>不过度冰冷</em></div>
+              <div class="metric"><span>适合模块</span><strong>广</strong><em>全站统一易</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>控制面板总览</h4>
+                    <span class="tiny-badge">Dashboard</span>
+                  </div>
+                  <p>靛蓝紫天然带有"科技前沿"的心理暗示，让首页的模块集合看起来像一个有明确产品主张的工具平台，而不是功能堆叠。</p>
+                  <div class="button-row">
+                    <div class="btn-primary">进入工作台</div>
+                    <div class="btn-secondary">查看文档</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>数据表视图</h4>
+                    <span>适合表格、记录、日志</span>
+                  </div>
+                  <div class="table">
+                    <div class="table-row header"><div>模块</div><div>负责人</div><div>健康度</div></div>
+                    <div class="table-row"><div>紫微页面</div><div>Product</div><div>Stable</div></div>
+                    <div class="table-row"><div>AI Dev 文档</div><div>Platform</div><div>Review</div></div>
+                    <div class="table-row"><div>SQL 转换器</div><div>Backend</div><div>Good</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 助手与通知</h4>
+                    <span>适合系统边栏卡</span>
+                  </div>
+                  <p>靛蓝的 AI 面板有一种"我很聪明但不炫技"的气质——科技感拉满但不冰冷，非常适合 AI 解释卡和通知系统。</p>
+                  <div class="tag-row">
+                    <span class="tag">理性</span>
+                    <span class="tag">透明</span>
+                    <span class="tag">可协作</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Linear 式科技感</span>
+                  </div>
+                  <p>告别了上一版"办公蓝灰"的平庸感，靛蓝紫让浅色主题也能有记忆点——不再千篇一律。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#f6f7fd" data-color="#f6f7fd"></div>
+                      <div class="swatch" style="background:#5865f2" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#06b6d4" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#111327" data-color="#111327"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#111225" data-color="#111225"></div>
+                      <div class="swatch" style="background:#818cf8" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#22d3ee" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#edeeff" data-color="#edeeff"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-c">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme C</div>
+          <h3>午夜薰紫</h3>
+          <p>灵感来自 Figma 暗色模式与 Arc 浏览器。用柔光紫替代了上一版的粉色——更中性、更高级，在暗色基底上营造出"创意工具"的专属感。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn" data-mode="light">浅色</button>
+            <button class="mode-btn active" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>8.5</strong>
+          <em>创意工具气质</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:85%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Violet Studio</strong>
+                <span>Creative Layer</span>
+              </div>
+            </div>
+            <p class="side-title">Sections</p>
+            <div class="nav">
+              <div class="nav-item active">创意首页</div>
+              <div class="nav-item">能力介绍</div>
+              <div class="nav-item">AI 展示</div>
+              <div class="nav-item">视觉系统</div>
+            </div>
+            <p class="side-title">Assets</p>
+            <div class="nav">
+              <div class="nav-item">组件画廊</div>
+              <div class="nav-item">品牌资产</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>创意工具暗色层</strong>
+                <span>适合需要沉浸感的暗色场景——创作、分析、展示一体化</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Dark Mode</span>
+                <span class="status-pill">Creative</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>沉浸感</span><strong>极强</strong><em>暗色专注模式</em></div>
+              <div class="metric"><span>性别中性</span><strong>高</strong><em>紫调更通用</em></div>
+              <div class="metric"><span>全站适配</span><strong>中高</strong><em>暗色场景优先</em></div>
+              <div class="metric"><span>差异度</span><strong>强</strong><em>一眼识别</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>创意首页区</h4>
+                    <span class="tiny-badge">Immersive</span>
+                  </div>
+                  <p>午夜紫让整个首页有一种”创作者工具”的高级感——不是传统后台的沉闷深色，而是有温度、有品位的暗调体验。</p>
+                  <div class=”hero-copyline”>”暗色不等于冰冷，紫调就是证明。”</div>
+                  <div class="button-row">
+                    <div class="btn-primary">查看主题故事</div>
+                    <div class="btn-secondary">浏览组件</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>模块精选区</h4>
+                    <span>适合首页卡片</span>
+                  </div>
+                  <div class="list">
+                    <div class="list-row"><div>紫微排盘体验入口</div><div>Featured</div></div>
+                    <div class="list-row"><div>AI 规则与提示工程</div><div>Insight</div></div>
+                    <div class="list-row"><div>SQL 转换与脚本工具</div><div>Tools</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>视觉锚点</h4>
+                    <span>暗色场景中的品牌记忆</span>
+                  </div>
+                  <p>柔光紫替代了上一版的粉色——男女通吃、不挑场景。暗色基底上的紫光晕既有品牌辨识度又不会让人觉得"太女性化"。</p>
+                  <div class="tag-row">
+                    <span class="tag">高辨识</span>
+                    <span class="tag">性别中性</span>
+                    <span class="tag">沉浸体验</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Figma 暗色风格</span>
+                  </div>
+                  <p>从 Figma 暗色到 Arc 浏览器，紫调暗色已经成为”好用的创意工具”的视觉共识。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#f8f5ff" data-color="#f8f5ff"></div>
+                      <div class="swatch" style="background:#7c3aed" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#db2777" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#1a1525" data-color="#1a1525"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#15131e" data-color="#15131e"></div>
+                      <div class="swatch" style="background:#a78bfa" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#f472b6" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#f2eeff" data-color="#f2eeff"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-d">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme D</div>
+          <h3>翡翠中性 <span class="recommend-badge">&#x2713; 推荐</span></h3>
+          <p>灵感来自 Vercel 和 Apple 的设计系统。用沉稳翡翠绿替代了传统的企业蓝——同样专业可靠，但更有生命力和现代感，天然适合全站统一。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>9.4</strong>
+          <em>全站母体最佳</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:94%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Teal System</strong>
+                <span>Universal UI</span>
+              </div>
+            </div>
+            <p class="side-title">Workspace</p>
+            <div class="nav">
+              <div class="nav-item active">总览</div>
+              <div class="nav-item">产品工具</div>
+              <div class="nav-item">AI 助手</div>
+              <div class="nav-item">系统设置</div>
+            </div>
+            <p class="side-title">Admin</p>
+            <div class="nav">
+              <div class="nav-item">成员管理</div>
+              <div class="nav-item">发布规则</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>统一产品框架</strong>
+                <span>最适合整站标准化、长期扩展和多模块并存</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Universal</span>
+                <span class="status-pill">Scalable</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>全站兼容</span><strong>极高</strong><em>任何页面通用</em></div>
+              <div class="metric"><span>视觉风险</span><strong>最低</strong><em>扩展稳定</em></div>
+              <div class="metric"><span>现代感</span><strong>强</strong><em>超越传统蓝</em></div>
+              <div class="metric"><span>信任感</span><strong>高</strong><em>绿 = 安全</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>网站首页 / 工作台双兼容</h4>
+                    <span class="tiny-badge">Universal</span>
+                  </div>
+                  <p>翡翠绿让"中性"不再等于"无聊"。首页、后台、设置页、AI 面板都能和谐统一，同时比纯蓝灰方案多了一层生命力和信任感。</p>
+                  <div class="button-row">
+                    <div class="btn-primary">进入系统</div>
+                    <div class="btn-secondary">查看规范</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>设置与配置页</h4>
+                    <span>适合系统页</span>
+                  </div>
+                  <div class="list">
+                    <div class="list-row"><div>主题切换与显示密度</div><div>Enabled</div></div>
+                    <div class="list-row"><div>AI 模型与温度参数</div><div>Configured</div></div>
+                    <div class="list-row"><div>文档规范与发布流程</div><div>Ready</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI / 数据 / 设置共用侧卡</h4>
+                    <span>适合全站复用</span>
+                  </div>
+                  <p>翡翠绿的 AI 面板自带"值得信赖"的心理暗示——绿色在用户认知里等于"安全、通过、成功"，天然适合 AI 输出场景。</p>
+                  <div class="tag-row">
+                    <span class="tag">复用最高</span>
+                    <span class="tag">风险最低</span>
+                    <span class="tag">适合长期演进</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Vercel 式极简</span>
+                  </div>
+                  <p>从 Vercel 到 Notion，翡翠/青绿系正在取代传统蓝色成为下一代产品设计的首选主色。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#f8f9fa" data-color="#f8f9fa"></div>
+                      <div class="swatch" style="background:#0d9488" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#3b82f6" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#111816" data-color="#111816"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#111816" data-color="#111816"></div>
+                      <div class="swatch" style="background:#2dd4bf" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#60a5fa" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#ecf5f3" data-color="#ecf5f3"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-e">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme E</div>
+          <h3>樱花沙</h3>
+          <p>灵感来自 Stripe 和高端护肤品牌的克制粉调。不是少女风而是"成年人的优雅"——柔和玫瑰色让界面有温度但不轻浮，适合注重细节体验的产品。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>8.8</strong>
+          <em>优雅质感独特</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:88%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Rose Craft</strong>
+                <span>Elegant System</span>
+              </div>
+            </div>
+            <p class="side-title">Navigation</p>
+            <div class="nav">
+              <div class="nav-item active">体验首页</div>
+              <div class="nav-item">智能助手</div>
+              <div class="nav-item">数据面板</div>
+              <div class="nav-item">个性化设置</div>
+            </div>
+            <p class="side-title">Personal</p>
+            <div class="nav">
+              <div class="nav-item">偏好配置</div>
+              <div class="nav-item">主题切换</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>优雅体验中心</strong>
+                <span>适合注重细节和品质感的产品界面</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Refined</span>
+                <span class="status-pill">Warm</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>温度感</span><strong>高</strong><em>不冰冷</em></div>
+              <div class="metric"><span>性别中性</span><strong>强</strong><em>不偏女性</em></div>
+              <div class="metric"><span>阅读舒适</span><strong>优</strong><em>长文本友好</em></div>
+              <div class="metric"><span>品牌调性</span><strong>独特</strong><em>辨识度高</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>品质感首页</h4>
+                    <span class="tiny-badge">Premium</span>
+                  </div>
+                  <p>玫瑰色调让产品首页有一种高端护肤品的质感——用户会潜意识觉得这是一个"用心做的产品"。</p>
+                  <div class="hero-copyline">"细节决定品质，色彩传递态度。"</div>
+                  <div class="button-row">
+                    <div class="btn-primary">开始体验</div>
+                    <div class="btn-secondary">了解更多</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>近期动态</h4>
+                    <span>适合时间线 / 动态流</span>
+                  </div>
+                  <div class="table">
+                    <div class="table-row header"><div>事件</div><div>类型</div><div>时间</div></div>
+                    <div class="table-row"><div>主题偏好已更新</div><div>设置</div><div>刚刚</div></div>
+                    <div class="table-row"><div>AI 解读已生成</div><div>分析</div><div>3分钟前</div></div>
+                    <div class="table-row"><div>新模板已发布</div><div>内容</div><div>昨天</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 温感面板</h4>
+                    <span>有温度的智能输出</span>
+                  </div>
+                  <p>玫瑰调让 AI 输出显得更有"人味"——像一位耐心的顾问而不是冰冷的机器。</p>
+                  <div class="tag-row">
+                    <span class="tag">有温度</span>
+                    <span class="tag">不轻浮</span>
+                    <span class="tag">成年人的粉</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Stripe 式克制</span>
+                  </div>
+                  <p>如果你想让产品有温度但不幼稚，有辨识度但不过分张扬——这套恰到好处。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#fdf6f7" data-color="#fdf6f7"></div>
+                      <div class="swatch" style="background:#c2566e" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#d97706" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#1e1418" data-color="#1e1418"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#1a1214" data-color="#1a1214"></div>
+                      <div class="swatch" style="background:#f0849a" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#fbbf24" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#f5eef0" data-color="#f5eef0"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-f">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme F</div>
+          <h3>深海赛博</h3>
+          <p>灵感来自 Raycast 和终端工具链。霓虹青在深色基底上散发冷光——天生为数据密集型界面和开发者工具设计，科幻感拉满但不失专业。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn" data-mode="light">浅色</button>
+            <button class="mode-btn active" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>8.7</strong>
+          <em>数据场景最佳</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:87%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Cyber Dock</strong>
+                <span>Data Engine</span>
+              </div>
+            </div>
+            <p class="side-title">Consoles</p>
+            <div class="nav">
+              <div class="nav-item active">数据总控</div>
+              <div class="nav-item">SQL 终端</div>
+              <div class="nav-item">模型调试</div>
+              <div class="nav-item">日志流</div>
+            </div>
+            <p class="side-title">System</p>
+            <div class="nav">
+              <div class="nav-item">运行监控</div>
+              <div class="nav-item">环境变量</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>数据指挥中心</strong>
+                <span>为数据密集型操作和开发者工具量身定做</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Online</span>
+                <span class="status-pill">Low Latency</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>数据密度</span><strong>极高</strong><em>信息不拥挤</em></div>
+              <div class="metric"><span>护眼度</span><strong>优</strong><em>暗色基底</em></div>
+              <div class="metric"><span>科幻感</span><strong>强</strong><em>开发者最爱</em></div>
+              <div class="metric"><span>全站适配</span><strong>中高</strong><em>工具页优先</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>终端化工作台</h4>
+                    <span class="tiny-badge">Terminal</span>
+                  </div>
+                  <p>霓虹青让数据面板有一种"正在运行中"的活力——不是沉闷的黑色后台，而是一个有脉搏的控制中心。</p>
+                  <div class="button-row">
+                    <div class="btn-primary">执行查询</div>
+                    <div class="btn-secondary">查看日志</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>实时数据流</h4>
+                    <span>适合监控 / 日志 / 队列</span>
+                  </div>
+                  <div class="table">
+                    <div class="table-row header"><div>服务</div><div>状态</div><div>延迟</div></div>
+                    <div class="table-row"><div>API Gateway</div><div>Healthy</div><div>12ms</div></div>
+                    <div class="table-row"><div>AI Pipeline</div><div>Running</div><div>84ms</div></div>
+                    <div class="table-row"><div>DB Cluster</div><div>Stable</div><div>3ms</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 调试面板</h4>
+                    <span>开发者视角</span>
+                  </div>
+                  <p>青色在暗色中具备最高的可读性之一，让代码、日志和 AI 输出都清晰锐利。</p>
+                  <div class="tag-row">
+                    <span class="tag">高对比</span>
+                    <span class="tag">代码友好</span>
+                    <span class="tag">终端美学</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Raycast 式科幻</span>
+                  </div>
+                  <p>如果你的用户是开发者或数据工程师，这套会让他们在第一眼就觉得"这是给我用的"。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#f4fafb" data-color="#f4fafb"></div>
+                      <div class="swatch" style="background:#0891b2" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#7c3aed" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#0e1a1e" data-color="#0e1a1e"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#0c1418" data-color="#0c1418"></div>
+                      <div class="swatch" style="background:#22d3ee" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#a78bfa" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#e8f4f8" data-color="#e8f4f8"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-g">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme G</div>
+          <h3>月石</h3>
+          <p>灵感来自 Dieter Rams 和无印良品。零色彩、纯灰度——当主色消失时，内容本身成为唯一主角。适合追求极致克制、让功能自己说话的产品哲学。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>9.1</strong>
+          <em>极简零色彩</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:91%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Mono System</strong>
+                <span>Pure Interface</span>
+              </div>
+            </div>
+            <p class="side-title">Workspace</p>
+            <div class="nav">
+              <div class="nav-item active">内容中心</div>
+              <div class="nav-item">工具集</div>
+              <div class="nav-item">AI 助手</div>
+              <div class="nav-item">系统偏好</div>
+            </div>
+            <p class="side-title">More</p>
+            <div class="nav">
+              <div class="nav-item">文档</div>
+              <div class="nav-item">快捷键</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>无色彩产品框架</strong>
+                <span>当颜色消失，内容和功能成为唯一焦点</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Minimal</span>
+                <span class="status-pill">Timeless</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>视觉噪音</span><strong>最低</strong><em>极致克制</em></div>
+              <div class="metric"><span>永不过时</span><strong>极高</strong><em>无趋势依赖</em></div>
+              <div class="metric"><span>全站兼容</span><strong>极高</strong><em>任何内容通用</em></div>
+              <div class="metric"><span>品牌感</span><strong>中</strong><em>需内容补足</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>内容优先首页</h4>
+                    <span class="tiny-badge">Content</span>
+                  </div>
+                  <p>当界面没有任何颜色干扰时，用户的注意力 100% 聚焦在内容上。这就是月石的设计哲学——少即是多的极致实践。</p>
+                  <div class="hero-copyline">"最好的界面是你不会注意到的界面。"</div>
+                  <div class="button-row">
+                    <div class="btn-primary">开始使用</div>
+                    <div class="btn-secondary">了解哲学</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>功能索引</h4>
+                    <span>适合目录 / 索引 / 设置</span>
+                  </div>
+                  <div class="list">
+                    <div class="list-row"><div>排版与显示密度</div><div>Configured</div></div>
+                    <div class="list-row"><div>快捷键映射</div><div>Default</div></div>
+                    <div class="list-row"><div>AI 模型选择</div><div>Active</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 素面板</h4>
+                    <span>零干扰输出</span>
+                  </div>
+                  <p>灰度主题下的 AI 面板像一张干净的白纸——用户会更专注地阅读内容本身，而不是被界面色彩分心。</p>
+                  <div class="tag-row">
+                    <span class="tag">零干扰</span>
+                    <span class="tag">永不过时</span>
+                    <span class="tag">Rams 哲学</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>无印良品式纯粹</span>
+                  </div>
+                  <p>这不是"没有设计"，而是"设计到了你看不见的地步"。适合有自信的产品团队。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#f7f7f7" data-color="#f7f7f7"></div>
+                      <div class="swatch" style="background:#6b7280" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#a855f7" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#171717" data-color="#171717"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#171717" data-color="#171717"></div>
+                      <div class="swatch" style="background:#a3a3a3" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#c084fc" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#ededed" data-color="#ededed"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="theme-card theme-h">
+      <div class="theme-head">
+        <div>
+          <div class="theme-chip">Theme H</div>
+          <h3>落日珊瑚</h3>
+          <p>灵感来自 Figma 和 Notion 的活力配色。珊瑚橘既有温暖又有能量——让工具型产品不再沉闷，适合需要传递"积极、创造力、行动感"的场景。</p>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-mode="light">浅色</button>
+            <button class="mode-btn" data-mode="dark">深色</button>
+          </div>
+        </div>
+        <div class="theme-score">
+          <span>站点适配</span>
+          <strong>8.6</strong>
+          <em>活力与行动感</em>
+          <div class="score-bar"><div class="score-bar-fill" style="width:86%"></div></div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="workspace">
+          <aside class="sidebar">
+            <div class="brand">
+              <div class="brand-mark"></div>
+              <div class="brand-copy">
+                <strong>Coral Studio</strong>
+                <span>Creative Tools</span>
+              </div>
+            </div>
+            <p class="side-title">Create</p>
+            <div class="nav">
+              <div class="nav-item active">创作空间</div>
+              <div class="nav-item">模板库</div>
+              <div class="nav-item">AI 生成</div>
+              <div class="nav-item">发布中心</div>
+            </div>
+            <p class="side-title">Manage</p>
+            <div class="nav">
+              <div class="nav-item">团队协作</div>
+              <div class="nav-item">使用统计</div>
+            </div>
+          </aside>
+
+          <div class="main">
+            <div class="topbar">
+              <div>
+                <strong>活力创作平台</strong>
+                <span>让每一次操作都带着行动感——做，而不是等</span>
+              </div>
+              <div class="status-row">
+                <span class="status-pill">Active</span>
+                <span class="status-pill">Creating</span>
+              </div>
+            </div>
+
+            <div class="overview">
+              <div class="metric"><span>行动感</span><strong>最强</strong><em>激发操作欲</em></div>
+              <div class="metric"><span>温暖度</span><strong>高</strong><em>不冰冷</em></div>
+              <div class="metric"><span>疲劳度</span><strong>低</strong><em>不刺眼</em></div>
+              <div class="metric"><span>创意适配</span><strong>强</strong><em>天然活泼</em></div>
+            </div>
+
+            <div class="layout">
+              <div class="stack">
+                <div class="panel">
+                  <div class="panel-head">
+                    <h4>行动型首页</h4>
+                    <span class="tiny-badge">Action</span>
+                  </div>
+                  <p>珊瑚橘是"行动色"——它在心理学上与"开始做"、"立即行动"直接关联，能提升用户的点击率和参与感。</p>
+                  <div class="hero-copyline">"好工具应该让你想动手，而不是想观望。"</div>
+                  <div class="button-row">
+                    <div class="btn-primary">立即创建</div>
+                    <div class="btn-secondary">浏览模板</div>
+                  </div>
+                </div>
+
+                <div class="table-card">
+                  <div class="panel-head">
+                    <h4>创作记录</h4>
+                    <span>适合时间线 / 项目列表</span>
+                  </div>
+                  <div class="table">
+                    <div class="table-row header"><div>项目</div><div>进度</div><div>更新</div></div>
+                    <div class="table-row"><div>品牌主视觉</div><div>进行中</div><div>刚刚</div></div>
+                    <div class="table-row"><div>AI 提示模板</div><div>待审核</div><div>1小时前</div></div>
+                    <div class="table-row"><div>数据看板 v2</div><div>已发布</div><div>昨天</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="stack">
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>AI 创意面板</h4>
+                    <span>激发灵感的输出</span>
+                  </div>
+                  <p>珊瑚橘的 AI 面板有一种"我们一起来创造"的协作感——不是冷冰冰的报告，而是充满可能性的画布。</p>
+                  <div class="tag-row">
+                    <span class="tag">行动导向</span>
+                    <span class="tag">创作协同</span>
+                    <span class="tag">阳光活力</span>
+                  </div>
+                </div>
+
+                <div class="widget">
+                  <div class="panel-head">
+                    <h4>配色印象</h4>
+                    <span>Figma 式活力</span>
+                  </div>
+                  <p>珊瑚橘是近年设计工具界的"行动色彩"——它让工具不再沉闷，让操作充满期待感。</p>
+                  <div class="swatch-row">
+                    <div class="swatch-set" data-mode="light">
+                      <span class="swatch-label">Light</span>
+                      <div class="swatch" style="background:#fdf8f5" data-color="#fdf8f5"></div>
+                      <div class="swatch" style="background:#e8590c" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#eab308" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#1c1510" data-color="#1c1510"></div>
+                    </div>
+                    <div class="swatch-set" data-mode="dark">
+                      <span class="swatch-label">Dark</span>
+                      <div class="swatch" style="background:#1a1410" data-color="#1a1410"></div>
+                      <div class="swatch" style="background:#fb923c" data-color="Accent 1"></div>
+                      <div class="swatch" style="background:#fbbf24" data-color="Accent 2"></div>
+                      <div class="swatch" style="background:#f5ede6" data-color="#f5ede6"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+    <div class=”footnote”>
+      <h5>A 琥珀书房</h5>
+      <p>克制暖调，Aesop 式质感。最适合内容驱动型产品，让长文本和 AI 解读页面显得值得阅读。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>B 极光靛蓝</h5>
+      <p>Linear 式科技前沿感。靛蓝紫让控制台和工具链有辨识度，告别千篇一律的”企业蓝”。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>C 午夜薰紫</h5>
+      <p>Figma 暗色模式的高级感。柔光紫比粉色更中性，适合需要品牌调性的暗色场景。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>D 翡翠中性</h5>
+      <p>Vercel 式极简现代。翡翠绿替代传统蓝色，全站统一的最佳母体，扩展性和信任感最强。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>E 樱花沙</h5>
+      <p>Stripe 式克制粉调。成年人的优雅——有温度不轻浮，有辨识度不张扬。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>F 深海赛博</h5>
+      <p>Raycast 式终端美学。霓虹青为数据密集型界面而生，开发者的第一眼之选。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>G 月石</h5>
+      <p>Dieter Rams 的零色彩哲学。当颜色消失，内容成为唯一主角——永不过时。</p>
+    </div>
+    <div class=”footnote”>
+      <h5>H 落日珊瑚</h5>
+      <p>Figma 式活力配色。珊瑚橘是”行动色”——激发参与感，让工具不再沉闷。</p>
+    </div>
+  </section>
+</div>
+<script>
+document.querySelectorAll('.mode-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var card = this.closest('.theme-card');
+    card.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+    var mode = this.dataset.mode;
+    card.classList.remove('mode-light', 'mode-dark');
+    var defaultDark = card.classList.contains('theme-c') || card.classList.contains('theme-f');
+    if (defaultDark) {
+      if (mode === 'light') card.classList.add('mode-light');
+    } else {
+      if (mode === 'dark') card.classList.add('mode-dark');
+    }
+  });
+});
+</script>
+</body>
+</html>

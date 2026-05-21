@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthModal } from '@/composables/useAuthModal'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import SkinPicker from '@/components/common/SkinPicker.vue'
 
 const router = useRouter()
 const auth = useAuth()
@@ -69,7 +70,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="wb-dropdown-section">主题</div>
+        <div class="wb-dropdown-row">
+          <span class="wb-dropdown-section">外观</span>
+          <SkinPicker />
+        </div>
         <ThemeToggle variant="icon" />
 
         <div class="wb-dropdown-divider"></div>
@@ -94,8 +98,12 @@ onBeforeUnmount(() => {
     </Transition>
   </div>
 
-  <!-- 登录按钮（未登录） -->
-  <button v-else class="wb-login-btn" type="button" @click="openLoginModal">登录 / 注册</button>
+  <!-- 未登录：皮肤 + 主题 + 登录 -->
+  <div v-else class="wb-guest-actions">
+    <SkinPicker />
+    <ThemeToggle variant="icon" />
+    <button class="wb-login-btn" type="button" @click="openLoginModal">登录 / 注册</button>
+  </div>
 </template>
 
 <style scoped>
@@ -173,13 +181,20 @@ onBeforeUnmount(() => {
   max-width: 160px;
 }
 
+.wb-dropdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+
 .wb-dropdown-section {
   font-size: 11px;
   font-weight: 600;
   color: var(--color-page-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 8px 12px 4px;
+  white-space: nowrap;
 }
 
 .wb-dropdown-divider {
@@ -217,11 +232,17 @@ onBeforeUnmount(() => {
   background: var(--color-page-danger-bg);
 }
 
-.wb-login-btn {
+.wb-guest-actions {
   position: fixed;
   top: 16px;
   right: 16px;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-login-btn {
   padding: 8px 14px;
   border: 1px solid var(--color-page-border-subtle);
   border-radius: var(--radius-md);

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <script>
-      (function(){try{var t=localStorage.getItem('sqldev:app:theme')||localStorage.getItem('sqldev:theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}})()
+      (function(){try{function j(k){var v=localStorage.getItem(k);if(v){try{return JSON.parse(v)}catch(e){return v}}return null}var vs={'violet-midnight':1,'cyber-ocean':1,'coral-sunset':1,'indigo-aurora':1,'teal-neutral':1};var dt={'violet-midnight':'dark','cyber-ocean':'dark','coral-sunset':'light','indigo-aurora':'light','teal-neutral':'light'};var s=j('sqldev:app:skin');if(!vs[s])s='teal-neutral';document.documentElement.setAttribute('data-skin',s);var touched=j('sqldev:app:theme-touched');var t=j('sqldev:app:theme')||j('sqldev:theme');var resolved=t||(!touched?dt[s]:null);if(resolved==='dark'||(!resolved&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}})()
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

@@ -1,15 +1,8 @@
-// AI 服务商常量定义
-// 品牌标识色保留 hex 值：这些是各厂商的品牌色，需精确匹配，不适合泛化为语义 token
 export const PROVIDER_COLORS: Record<string, string> = {
-  // OpenAI 系列
   openai: '#10b981',
   'google-ai-studio': '#4285f4',
   'github-models': '#6e5494',
-
-  // Anthropic
   anthropic: '#cc785c',
-
-  // 国内大模型
   qwen: '#f0883e',
   doubao: '#ff6b6b',
   ernie: '#00c853',
@@ -19,8 +12,6 @@ export const PROVIDER_COLORS: Record<string, string> = {
   spark: '#f5a623',
   modelscope: '#fb6f00',
   glm: '#4f46e5',
-
-  // 开源/聚合
   deepseek: '#818cf8',
   groq: '#fbbf24',
   openrouter: '#f59e0b',
@@ -59,7 +50,7 @@ export const PROVIDER_INITIALS: Record<string, string> = {
   cloudflare: 'CF',
   'github-models': 'GH',
   xai: 'xAI',
-  douyin: '豆',
+  douyin: '抖音',
   minimax: 'MINI',
   'minimax-ai': 'MINI',
   hunyuan: '混元',
@@ -74,10 +65,25 @@ export const PROVIDER_INITIALS: Record<string, string> = {
   fireworksai: 'FW'
 }
 
-export function getProviderColor(slug: string): string {
+export function getProviderColor(slug?: string | null): string {
+  if (!slug) return '#8b949e'
   return PROVIDER_COLORS[slug] ?? '#8b949e'
 }
 
-export function getProviderInitials(slug: string, label: string): string {
-  return PROVIDER_INITIALS[slug] ?? label.slice(0, 2)
+export function getProviderInitials(slug?: string | null, label?: string | null): string {
+  if (slug && PROVIDER_INITIALS[slug]) {
+    return PROVIDER_INITIALS[slug]
+  }
+
+  const safeLabel = String(label ?? '').trim()
+  if (safeLabel) {
+    return safeLabel.slice(0, 2).toUpperCase()
+  }
+
+  const safeSlug = String(slug ?? '').trim()
+  if (safeSlug) {
+    return safeSlug.slice(0, 2).toUpperCase()
+  }
+
+  return 'AI'
 }

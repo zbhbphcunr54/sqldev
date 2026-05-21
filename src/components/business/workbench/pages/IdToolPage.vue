@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useClipboard } from '@/composables/useClipboard'
+import { writeOperationLog } from '@/api/operation-logs'
 import FormSelect from '@/components/common/FormSelect.vue'
 import {
   calcIdCardCheckDigit,
@@ -46,7 +47,7 @@ const idLastVerifyResult = ref('')
 const usccProvinceCode = ref('110000')
 const usccCityCode = ref('110000')
 const usccCountyCode = ref('110101')
-const usccCodeMode = ref('org15')
+const usccCodeMode = ref('uscc18')
 const usccDeptCode = ref('9')
 const usccOrgTypeCode = ref('1')
 const usccGeneratedCode = ref('')
@@ -275,6 +276,29 @@ function regionCodeExists(code: string): boolean {
   return false
 }
 
+function maskCodePreview(value: string): string {
+  if (!value) return ''
+  if (value.length <= 6) return `${value.slice(0, 2)}***`
+  return `${value.slice(0, 3)}***${value.slice(-2)}`
+}
+
+function writeIdToolLog(params: {
+  operation: 'id_card_generate' | 'id_card_validate' | 'uscc_generate' | 'uscc_validate'
+  responseStatus: number
+  requestBody: Record<string, unknown>
+  responseBody: Record<string, unknown>
+  errorMessage?: string
+}): void {
+  void writeOperationLog({
+    operation: params.operation,
+    api_name: 'id-tool-page',
+    request_body: params.requestBody,
+    response_body: params.responseBody,
+    response_status: params.responseStatus,
+    error_message: params.errorMessage
+  }).catch(() => {})
+}
+
 // ==================== 数据加载 ====================
 
 interface RegionJsonItem {
@@ -336,6 +360,19 @@ function generateIdNumber(): void {
   if (!validateBirthYmd8(birthYmd)) {
     idGenerateMsg.value = '出生日期不合法'
     idGenerateMsgType.value = 'error'
+    writeIdToolLog({
+      operation: 'id_card_generate',
+      responseStatus: 400,
+      requestBody: {
+        region_code: regionCode,
+        birth_year: idBirthYear.value,
+        birth_month: idBirthMonth.value,
+        birth_day: idBirthDay.value,
+        gender: idGender.value
+      },
+      responseBody: { ok: false, error: 'invalid_birth_date' },
+      errorMessage: 'invalid_birth_date'
+    })
     return
   }
 
@@ -347,9 +384,38 @@ function generateIdNumber(): void {
     idGeneratedNumber.value = id17 + check
     idGenerateMsg.value = '已生成合法身份证号码'
     idGenerateMsgType.value = 'success'
+    writeIdToolLog({
+      operation: 'id_card_generate',
+      responseStatus: 200,
+      requestBody: {
+        region_code: regionCode,
+        birth_year: idBirthYear.value,
+        birth_month: idBirthMonth.value,
+        birth_day: idBirthDay.value,
+        gender: idGender.value
+      },
+      responseBody: {
+        ok: true,
+        length: idGeneratedNumber.value.length,
+        preview: maskCodePreview(idGeneratedNumber.value)
+      }
+    })
   } else {
     idGenerateMsg.value = '生成失败'
     idGenerateMsgType.value = 'error'
+    writeIdToolLog({
+      operation: 'id_card_generate',
+      responseStatus: 500,
+      requestBody: {
+        region_code: regionCode,
+        birth_year: idBirthYear.value,
+        birth_month: idBirthMonth.value,
+        birth_day: idBirthDay.value,
+        gender: idGender.value
+      },
+      responseBody: { ok: false, error: 'generate_failed' },
+      errorMessage: 'generate_failed'
+    })
   }
 }
 
@@ -361,6 +427,13 @@ async function validateIdNumber(): Promise<void> {
     idVerifyMsg.value = '请输入身份证号码'
     idVerifyMsgType.value = 'error'
     idLastVerifyResult.value = ''
+    writeIdToolLog({
+      operation: 'id_card_validate',
+      responseStatus: 400,
+      requestBody: { input_length: input.length },
+      responseBody: { ok: false, error: 'empty_input' },
+      errorMessage: 'empty_input'
+    })
     return
   }
 
@@ -369,6 +442,13 @@ async function validateIdNumber(): Promise<void> {
     idVerifyMsg.value = '格式错误'
     idVerifyMsgType.value = 'error'
     idLastVerifyResult.value = input + '|格式错误'
+    writeIdToolLog({
+      operation: 'id_card_validate',
+      responseStatus: 400,
+      requestBody: { input_length: input.length, preview: maskCodePreview(input) },
+      responseBody: { ok: false, error: 'invalid_format' },
+      errorMessage: 'invalid_format'
+    })
     return
   }
 
@@ -378,6 +458,13 @@ async function validateIdNumber(): Promise<void> {
     idVerifyMsg.value = '出生日期不合法'
     idVerifyMsgType.value = 'error'
     idLastVerifyResult.value = input + '|出生日期不合法'
+    writeIdToolLog({
+      operation: 'id_card_validate',
+      responseStatus: 400,
+      requestBody: { input_length: input.length, preview: maskCodePreview(input) },
+      responseBody: { ok: false, error: 'invalid_birth_date' },
+      errorMessage: 'invalid_birth_date'
+    })
     return
   }
 
@@ -387,6 +474,13 @@ async function validateIdNumber(): Promise<void> {
     idVerifyMsg.value = '校验码错误'
     idVerifyMsgType.value = 'error'
     idLastVerifyResult.value = input + '|校验码错误'
+    writeIdToolLog({
+      operation: 'id_card_validate',
+      responseStatus: 400,
+      requestBody: { input_length: input.length, preview: maskCodePreview(input) },
+      responseBody: { ok: false, error: 'invalid_check_digit' },
+      errorMessage: 'invalid_check_digit'
+    })
     return
   }
 
@@ -400,6 +494,13 @@ async function validateIdNumber(): Promise<void> {
     idVerifyMsgType.value = 'success'
     idLastVerifyResult.value = resultKey
   }
+
+  writeIdToolLog({
+    operation: 'id_card_validate',
+    responseStatus: 200,
+    requestBody: { input_length: input.length, preview: maskCodePreview(input) },
+    responseBody: { ok: true }
+  })
 }
 
 async function copyIdNumber(): Promise<void> {
@@ -426,6 +527,18 @@ function generateUsccCode(): void {
     if (!checkChar) {
       usccGenerateMsg.value = '生成失败：校验码计算错误'
       usccGenerateMsgType.value = 'error'
+      writeIdToolLog({
+        operation: 'uscc_generate',
+        responseStatus: 500,
+        requestBody: {
+          code_mode: usccCodeMode.value,
+          dept_code: usccDeptCode.value,
+          org_type_code: usccOrgTypeCode.value,
+          region_code: regionCode
+        },
+        responseBody: { ok: false, error: 'invalid_check_char' },
+        errorMessage: 'invalid_check_char'
+      })
       return
     }
 
@@ -433,6 +546,21 @@ function generateUsccCode(): void {
     usccGenerateMsg.value = '已生成统一社会信用代码'
     usccGenerateMsgType.value = 'success'
     usccLegacyParsed.value = null
+    writeIdToolLog({
+      operation: 'uscc_generate',
+      responseStatus: 200,
+      requestBody: {
+        code_mode: usccCodeMode.value,
+        dept_code: usccDeptCode.value,
+        org_type_code: usccOrgTypeCode.value,
+        region_code: regionCode
+      },
+      responseBody: {
+        ok: true,
+        length: usccGeneratedCode.value.length,
+        preview: maskCodePreview(usccGeneratedCode.value)
+      }
+    })
   } else {
     const result = generateLegacyThreeCert(regionCode)
 
@@ -445,9 +573,36 @@ function generateUsccCode(): void {
       }
       usccGenerateMsg.value = '已生成旧版三证号码（工商/组织机构/税务）'
       usccGenerateMsgType.value = 'success'
+      writeIdToolLog({
+        operation: 'uscc_generate',
+        responseStatus: 200,
+        requestBody: {
+          code_mode: usccCodeMode.value,
+          dept_code: usccDeptCode.value,
+          org_type_code: usccOrgTypeCode.value,
+          region_code: regionCode
+        },
+        responseBody: {
+          ok: true,
+          length: usccGeneratedCode.value.length,
+          preview: maskCodePreview(usccGeneratedCode.value)
+        }
+      })
     } else {
       usccGenerateMsg.value = '生成失败：行政区划码无效'
       usccGenerateMsgType.value = 'error'
+      writeIdToolLog({
+        operation: 'uscc_generate',
+        responseStatus: 400,
+        requestBody: {
+          code_mode: usccCodeMode.value,
+          dept_code: usccDeptCode.value,
+          org_type_code: usccOrgTypeCode.value,
+          region_code: regionCode
+        },
+        responseBody: { ok: false, error: 'invalid_region_code' },
+        errorMessage: 'invalid_region_code'
+      })
     }
   }
 }
@@ -460,6 +615,13 @@ function validateUsccCode(): void {
     usccVerifyMsg.value = '请输入证件号码'
     usccVerifyMsgType.value = 'error'
     usccLastVerifyResult.value = ''
+    writeIdToolLog({
+      operation: 'uscc_validate',
+      responseStatus: 400,
+      requestBody: { input_length: raw.length },
+      responseBody: { ok: false, error: 'empty_input' },
+      errorMessage: 'empty_input'
+    })
     return
   }
 
@@ -470,6 +632,13 @@ function validateUsccCode(): void {
   if (/^[0-9A-HJ-NPQRTUWXY]{18}$/i.test(noDash)) {
     const result = validateUscc18(noDash.toUpperCase(), regionCodeExists)
     applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    writeIdToolLog({
+      operation: 'uscc_validate',
+      responseStatus: result.ok ? 200 : 400,
+      requestBody: { input_length: raw.length, normalized_length: noDash.length, preview: maskCodePreview(noDash) },
+      responseBody: { ok: result.ok, message: result.msg },
+      errorMessage: result.ok ? undefined : result.msg
+    })
     return
   }
 
@@ -478,6 +647,13 @@ function validateUsccCode(): void {
   if (orgMatch) {
     const result = validateOrgCode(orgMatch[1] + orgMatch[2])
     applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    writeIdToolLog({
+      operation: 'uscc_validate',
+      responseStatus: result.ok ? 200 : 400,
+      requestBody: { input_length: raw.length, normalized_length: noDash.length, preview: maskCodePreview(noDash) },
+      responseBody: { ok: result.ok, message: result.msg },
+      errorMessage: result.ok ? undefined : result.msg
+    })
     return
   }
 
@@ -485,12 +661,26 @@ function validateUsccCode(): void {
   if (/^\d{15}$/.test(noDash)) {
     const result = validateLegacy15(noDash, regionCodeExists)
     applyUsccResult(raw, result.msg, result.ok ? 'success' : 'error')
+    writeIdToolLog({
+      operation: 'uscc_validate',
+      responseStatus: result.ok ? 200 : 400,
+      requestBody: { input_length: raw.length, normalized_length: noDash.length, preview: maskCodePreview(noDash) },
+      responseBody: { ok: result.ok, message: result.msg },
+      errorMessage: result.ok ? undefined : result.msg
+    })
     return
   }
 
   const fallbackMsg =
     '无法识别的证件格式，支持：统一社会信用代码（18位）、组织机构代码（9位）、旧版15位号码'
   applyUsccResult(raw, fallbackMsg, 'error')
+  writeIdToolLog({
+    operation: 'uscc_validate',
+    responseStatus: 400,
+    requestBody: { input_length: raw.length, normalized_length: noDash.length, preview: maskCodePreview(noDash) },
+    responseBody: { ok: false, message: fallbackMsg },
+    errorMessage: fallbackMsg
+  })
 }
 
 function applyUsccResult(input: string, msg: string, type: 'success' | 'error'): void {

@@ -153,6 +153,7 @@ export const MISC_STARS = [
   '天虚',
   '龙池',
   '凤阁',
+  '华盖',
   '孤辰',
   '寡宿'
 ]
@@ -372,6 +373,51 @@ export const ZW_TIANMA_BY_YEAR_BRANCH: Record<string, string> = {
   亥: '巳',
   卯: '巳',
   未: '巳'
+}
+
+export const ZW_GUCHEN_GUASU_BY_YEAR_BRANCH: Record<string, { guChen: string; guaSu: string }> = {
+  寅: { guChen: '巳', guaSu: '丑' },
+  卯: { guChen: '巳', guaSu: '丑' },
+  辰: { guChen: '巳', guaSu: '丑' },
+  巳: { guChen: '申', guaSu: '辰' },
+  午: { guChen: '申', guaSu: '辰' },
+  未: { guChen: '申', guaSu: '辰' },
+  申: { guChen: '亥', guaSu: '未' },
+  酉: { guChen: '亥', guaSu: '未' },
+  戌: { guChen: '亥', guaSu: '未' },
+  亥: { guChen: '寅', guaSu: '戌' },
+  子: { guChen: '寅', guaSu: '戌' },
+  丑: { guChen: '寅', guaSu: '戌' }
+}
+
+export const ZW_HUAGAI_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '辰',
+  辰: '辰',
+  申: '辰',
+  丑: '丑',
+  巳: '丑',
+  酉: '丑',
+  寅: '戌',
+  午: '戌',
+  戌: '戌',
+  卯: '未',
+  未: '未',
+  亥: '未'
+}
+
+export const ZW_XIANCHI_BY_YEAR_BRANCH: Record<string, string> = {
+  子: '酉',
+  辰: '酉',
+  申: '酉',
+  丑: '午',
+  巳: '午',
+  酉: '午',
+  寅: '卯',
+  午: '卯',
+  戌: '卯',
+  卯: '子',
+  未: '子',
+  亥: '子'
 }
 
 // 命主（地支）
@@ -1080,28 +1126,18 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     const birthMinute = Number(input.birthMinute || '00')
 
     if (input.calendarType === 'lunar') {
-      // 农历转公历
-      const lunarDate = new Intl.DateTimeFormat('en-u-ca-chinese', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric'
-      })
-
       const year = Number(input.lunarYear || '1990')
       const month = Number(input.lunarMonth || '1')
       const day = Number(input.lunarDay || '1')
-
-      // 尝试转换（简化实现）
-      const testDate = lunarDate.formatToParts(new Date(year, month - 1, day))
-      const yearPart = testDate.find((p) => p.type === 'year')
-      const monthPart = testDate.find((p) => p.type === 'month')
-      const dayPart = testDate.find((p) => p.type === 'day')
-
-      baseSolar = {
-        year: yearPart ? parseInt(yearPart.value) : year,
-        month: monthPart ? parseInt(monthPart.value) : month,
-        day: dayPart ? parseInt(dayPart.value) : day
+      const solarDate = lunarToSolar(year, month, day, Boolean(input.lunarLeap))
+      if (!solarDate) {
+        return {
+          ok: false,
+          error: '农历日期转换失败，请检查输入的农历年月日是否有效'
+        }
       }
+
+      baseSolar = solarDate
     } else {
       baseSolar = {
         year: Number(input.solarYear || '1990'),
@@ -1138,17 +1174,11 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     const yearBranch = yearGanZhi[1]
 
     // 农历月份（简化：从公历推断）
-    const lunarDate = new Intl.DateTimeFormat('en-u-ca-chinese', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric'
-    })
-    const lunarParts = lunarDate.formatToParts(effectiveSolarDate)
-    const lunarMonthPart = lunarParts.find((p) => p.type === 'month')
-    const lunarDayPart = lunarParts.find((p) => p.type === 'day')
+    const lunarParts = getChineseCalendarParts(effectiveSolarDate)
+    const parsedLunarMonth = parseChineseCalendarMonth(lunarParts.month)
 
-    const lunarMonth = lunarMonthPart ? parseInt(lunarMonthPart.value) : 1
-    const lunarDay = lunarDayPart ? parseInt(lunarDayPart.value) : 1
+    const lunarMonth = parsedLunarMonth.month
+    const lunarDay = Number.parseInt(lunarParts.day, 10) || 1
 
     // 3. 计算命宫、身宫
     const shiChenIndex = getShiChenIndex(correctedDate.getHours())
@@ -1237,10 +1267,10 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       addStar('铃星', offsetBranch(fireBell.bell, shiChenIndex), 'assist')
     }
 
-    addStar('地劫', offsetBranch('亥', shiChenIndex), 'assist')
-    addStar('地空', offsetBranch('亥', -shiChenIndex), 'assist')
+    addStar('地空', offsetBranch('亥', shiChenIndex), 'assist')
+    addStar('地劫', offsetBranch('亥', -shiChenIndex), 'assist')
 
-    // 天马、红鸾、天喜
+    // 天马、红鸾、天喜、杂曜
     const tianma = ZW_TIANMA_BY_YEAR_BRANCH[yearBranch]
     if (tianma) addStar('天马', tianma, 'misc')
 
@@ -1250,6 +1280,22 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
     addStar('天喜', offsetBranch(hongLuanBranch, 6), 'misc')
     addStar('天刑', offsetBranch('酉', lunarMonth - 1), 'misc')
     addStar('天姚', offsetBranch('丑', lunarMonth - 1), 'misc')
+    addStar('天哭', offsetBranch('午', -yearBranchIndex), 'misc')
+    addStar('天虚', offsetBranch('午', yearBranchIndex), 'misc')
+    addStar('龙池', offsetBranch('辰', yearBranchIndex), 'misc')
+    addStar('凤阁', offsetBranch('戌', -yearBranchIndex), 'misc')
+
+    const guChenGuaSu = ZW_GUCHEN_GUASU_BY_YEAR_BRANCH[yearBranch]
+    if (guChenGuaSu) {
+      addStar('孤辰', guChenGuaSu.guChen, 'misc')
+      addStar('寡宿', guChenGuaSu.guaSu, 'misc')
+    }
+
+    const huaGai = ZW_HUAGAI_BY_YEAR_BRANCH[yearBranch]
+    if (huaGai) addStar('华盖', huaGai, 'misc')
+
+    const xianChi = ZW_XIANCHI_BY_YEAR_BRANCH[yearBranch]
+    if (xianChi) addStar('咸池', xianChi, 'misc')
 
     // 8. 四化
     const huaRule = ZW_HUA_BY_STEM[yearStem]
@@ -1480,7 +1526,7 @@ export function computeZiweiChart(input: ZiweiInput): ZiweiComputeResult {
       genderLabel: isMale ? '男' : '女',
       yinYangGenderLabel: (ZW_YEAR_STEM_YINYANG[yearStem] || '') + (isMale ? '男' : '女'),
       solarText: `${effectiveSolarDate.getFullYear()}-${String(effectiveSolarDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveSolarDate.getDate()).padStart(2, '0')}`,
-      lunarText: `${lunarMonth}月${ZW_LUNAR_DAY_LABEL[lunarDay] || lunarDay}`,
+      lunarText: `${parsedLunarMonth.isLeapMonth ? '闰' : ''}${lunarMonth}月${ZW_LUNAR_DAY_LABEL[lunarDay] || lunarDay}`,
       inputClockText: `${String(birthHour).padStart(2, '0')}:${String(birthMinute).padStart(2, '0')}`,
       calendarInputType: input.calendarType === 'lunar' ? '农历输入' : '公历输入',
       yearGanZhi,
@@ -1658,6 +1704,68 @@ export function validateBirthTime(
   return { valid: true }
 }
 
+function getChineseCalendarFormatter(): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat('en-u-ca-chinese', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  })
+}
+
+function parseChineseCalendarMonth(value: string): { month: number; isLeapMonth: boolean } {
+  const raw = String(value || '').trim()
+  const isLeapMonth = raw.endsWith('bis')
+  const month = Number.parseInt(isLeapMonth ? raw.slice(0, -3) : raw, 10)
+
+  return {
+    month: Number.isInteger(month) ? month : 1,
+    isLeapMonth
+  }
+}
+
+function getChineseCalendarParts(date: Date): {
+  relatedYear: string
+  month: string
+  day: string
+  isLeapMonth: boolean
+} {
+  const parts = getChineseCalendarFormatter().formatToParts(date)
+  const month = parts.find((part) => part.type === 'month')?.value || ''
+
+  return {
+    relatedYear:
+      parts.find((part) => part.type === 'relatedYear')?.value ||
+      parts.find((part) => part.type === 'year')?.value ||
+      '',
+    month,
+    day: parts.find((part) => part.type === 'day')?.value || '',
+    isLeapMonth: parseChineseCalendarMonth(month).isLeapMonth
+  }
+}
+
+function findSolarDateByLunar(
+  year: number,
+  month: number,
+  day: number,
+  isLeapMonth: boolean
+): Date | null {
+  const start = new Date(year - 1, 11, 1, 12, 0, 0, 0)
+  const end = new Date(year + 1, 2, 31, 12, 0, 0, 0)
+
+  for (let candidate = new Date(start); candidate <= end; candidate.setDate(candidate.getDate() + 1)) {
+    const parts = getChineseCalendarParts(candidate)
+    if (parts.relatedYear !== String(year)) continue
+
+    const parsedMonth = parseChineseCalendarMonth(parts.month)
+    if (parsedMonth.month !== month || parsedMonth.isLeapMonth !== isLeapMonth) continue
+    if (Number.parseInt(parts.day, 10) !== day) continue
+
+    return new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate())
+  }
+
+  return null
+}
+
 /**
  * 农历转公历（使用 Intl API）
  */
@@ -1672,20 +1780,12 @@ export function lunarToSolar(
   day: number
 } | null {
   try {
-    const lunarDate = new Intl.DateTimeFormat('en-u-ca-chinese', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric'
-    })
-    const parts = lunarDate.formatToParts(new Date(year, month - 1, day))
-    const yearPart = parts.find((p) => p.type === 'year')
-    const monthPart = parts.find((p) => p.type === 'month')
-    const dayPart = parts.find((p) => p.type === 'day')
-    if (yearPart && monthPart && dayPart) {
+    const solarDate = findSolarDateByLunar(year, month, day, _leap)
+    if (solarDate) {
       return {
-        year: parseInt(yearPart.value),
-        month: parseInt(monthPart.value),
-        day: parseInt(dayPart.value)
+        year: solarDate.getFullYear(),
+        month: solarDate.getMonth() + 1,
+        day: solarDate.getDate()
       }
     }
     return null
@@ -1709,22 +1809,14 @@ export function solarToLunar(
   isLeapMonth: boolean
 } | null {
   try {
-    const lunarDate = new Intl.DateTimeFormat('en-u-ca-chinese', {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric'
-    })
-    const parts = lunarDate.formatToParts(new Date(year, month - 1, day))
-    const yearPart = parts.find((p) => p.type === 'year')
-    const monthPart = parts.find((p) => p.type === 'month')
-    const dayPart = parts.find((p) => p.type === 'day')
-    const leapPart = parts.find((p) => p.type === 'leapMonth')
-    if (yearPart && monthPart && dayPart) {
+    const parts = getChineseCalendarParts(new Date(year, month - 1, day, 12, 0, 0, 0))
+    const parsedMonth = parseChineseCalendarMonth(parts.month)
+    if (parts.relatedYear && parts.day) {
       return {
-        year: parseInt(yearPart.value),
-        month: parseInt(monthPart.value),
-        day: parseInt(dayPart.value),
-        isLeapMonth: leapPart?.value === 'true'
+        year: Number.parseInt(parts.relatedYear, 10),
+        month: parsedMonth.month,
+        day: Number.parseInt(parts.day, 10),
+        isLeapMonth: parsedMonth.isLeapMonth
       }
     }
     return null

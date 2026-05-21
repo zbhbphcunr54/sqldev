@@ -5,7 +5,8 @@ import { getClientIp, parseJsonBody } from '../_shared/request.ts'
 import { jsonResponse, logEdgeError } from '../_shared/response.ts'
 import { getAppConfig, getSupabaseEnv, getDefaultAiTimeoutMs } from '../_shared/app-config.ts'
 import { resolveAiConfig, type ResolvedAiConfig } from '../_shared/ai-resolver.ts'
-import { logOperation, createLogger } from '../_shared/operation-logger.ts'
+import { callAiProvider, callAiProviderStream } from '../_shared/ai-client.ts'
+import { logOperation as baseLogOperation } from '../_shared/operation-logger.ts'
 import { maskApiKeySync } from '../_shared/crypto.ts'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -14,6 +15,28 @@ const corsHelpers = createCorsHelpers({})
 const { defaultCorsHeaders, buildCorsHeaders } = corsHelpers
 
 const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceRoleKey: SERVICE_ROLE_KEY } = getSupabaseEnv()
+
+function logOperation(entry: Parameters<typeof baseLogOperation>[0]): Promise<void> {
+  if (entry.operation === 'ai_chat_message') {
+    return baseLogOperation(entry).catch(() => {})
+  }
+
+  if (entry.operation === 'ai_chat_error') {
+    const requestBody =
+      entry.requestBody && typeof entry.requestBody === 'object' && !Array.isArray(entry.requestBody)
+        ? (entry.requestBody as Record<string, unknown>)
+        : {}
+
+    if ('messageLength' in requestBody) {
+      return baseLogOperation({
+        ...entry,
+        operation: 'ai_chat_message'
+      }).catch(() => {})
+    }
+  }
+
+  return Promise.resolve()
+}
 
 function getAdminClient(): SupabaseClient {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error('Supabase not configured')
@@ -24,6 +47,34 @@ function getTodayUTC8(): string {
   const now = new Date()
   const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000)
   return utc8.toISOString().split('T')[0]
+}
+
+function buildAiRequestUrl(baseUrl: string, providerSlug?: string | null): string {
+  const base = baseUrl.replace(/\/+$/, '')
+  if (providerSlug === 'claude') {
+    return `${base}/messages`
+  }
+  if (/\/v\d+/.test(base)) {
+    return `${base}/chat/completions`
+  }
+  return `${base}/v1/chat/completions`
+}
+
+function createSseResponse(stream: ReadableStream<Uint8Array>, corsHeaders: Record<string, string>): Response {
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive'
+    }
+  })
+}
+
+function encodeSseEvent(event: string, data: Record<string, unknown>): Uint8Array {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  return new TextEncoder().encode(payload)
 }
 
 // ── 配置缓存 ──
@@ -184,6 +235,79 @@ interface ChatMessage {
   content: string
 }
 
+interface SendMessageSuccessResponse {
+  ok: true
+  sessionId: string
+  message: {
+    id: string
+    role: 'assistant'
+    content: string
+    created_at: string
+  }
+  userMessage: {
+    id: string
+    role: 'user'
+    content: string
+    created_at: string
+  }
+  provider: string
+  model: string
+  quota: {
+    used: number
+    limit: number
+    remaining: number
+  }
+}
+
+function getAiErrorCode(err: unknown): string {
+  const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+  if (isTimeout) return 'ai_request_timeout'
+  if (err instanceof Error && err.message.startsWith('ai_')) return err.message
+  return 'ai_analysis_failed'
+}
+
+function getAiErrorStatus(errorCode: string): number {
+  if (errorCode === 'ai_upstream_rate_limited') return 429
+  if (errorCode === 'ai_upstream_auth_failed') return 500
+  if (errorCode === 'ai_request_timeout') return 504
+  return 502
+}
+
+function buildSendMessageResponse(args: {
+  sessionId: string
+  assistantContent: string
+  assistantMsg: { id?: string; created_at?: string } | null
+  userMsg: { id?: string; created_at?: string } | null
+  userContent: string
+  aiConfig: ResolvedAiConfig
+  quota: { used: number; remaining: number }
+  dailyLimit: number
+}): SendMessageSuccessResponse {
+  return {
+    ok: true,
+    sessionId: args.sessionId,
+    message: {
+      id: args.assistantMsg?.id || '',
+      role: 'assistant',
+      content: args.assistantContent,
+      created_at: args.assistantMsg?.created_at || new Date().toISOString()
+    },
+    userMessage: {
+      id: args.userMsg?.id || '',
+      role: 'user',
+      content: args.userContent,
+      created_at: args.userMsg?.created_at || new Date().toISOString()
+    },
+    provider: args.aiConfig.providerSlug || args.aiConfig.model,
+    model: args.aiConfig.model,
+    quota: {
+      used: args.quota.used,
+      limit: args.dailyLimit,
+      remaining: args.quota.remaining
+    }
+  }
+}
+
 async function callAi(
   aiConfig: ResolvedAiConfig,
   messages: ChatMessage[],
@@ -191,40 +315,57 @@ async function callAi(
   temperature: number,
   maxTokens: number
 ): Promise<string> {
-  const base = aiConfig.baseUrl.replace(/\/+$/, '')
-  const url = /\/v\d+/.test(base) ? base + '/chat/completions' : base + '/v1/chat/completions'
+  const url = buildAiRequestUrl(aiConfig.baseUrl, aiConfig.providerSlug)
   const apiKeyMasked = aiConfig.apiKey ? maskApiKeySync(aiConfig.apiKey) : '(empty)'
-  console.log('[ai-chat] callAi url=', url, 'model=', aiConfig.model, 'apiKey=', apiKeyMasked, 'source=', aiConfig.source)
-  const body = {
-    model: aiConfig.model,
-    messages,
-    temperature,
-    max_tokens: maxTokens
-  }
+  console.log('[ai-chat] callAi url=', url, 'model=', aiConfig.model, 'apiKey=', apiKeyMasked, 'source=', aiConfig.source, 'stream=', false)
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${aiConfig.apiKey}`
+  return callAiProvider(
+    {
+      baseUrl: aiConfig.baseUrl,
+      model: aiConfig.model,
+      apiKey: aiConfig.apiKey,
+      providerSlug: aiConfig.providerSlug,
+      timeoutMs: aiConfig.timeoutMs
     },
-    body: JSON.stringify(body),
-    signal
-  })
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '')
-    if (res.status === 429) throw new Error('ai_upstream_rate_limited')
-    if (res.status === 401 || res.status === 403) throw new Error('ai_upstream_auth_failed')
-    if (res.status >= 500) throw new Error('ai_upstream_unavailable')
-    console.error('[ai-chat] ai_upstream_error: status', res.status, 'body:', errText.slice(0, 500))
-    throw new Error('ai_upstream_error')
-  }
-  const data = await res.json()
-  const content = data?.choices?.[0]?.message?.content
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('ai_response_invalid')
-  }
-  return content.trim()
+    messages,
+    {
+      signal,
+      temperature,
+      maxTokens
+    }
+  )
+}
+
+async function callAiStream(
+  aiConfig: ResolvedAiConfig,
+  messages: ChatMessage[],
+  signal: AbortSignal,
+  temperature: number,
+  maxTokens: number,
+  onDelta: (text: string) => void
+): Promise<string> {
+  const url = buildAiRequestUrl(aiConfig.baseUrl, aiConfig.providerSlug)
+  const apiKeyMasked = aiConfig.apiKey ? maskApiKeySync(aiConfig.apiKey) : '(empty)'
+  console.log('[ai-chat] callAi url=', url, 'model=', aiConfig.model, 'apiKey=', apiKeyMasked, 'source=', aiConfig.source, 'stream=', true)
+
+  return callAiProviderStream(
+    {
+      baseUrl: aiConfig.baseUrl,
+      model: aiConfig.model,
+      apiKey: aiConfig.apiKey,
+      providerSlug: aiConfig.providerSlug,
+      timeoutMs: aiConfig.timeoutMs
+    },
+    messages,
+    {
+      onDelta
+    },
+    {
+      signal,
+      temperature,
+      maxTokens
+    }
+  )
 }
 
 // ── 主 Handler ──
@@ -321,7 +462,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
       let provider: string | null = null
       let currentModel: string | null = null
       try {
-        const aiConfig = await resolveAiConfig()
+        const aiConfig = await resolveAiConfig(authUser.userId)
         provider = aiConfig.providerSlug
         currentModel = aiConfig.model
       } catch {
@@ -398,6 +539,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
     }
 
     const { systemPrompt, dailyLimit, contextLimit, temperature, maxTokens, maxMessageLength } = await loadChatConfig()
+    const stream = payload.stream === true
 
     const message = typeof payload.message === 'string' ? payload.message.trim() : ''
     if (!message || message.length > maxMessageLength) {
@@ -435,7 +577,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
     // 解析 AI 配置
     let aiConfig: ResolvedAiConfig
     try {
-      aiConfig = await resolveAiConfig()
+      aiConfig = await resolveAiConfig(authUser.userId)
     } catch (err) {
       logEdgeError('ai-chat', 'resolve_ai_config', err)
       logOperation({
@@ -540,28 +682,116 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), aiConfig.timeoutMs || await getDefaultAiTimeoutMs())
 
+    if (stream) {
+      const responseStream = new ReadableStream<Uint8Array>({
+        start(streamController) {
+          void (async () => {
+            try {
+              streamController.enqueue(encodeSseEvent('meta', {
+                sessionId,
+                provider: aiConfig.providerSlug || aiConfig.model,
+                model: aiConfig.model,
+                userMessage: {
+                  id: userMsg ? (userMsg as { id?: string }).id || '' : '',
+                  role: 'user',
+                  content: message,
+                  created_at: userMsg ? (userMsg as { created_at?: string }).created_at || new Date().toISOString() : new Date().toISOString()
+                },
+                quota: {
+                  used: quota.used,
+                  limit: dailyLimit,
+                  remaining: quota.remaining
+                }
+              }))
+
+              const assistantContent = await callAiStream(
+                aiConfig,
+                messages,
+                controller.signal,
+                temperature,
+                maxTokens,
+                (text) => {
+                  streamController.enqueue(encodeSseEvent('delta', { text }))
+                }
+              )
+
+              const { data: assistantMsg } = await adminClient
+                .from('ai_chat_messages')
+                .insert({ session_id: sessionId, role: 'assistant', content: assistantContent })
+                .select('id, created_at')
+                .single()
+
+              await adminClient
+                .from('ai_chat_sessions')
+                .update({ provider_slug: aiConfig.providerSlug, model: aiConfig.model })
+                .eq('id', sessionId)
+
+              const responseBody = buildSendMessageResponse({
+                sessionId,
+                assistantContent,
+                assistantMsg: assistantMsg as { id?: string; created_at?: string } | null,
+                userMsg: userMsg as { id?: string; created_at?: string } | null,
+                userContent: message,
+                aiConfig,
+                quota,
+                dailyLimit
+              })
+
+              logOperation({
+                userId: authUser.userId,
+                userEmail: authUser.email,
+                clientIp,
+                operation: 'ai_chat_message',
+                apiName: 'ai-chat',
+                requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model, stream: true },
+                responseBody: { sessionId, assistantMsgId: assistantMsg ? (assistantMsg as { id?: string }).id || null : null },
+                responseStatus: 200,
+                durationMs: Date.now() - startTime,
+                extra: { provider: aiConfig.providerSlug, model: aiConfig.model }
+              }).catch(() => {})
+
+              streamController.enqueue(encodeSseEvent('done', responseBody as unknown as Record<string, unknown>))
+            } catch (err) {
+              const errorCode = getAiErrorCode(err)
+              const errorStatus = getAiErrorStatus(errorCode)
+              logEdgeError('ai-chat', errorCode, err)
+              logOperation({
+                userId: authUser.userId,
+                userEmail: authUser.email,
+                clientIp,
+                operation: 'ai_chat_error',
+                apiName: 'ai-chat',
+                requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model, stream: true },
+                responseBody: { error: errorCode },
+                responseStatus: errorStatus,
+                durationMs: Date.now() - startTime
+              }).catch(() => {})
+              streamController.enqueue(encodeSseEvent('error', { error: errorCode }))
+            } finally {
+              clearTimeout(timeoutId)
+              streamController.close()
+            }
+          })()
+        }
+      })
+
+      return createSseResponse(responseStream, corsHeaders)
+    }
+
     let assistantContent: string
     try {
       assistantContent = await callAi(aiConfig, messages, controller.signal, temperature, maxTokens)
     } catch (err) {
-      const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
-      const errorCode = isTimeout
-        ? 'ai_request_timeout'
-        : err instanceof Error && err.message.startsWith('ai_')
-          ? err.message
-          : 'ai_analysis_failed'
+      const errorCode = getAiErrorCode(err)
       logEdgeError('ai-chat', errorCode, err)
-      const errorStatus = errorCode === 'ai_upstream_rate_limited' ? 429
-        : errorCode === 'ai_upstream_auth_failed' ? 500
-        : errorCode === 'ai_request_timeout' ? 504
-        : 502
+      const errorStatus = getAiErrorStatus(errorCode)
       logOperation({
         userId: authUser.userId,
         userEmail: authUser.email,
         clientIp,
         operation: 'ai_chat_error',
         apiName: 'ai-chat',
-        requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model },
+        requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model, stream: false },
         responseBody: { error: errorCode },
         responseStatus: errorStatus,
         durationMs: Date.now() - startTime
@@ -584,36 +814,23 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
       .update({ provider_slug: aiConfig.providerSlug, model: aiConfig.model })
       .eq('id', sessionId)
 
-    const responseBody = {
-      ok: true,
+    const responseBody = buildSendMessageResponse({
       sessionId,
-      message: {
-        id: assistantMsg ? (assistantMsg as { id: string }).id : '',
-        role: 'assistant',
-        content: assistantContent,
-        created_at: assistantMsg ? (assistantMsg as { created_at: string }).created_at : new Date().toISOString()
-      },
-      userMessage: {
-        id: userMsg ? (userMsg as { id: string }).id : '',
-        role: 'user',
-        content: message,
-        created_at: userMsg ? (userMsg as { created_at: string }).created_at : new Date().toISOString()
-      },
-      provider: aiConfig.providerSlug || aiConfig.model,
-      model: aiConfig.model,
-      quota: {
-        used: quota.used,
-        limit: dailyLimit,
-        remaining: quota.remaining
-      }
-    }
+      assistantContent,
+      assistantMsg: assistantMsg as { id?: string; created_at?: string } | null,
+      userMsg: userMsg as { id?: string; created_at?: string } | null,
+      userContent: message,
+      aiConfig,
+      quota,
+      dailyLimit
+    })
     logOperation({
       userId: authUser.userId,
       userEmail: authUser.email,
       clientIp,
       operation: 'ai_chat_message',
       apiName: 'ai-chat',
-      requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model },
+      requestBody: { messageLength: message.length, sessionId, provider: aiConfig.providerSlug, model: aiConfig.model, stream: false },
       responseBody: { sessionId, assistantMsgId: assistantMsg ? (assistantMsg as { id: string }).id : null },
       responseStatus: 200,
       durationMs: Date.now() - startTime,

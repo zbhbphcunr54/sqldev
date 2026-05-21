@@ -4,12 +4,13 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useOperationLogsStore } from '@/stores/operation-logs'
 import type { OperationLog } from '@/api/operation-logs'
 import FormSelect from '@/components/common/FormSelect.vue'
+import DatePicker from '@/components/common/DatePicker.vue'
 
 const store = useOperationLogsStore()
 const selectedLog = ref<OperationLog | null>(null)
 
 onMounted(() => {
-  store.loadLogs()
+  store.setFilters(buildCurrentFilters())
   document.addEventListener('mousemove', onModalMousemove)
   document.addEventListener('mouseup', onModalMouseup)
 })
@@ -21,7 +22,7 @@ onUnmounted(() => {
 
 // Stats
 const stats = computed(() => ({
-  total: store.summary.today_requests,
+  total: store.summary.total_requests,
   successRate: store.summary.success_rate.toFixed(1),
   avgDuration: store.summary.avg_duration_ms,
   failCount: store.summary.fail_count
@@ -38,22 +39,33 @@ const toDateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pa
 const filterStartDate = ref(toDateStr(today))
 const filterEndDate = ref(toDateStr(today))
 
+function buildCurrentFilters() {
+  return {
+    operation: filterOperation.value || undefined,
+    startDate: filterStartDate.value || undefined,
+    endDate: filterEndDate.value || undefined,
+    status: filterStatus.value || undefined
+  }
+}
+
 // Constants
 const OPERATION_MAP: Record<string, string> = {
-  convert_ddl: 'DDL 翻译',
-  convert_func: '函数翻译',
-  convert_proc: '存储过程翻译',
-  convert_verify: 'AI 校验',
-  rule_read: '读取规则',
-  rule_save: '保存规则',
-  rule_reset: '重置规则',
-  ziwei_analysis: '紫微分析',
-  ziwei_history_list: '紫微历史查询',
-  ai_config_create: '创建AI配置',
+  sql_convert: 'SQL AI转换',
+  id_card_generate: '身份证号码生成',
+  id_card_validate: '身份证号码校验',
+  uscc_generate: '统一社会信用代码生成',
+  uscc_validate: '统一社会信用代码校验',
+  ziwei_chart_generate: '紫微斗数排盘',
+  ziwei_analysis: '命盘AI解读',
+  ziwei_qa: '基于AI命盘问答',
   ai_provider_create: '新增供应商',
-  feedback_submit: '提交建议',
-  ai_chat_message: 'AI 对话',
-  ai_chat_delete_session: '删除AI会话'
+  ai_provider_update: '编辑供应商',
+  ai_provider_delete: '删除供应商',
+  ai_config_create: '新增Key',
+  ai_config_append_model: '追加模型',
+  ai_config_test: '测试Key',
+  ai_config_delete: '删除Key',
+  ai_chat_message: 'AI助手对话'
 }
 
 const OPERATION_OPTIONS = [
@@ -128,14 +140,34 @@ const selectedLogStatus = computed(() =>
   selectedLog.value ? getStatusInfo(selectedLog.value.response_status) : null
 )
 
+const phaseTimingLabels: Record<string, string> = {
+  auth_ms: '鉴权',
+  config_ms: '配置加载',
+  rate_limit_ms: '限流检查',
+  db_list_ms: '数据库白名单',
+  template_ms: 'Prompt 模板',
+  ai_config_ms: 'AI 配置解析',
+  ai_call_ms: 'AI 调用',
+  parse_ms: '结果解析'
+}
+
+const selectedPhaseTimings = computed(() => {
+  const extra = selectedLog.value?.extra
+  const timings = extra && typeof extra === 'object' ? (extra as Record<string, unknown>).phase_timings : null
+  if (!timings || typeof timings !== 'object' || Array.isArray(timings)) return []
+
+  return Object.entries(timings as Record<string, unknown>)
+    .filter(([, value]) => Number.isFinite(Number(value)))
+    .map(([key, value]) => ({
+      key,
+      label: phaseTimingLabels[key] ?? key,
+      value: Math.round(Number(value))
+    }))
+})
+
 // Handlers
 function handleSearch(): void {
-  store.setFilters({
-    operation: filterOperation.value || undefined,
-    startDate: filterStartDate.value || undefined,
-    endDate: filterEndDate.value || undefined,
-    status: filterStatus.value || undefined
-  })
+  store.setFilters(buildCurrentFilters())
 }
 
 function handleReset(): void {
@@ -144,7 +176,7 @@ function handleReset(): void {
   const todayStr = toDateStr(new Date())
   filterStartDate.value = todayStr
   filterEndDate.value = todayStr
-  store.setFilters({})
+  store.setFilters(buildCurrentFilters())
 }
 
 function handleSelectLog(log: OperationLog): void {
@@ -231,18 +263,35 @@ async function handlePageSizeChange(size: string): Promise<void> {
     <!-- Filter Bar -->
     <section class="filter-bar">
       <label class="filter-label">状态</label>
-      <FormSelect v-model="filterStatus" :options="STATUS_OPTIONS" placeholder="全部" compact />
+      <FormSelect
+        v-model="filterStatus"
+        :options="STATUS_OPTIONS"
+        placeholder="全部"
+        compact
+        class="filter-select filter-select--status"
+      />
       <label class="filter-label">操作</label>
       <FormSelect
         v-model="filterOperation"
         :options="OPERATION_OPTIONS"
         placeholder="全部"
         compact
+        class="filter-select filter-select--operation"
       />
       <div class="filter-dates">
-        <input v-model="filterStartDate" type="date" lang="zh-CN" class="filter-input" />
+        <DatePicker
+          v-model="filterStartDate"
+          placeholder="开始日期"
+          compact
+          class="filter-date-picker"
+        />
         <span class="filter-sep">-</span>
-        <input v-model="filterEndDate" type="date" lang="zh-CN" class="filter-input" />
+        <DatePicker
+          v-model="filterEndDate"
+          placeholder="结束日期"
+          compact
+          class="filter-date-picker"
+        />
       </div>
       <div class="filter-actions">
         <button class="btn btn-ghost" @click="handleReset">重置</button>
@@ -280,7 +329,7 @@ async function handlePageSizeChange(size: string): Promise<void> {
               <tr>
                 <td colspan="8" class="error-cell">
                   <span>{{ store.error }}</span>
-                  <button class="btn btn-ghost btn-sm" @click="store.loadLogs()">重试</button>
+                  <button class="btn btn-ghost btn-sm" @click="store.loadLogs({ withTotal: false })">重试</button>
                 </td>
               </tr>
             </template>
@@ -458,6 +507,16 @@ async function handlePageSizeChange(size: string): Promise<void> {
               </div>
             </div>
 
+            <div v-if="selectedPhaseTimings.length > 0" class="data-section">
+              <h4 class="section-title">阶段耗时</h4>
+              <div class="timing-grid">
+                <div v-for="item in selectedPhaseTimings" :key="item.key" class="timing-chip">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}ms</strong>
+                </div>
+              </div>
+            </div>
+
             <div v-if="selectedLog.error_message" class="error-section">
               <h4 class="section-title">错误信息</h4>
               <div class="error-box">{{ selectedLog.error_message }}</div>
@@ -471,6 +530,11 @@ async function handlePageSizeChange(size: string): Promise<void> {
             <div v-if="selectedLog.response_body" class="data-section">
               <h4 class="section-title">返回报文</h4>
               <pre class="code-block body-font">{{ formatJson(selectedLog.response_body) }}</pre>
+            </div>
+
+            <div v-if="selectedLog.extra" class="data-section">
+              <h4 class="section-title">扩展字段</h4>
+              <pre class="code-block body-font">{{ formatJson(selectedLog.extra) }}</pre>
             </div>
           </div>
         </div>
@@ -575,8 +639,20 @@ async function handlePageSizeChange(size: string): Promise<void> {
   white-space: nowrap;
 }
 
-.filter-bar > :deep(.form-select-wrapper) {
-  width: 120px;
+.filter-select {
+  flex-shrink: 0;
+}
+
+.filter-select:deep(.form-select-wrapper) {
+  width: 100%;
+}
+
+.filter-select--status {
+  width: 96px;
+}
+
+.filter-select--operation {
+  width: 220px;
   flex-shrink: 0;
 }
 
@@ -587,31 +663,8 @@ async function handlePageSizeChange(size: string): Promise<void> {
   margin-left: auto;
 }
 
-.filter-input {
-  height: 32px;
-  padding: 0 10px;
-  background: var(--color-page-input);
-  border: 1px solid var(--color-page-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-page-text);
-  font-size: var(--text-sm);
-  font-family: var(--font-body);
-  width: 130px;
-}
-
-.filter-input::-webkit-calendar-picker-indicator {
-  opacity: 0.6;
-  cursor: pointer;
-}
-
-.filter-input::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: var(--color-page-brand);
-  box-shadow: 0 0 0 2px var(--color-page-brand-bg);
+.filter-date-picker {
+  width: 144px;
 }
 
 .filter-sep {
@@ -649,7 +702,7 @@ async function handlePageSizeChange(size: string): Promise<void> {
 .btn-primary {
   background: var(--color-page-brand);
   border-color: var(--color-page-brand);
-  color: #ffffff;
+  color: var(--color-btn-primary-text);
 }
 
 .btn-primary:hover {
@@ -812,7 +865,7 @@ async function handlePageSizeChange(size: string): Promise<void> {
   background: var(--color-page-brand);
   border: 1px solid var(--color-page-brand);
   border-radius: var(--radius-sm);
-  color: #ffffff;
+  color: var(--color-btn-primary-text);
   font-size: var(--text-xs);
   font-family: var(--font-body);
   font-weight: 500;
@@ -1088,6 +1141,31 @@ async function handlePageSizeChange(size: string): Promise<void> {
   flex-direction: column;
 }
 
+.timing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.timing-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-page-bg);
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-page-text);
+}
+
+.timing-chip strong {
+  font-size: var(--text-xs);
+  color: var(--color-page-brand);
+  font-family: var(--font-code, var(--font-body));
+}
+
 .error-box {
   padding: 12px;
   background: var(--color-page-danger-bg);
@@ -1154,5 +1232,7 @@ async function handlePageSizeChange(size: string): Promise<void> {
   .logs-page { padding: 16px; }
   .filter-bar { flex-wrap: wrap; }
   .filter-dates { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .filter-select--operation { width: 180px; }
+  .filter-date-picker { width: 132px; }
 }
 </style>

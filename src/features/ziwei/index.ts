@@ -8,6 +8,8 @@ export {
 export {
   buildZiweiAiPayload,
   buildZiweiAiPayloadCompact,
+  buildZiweiAiPayloadForAnalysis,
+  buildZiweiAiPayloadForQa,
   buildZiweiAiPayloadLegacyCompact,
   buildZiweiAiPayloadLite,
   isZiweiAiRateLimitError,

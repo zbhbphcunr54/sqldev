@@ -221,7 +221,7 @@ function handleSwap(): void {
 .btn.primary {
   border: none;
   background: var(--gradient-brand-primary);
-  color: #fff;
+  color: var(--color-btn-primary-text);
   box-shadow: var(--shadow-brand-primary);
 }
 

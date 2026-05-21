@@ -1,10 +1,10 @@
-<!-- [2026-05-07] AI 配置页面 - 新设计 -->
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAiStore } from '@/stores/ai'
+import { useAuthStore } from '@/stores/auth'
 import { getProviderColor, getProviderInitials } from '@/features/ai/provider-constants'
-import type { AiProviderDef, AiProviderConfig } from '@/features/ai'
+import type { AiProviderConfig, AiProviderDef } from '@/features/ai'
 import { aiConfigApi } from '@/api/ai-config'
 import { ApiError } from '@/api/http'
 import { useConfirm } from '@/composables/useConfirm'
@@ -15,178 +15,75 @@ import { getJson, setJson } from '@/utils/storage'
 
 const { confirm } = useConfirm()
 
-// Stores
 const aiStore = useAiStore()
-const { providers, configs, loading, error } = storeToRefs(aiStore)
+const authStore = useAuthStore()
+
+const { providers, configs, loading, error, activeScope, hasGlobalActive } = storeToRefs(aiStore)
+const { isAdmin, user } = storeToRefs(authStore)
 
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : '发生未知错误，请稍后重试。'
 }
 
-// Modal state
+const pageScope = computed<'global' | 'personal'>(() => (isAdmin.value ? 'global' : 'personal'))
+const canManageProviders = computed(() => isAdmin.value)
+const scopeTitle = computed(() => (pageScope.value === 'global' ? '全局 AI Key' : '我的 AI Key'))
+
 const showProviderModal = ref(false)
 const editingProvider = ref<AiProviderDef | null>(null)
 const showAddKeyModal = ref(false)
+const addKeyPrefill = ref<{ providerId?: string; apiKeyMasked?: string }>({})
 
-// ============ Drag State ============
 const isDragging = ref(false)
 const draggedProvider = ref<AiProviderDef | null>(null)
-const draggedIndex = ref<number>(-1)
-const dropIndex = ref<number>(-1)
+const draggedIndex = ref(-1)
+const dropIndex = ref(-1)
 const dragPosition = ref({ x: 0, y: 0 })
 const gridRef = ref<HTMLElement | null>(null)
 
-// Long press detection
+const hoveredProvider = ref<AiProviderDef | null>(null)
+const tooltipPosition = ref({ x: 0, y: 0 })
+const showTooltip = ref(false)
+
+const testingIds = ref<Set<string>>(new Set())
+const testResults = ref<Map<string, { ok: boolean; elapsed_ms: number; error?: string }>>(new Map())
+const cooldownEndTimes = ref<Map<string, number>>(new Map())
+const cooldownRemaining = ref<Map<string, number>>(new Map())
+
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
-const LONG_PRESS_DELAY = 150 // ms
-const DRAG_THRESHOLD = 5 // px movement before starting drag
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
-// ============ Drag Handlers (Custom) ============
-function onCardMouseDown(e: MouseEvent, provider: AiProviderDef): void {
-  if ((e.target as HTMLElement).closest('button')) return
+const LONG_PRESS_DELAY = 150
+const DRAG_THRESHOLD = 5
+const TOOLTIP_WIDTH = 300
+const TOOLTIP_OFFSET = 12
 
-  const idx = providers.value.findIndex((p) => p.id === provider.id)
-  if (idx === -1) return
-
-  const startX = e.clientX
-  const startY = e.clientY
-  let hasMoved = false
-
-  longPressTimer = setTimeout(() => {
-    if (!hasMoved) {
-      startDrag(provider, idx, e.clientX, e.clientY)
-    }
-  }, LONG_PRESS_DELAY)
-
-  const handleMove = (moveEvent: MouseEvent) => {
-    const movedX = Math.abs(moveEvent.clientX - startX)
-    const movedY = Math.abs(moveEvent.clientY - startY)
-
-    if (movedX > DRAG_THRESHOLD || movedY > DRAG_THRESHOLD) {
-      hasMoved = true
-      if (longPressTimer) {
-        clearTimeout(longPressTimer)
-        longPressTimer = null
-      }
-      startDrag(provider, idx, moveEvent.clientX, moveEvent.clientY)
-    }
-  }
-
-  const handleUp = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer)
-      longPressTimer = null
-    }
-    document.removeEventListener('mousemove', handleMove)
-    document.removeEventListener('mouseup', handleUp)
-  }
-
-  document.addEventListener('mousemove', handleMove)
-  document.addEventListener('mouseup', handleUp)
-}
-
-function startDrag(provider: AiProviderDef, idx: number, clientX: number, clientY: number): void {
-  draggedProvider.value = provider
-  draggedIndex.value = idx
-  isDragging.value = true
-
-  // Position clone at mouse location (offset slightly so cursor is visible)
-  dragPosition.value = {
-    x: clientX - 100,
-    y: clientY - 20
-  }
-
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-}
-
-function onMouseMove(e: MouseEvent): void {
-  if (!isDragging.value) return
-
-  dragPosition.value = {
-    x: e.clientX - 100,
-    y: e.clientY - 20
-  }
-
-  if (gridRef.value) {
-    const cards = gridRef.value.querySelectorAll('.provider-card')
-    cards.forEach((card, idx) => {
-      const rect = card.getBoundingClientRect()
-
-      if (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom &&
-        idx !== draggedIndex.value
-      ) {
-        dropIndex.value = idx
-      }
-    })
-  }
-}
-
-function onMouseUp(): void {
-  let orderChanged = false
-  if (
-    dropIndex.value !== -1 &&
-    draggedIndex.value !== -1 &&
-    dropIndex.value !== draggedIndex.value
-  ) {
-    const newProviders = [...providers.value]
-    const [removed] = newProviders.splice(draggedIndex.value, 1)
-    const adjustedTargetIdx =
-      dropIndex.value > draggedIndex.value ? dropIndex.value - 1 : dropIndex.value
-    newProviders.splice(adjustedTargetIdx, 0, removed)
-    providers.value = newProviders
-    orderChanged = true
-  }
-
-  // 保存排序到服务器
-  if (orderChanged) {
-    // 乐观更新缓存，避免 API 返回前刷新页面导致旧缓存覆盖新顺序
-    aiStore.persistToCache()
-    const orders = providers.value.map((p, idx) => ({
-      provider_id: p.id,
-      sort_order: idx
-    }))
-    aiConfigApi.reorderProviders(orders).catch(async (err: unknown) => {
-      const errorMsg = err instanceof Error ? err.message : '保存排序失败，请刷新重试'
-      await confirm(`排序保存失败: ${errorMsg}\n\n刷新后排序将恢复原状。`, {
-        title: '保存失败',
-        confirmText: '我知道了'
-      })
-    })
-  }
-
-  resetDragState()
-  document.removeEventListener('mousemove', onMouseMove)
-  document.removeEventListener('mouseup', onMouseUp)
-}
-
-function resetDragState(): void {
-  isDragging.value = false
-  draggedProvider.value = null
-  draggedIndex.value = -1
-  dropIndex.value = -1
-}
-
-// Computed: provider configs grouped
 const providerConfigsMap = computed(() => {
   const map = new Map<string, AiProviderConfig[]>()
-  configs.value.forEach((c) => {
-    const arr = map.get(c.provider_id) ?? []
-    arr.push(c)
-    map.set(c.provider_id, arr)
+  configs.value.forEach((config) => {
+    const list = map.get(config.provider_id) ?? []
+    list.push(config)
+    map.set(config.provider_id, list)
   })
   return map
 })
 
-function isProviderConfigured(providerId: string): boolean {
-  return (providerConfigsMap.value.get(providerId)?.length ?? 0) > 0
-}
+const totalModelCount = computed(() => configs.value.length)
+const configuredProviderCount = computed(() => providerConfigsMap.value.size)
 
-// ============ Grouped Configs (merged by provider for display) ============
+const keySectionDesc = computed(() => {
+  if (pageScope.value === 'global') {
+    return `当前管理 ${totalModelCount.value} 个模型，覆盖 ${configuredProviderCount.value} 个供应商。`
+  }
+  if (configs.value.some((config) => config.is_active)) {
+    return `当前账号已启用个人 Key，页面内 AI 调用会优先使用你的配置。`
+  }
+  if (hasGlobalActive.value) {
+    return '当前账号未启用个人 Key，页面内 AI 调用会回退使用管理员配置。'
+  }
+  return '当前账号还没有可用 Key，配置后即可在页面内直接使用。'
+})
+
 interface GroupedConfig {
   providerId: string
   providerSlug: string
@@ -195,116 +92,98 @@ interface GroupedConfig {
   configs: AiProviderConfig[]
 }
 
-const groupedConfigs = computed(() => {
+const groupedConfigs = computed<GroupedConfig[]>(() => {
   const map = new Map<string, GroupedConfig>()
-  for (const c of configs.value) {
-    const p = getProviderById(c.provider_id)
-    const key = `${c.provider_id}::${c.api_key_masked}`
+
+  for (const config of configs.value) {
+    const provider = getProviderById(config.provider_id)
+    const key = `${config.provider_id}::${config.api_key_masked}`
     if (!map.has(key)) {
       map.set(key, {
-        providerId: c.provider_id,
-        providerSlug: p?.slug ?? '',
-        apiKeyMasked: c.api_key_masked,
-        baseUrl: c.base_url,
+        providerId: config.provider_id,
+        providerSlug: provider?.slug ?? '',
+        apiKeyMasked: config.api_key_masked,
+        baseUrl: config.base_url,
         configs: []
       })
     }
-    map.get(key)!.configs.push(c)
+    map.get(key)?.configs.push(config)
   }
-  return [...map.values()]
+
+  return Array.from(map.values())
 })
 
-// Total model count and configured provider count
-const totalModelCount = computed(() => configs.value.length)
-const configuredProviderCount = computed(() => providerConfigsMap.value.size)
+const selectedStorageKey = computed(() => {
+  const userId = user.value?.id ?? 'anonymous'
+  return `sqldev:ai:selected-models:${userId}:${activeScope.value}`
+})
 
-// Persisted model selection per group key
-const STORAGE_KEY_SELECTED = 'sqldev:ai:selected-models'
+const selectedConfigId = ref<Record<string, string>>({})
 
 function readSelectedFromStorage(): Record<string, string> {
-  return getJson<Record<string, string>>(STORAGE_KEY_SELECTED, {})
+  return getJson<Record<string, string>>(selectedStorageKey.value, {})
 }
 
 function writeSelectedToStorage(map: Record<string, string>): void {
-  setJson(STORAGE_KEY_SELECTED, map)
+  setJson(selectedStorageKey.value, map)
 }
 
-// Track which config is selected per group key
-const selectedConfigId = ref<Record<string, string>>(readSelectedFromStorage())
+function groupKey(group: GroupedConfig): string {
+  return `${activeScope.value}::${group.providerId}::${group.apiKeyMasked}`
+}
 
 function getSelectedConfig(group: GroupedConfig): AiProviderConfig | undefined {
   const id = selectedConfigId.value[groupKey(group)]
-  return group.configs.find((c) => c.id === id) ?? group.configs[0]
-}
-
-const tableRows = computed(() =>
-  groupedConfigs.value.map((g) => ({
-    group: g,
-    selected: getSelectedConfig(g)
-  }))
-)
-
-function groupKey(group: GroupedConfig): string {
-  return `${group.providerId}::${group.apiKeyMasked}`
+  return group.configs.find((config) => config.id === id) ?? group.configs[0]
 }
 
 function ensureSelectedConfig(group: GroupedConfig): void {
   const key = groupKey(group)
   const current = selectedConfigId.value[key]
-  // Keep current selection if it still exists in the group
-  if (current && group.configs.some((c) => c.id === current)) return
-  // Prefer the active config
-  const active = group.configs.find((c) => c.is_active)
-  if (active) {
-    selectedConfigId.value[key] = active.id
-    return
-  }
-  // Fall back to the last config
-  selectedConfigId.value[key] = group.configs[group.configs.length - 1]?.id ?? ''
+  if (current && group.configs.some((config) => config.id === current)) return
+
+  const active = group.configs.find((config) => config.is_active)
+  selectedConfigId.value[key] = active?.id ?? group.configs[group.configs.length - 1]?.id ?? ''
 }
 
-function cycleModel(group: GroupedConfig, direction: 1 | -1): void {
-  const configs = group.configs
-  if (configs.length <= 1) return
-  const current = getSelectedConfig(group)
-  const idx = current ? configs.indexOf(current) : 0
-  const next = (idx + direction + configs.length) % configs.length
-  selectedConfigId.value[groupKey(group)] = configs[next].id
-  writeSelectedToStorage(selectedConfigId.value)
-}
+const tableRows = computed(() =>
+  groupedConfigs.value
+    .map((group) => {
+      const selected = getSelectedConfig(group)
+      return selected ? { group, selected } : null
+    })
+    .filter((row): row is { group: GroupedConfig; selected: AiProviderConfig } => !!row)
+)
 
-// Watch groupedConfigs to auto-select latest model when new ones are added
 watch(
   groupedConfigs,
   (groups) => {
-    for (const g of groups) {
-      ensureSelectedConfig(g)
-    }
+    groups.forEach((group) => ensureSelectedConfig(group))
+    writeSelectedToStorage(selectedConfigId.value)
   },
-  { immediate: true, deep: true }
+  { deep: true, immediate: true }
 )
 
-function isDraggingCard(provider: AiProviderDef): boolean {
-  return isDragging.value && draggedProvider.value?.id === provider.id
-}
-
-// Helper: check if card should show drop indicator
-function isDropTargetCard(idx: number): boolean {
-  return isDragging.value && dropIndex.value === idx && idx !== draggedIndex.value
-}
-
-function onCardClick(e: MouseEvent, provider: AiProviderDef): void {
-  if (!isDragging.value) {
-    openEditProvider(provider)
+watch(
+  () => pageScope.value,
+  () => {
+    void loadConfigs()
   }
+)
+
+function getProviderById(id: string): AiProviderDef | undefined {
+  return providers.value.find((provider) => provider.id === id)
 }
 
-// Helper: get unique card colors based on provider
-function getCardBgStart(_provider: AiProviderDef): string {
+function isProviderConfigured(providerId: string): boolean {
+  return (providerConfigsMap.value.get(providerId)?.length ?? 0) > 0
+}
+
+function getCardBgStart(): string {
   return 'var(--color-accent-bg)'
 }
 
-function getCardBgEnd(_provider: AiProviderDef): string {
+function getCardBgEnd(): string {
   return 'var(--color-panel-3)'
 }
 
@@ -312,62 +191,10 @@ function getCardBorderColor(provider: AiProviderDef): string {
   return getProviderColor(provider.slug)
 }
 
-// 判断是国内还是国外模型 - 直接使用 provider.region 字段
 function getRegionLabel(provider: AiProviderDef): { label: string; isDomestic: boolean } {
   const isDomestic = provider.region === 'cn'
   return { label: isDomestic ? '国内' : '海外', isDomestic }
 }
-
-// 悬停状态
-const hoveredProvider = ref<AiProviderDef | null>(null)
-const tooltipPosition = ref({ x: 0, y: 0 })
-const showTooltip = ref(false)
-const TOOLTIP_WIDTH = 300
-const TOOLTIP_OFFSET = 12
-
-function updateTooltipPosition(e: MouseEvent): void {
-  let x = e.clientX + TOOLTIP_OFFSET
-  let y = e.clientY + TOOLTIP_OFFSET
-
-  // 检测右边界
-  if (x + TOOLTIP_WIDTH > window.innerWidth - 20) {
-    x = e.clientX - TOOLTIP_WIDTH - TOOLTIP_OFFSET
-  }
-
-  // 检测下边界
-  if (y + 200 > window.innerHeight - 20) {
-    y = window.innerHeight - 220
-  }
-
-  tooltipPosition.value = { x, y }
-}
-
-function onCardHover(e: MouseEvent, provider: AiProviderDef): void {
-  hoveredProvider.value = provider
-  updateTooltipPosition(e)
-  showTooltip.value = true
-}
-
-function onCardLeave(): void {
-  showTooltip.value = false
-  hoveredProvider.value = null
-}
-
-function onTooltipMouseMove(e: MouseEvent): void {
-  updateTooltipPosition(e)
-}
-
-onUnmounted(() => {
-  document.removeEventListener('mousemove', onMouseMove)
-  document.removeEventListener('mouseup', onMouseUp)
-  if (cooldownTimer) {
-    clearInterval(cooldownTimer)
-    cooldownTimer = null
-  }
-})
-
-// Add Key modal handlers
-const addKeyPrefill = ref<{ providerId?: string; apiKey?: string; apiKeyMasked?: string }>({})
 
 function openAddKey(): void {
   addKeyPrefill.value = {}
@@ -390,19 +217,21 @@ async function handleAddKeySaved(payload: {
   api_key: string
   base_url?: string
   name?: string
+  api_key_masked?: string
+  reuse_config_id?: string
 }): Promise<void> {
-  const groupKey = addKeyPrefill.value.apiKeyMasked
   closeAddKeyModal()
-  await aiStore.addConfig({ ...payload, api_key_masked: groupKey })
+  await aiStore.addConfig(payload)
 }
 
-// Provider modal handlers
 function openAddProvider(): void {
+  if (!canManageProviders.value) return
   editingProvider.value = null
   showProviderModal.value = true
 }
 
 function openEditProvider(provider: AiProviderDef): void {
+  if (!canManageProviders.value) return
   editingProvider.value = provider
   showProviderModal.value = true
 }
@@ -428,16 +257,15 @@ async function handleProviderSave(payload: {
   try {
     if (payload.isEdit && payload.providerId) {
       const updated = await aiConfigApi.updateProvider(payload.providerId, payload.data)
-      const idx = providers.value.findIndex((p) => p.id === updated.id)
-      if (idx !== -1) {
-        providers.value[idx] = { ...providers.value[idx], ...updated }
+      const index = providers.value.findIndex((item) => item.id === updated.id)
+      if (index !== -1) {
+        providers.value[index] = { ...providers.value[index], ...updated }
       }
-      // 编辑可能删除孤儿模型 → 后台刷新 configs
-      aiStore.loadConfigs()
+      await aiStore.loadConfigs()
     } else {
       const created = await aiConfigApi.createProvider({
         label: payload.data.label,
-        slug: payload.data.slug!,
+        slug: payload.data.slug ?? '',
         base_url: payload.data.base_url,
         region: payload.data.region,
         api_format: payload.data.api_format,
@@ -448,23 +276,23 @@ async function handleProviderSave(payload: {
       )
     }
     aiStore.persistToCache()
-  } catch (e: unknown) {
-    error.value = getErrorMessage(e)
+  } catch (err: unknown) {
+    error.value = getErrorMessage(err)
   }
 }
 
-// Key actions
 async function handleDeleteModel(config: AiProviderConfig): Promise<void> {
   const providerLabel = getProviderById(config.provider_id)?.label ?? config.provider_id
-  const ok = await confirm(`确定删除「${providerLabel}」的模型 ${config.model} 吗？`, {
+  const ok = await confirm(`确定删除「${providerLabel}」下的模型 ${config.model} 吗？`, {
     title: '删除模型',
     confirmText: '删除',
     confirmClass: 'danger'
   })
   if (!ok) return
+
   await aiStore.removeConfig(config.id)
-  // 清理已删除模型的选中状态
-  delete selectedConfigId.value[`${config.provider_id}::${config.api_key_masked}`]
+  delete selectedConfigId.value[`${activeScope.value}::${config.provider_id}::${config.api_key_masked}`]
+  writeSelectedToStorage(selectedConfigId.value)
 }
 
 async function handleToggleActive(config: AiProviderConfig): Promise<void> {
@@ -474,46 +302,38 @@ async function handleToggleActive(config: AiProviderConfig): Promise<void> {
     } else {
       await aiStore.activateConfig(config.id)
     }
-  } catch (e) {
-    console.error('[AiConfig] Toggle active failed:', e)
+  } catch (err) {
+    console.error('[AiConfig] Toggle active failed:', err)
   }
 }
-
-// Test config
-const testingIds = ref<Set<string>>(new Set())
-const testResults = ref<Map<string, { ok: boolean; elapsed_ms: number; error?: string }>>(new Map())
-
-// 冷却状态：同 provider 下所有 config 共享冷却期
-const cooldownEndTimes = ref<Map<string, number>>(new Map()) // provider_id → end timestamp
-const cooldownRemaining = ref<Map<string, number>>(new Map()) // config_id → remaining seconds
-let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
 function startCooldownTimer(): void {
   if (cooldownTimer) return
   cooldownTimer = setInterval(() => {
     const now = Date.now()
     let hasActive = false
+
     for (const [providerId, endTime] of cooldownEndTimes.value) {
       if (now < endTime) {
         hasActive = true
         const remaining = Math.max(0, Math.ceil((endTime - now) / 1000))
         configs.value
-          .filter((c) => c.provider_id === providerId)
-          .forEach((c) => cooldownRemaining.value.set(c.id, remaining))
+          .filter((config) => config.provider_id === providerId)
+          .forEach((config) => cooldownRemaining.value.set(config.id, remaining))
       } else {
         cooldownEndTimes.value.delete(providerId)
         configs.value
-          .filter((c) => c.provider_id === providerId)
-          .forEach((c) => {
-            cooldownRemaining.value.delete(c.id)
-            // 清除冷却错误残留，回退显示 DB 中的 last_test 值
-            const r = testResults.value.get(c.id)
-            if (r && !r.ok && r.error?.includes('请等待')) {
-              testResults.value.delete(c.id)
+          .filter((config) => config.provider_id === providerId)
+          .forEach((config) => {
+            cooldownRemaining.value.delete(config.id)
+            const result = testResults.value.get(config.id)
+            if (result && !result.ok && result.error?.includes('请等待')) {
+              testResults.value.delete(config.id)
             }
           })
       }
     }
+
     if (!hasActive && cooldownTimer) {
       clearInterval(cooldownTimer)
       cooldownTimer = null
@@ -524,8 +344,8 @@ function startCooldownTimer(): void {
 function setProviderCooldown(providerId: string, seconds: number): void {
   cooldownEndTimes.value.set(providerId, Date.now() + seconds * 1000)
   configs.value
-    .filter((c) => c.provider_id === providerId)
-    .forEach((c) => cooldownRemaining.value.set(c.id, seconds))
+    .filter((config) => config.provider_id === providerId)
+    .forEach((config) => cooldownRemaining.value.set(config.id, seconds))
   startCooldownTimer()
 }
 
@@ -539,6 +359,7 @@ function getCooldownRemaining(configId: string): number {
 
 async function handleTest(config: AiProviderConfig): Promise<void> {
   if (testingIds.value.has(config.id) || isInCooldown(config.id)) return
+
   testingIds.value.add(config.id)
   try {
     const result = await aiConfigApi.test(config.id)
@@ -546,38 +367,53 @@ async function handleTest(config: AiProviderConfig): Promise<void> {
     if (!result.ok && result.cooldown_remaining) {
       setProviderCooldown(config.provider_id, result.cooldown_remaining)
     }
-  } catch (e: unknown) {
-    const errMsg = e instanceof Error ? e.message : '测试失败'
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '测试失败'
     testResults.value.set(config.id, {
       ok: false,
       elapsed_ms: 0,
-      error: errMsg
+      error: message
     })
-    // 429 冷却响应经 http 层转为 ApiError，cooldown_remaining 在 data 中
-    if (e instanceof ApiError && typeof e.data?.cooldown_remaining === 'number') {
-      setProviderCooldown(config.provider_id, e.data.cooldown_remaining)
+    if (err instanceof ApiError && typeof err.data?.cooldown_remaining === 'number') {
+      setProviderCooldown(config.provider_id, err.data.cooldown_remaining)
     }
   } finally {
     testingIds.value.delete(config.id)
   }
 }
 
-function getTestResult(
-  configId: string
-): { ok: boolean; elapsed_ms: number; error?: string } | null {
-  return testResults.value.get(configId) || null
+function getTestResult(configId: string): { ok: boolean; elapsed_ms: number; error?: string } | null {
+  return testResults.value.get(configId) ?? null
 }
 
 function isTesting(configId: string): boolean {
   return testingIds.value.has(configId) || isInCooldown(configId)
 }
 
-// Provider actions
+function getLatencyText(config: AiProviderConfig): string {
+  const result = getTestResult(config.id)
+  if (result?.ok) return `${result.elapsed_ms} ms`
+  if (result && !result.ok && result.error) return result.error
+  if (config.last_test_ok && typeof config.last_test_ms === 'number') return `${config.last_test_ms} ms`
+  if (config.last_test_ok === false) return '失败'
+  return '-'
+}
+
+function getLatencyClass(config: AiProviderConfig): string {
+  const result = getTestResult(config.id)
+  if (isInCooldown(config.id)) return 'cooldown'
+  if (result?.ok || config.last_test_ok) return 'ok'
+  if (result && !result.ok) return 'fail'
+  return 'empty'
+}
+
 async function handleDeleteProvider(provider: AiProviderDef): Promise<void> {
+  if (!canManageProviders.value) return
+
   const configCount = providerConfigsMap.value.get(provider.id)?.length ?? 0
   const message =
     configCount > 0
-      ? `确定删除「${provider.label}」供应商吗？\n\n这将同时删除该供应商下的 ${configCount} 个 API Key 配置。`
+      ? `确定删除「${provider.label}」供应商吗？\n\n这会同时删除该供应商下的 ${configCount} 条 Key 配置。`
       : `确定删除「${provider.label}」供应商吗？`
 
   const ok = await confirm(message, {
@@ -589,39 +425,215 @@ async function handleDeleteProvider(provider: AiProviderDef): Promise<void> {
 
   try {
     await aiConfigApi.deleteProvider(provider.id)
-    // 从本地列表中移除
-    providers.value = providers.value.filter((p) => p.id !== provider.id)
-    // 重新加载配置（级联删除后配置已删除）
+    providers.value = providers.value.filter((item) => item.id !== provider.id)
     await aiStore.loadConfigs()
-  } catch (e: unknown) {
-    const errorMsg = e instanceof Error ? e.message : '删除失败'
-    await confirm(errorMsg, { title: '操作失败' })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '删除失败'
+    await confirm(message, {
+      title: '操作失败',
+      confirmText: '我知道了'
+    })
   }
 }
 
-// Get provider by ID
-function getProviderById(id: string): AiProviderDef | undefined {
-  return providers.value.find((p) => p.id === id)
+function cycleModel(group: GroupedConfig, direction: 1 | -1): void {
+  const list = group.configs
+  if (list.length <= 1) return
+
+  const current = getSelectedConfig(group)
+  const currentIndex = current ? list.findIndex((config) => config.id === current.id) : 0
+  const nextIndex = (currentIndex + direction + list.length) % list.length
+  selectedConfigId.value[groupKey(group)] = list[nextIndex].id
+  writeSelectedToStorage(selectedConfigId.value)
 }
 
-// Lifecycle
+function isDraggingCard(provider: AiProviderDef): boolean {
+  return isDragging.value && draggedProvider.value?.id === provider.id
+}
+
+function isDropTargetCard(index: number): boolean {
+  return isDragging.value && dropIndex.value === index && index !== draggedIndex.value
+}
+
+function onCardClick(_event: MouseEvent, provider: AiProviderDef): void {
+  if (isDragging.value || !canManageProviders.value) return
+  openEditProvider(provider)
+}
+
+function onCardMouseDown(e: MouseEvent, provider: AiProviderDef): void {
+  if (!canManageProviders.value) return
+  if ((e.target as HTMLElement).closest('button')) return
+
+  const index = providers.value.findIndex((item) => item.id === provider.id)
+  if (index === -1) return
+
+  const startX = e.clientX
+  const startY = e.clientY
+  let moved = false
+
+  longPressTimer = setTimeout(() => {
+    if (!moved) startDrag(provider, index, e.clientX, e.clientY)
+  }, LONG_PRESS_DELAY)
+
+  const handleMove = (moveEvent: MouseEvent) => {
+    const deltaX = Math.abs(moveEvent.clientX - startX)
+    const deltaY = Math.abs(moveEvent.clientY - startY)
+    if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+      moved = true
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+      }
+      startDrag(provider, index, moveEvent.clientX, moveEvent.clientY)
+    }
+  }
+
+  const handleUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+    }
+    document.removeEventListener('mousemove', handleMove)
+    document.removeEventListener('mouseup', handleUp)
+  }
+
+  document.addEventListener('mousemove', handleMove)
+  document.addEventListener('mouseup', handleUp)
+}
+
+function startDrag(provider: AiProviderDef, index: number, clientX: number, clientY: number): void {
+  if (!canManageProviders.value) return
+  draggedProvider.value = provider
+  draggedIndex.value = index
+  isDragging.value = true
+  dragPosition.value = { x: clientX - 100, y: clientY - 20 }
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+function onMouseMove(e: MouseEvent): void {
+  if (!isDragging.value) return
+  dragPosition.value = { x: e.clientX - 100, y: e.clientY - 20 }
+
+  const cards = gridRef.value?.querySelectorAll('.provider-card') ?? []
+  cards.forEach((card, index) => {
+    const rect = card.getBoundingClientRect()
+    if (
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom &&
+      index !== draggedIndex.value
+    ) {
+      dropIndex.value = index
+    }
+  })
+}
+
+async function onMouseUp(): Promise<void> {
+  let orderChanged = false
+
+  if (
+    canManageProviders.value &&
+    dropIndex.value !== -1 &&
+    draggedIndex.value !== -1 &&
+    dropIndex.value !== draggedIndex.value
+  ) {
+    const nextProviders = [...providers.value]
+    const [moved] = nextProviders.splice(draggedIndex.value, 1)
+    const targetIndex =
+      dropIndex.value > draggedIndex.value ? dropIndex.value - 1 : dropIndex.value
+    nextProviders.splice(targetIndex, 0, moved)
+    providers.value = nextProviders
+    orderChanged = true
+  }
+
+  if (orderChanged) {
+    aiStore.persistToCache()
+    const orders = providers.value.map((item, index) => ({
+      provider_id: item.id,
+      sort_order: index
+    }))
+    aiConfigApi.reorderProviders(orders).catch(async (err: unknown) => {
+      const message = err instanceof Error ? err.message : '保存排序失败，请刷新后重试。'
+      await confirm(`供应商排序保存失败：${message}`, {
+        title: '保存失败',
+        confirmText: '我知道了'
+      })
+    })
+  }
+
+  isDragging.value = false
+  draggedProvider.value = null
+  draggedIndex.value = -1
+  dropIndex.value = -1
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+}
+
+function updateTooltipPosition(e: MouseEvent): void {
+  let x = e.clientX + TOOLTIP_OFFSET
+  let y = e.clientY + TOOLTIP_OFFSET
+
+  if (x + TOOLTIP_WIDTH > window.innerWidth - 20) {
+    x = e.clientX - TOOLTIP_WIDTH - TOOLTIP_OFFSET
+  }
+  if (y + 220 > window.innerHeight - 20) {
+    y = window.innerHeight - 240
+  }
+  tooltipPosition.value = { x, y }
+}
+
+function onCardHover(e: MouseEvent, provider: AiProviderDef): void {
+  hoveredProvider.value = provider
+  updateTooltipPosition(e)
+  showTooltip.value = true
+}
+
+function onCardLeave(): void {
+  showTooltip.value = false
+  hoveredProvider.value = null
+}
+
+function onTooltipMouseMove(e: MouseEvent): void {
+  updateTooltipPosition(e)
+}
+
+async function loadConfigs(): Promise<void> {
+  aiStore.setScope(pageScope.value)
+  selectedConfigId.value = readSelectedFromStorage()
+  testResults.value.clear()
+  cooldownEndTimes.value.clear()
+  cooldownRemaining.value.clear()
+  await aiStore.init(true)
+}
+
 onMounted(() => {
-  aiStore.init(true).catch((err) => {
+  selectedConfigId.value = readSelectedFromStorage()
+  void loadConfigs().catch((err) => {
     error.value = getErrorMessage(err)
   })
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+  if (longPressTimer) clearTimeout(longPressTimer)
+  if (cooldownTimer) clearInterval(cooldownTimer)
 })
 </script>
 
 <template>
   <div class="ai-config-page">
-    <!-- Upper Section: Provider Cards (42%) -->
     <section class="providers-section">
       <div class="section-header">
         <div class="header-left">
           <h2 class="section-title">AI 供应商</h2>
-          <p class="section-desc">管理支持的 AI 服务商及其可用模型</p>
+          <p class="section-desc">
+            {{ canManageProviders ? '管理支持的 AI 服务商及可用模型。' : '查看当前可用的 AI 服务商。' }}
+          </p>
         </div>
-        <button class="btn-add" @click="openAddProvider">
+        <button v-if="canManageProviders" class="btn-add" @click="openAddProvider">
           <svg
             width="14"
             height="14"
@@ -635,175 +647,80 @@ onMounted(() => {
           新增供应商
         </button>
       </div>
+
       <div ref="gridRef" class="providers-grid">
-        <div
-          v-for="(provider, idx) in providers"
-          :key="provider.id"
-          :data-provider-id="provider.id"
-          class="provider-card"
-          tabindex="0"
-          :class="{
-            'is-dragging': isDraggingCard(provider),
-            'is-drop-target': isDropTargetCard(idx)
-          }"
-          :style="{
-            animationDelay: `${idx * 50}ms`,
-            '--card-color': getCardBorderColor(provider),
-            '--card-bg-start': getCardBgStart(provider),
-            '--card-bg-end': getCardBgEnd(provider)
-          }"
-          @mouseenter="(e) => onCardHover(e, provider)"
-          @mousemove="onTooltipMouseMove"
-          @mouseleave="onCardLeave"
-          @mousedown="(e) => onCardMouseDown(e, provider)"
-          @click="(e) => onCardClick(e, provider)"
-        >
-          <button
-            class="card-delete-btn"
-            title="删除供应商"
-            @click.stop="handleDeleteProvider(provider)"
+        <template v-if="providers.length > 0">
+          <div
+            v-for="(provider, index) in providers"
+            :key="provider.id"
+            class="provider-card"
+            :class="{
+              'is-dragging': isDraggingCard(provider),
+              'is-drop-target': isDropTargetCard(index)
+            }"
+            :style="{
+              '--card-color': getCardBorderColor(provider),
+              '--card-bg-start': getCardBgStart(),
+              '--card-bg-end': getCardBgEnd()
+            }"
+            @mousedown="onCardMouseDown($event, provider)"
+            @mousemove="onCardHover($event, provider)"
+            @mouseleave="onCardLeave"
+            @click="onCardClick($event, provider)"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+            <button
+              v-if="canManageProviders"
+              class="card-delete-btn"
+              title="删除供应商"
+              @click.stop="handleDeleteProvider(provider)"
             >
-              <path
-                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              />
-            </svg>
-          </button>
-          <div class="card-content">
-            <div class="card-header">
-              <div class="provider-icon" :style="{ background: getProviderColor(provider.slug) }">
-                {{ getProviderInitials(provider.slug, provider.label) }}
-              </div>
-              <div class="provider-info">
-                <div class="provider-name-row">
-                  <span class="provider-name">{{ provider.label }}</span>
-                  <span
-                    class="status-dot"
-                    :class="{ configured: isProviderConfigured(provider.id) }"
-                    :title="isProviderConfigured(provider.id) ? '已配置' : '未配置'"
-                  ></span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div class="card-content">
+              <div class="card-header">
+                <div class="provider-icon" :style="{ background: getCardBorderColor(provider) }">
+                  {{ getProviderInitials(provider.slug, provider.label) }}
                 </div>
-                <span class="provider-meta">
-                  {{ provider.models.length }} 模型 · {{ getRegionLabel(provider).label }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Dragging clone that follows the mouse -->
-      <Teleport to="body">
-        <div
-          v-if="isDragging && draggedProvider"
-          class="drag-clone"
-          :style="{
-            left: dragPosition.x + 'px',
-            top: dragPosition.y + 'px',
-            '--card-color': getCardBorderColor(draggedProvider),
-            '--card-bg-start': getCardBgStart(draggedProvider),
-            '--card-bg-end': getCardBgEnd(draggedProvider)
-          }"
-        >
-          <div class="card-content">
-            <div class="card-header">
-              <div
-                class="provider-icon"
-                :style="{ background: getProviderColor(draggedProvider.slug) }"
-              >
-                {{ getProviderInitials(draggedProvider.slug, draggedProvider.label) }}
-              </div>
-              <div class="provider-info">
-                <div class="provider-name-row">
-                  <span class="provider-name">{{ draggedProvider.label }}</span>
+                <div class="provider-info">
+                  <div class="provider-name-row">
+                    <span class="provider-name">{{ provider.label }}</span>
+                    <span
+                      class="status-dot"
+                      :class="{ configured: isProviderConfigured(provider.id) }"
+                    />
+                  </div>
+                  <span class="provider-meta">
+                    {{ provider.models.length }} 个模型
+                    <span class="provider-separator">·</span>
+                    {{ getRegionLabel(provider).label }}
+                  </span>
                 </div>
-                <span class="provider-meta">
-                  {{ draggedProvider.models.length }} 模型 ·
-                  {{ getRegionLabel(draggedProvider).label }}
-                </span>
               </div>
             </div>
           </div>
-        </div>
-      </Teleport>
+        </template>
 
-      <!-- Hover Tooltip -->
-      <Teleport to="body">
-        <div
-          v-if="showTooltip && hoveredProvider"
-          class="provider-tooltip"
-          :style="{ left: tooltipPosition.x + 'px', top: tooltipPosition.y + 'px' }"
-        >
-          <div class="tooltip-header">
-            <div
-              class="tooltip-icon"
-              :style="{ background: getProviderColor(hoveredProvider.slug) }"
-            >
-              {{ getProviderInitials(hoveredProvider.slug, hoveredProvider.label) }}
-            </div>
-            <div class="tooltip-title">
-              <span class="tooltip-name">{{ hoveredProvider.label }}</span>
-              <span
-                class="tooltip-region"
-                :class="{ domestic: getRegionLabel(hoveredProvider).isDomestic }"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-                {{ getRegionLabel(hoveredProvider).label }}
-              </span>
-            </div>
-          </div>
-          <div class="tooltip-stats">
-            <div class="tooltip-stat">
-              <span class="stat-value">{{ hoveredProvider.models.length }}</span>
-              <span class="stat-label">模型</span>
-            </div>
-            <div class="tooltip-stat">
-              <span class="stat-value">{{
-                providerConfigsMap.get(hoveredProvider.id)?.length ?? 0
-              }}</span>
-              <span class="stat-label">已配置</span>
-            </div>
-          </div>
-          <div v-if="hoveredProvider.models.length > 0" class="tooltip-models">
-            <span class="models-title">可用模型</span>
-            <div class="models-list">
-              <span
-                v-for="model in hoveredProvider.models.slice(0, 8)"
-                :key="model"
-                class="model-tag"
-              >
-                {{ model }}
-              </span>
-              <span v-if="hoveredProvider.models.length > 8" class="model-more">
-                +{{ hoveredProvider.models.length - 8 }}
-              </span>
-            </div>
-          </div>
+        <div v-else class="empty-providers">
+          <p>{{ canManageProviders ? '还没有供应商，先新增一个吧。' : '当前没有可显示的供应商。' }}</p>
         </div>
-      </Teleport>
-
-      <div v-if="providers.length === 0 && !loading" class="empty-providers">
-        <p>暂无供应商配置</p>
       </div>
     </section>
 
-    <!-- Lower Section: API Key Management (58%) -->
     <section class="keys-section">
-      <div class="section-header">
+      <div class="section-header keys-header">
         <div class="header-left">
-          <h2 class="section-title">API Key 管理</h2>
-          <p class="section-desc">
-            已配置 {{ totalModelCount }} 个模型，覆盖 {{ configuredProviderCount }} 个供应商
-          </p>
+          <h2 class="section-title">{{ scopeTitle }}</h2>
+          <p class="section-desc">{{ keySectionDesc }}</p>
         </div>
         <button class="btn-add" @click="openAddKey">
           <svg
@@ -820,9 +737,8 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- Keys Table -->
       <div class="keys-table-wrapper">
-        <table class="keys-table">
+        <table v-if="tableRows.length > 0" class="keys-table">
           <colgroup>
             <col class="col-provider" />
             <col class="col-model" />
@@ -834,17 +750,17 @@ onMounted(() => {
           </colgroup>
           <thead>
             <tr>
-              <th>供应商</th>
-              <th>模型</th>
-              <th>API Key</th>
-              <th>接口地址</th>
-              <th>状态</th>
-              <th>延迟</th>
-              <th>操作</th>
+              <th class="col-provider">供应商</th>
+              <th class="col-model">模型</th>
+              <th class="col-key">Key</th>
+              <th class="col-address">Base URL</th>
+              <th class="col-status">状态</th>
+              <th class="col-latency">测试结果</th>
+              <th class="col-actions">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in tableRows" :key="groupKey(row.group)">
+            <tr v-for="row in tableRows" :key="`${row.group.providerId}-${row.group.apiKeyMasked}`">
               <td class="td-left">
                 <div class="td-provider">
                   <div
@@ -854,24 +770,19 @@ onMounted(() => {
                     {{
                       getProviderInitials(
                         row.group.providerSlug,
-                        getProviderById(row.group.providerId)?.label ?? ''
+                        getProviderById(row.group.providerId)?.label ?? row.group.providerId
                       )
                     }}
                   </div>
-                  <span>{{
-                    getProviderById(row.group.providerId)?.label ?? row.group.providerId
-                  }}</span>
+                  <span>{{ getProviderById(row.group.providerId)?.label ?? row.group.providerId }}</span>
                 </div>
               </td>
-              <td class="td-left td-model-cell">
+
+              <td class="td-model-cell">
                 <div class="model-stepper">
-                  <span class="stepper-label">{{ row.selected?.model ?? '--' }}</span>
-                  <div class="stepper-arrows">
-                    <button
-                      class="stepper-arrow"
-                      :disabled="row.group.configs.length <= 1"
-                      @click="cycleModel(row.group, -1)"
-                    >
+                  <span class="stepper-label">{{ row.selected.model }}</span>
+                  <div v-if="row.group.configs.length > 1" class="stepper-arrows">
+                    <button class="stepper-arrow" @click="cycleModel(row.group, -1)">
                       <svg
                         width="10"
                         height="10"
@@ -883,11 +794,7 @@ onMounted(() => {
                         <path d="m18 15-6-6-6 6" />
                       </svg>
                     </button>
-                    <button
-                      class="stepper-arrow"
-                      :disabled="row.group.configs.length <= 1"
-                      @click="cycleModel(row.group, 1)"
-                    >
+                    <button class="stepper-arrow" @click="cycleModel(row.group, 1)">
                       <svg
                         width="10"
                         height="10"
@@ -902,68 +809,55 @@ onMounted(() => {
                   </div>
                 </div>
               </td>
-              <td class="td-left">
-                <code class="td-code td-masked">{{ row.group.apiKeyMasked }}</code>
-              </td>
-              <td class="td-left">
-                <code class="td-code td-url">{{ row.group.baseUrl }}</code>
-              </td>
+
               <td>
-                <button
-                  v-if="row.selected"
-                  class="toggle-switch"
-                  :class="{ active: row.selected.is_active }"
-                  @click="handleToggleActive(row.selected)"
-                >
-                  <span class="toggle-handle"></span>
-                </button>
+                <span class="td-code td-masked">{{ row.group.apiKeyMasked }}</span>
               </td>
-              <td class="td-latency">
-                <template v-if="row.selected">
-                  <span v-if="isInCooldown(row.selected.id)" class="latency-badge cooldown">
+
+              <td>
+                <span class="td-url">{{ row.selected.base_url || row.group.baseUrl }}</span>
+              </td>
+
+              <td>
+                <span class="status-badge" :class="{ active: row.selected.is_active }">
+                  <span class="badge-dot" />
+                  {{ row.selected.is_active ? '已启用' : '未启用' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="latency-badge" :class="getLatencyClass(row.selected)">
+                  <template v-if="isInCooldown(row.selected.id)">
                     冷却 {{ getCooldownRemaining(row.selected.id) }}s
-                  </span>
-                  <span
-                    v-else-if="getTestResult(row.selected.id)"
-                    class="latency-badge"
-                    :class="{ ok: getTestResult(row.selected.id)?.ok }"
-                  >
-                    <template v-if="getTestResult(row.selected.id)?.ok"
-                      >{{ getTestResult(row.selected.id)?.elapsed_ms }}ms</template
-                    >
-                    <template v-else>{{
-                      getTestResult(row.selected.id)?.error ?? '失败'
-                    }}</template>
-                  </span>
-                  <span
-                    v-else-if="row.selected.last_test_ms !== null"
-                    class="latency-badge"
-                    :class="{ ok: row.selected.last_test_ok }"
-                  >
-                    {{ row.selected.last_test_ok ? row.selected.last_test_ms + 'ms' : '失败' }}
-                  </span>
-                  <span v-else class="latency-none">--</span>
-                </template>
+                  </template>
+                  <template v-else>
+                    {{ getLatencyText(row.selected) }}
+                  </template>
+                </span>
               </td>
+
               <td>
                 <div class="td-actions">
-                  <template v-if="row.selected">
-                    <button
-                      class="action-btn test"
-                      :class="{ testing: isTesting(row.selected.id) }"
-                      :disabled="isTesting(row.selected.id)"
-                      @click="handleTest(row.selected)"
-                    >
-                      <template v-if="isInCooldown(row.selected.id)"
-                        >冷却 {{ getCooldownRemaining(row.selected.id) }}s</template
-                      >
-                      <template v-else-if="isTesting(row.selected.id)">测试中...</template>
-                      <template v-else>测试</template>
-                    </button>
-                    <button class="action-btn delete" @click="handleDeleteModel(row.selected)">
-                      删除
-                    </button>
-                  </template>
+                  <button
+                    class="action-btn"
+                    :class="row.selected.is_active ? 'deactivate' : 'activate'"
+                    @click="handleToggleActive(row.selected)"
+                  >
+                    {{ row.selected.is_active ? '停用' : '启用' }}
+                  </button>
+                  <button
+                    class="action-btn test"
+                    :class="{ testing: isTesting(row.selected.id) }"
+                    :disabled="isTesting(row.selected.id)"
+                    @click="handleTest(row.selected)"
+                  >
+                    <template v-if="isInCooldown(row.selected.id)">冷却中</template>
+                    <template v-else-if="isTesting(row.selected.id)">测试中...</template>
+                    <template v-else>测试</template>
+                  </button>
+                  <button class="action-btn delete" @click="handleDeleteModel(row.selected)">
+                    删除
+                  </button>
                   <button
                     class="action-btn add-model"
                     @click="openAppendModel(row.group.providerId, row.group.apiKeyMasked)"
@@ -976,25 +870,93 @@ onMounted(() => {
           </tbody>
         </table>
 
-        <div v-if="configs.length === 0 && !loading" class="empty-table">
-          <p>暂无 API Key 配置</p>
-          <p class="empty-hint">点击上方「新增 Key」添加</p>
+        <div v-else-if="!loading" class="empty-table">
+          <p>暂无 Key 配置</p>
+          <p class="empty-hint">
+            {{ pageScope === 'global' ? '点击右上角新增全局 Key。' : '点击右上角新增你自己的 Key。' }}
+          </p>
         </div>
       </div>
     </section>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="loading-overlay">
-      <div class="loading-spinner"></div>
+    <div
+      v-if="showTooltip && hoveredProvider"
+      class="provider-tooltip"
+      :style="{ left: `${tooltipPosition.x}px`, top: `${tooltipPosition.y}px` }"
+      @mousemove="onTooltipMouseMove"
+    >
+      <div class="tooltip-header">
+        <div class="tooltip-icon" :style="{ background: getProviderColor(hoveredProvider.slug) }">
+          {{ getProviderInitials(hoveredProvider.slug, hoveredProvider.label) }}
+        </div>
+        <div class="tooltip-title">
+          <div class="tooltip-name">{{ hoveredProvider.label }}</div>
+          <div
+            class="tooltip-region"
+            :class="{ domestic: getRegionLabel(hoveredProvider).isDomestic }"
+          >
+            {{ getRegionLabel(hoveredProvider).label }}
+          </div>
+        </div>
+      </div>
+
+      <div class="tooltip-stats">
+        <div class="tooltip-stat">
+          <span class="stat-value">{{ hoveredProvider.models.length }}</span>
+          <span class="stat-label">模型</span>
+        </div>
+        <div class="tooltip-stat">
+          <span class="stat-value">{{
+            providerConfigsMap.get(hoveredProvider.id)?.length ?? 0
+          }}</span>
+          <span class="stat-label">已配置</span>
+        </div>
+      </div>
+
+      <div class="tooltip-models">
+        <div class="models-title">可用模型</div>
+        <div class="models-list">
+          <span v-for="model in hoveredProvider.models.slice(0, 6)" :key="model" class="model-tag">
+            {{ model }}
+          </span>
+          <span v-if="hoveredProvider.models.length > 6" class="model-more">
+            +{{ hoveredProvider.models.length - 6 }}
+          </span>
+        </div>
+      </div>
     </div>
 
-    <!-- Error State -->
+    <div
+      v-if="isDragging && draggedProvider"
+      class="drag-clone"
+      :style="{
+        left: `${dragPosition.x}px`,
+        top: `${dragPosition.y}px`,
+        '--card-color': getCardBorderColor(draggedProvider),
+        '--card-bg-start': getCardBgStart(),
+        '--card-bg-end': getCardBgEnd()
+      }"
+    >
+      <div class="card-header">
+        <div class="provider-icon" :style="{ background: getCardBorderColor(draggedProvider) }">
+          {{ getProviderInitials(draggedProvider.slug, draggedProvider.label) }}
+        </div>
+        <div class="provider-info">
+          <span class="provider-name">{{ draggedProvider.label }}</span>
+          <span class="provider-meta">{{ draggedProvider.models.length }} 个模型</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner" />
+    </div>
+
     <div v-if="error" class="error-toast">
       <span>{{ error }}</span>
-      <button @click="aiStore.init(true)">重试</button>
+      <button @click="loadConfigs">重试</button>
     </div>
 
-    <!-- Provider Config Modal -->
     <ProviderConfigModal
       :open="showProviderModal"
       :provider="editingProvider"
@@ -1003,24 +965,21 @@ onMounted(() => {
       @save="handleProviderSave"
     />
 
-    <!-- Add Key Modal -->
     <AddKeyModal
       :open="showAddKeyModal"
       :providers="providers"
       :existing-configs="configs"
       :prefill-provider-id="addKeyPrefill.providerId"
-      :prefill-api-key="addKeyPrefill.apiKey"
+      :prefill-api-key-masked="addKeyPrefill.apiKeyMasked"
       @close="closeAddKeyModal"
       @save="handleAddKeySaved"
     />
 
-    <!-- Confirm Dialog -->
     <ConfirmDialog />
   </div>
 </template>
 
 <style scoped>
-/* ==================== Page Layout ==================== */
 .ai-config-page {
   display: flex;
   flex-direction: column;
@@ -1032,7 +991,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* ==================== Section Base ==================== */
 .providers-section {
   flex: 0 0 auto;
   display: flex;
@@ -1047,54 +1005,23 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px 8px 24px;
+  padding: 18px 8px 22px;
   overflow: hidden;
   min-height: 0;
 }
 
-/* Toggle Switch */
-.toggle-switch {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  border-radius: 12px;
-  background: var(--color-panel-2);
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: all var(--duration-normal) ease;
-  padding: 0;
-  vertical-align: middle;
-}
-
-.toggle-switch.active {
-  background: var(--color-success);
-  border-color: var(--color-success);
-}
-
-.toggle-handle {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--color-text-subtle);
-  transition: all var(--duration-normal) ease;
-}
-
-.toggle-switch.active .toggle-handle {
-  left: 22px;
-  background: var(--color-btn-primary-text);
-}
-
 .section-header {
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding: 0 64px 0 24px;
+  gap: 12px;
+  margin-bottom: 5px;
+  padding: 0 48px 0 20px;
   flex-shrink: 0;
+}
+
+.keys-header {
+  margin-bottom: 10px;
 }
 
 .header-left {
@@ -1102,35 +1029,32 @@ onMounted(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-width: 0;
 }
 
 .section-title {
-  font-family: var(--font-body);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--color-text);
   margin: 0;
-  text-align: left;
 }
 
 .section-desc {
-  font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-subtle);
   margin: 0;
 }
 
-/* ==================== Add Button ==================== */
 .btn-add {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 5px;
+  padding: 8px 13px;
   background: var(--color-accent);
   border: none;
   border-radius: 6px;
   color: var(--color-btn-primary-text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
@@ -1144,27 +1068,30 @@ onMounted(() => {
   box-shadow: var(--shadow-brand-hover);
 }
 
-/* ==================== Provider Cards Grid ==================== */
 .providers-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  padding-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 12px;
+  padding-top: 7px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
 }
 
-.providers-grid::-webkit-scrollbar {
+.providers-grid::-webkit-scrollbar,
+.keys-table-wrapper::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-.providers-grid::-webkit-scrollbar-track {
+.providers-grid::-webkit-scrollbar-track,
+.keys-table-wrapper::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
-.providers-grid::-webkit-scrollbar-thumb {
+.providers-grid::-webkit-scrollbar-thumb,
+.keys-table-wrapper::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
@@ -1173,41 +1100,25 @@ onMounted(() => {
   position: relative;
   background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
   border: 1px solid var(--color-page-border-subtle);
-  border-radius: 16px;
-  padding: 14px 16px;
+  border-radius: 13px;
+  padding: 11px 13px;
   cursor: pointer;
   transition: all var(--duration-normal) ease;
   overflow: hidden;
-  animation: fadeUp var(--duration-slow) ease-out both;
-  min-height: 80px;
+  min-height: 74px;
   display: flex;
   flex-direction: column;
   user-select: none;
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .provider-card:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: var(--shadow-md);
   border-color: var(--color-page-border-hover);
 }
 
 .provider-card:hover .provider-icon {
-  box-shadow: 0 0 24px var(--card-color);
-}
-
-.provider-card:active {
-  cursor: grabbing;
+  box-shadow: 0 0 18px var(--card-color);
 }
 
 .provider-card.is-dragging {
@@ -1219,17 +1130,16 @@ onMounted(() => {
   border-color: var(--color-accent);
   box-shadow:
     0 0 0 2px var(--color-accent),
-    0 0 16px var(--color-accent-border);
-  transform: scale(1.02);
+    0 0 12px var(--color-accent-border);
+  transform: scale(1.01);
 }
 
-/* Delete button on card */
 .card-delete-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
+  top: 7px;
+  right: 7px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1253,233 +1163,6 @@ onMounted(() => {
   color: var(--color-danger);
 }
 
-/* Drag clone that follows mouse */
-.drag-clone {
-  position: fixed;
-  width: 200px;
-  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
-  border: 1px solid var(--card-color);
-  border-radius: 16px;
-  padding: 14px 16px;
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
-  z-index: 9999;
-  pointer-events: none;
-  transform: rotate(3deg) scale(1.05);
-  transition: transform 0.05s ease;
-}
-
-/* ==================== Hover Tooltip ==================== */
-.provider-tooltip {
-  position: fixed;
-  z-index: 9998;
-  min-width: 260px;
-  max-width: 320px;
-  background: var(--color-panel-3);
-  border: 1px solid var(--color-page-border-hover);
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: var(--shadow-lg);
-  pointer-events: none;
-  animation: tooltipFadeIn var(--duration-fast) ease-out;
-  font-family: var(--font-body);
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tooltip-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.tooltip-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-btn-primary-text);
-  flex-shrink: 0;
-}
-
-.tooltip-title {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.tooltip-name {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tooltip-region {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-body);
-  font-size: 11px;
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.tooltip-region.domestic {
-  color: var(--color-warning);
-}
-
-.tooltip-region svg {
-  opacity: 0.8;
-}
-
-.tooltip-stats {
-  display: flex;
-  gap: 16px;
-  padding: 10px 0;
-  border-top: 1px solid var(--color-page-border-subtle);
-  border-bottom: 1px solid var(--color-page-border-subtle);
-  margin-bottom: 10px;
-}
-
-.tooltip-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.stat-value {
-  font-family: var(--font-body);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.stat-label {
-  font-family: var(--font-body);
-  font-size: 11px;
-  color: var(--color-text-subtle);
-}
-
-.tooltip-models {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.models-title {
-  font-family: var(--font-body);
-  font-size: 10px;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.models-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.model-tag {
-  font-family: var(--font-body);
-  font-size: 11px;
-  padding: 3px 8px;
-  background: var(--color-panel-2);
-  border-radius: 4px;
-  color: var(--color-text-subtle);
-}
-
-.model-more {
-  font-family: var(--font-body);
-  font-size: 11px;
-  padding: 3px 8px;
-  background: var(--color-accent-bg);
-  border-radius: 4px;
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.drag-clone .card-content,
-.drag-clone .card-header,
-.drag-clone .provider-icon,
-.drag-clone .provider-info,
-.drag-clone .provider-name,
-.drag-clone .provider-meta {
-  all: unset;
-  display: flex;
-  flex-direction: column;
-}
-
-.drag-clone .card-content {
-  flex-direction: column;
-  flex: 1;
-}
-
-.drag-clone .card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.drag-clone .provider-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-btn-primary-text);
-  flex-shrink: 0;
-}
-
-.drag-clone .provider-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.drag-clone .provider-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.drag-clone .provider-meta {
-  font-size: 12px;
-  color: var(--color-text-subtle);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .card-content {
   display: flex;
   flex-direction: column;
@@ -1489,37 +1172,53 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
-}
-
-.card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  min-width: 0;
 }
 
 .provider-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--color-btn-primary-text);
   flex-shrink: 0;
   box-shadow: 0 0 16px var(--card-color);
-  transition: box-shadow var(--duration-normal) ease;
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.provider-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.provider-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--color-text-muted);
-  transition: background var(--duration-normal) ease;
   flex-shrink: 0;
 }
 
@@ -1528,37 +1227,16 @@ onMounted(() => {
   box-shadow: 0 0 8px var(--color-success);
 }
 
-.provider-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.provider-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.provider-name {
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .provider-meta {
-  font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 10px;
   color: var(--color-text-subtle);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.provider-separator {
+  margin: 0 4px;
 }
 
 .empty-providers {
@@ -1567,31 +1245,15 @@ onMounted(() => {
   justify-content: center;
   flex: 1;
   color: var(--color-text-muted);
-  font-family: var(--font-body);
   font-size: 13px;
 }
 
-/* ==================== Keys Table ==================== */
 .keys-table-wrapper {
   overflow: auto;
   max-height: 100%;
   background: var(--color-panel-2);
   border: 1px solid var(--color-page-border-hover);
-  border-radius: 12px;
-}
-
-.keys-table-wrapper::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.keys-table-wrapper::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-}
-
-.keys-table-wrapper::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  border-radius: 9px;
 }
 
 .keys-table {
@@ -1599,7 +1261,6 @@ onMounted(() => {
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
-  font-family: var(--font-body);
 }
 
 .keys-table thead {
@@ -1610,62 +1271,82 @@ onMounted(() => {
 }
 
 .keys-table th {
-  padding: 14px 16px;
+  padding: 11px 12px;
   text-align: center;
-  font-family: var(--font-body);
   font-weight: 500;
   color: var(--color-text-subtle);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  letter-spacing: 0.2px;
   border-bottom: 1px solid var(--color-page-border-hover);
   white-space: nowrap;
 }
 
 .keys-table td {
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--color-page-border-light);
   vertical-align: middle;
   text-align: center;
-  font-family: var(--font-body);
 }
 
-.keys-table td:last-child {
-  border-right: none;
+.col-provider {
+  width: 14%;
 }
 
-.keys-table tbody tr {
-  transition: background var(--duration-fast) ease;
+.col-model {
+  width: 16%;
 }
 
-.keys-table tbody tr:hover {
-  background: var(--color-panel-2);
+.col-key {
+  width: 13%;
 }
 
-.keys-table tbody tr:last-child td {
-  border-bottom: none;
+.col-address {
+  width: 25%;
+}
+
+.col-status {
+  width: 9%;
+}
+
+.col-latency {
+  width: 10%;
+}
+
+.col-actions {
+  width: 16%;
+}
+
+.td-left {
+  text-align: left;
 }
 
 .td-provider {
   display: flex;
   align-items: center;
-  gap: 10px;
-  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
 }
 
 .td-provider span {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.td-provider span,
+.td-url,
+.td-code {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.td-left {
-  text-align: center !important;
-}
-
 .td-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -1679,14 +1360,8 @@ onMounted(() => {
 .td-code {
   display: inline-block;
   max-width: 100%;
-  font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-text);
-  background: transparent;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: middle;
 }
 
 .td-masked {
@@ -1697,23 +1372,82 @@ onMounted(() => {
   display: inline-block;
   max-width: 100%;
   color: var(--color-text-subtle);
+}
+
+.td-model-cell {
+  min-width: 0;
+}
+
+.model-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  padding: 2px 2px 2px 7px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stepper-label {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text);
+  text-align: center;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: middle;
+}
+
+.stepper-arrows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.stepper-arrow {
+  width: 18px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  padding: 0;
+}
+
+.stepper-arrow:hover {
+  background: var(--color-panel-hover);
+  color: var(--color-text);
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 3px 8px;
   border-radius: 20px;
-  font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
   font-weight: 500;
   background: var(--color-panel-2);
   color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-badge.active {
@@ -1731,13 +1465,16 @@ onMounted(() => {
 .latency-badge {
   display: inline-flex;
   align-items: center;
-  vertical-align: middle;
-  padding: 2px 8px;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 3px 8px;
   border-radius: 10px;
-  font-family: var(--font-body);
-  font-size: 10px;
-  background: var(--color-success-bg);
-  color: var(--color-success);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .latency-badge.ok {
@@ -1750,113 +1487,35 @@ onMounted(() => {
   color: var(--color-warning);
 }
 
-/* ============ Column Widths ============ */
-.col-provider {
-  width: 15%;
-}
-.col-model {
-  width: 14%;
-}
-.col-key {
-  width: 13%;
-}
-.col-address {
-  width: 28%;
-}
-.col-status {
-  width: 7%;
-}
-.col-latency {
-  width: 9%;
-}
-.col-actions {
-  width: 14%;
+.latency-badge.fail {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
-.latency-none {
-  font-family: var(--font-body);
-  font-size: 12px;
-  color: var(--color-text-muted);
-  vertical-align: middle;
-}
-
-.td-model-cell {
-  min-width: 120px;
-}
-
-/* ============ Model Stepper ============ */
-.model-stepper {
-  display: inline-flex;
-  align-items: center;
-  vertical-align: middle;
-  gap: 4px;
-  background: var(--color-panel-2);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 2px 2px 2px 10px;
-}
-
-.stepper-arrows {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.stepper-arrow {
-  width: 22px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.latency-badge.empty {
   background: transparent;
-  border: none;
-  border-radius: 2px;
-  color: var(--color-text-subtle);
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
-  flex-shrink: 0;
-  padding: 0;
-}
-
-.stepper-arrow:hover:not(:disabled) {
-  background: var(--color-panel-hover);
-  color: var(--color-text);
-}
-
-.stepper-arrow:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.stepper-label {
-  font-family: var(--font-body);
-  font-size: 12px;
-  color: var(--color-text);
-  min-width: 70px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--color-text-muted);
 }
 
 .td-actions {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   justify-content: center;
+  align-items: center;
 }
 
 .action-btn {
-  font-family: var(--font-body);
-  padding: 5px 10px;
+  min-height: 24px;
+  padding: 3px 8px;
   border: 1px solid var(--color-page-border-hover);
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1.35;
   cursor: pointer;
-  transition: all var(--duration-fast) ease;
   background: transparent;
   color: var(--color-text-subtle);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .action-btn:hover {
@@ -1869,30 +1528,14 @@ onMounted(() => {
   border-color: var(--color-accent-border);
 }
 
-.action-btn.activate:hover {
-  background: var(--color-success-bg);
-  border-color: var(--color-success);
-}
-
 .action-btn.deactivate {
   color: var(--color-warning);
   border-color: var(--color-warning-bg);
 }
 
-.action-btn.deactivate:hover {
-  background: var(--color-warning-bg);
-  border-color: var(--color-warning);
-}
-
 .action-btn.test {
   color: var(--color-accent);
   border-color: var(--color-accent-border);
-  white-space: nowrap;
-}
-
-.action-btn.test:hover:not(:disabled) {
-  background: var(--color-accent-bg);
-  border-color: var(--color-accent);
 }
 
 .action-btn.test.testing {
@@ -1905,21 +1548,11 @@ onMounted(() => {
   border-color: var(--color-danger-bg);
 }
 
-.action-btn.delete:hover {
-  background: var(--color-danger-bg);
-  border-color: var(--color-danger);
-}
-
 .action-btn.add-model {
   color: var(--color-accent);
   border-color: var(--color-accent-border);
-  font-size: 11px;
-  padding: 5px 8px;
-}
-
-.action-btn.add-model:hover {
-  background: var(--color-accent-bg);
-  border-color: var(--color-accent);
+  font-size: 12px;
+  padding: 3px 8px;
 }
 
 .empty-table {
@@ -1927,20 +1560,156 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px;
-  font-family: var(--font-body);
+  padding: 36px;
   color: var(--color-text-subtle);
   font-size: 13px;
 }
 
 .empty-hint {
-  font-family: var(--font-body);
   font-size: 12px;
   color: var(--color-text-muted);
   margin-top: 4px;
 }
 
-/* ==================== Loading & Error ==================== */
+.provider-tooltip {
+  position: fixed;
+  z-index: 9998;
+  min-width: 252px;
+  max-width: 308px;
+  background: var(--color-panel-3);
+  border: 1px solid var(--color-page-border-hover);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.tooltip-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-btn-primary-text);
+  flex-shrink: 0;
+}
+
+.tooltip-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tooltip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip-region {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.tooltip-region.domestic {
+  color: var(--color-warning);
+}
+
+.tooltip-stats {
+  display: flex;
+  gap: 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-page-border-subtle);
+  border-bottom: 1px solid var(--color-page-border-subtle);
+  margin-bottom: 8px;
+}
+
+.tooltip-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--color-text-subtle);
+}
+
+.tooltip-models {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.models-title {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.models-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.model-tag,
+.model-more {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.model-tag {
+  background: var(--color-panel-2);
+  color: var(--color-text-subtle);
+}
+
+.model-more {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.drag-clone {
+  position: fixed;
+  width: 192px;
+  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
+  border: 1px solid var(--card-color);
+  border-radius: 13px;
+  padding: 11px 13px;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  z-index: 9999;
+  pointer-events: none;
+  transform: rotate(2deg) scale(1.03);
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -1991,5 +1760,30 @@ onMounted(() => {
   color: var(--color-btn-primary-text);
   font-size: 12px;
   cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .section-header {
+    padding: 0 16px;
+  }
+
+  .providers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  }
+
+  .keys-table {
+    min-width: 1020px;
+  }
+}
+
+@media (max-width: 640px) {
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-add {
+    justify-content: center;
+  }
 }
 </style>

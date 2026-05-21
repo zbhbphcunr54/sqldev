@@ -8,7 +8,9 @@ const root = path.resolve(__dirname, '..')
 
 const testFiles = [
   'tests/smoke.mjs',
+  'tests/workbench-ziwei-cache.mjs',
   'tests/sql-format.mjs',
+  'tests/sql-convert-stream.mjs',
   'tests/browser-file-actions.mjs',
   'tests/preferences-storage.mjs',
   'tests/id-tools.mjs',

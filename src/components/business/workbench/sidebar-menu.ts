@@ -15,6 +15,10 @@ export interface MenuGroup {
   items: MenuItem[]
 }
 
+export interface MenuAccessOptions {
+  canAccessZiweiTool?: boolean
+}
+
 export const SECTION_MAP: Record<string, string> = {
   sqlConvert: '/workbench/sql-convert',
   idTool: '/workbench/id-tool',
@@ -23,8 +27,8 @@ export const SECTION_MAP: Record<string, string> = {
   opLogs: '/workbench/op-logs'
 }
 
-export function buildMenuGroups(): MenuGroup[] {
-  return [
+export function buildMenuGroups(options: MenuAccessOptions = {}): MenuGroup[] {
+  const groups: MenuGroup[] = [
     {
       key: 'sqlTools',
       title: null,
@@ -50,4 +54,13 @@ export function buildMenuGroups(): MenuGroup[] {
       ]
     }
   ]
+
+  if (options.canAccessZiweiTool === false) {
+    return groups.map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.page !== 'ziweiTool')
+    }))
+  }
+
+  return groups
 }

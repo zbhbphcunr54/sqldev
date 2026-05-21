@@ -49,7 +49,11 @@
       "Bash(npx vitest *)",
       "Bash(awk '/^<script setup/,/^<\\\\/script>/' \"d:\\\\codextest\\\\sqldev\\\\src\\\\components\\\\business\\\\workbench\\\\pages\\\\SqlConvertPage.vue\")",
       "Bash(npx prettier *)",
-      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/pages/ZiweiPage.vue)"
+      "Bash(awk '/<script setup/,/<\\\\/script>/' src/components/business/workbench/pages/ZiweiPage.vue)",
+      "Bash(node tests/smoke.mjs)",
+      "Bash(npx vite *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
     ]
   }
 }

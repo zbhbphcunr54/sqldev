@@ -1,7 +1,7 @@
 import { MAIN_STARS, PALACE_NAMES } from './compute'
 
 // 吉星
-const LUCK_STARS = ['左辅', '右弼', '文昌', '文曲', '天魁', '天钺', '禄存', '天马']
+const LUCK_STARS = ['左辅', '右弼', '文昌', '文曲', '天魁', '天钺']
 // 煞星
 const HARM_STARS = ['擎羊', '陀罗', '火星', '铃星', '地空', '地劫', '天空']
 // 四化
