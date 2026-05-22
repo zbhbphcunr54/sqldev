@@ -18,7 +18,7 @@ const { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, serviceRoleKey: SERVICE_R
 
 function logOperation(entry: Parameters<typeof baseLogOperation>[0]): Promise<void> {
   if (entry.operation === 'ai_chat_message') {
-    return baseLogOperation(entry).catch(() => {})
+    return baseLogOperation(entry).catch((e: unknown) => { console.warn('[ai-chat] log failed:', e) })
   }
 
   if (entry.operation === 'ai_chat_error') {
@@ -31,7 +31,7 @@ function logOperation(entry: Parameters<typeof baseLogOperation>[0]): Promise<vo
       return baseLogOperation({
         ...entry,
         operation: 'ai_chat_message'
-      }).catch(() => {})
+      }).catch((e: unknown) => { console.warn('[ai-chat] log failed:', e) })
     }
   }
 
@@ -419,7 +419,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { count: data?.length || 0 },
         responseStatus: 200,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(200, { ok: true, sessions: data || [] }, corsHeaders)
     }
 
@@ -451,7 +451,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { sessionId, count: messages?.length || 0 },
         responseStatus: 200,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(200, { ok: true, messages: messages || [] }, corsHeaders)
     }
 
@@ -485,7 +485,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody,
         responseStatus: 200,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(200, responseBody, corsHeaders)
     }
 
@@ -511,7 +511,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
           responseBody: { error: 'server_error' },
           responseStatus: 500,
           durationMs: Date.now() - startTime
-        }).catch(() => {})
+        })
         return jsonResponse(500, { ok: false, error: 'server_error' }, corsHeaders)
       }
       logOperation({
@@ -524,7 +524,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { ok: true },
         responseStatus: 200,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(200, { ok: true }, corsHeaders)
     }
 
@@ -553,7 +553,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { error: 'invalid_message' },
         responseStatus: 400,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(400, { ok: false, error: 'invalid_message' }, corsHeaders)
     }
 
@@ -570,7 +570,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { error: 'ai_chat_quota_exceeded', quota },
         responseStatus: 429,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(429, { ok: false, error: 'ai_chat_quota_exceeded', quota }, corsHeaders)
     }
 
@@ -590,7 +590,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { error: 'ai_config_not_found' },
         responseStatus: 500,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(500, { ok: false, error: 'ai_config_not_found' }, corsHeaders)
     }
 
@@ -605,7 +605,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { error: 'ai_config_not_found' },
         responseStatus: 500,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(500, { ok: false, error: 'ai_config_not_found' }, corsHeaders)
     }
 
@@ -646,7 +646,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
           responseBody: { error: 'server_error' },
           responseStatus: 500,
           durationMs: Date.now() - startTime
-        }).catch(() => {})
+        })
         return jsonResponse(500, { ok: false, error: 'server_error' }, corsHeaders)
       }
       sessionId = (newSession as { id: string }).id
@@ -748,8 +748,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
                 responseStatus: 200,
                 durationMs: Date.now() - startTime,
                 extra: { provider: aiConfig.providerSlug, model: aiConfig.model }
-              }).catch(() => {})
-
+              })
               streamController.enqueue(encodeSseEvent('done', responseBody as unknown as Record<string, unknown>))
             } catch (err) {
               const errorCode = getAiErrorCode(err)
@@ -765,7 +764,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
                 responseBody: { error: errorCode },
                 responseStatus: errorStatus,
                 durationMs: Date.now() - startTime
-              }).catch(() => {})
+              })
               streamController.enqueue(encodeSseEvent('error', { error: errorCode }))
             } finally {
               clearTimeout(timeoutId)
@@ -795,7 +794,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
         responseBody: { error: errorCode },
         responseStatus: errorStatus,
         durationMs: Date.now() - startTime
-      }).catch(() => {})
+      })
       return jsonResponse(errorStatus, { ok: false, error: errorCode }, corsHeaders)
     } finally {
       clearTimeout(timeoutId)
@@ -835,7 +834,7 @@ export async function handleAiChatRequest(req: Request): Promise<Response> {
       responseStatus: 200,
       durationMs: Date.now() - startTime,
       extra: { provider: aiConfig.providerSlug, model: aiConfig.model }
-    }).catch(() => {})
+    })
     return jsonResponse(200, responseBody, corsHeaders)
   } catch (err) {
     const fallbackCors = buildCorsHeaders(req) || defaultCorsHeaders()

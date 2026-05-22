@@ -1,19 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import FeedbackWidget from '@/components/business/feedback/FeedbackWidget.vue'
 import { useAppStore, type ThemeMode } from '@/stores/app'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthModal } from '@/composables/useAuthModal'
+import { DB_META_MAP } from '@/features/sql/db-meta'
 import './splash.css'
-
-interface FeatureCard {
-  title: string
-  desc: string
-  stat: string
-  statSuffix?: string
-  icon: 'scan' | 'rules' | 'ddl' | 'bolt'
-}
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -22,70 +15,30 @@ const authModal = useAuthModal()
 const { isAuthenticated } = auth
 
 const feedbackSource = 'splash' as const
+const bentoRef = ref<HTMLElement | null>(null)
 
 const navAuthButtonLabel = computed(() => (isAuthenticated.value ? '进入工作台' : '注册 / 登录'))
 
-const features: FeatureCard[] = [
-  {
-    title: '6 种翻译方向',
-    desc: 'Oracle、MySQL、PostgreSQL 三库任意两两互转，覆盖主流迁移场景',
-    stat: '6',
-    icon: 'scan'
-  },
-  {
-    title: '400+ 映射规则',
-    desc: 'DDL 类型映射 199 条，程序块语法转换 212 条，持续扩展中',
-    stat: '400',
-    statSuffix: '+',
-    icon: 'rules'
-  },
-  {
-    title: 'DDL · 函数 · 存储过程',
-    desc: '建表语句、函数定义、存储过程完整翻译，包含异常处理与分区',
-    stat: '3',
-    statSuffix: ' 类型',
-    icon: 'ddl'
-  },
-  {
-    title: '160+ 种语法覆盖',
-    desc: '函数、语句、数据类型全覆盖，语法高亮编辑器即时预览翻译结果',
-    stat: '160',
-    statSuffix: '+',
-    icon: 'bolt'
-  }
+const stats = [
+  { value: '17', label: '种数据库' },
+  { value: '3', label: '种 SQL 类型' },
+  { value: 'AI', label: '智能分析' }
 ]
 
-const oraclePreviewHtml = `<span class="cmt">-- 用户信息表</span>
-<span class="kw">CREATE TABLE</span> USERS (
-    USER_ID       <span class="type">NUMBER</span>(18)       <span class="kw">NOT NULL</span>,
-    USERNAME      <span class="type">VARCHAR2</span>(100)    <span class="kw">NOT NULL</span>,
-    EMAIL         <span class="type">VARCHAR2</span>(200),
-    BALANCE       <span class="type">NUMBER</span>(18,2)     <span class="kw">DEFAULT</span> <span class="num">0</span>,
-    STATUS        <span class="type">NUMBER</span>(1)        <span class="kw">DEFAULT</span> <span class="num">1</span>,
-    AVATAR        <span class="type">BLOB</span>,
-    BIO           <span class="type">CLOB</span>,
-    CREATED_AT    <span class="type">DATE</span>            <span class="kw">DEFAULT</span> <span class="fn">SYSDATE</span>,
-    <span class="kw">CONSTRAINT</span> PK_USERS <span class="kw">PRIMARY KEY</span> (USER_ID)
-);
+const dbBadges = Object.values(DB_META_MAP).map((db) => ({
+  label: db.abbr,
+  slug: db.slug
+}))
 
-<span class="kw">COMMENT ON TABLE</span> USERS <span class="kw">IS</span> <span class="str">'用户信息表'</span>;
-<span class="kw">COMMENT ON COLUMN</span> USERS.EMAIL <span class="kw">IS</span> <span class="str">'邮箱'</span>;`
-
-const postgresPreviewHtml = `<span class="cmt">-- 用户信息表</span>
+const miniOracleHtml = `<span class="cmt">-- Oracle DDL</span>
 <span class="kw">CREATE TABLE</span> users (
-    user_id       <span class="type">BIGINT</span>           <span class="kw">NOT NULL</span>,
-    username      <span class="type">VARCHAR</span>(100)      <span class="kw">NOT NULL</span>,
-    email         <span class="type">VARCHAR</span>(200),
-    balance       <span class="type">NUMERIC</span>(18,2)     <span class="kw">DEFAULT</span> <span class="num">0</span>,
-    status        <span class="type">SMALLINT</span>          <span class="kw">DEFAULT</span> <span class="num">1</span>,
-    avatar        <span class="type">BYTEA</span>,
-    bio           <span class="type">TEXT</span>,
-    created_at    <span class="type">TIMESTAMP</span>         <span class="kw">DEFAULT</span> <span class="fn">CLOCK_TIMESTAMP</span>(),
-    <span class="kw">CONSTRAINT</span> pk_users <span class="kw">PRIMARY KEY</span> (user_id)
-);
+  id <span class="type">NUMBER</span>(18) <span class="kw">NOT NULL</span>
+);`
 
-<span class="kw">COMMENT ON TABLE</span> users <span class="kw">IS</span> <span class="str">'用户信息表'</span>;
-<span class="kw">COMMENT ON COLUMN</span> users.email <span class="kw">IS</span> <span class="str">'邮箱'</span>;`
+const miniPgHtml = `<span class="cmt">-- PostgreSQL</span>
+<span class="kw">CREATE TABLE</span> users (
+  id <span class="type">BIGINT</span> <span class="kw">NOT NULL</span>
+);`
 
 function nextTheme(mode: ThemeMode): ThemeMode {
   return mode === 'light' ? 'dark' : 'light'
@@ -95,21 +48,28 @@ function toggleTheme(): void {
   appStore.setTheme(nextTheme(appStore.themeMode))
 }
 
-async function enterWorkbench(): Promise<void> {
-  await router.push('/workbench/ddl')
-}
-
 async function handleAuthIntent(): Promise<void> {
   if (isAuthenticated.value) {
-    await router.push('/workbench/ddl')
+    await router.push('/workbench/home')
     return
   }
-  authModal.openModal({ redirectTo: '/workbench/ddl' })
+  authModal.openModal({ redirectTo: '/workbench/home' })
+}
+
+function handleBentoMouseMove(e: MouseEvent): void {
+  const el = bentoRef.value
+  if (!el) return
+  const cards = el.querySelectorAll<HTMLElement>('.sp-bento-card')
+  cards.forEach((card) => {
+    const rect = card.getBoundingClientRect()
+    card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
+    card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
+  })
 }
 </script>
 
 <template>
-  <!-- eslint-disable vue/no-v-html -- Static trusted SQL preview markup keeps legacy syntax highlighting without runtime user input. -->
+  <!-- eslint-disable vue/no-v-html -- Static trusted SQL preview markup -->
   <section id="splash-poster" aria-labelledby="splash-title">
     <div class="sp-ambient" aria-hidden="true">
       <div class="sp-orb sp-orb-1"></div>
@@ -123,10 +83,11 @@ async function handleAuthIntent(): Promise<void> {
 
     <div class="sp-shell">
       <div class="sp-page">
+        <!-- Nav -->
         <nav class="sp-nav" aria-label="首页导航">
           <div class="sp-nav-logo">
-            <div class="sp-nav-logo-mark">SQL</div>
-            <span class="sp-nav-logo-text">SQL 翻译工作台</span>
+            <div class="sp-nav-logo-mark">Dev</div>
+            <span class="sp-nav-logo-text">Dev Studio</span>
           </div>
           <div class="sp-nav-actions">
             <button
@@ -152,93 +113,16 @@ async function handleAuthIntent(): Promise<void> {
           </div>
         </nav>
 
+        <!-- Hero -->
         <section class="sp-hero">
-          <h1 id="splash-title" class="sp-hero-title">
-            跨数据库<br /><span class="sp-title-accent">SQL 翻译</span>
-          </h1>
+          <div class="sp-hero-badge">开发者工具集</div>
+          <h1 id="splash-title" class="sp-hero-title sp-hero-title-gradient">Dev Studio</h1>
           <p class="sp-hero-sub">
-            Oracle、MySQL、PostgreSQL<br />DDL语句、函数与存储过程 — 一键互转
+            SQL 跨库翻译 · 证件号码生成 · AI 智能分析<br />开发者的多功能工作台
           </p>
-
-          <div class="sp-db-viz">
-            <svg viewBox="0 0 380 300" aria-hidden="true">
-              <defs>
-                <linearGradient
-                  id="sp-line-grad"
-                  gradientUnits="userSpaceOnUse"
-                  x1="70"
-                  y1="55"
-                  x2="310"
-                  y2="250"
-                >
-                  <stop offset="0%" stop-color="rgba(79,125,249,.3)" />
-                  <stop offset="50%" stop-color="rgba(139,92,246,.4)" />
-                  <stop offset="100%" stop-color="rgba(34,211,238,.3)" />
-                </linearGradient>
-              </defs>
-              <path class="sp-db-line" d="M190 55 L70 250"></path>
-              <path class="sp-db-line sp-db-line-2" d="M190 55 L310 250"></path>
-              <path class="sp-db-line sp-db-line-3" d="M70 250 L310 250"></path>
-              <circle r="3" fill="#22d3ee" opacity="0">
-                <animateMotion dur="3.5s" repeatCount="indefinite" path="M190 55 L310 250" />
-                <animate
-                  attributeName="opacity"
-                  values="0;1;1;0"
-                  keyTimes="0;0.1;0.9;1"
-                  dur="3.5s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <circle r="3" fill="#4f7df9" opacity="0">
-                <animateMotion
-                  dur="4s"
-                  repeatCount="indefinite"
-                  begin="1.2s"
-                  path="M310 250 L70 250"
-                />
-                <animate
-                  attributeName="opacity"
-                  values="0;1;1;0"
-                  keyTimes="0;0.1;0.9;1"
-                  dur="4s"
-                  repeatCount="indefinite"
-                  begin="1.2s"
-                />
-              </circle>
-              <circle r="3" fill="#8b5cf6" opacity="0">
-                <animateMotion
-                  dur="3.5s"
-                  repeatCount="indefinite"
-                  begin="2.4s"
-                  path="M70 250 L190 55"
-                />
-                <animate
-                  attributeName="opacity"
-                  values="0;1;1;0"
-                  keyTimes="0;0.1;0.9;1"
-                  dur="3.5s"
-                  repeatCount="indefinite"
-                  begin="2.4s"
-                />
-              </circle>
-            </svg>
-            <div class="sp-db-node sp-db-node-oracle">
-              <div class="sp-db-node-icon oracle">ORA</div>
-              <span class="sp-db-node-label">Oracle</span>
-            </div>
-            <div class="sp-db-node sp-db-node-mysql">
-              <div class="sp-db-node-icon mysql">MY</div>
-              <span class="sp-db-node-label">MySQL</span>
-            </div>
-            <div class="sp-db-node sp-db-node-pg">
-              <div class="sp-db-node-icon pg">PG</div>
-              <span class="sp-db-node-label">PostgreSQL</span>
-            </div>
-          </div>
-
           <div class="sp-hero-cta sp-hero-cta-center">
-            <button id="sp-enter-btn" class="sp-btn-primary" type="button" @click="enterWorkbench">
-              立即体验
+            <button class="sp-btn-primary" type="button" @click="handleAuthIntent">
+              {{ navAuthButtonLabel }}
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16" aria-hidden="true">
                 <path
                   d="M3 8h10m-4-4 4 4-4 4"
@@ -250,99 +134,159 @@ async function handleAuthIntent(): Promise<void> {
               </svg>
             </button>
           </div>
+
+          <!-- Stats Strip -->
+          <div class="sp-stats-strip" aria-label="核心数据">
+            <div
+              v-for="(s, i) in stats"
+              :key="i"
+              class="sp-stat-item"
+            >
+              <span class="sp-stat-value">{{ s.value }}</span>
+              <span class="sp-stat-label">{{ s.label }}</span>
+            </div>
+          </div>
+
         </section>
 
-        <section class="sp-preview-section">
-          <div class="sp-preview-label"><span>实时翻译预览</span></div>
-          <div class="sp-preview-wrap">
-            <div class="sp-preview-panel">
-              <div class="sp-preview-header">
-                <div class="sp-preview-header-left">
-                  <span class="sp-preview-dot oracle"></span>
-                  <span class="sp-preview-db-name">Oracle 输入</span>
+        <!-- Bento Grid -->
+        <section
+          ref="bentoRef"
+          class="sp-bento-section"
+          aria-label="功能一览"
+          @mousemove="handleBentoMouseMove"
+        >
+          <div class="sp-bento-grid">
+            <!-- Card 1: SQL 转换 (2col × 2row) -->
+            <div class="sp-bento-card sp-bento-sql">
+              <div class="sp-bento-pill">核心功能</div>
+              <h3 class="sp-bento-title">SQL 跨库翻译</h3>
+              <p class="sp-bento-desc">DDL 建表、函数、存储过程一键互转，覆盖 17 种数据库</p>
+              <div class="sp-bento-sql-preview">
+                <div class="sp-mini-code">
+                  <div class="sp-mini-code-head">
+                    <span class="sp-mini-dot oracle"></span>
+                    <span>Oracle</span>
+                  </div>
+                  <pre v-html="miniOracleHtml"></pre>
                 </div>
-                <span class="sp-preview-lines">24 行</span>
+                <div class="sp-mini-arrow" aria-hidden="true">
+                  <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+                    <path
+                      d="M4 10h12m-5-5 5 5-5 5"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div class="sp-mini-code">
+                  <div class="sp-mini-code-head">
+                    <span class="sp-mini-dot pg"></span>
+                    <span>PostgreSQL</span>
+                  </div>
+                  <pre v-html="miniPgHtml"></pre>
+                </div>
               </div>
-              <div class="sp-preview-code" v-html="oraclePreviewHtml"></div>
+              <div class="sp-db-pills">
+                <span
+                  v-for="db in dbBadges"
+                  :key="db.slug"
+                  class="sp-db-pill"
+                  :style="{ '--pill-color': `var(--db-${db.slug})` }"
+                >{{ db.label }}</span>
+              </div>
             </div>
 
-            <div class="sp-preview-divider" aria-hidden="true">
-              <div class="sp-preview-arrow">
-                <svg fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M5 12h14m-6-6 6 6-6 6"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
+            <!-- Card 2: 证件号码 (1col × 2row) -->
+            <div class="sp-bento-card sp-bento-id">
+              <div class="sp-bento-pill">实用工具</div>
+              <h3 class="sp-bento-title">证件号码生成</h3>
+              <p class="sp-bento-desc">身份证 · 统一社会信用代码</p>
+              <div class="sp-id-anatomy">
+                <div class="sp-id-seg sp-id-region">
+                  <span class="sp-id-val">110105</span>
+                  <span class="sp-id-lbl">地区</span>
+                </div>
+                <div class="sp-id-seg sp-id-birth">
+                  <span class="sp-id-val">19900307</span>
+                  <span class="sp-id-lbl">出生</span>
+                </div>
+                <div class="sp-id-seg sp-id-seq">
+                  <span class="sp-id-val">234</span>
+                  <span class="sp-id-lbl">顺序</span>
+                </div>
+                <div class="sp-id-seg sp-id-check">
+                  <span class="sp-id-val">5</span>
+                  <span class="sp-id-lbl">校验</span>
+                </div>
+              </div>
+              <div class="sp-id-uscc">
+                <span class="sp-id-uscc-tag">USCC</span>
+                <span class="sp-id-uscc-val">91110000MA01XXXX4X</span>
               </div>
             </div>
 
-            <div class="sp-preview-panel">
-              <div class="sp-preview-header">
-                <div class="sp-preview-header-left">
-                  <span class="sp-preview-dot pg"></span>
-                  <span class="sp-preview-db-name">PostgreSQL 输出</span>
+            <!-- Card 3: AI 对话 (1×1) -->
+            <div class="sp-bento-card sp-bento-ai">
+              <div class="sp-bento-pill">智能助手</div>
+              <h3 class="sp-bento-title">AI 对话</h3>
+              <p class="sp-bento-desc">多模型配置与智能分析</p>
+              <div class="sp-chat-bubbles">
+                <div class="sp-chat-user">
+                  <span>分析这段 SQL 的性能瓶颈</span>
                 </div>
-                <span class="sp-preview-lines">24 行</span>
+                <div class="sp-chat-ai">
+                  <span>建议添加复合索引并优化 JOIN 顺序...</span>
+                </div>
               </div>
-              <div class="sp-preview-code" v-html="postgresPreviewHtml"></div>
+            </div>
+
+            <!-- Card 5: 更多工具 (1×1) -->
+            <div class="sp-bento-card sp-bento-more">
+              <h3 class="sp-bento-title">更多工具</h3>
+              <p class="sp-bento-desc">管理与审计</p>
+              <div class="sp-more-links">
+                <div class="sp-more-link">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span>AI 配置管理</span>
+                </div>
+                <div class="sp-more-link">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <span>操作日志</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section class="sp-features-section">
-          <div class="sp-features-grid">
-            <div v-for="feature in features" :key="feature.title" class="sp-feat-card">
-              <div class="sp-feat-icon">
-                <svg v-if="feature.icon === 'scan'" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <svg v-else-if="feature.icon === 'rules'" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <svg v-else-if="feature.icon === 'ddl'" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M4 6h16M4 12h16M4 18h7"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <svg v-else fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-              <div class="sp-feat-title">{{ feature.title }}</div>
-              <div class="sp-feat-desc">{{ feature.desc }}</div>
-              <div class="sp-feat-stat">
-                {{ feature.stat }}<small v-if="feature.statSuffix">{{ feature.statSuffix }}</small>
-              </div>
-            </div>
-          </div>
-        </section>
-
+        <!-- Final CTA -->
         <section class="sp-final-cta">
-          <h2>开始你的<span class="sp-title-accent"> SQL 迁移</span>之旅</h2>
-          <p>无需安装，打开即用。免费开源。</p>
+          <h2>开始你的<span class="sp-title-accent"> 效率提升</span>之旅</h2>
           <div class="sp-hero-cta sp-hero-cta-center">
             <button class="sp-btn-primary sp-final-auth" type="button" @click="handleAuthIntent">
               {{ navAuthButtonLabel }}
@@ -358,10 +302,6 @@ async function handleAuthIntent(): Promise<void> {
             </button>
           </div>
         </section>
-
-        <footer class="sp-site-footer" aria-label="站点信息">
-          <span class="sp-site-footer-meta">Version 2026.04.13 / 95a8f3c</span>
-        </footer>
       </div>
     </div>
 

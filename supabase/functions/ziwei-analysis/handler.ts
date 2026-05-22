@@ -240,7 +240,7 @@ async function writeZiweiAiLog(params: {
       ai_request_url: params.aiRequestUrl,
       temperature: params.temperature
     }
-  }).catch(() => {})
+  }).catch((e: unknown) => { console.warn('[ziwei-analysis] log failed:', e) })
 }
 
 export async function handleZiweiAnalysisRequest(req: Request): Promise<Response> {

@@ -20,6 +20,7 @@ export interface MenuAccessOptions {
 }
 
 export const SECTION_MAP: Record<string, string> = {
+  home: '/workbench/home',
   sqlConvert: '/workbench/sql-convert',
   idTool: '/workbench/id-tool',
   ziweiTool: '/workbench/ziwei',
@@ -29,6 +30,12 @@ export const SECTION_MAP: Record<string, string> = {
 
 export function buildMenuGroups(options: MenuAccessOptions = {}): MenuGroup[] {
   const groups: MenuGroup[] = [
+    {
+      key: 'homeGroup',
+      title: null,
+      collapsible: false,
+      items: [{ key: 'home', label: '首页', icon: 'home', page: 'home' }]
+    },
     {
       key: 'sqlTools',
       title: null,

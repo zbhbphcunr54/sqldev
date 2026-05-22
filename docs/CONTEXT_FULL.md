@@ -3,7 +3,267 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
+
+---
+
+## 2026-05-22: 紫微移动端 UI 精调 — 1:1 对齐方案 D
+
+### 背景
+移动端已采用方案 D（琉璃玻璃态）布局，但多处样式细节未严格对齐 `previews/ziwei-mobile-D.html`，包括表单网格列数、按钮堆叠方式、标题可见性等。
+
+### 修改内容
+1. **Header 副标题**：移动端恢复显示（`display: block`），font-size 9px + letter-spacing 2px，与 D 一致
+2. **表单字段网格**（≤600px）：保持双列 `1fr 1fr`（D 同款），不再折叠为单列
+3. **排盘/清除按钮**（≤600px）：改为纵向堆叠 `1fr`（D 同款），移除 44px 统一高度，沿用 1023px 断点的差异化高度（排盘 46px / 清除 40px）
+4. **性别选项**（≤600px）：保持 `flex-direction: row`（D 同款），不再纵向堆叠
+5. **年 四化图标颜色**：从 `--color-hua-ke`（cyan）改为 `--color-liunian`（紫色），与 D 的 `accent2` 一致
+6. **QA 答案卡**：`border-left` 从 3px 改为 2px，与 D 一致
+7. **AI 解读卡片间距**：移动端从 12px 改为 8px（D `margin-bottom: 8px`）
+8. **AI 卡片圆角**（≤600px）：从 10px 改为 14px（D `.gc { border-radius: 14px }`）
+9. **表单字段间距**：新增 `.zw-form-body` class，移动端 gap 从 12px 降为 8px（D `.fg { margin-bottom: 8px }`）
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | 模板：表单容器新增 `.zw-form-body` class；CSS：9 处移动端样式调整 |
+
+---
+
+## 2026-05-22: 移除 user_rules 映射规则系统
+
+### 背景
+所有数据库 SQL 转换已全部通过 AI 大模型完成，原先基于 `user_rules` 表的 504 条静态映射规则（DDL 类型映射 + Body 语法转换）不再使用。
+
+### 方案
+仅清理代码和迁移文件中的残留引用，不动线上数据库（`user_rules` 表和 `convert_cache.rules_ver` 列保留在 DB 中不做 DROP）。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `supabase/migrations/202604300001_create_user_rules.sql` | 删除 |
+| `supabase/migrations/202605030001_insert_default_rules.sql` | 删除 |
+| `src/pages/splash/index.vue` | 移除首页 "500+ 映射规则" 统计项 |
+| `supabase/migrations/202604300003_create_convert_cache.sql` | 移除 `rules_ver` 列定义和注释 |
+| `supabase/migrations/202605030010_insert_app_configs.sql` | 移除 rules 限流配置 |
+| `supabase/migrations/202604300006_create_operation_logs.sql` | 注释中移除 `rule_save` / `rules` |
+| `tests/smoke.mjs` | 移除 rules 相关断言，新增守卫断言确认迁移文件已删除 |
+| `tests/navigation-page-state.mjs` | 移除 `rules` / `bodyRules` 页面键 |
+
+---
+
+## 2026-05-22: 紫微移动端全面改版为方案 D（琉璃玻璃态）布局
+
+### 背景
+移动端命盘页此前使用"英雄卡片 + 信息面板 + 2 列宫位按钮"的线性布局，无法直观展现紫微斗数的传统三方四正空间关系。经过 4 套视觉方案对比后选定"方案 D 琉璃玻璃态"的网格式布局，全面改版移动端所有 4 个 tab。
+
+### 方案
+仅改动移动端布局方式，**字体/颜色/设计 token 零改动**：
+
+1. **玻璃态浮动 Tab 栏**：移动端 tab 从 3 个改为 4 个（输入/命盘/AI解读/问答），样式从扁平下划线改为圆角玻璃态药丸容器 `.zw-mobile-tab-bar`，激活态为圆角填充背景
+2. **4×4 CSS Grid 命盘**：`grid-template-columns: repeat(4, 1fr)`，12 个外围宫位 + 中央 2×2 摘要面板，使用 `palaceGrid`（含 null 占位）直接映射
+3. **宫位格**：宫名 + 干支 + 主星（带亮度色标）+ 辅星/煞星（紧凑 `·` 分隔 `.zw-mc-aux`）+ 四化标签 + 命/身/限 徽标
+4. **图例行 + 独立三层四化卡**：命盘下方增加庙/旺/得/陷色点图例 `.zw-mc-legend`，以及玻璃态卡片 `.zw-mc-hua-section` 展示生年/大限/流年四化（药丸式标签如"廉贞禄"，通过 `parseHuaPills` 从 `HuaSummaryItem.label` 解析星名）
+5. **AI 解读全卡纵向流**：移除旧的横向 tab 选择器 + 单卡阅读模式，改为所有解读卡片同时纵向展示；隐藏移动端面板头部（深度解读/结构化阅读模式）
+6. **QA 简洁布局**：移动端新增 `.zw-mobile-qa-simple` — 输入栏 + 文字"提问"按钮 + `Q:` 问题回显卡 `.zw-mqas-echo` + 带左边框的答案卡 `.zw-mqas-card`（lead=warm 色，其余=accent 色），隐藏桌面端的面板头/描述/提示
+7. **输入面板**：移动端排盘/清除按钮纵向堆叠（排盘更大更醒目），隐藏分享海报按钮和步骤指引
+8. **免责声明**：移动端改为纯文本居中样式，仅在 AI 解读 tab 显示（不在问答 tab）
+9. **中央面板**：命主姓名、干支/五行/性别概要、6 项核心数据（命主/身主/五行局/大限/流年/虚岁）、三层四化摘要
+10. 点击宫位仍打开原有 bottom sheet 详情弹层
+11. **桌面脚手架剥离**（D 1:1 对齐）：
+    - 隐藏 `.zw-main-head`（命盘图/AI解读标题栏）：`display: none`
+    - Header 简化：移除 globe icon（`hidden lg:flex`）和用户菜单（`hidden lg:flex`），header 改为 `height: auto`、`padding 16px`、`font-size 18px`、`letter-spacing 2px`
+    - Aside 移除移动端右边框（`lg:border-r lg:border-border`），内距从 16px 降为 12px
+    - `.zw-center-panel` 内距统一为 `0 12px 12px`
+    - 隐藏 `.zw-chart-stage-note`（时间校正注释）
+    - 紧凑空状态：隐藏 `.zw-analysis-empty--full > .text-muted`、缩小间距
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | 模板：玻璃态 4-tab 栏 + 4×4 grid + 图例 + 三层四化卡 + AI 全卡流 + QA 简洁布局 + 纵向排盘按钮；脚本：新增 `parseHuaPills`/`openMobilePalaceByBranch`/`showAnalysisView`/`showQaView`，移除旧分析 tab 相关代码；CSS：新增 `.zw-mobile-tab-bar`/`.zw-mc-aux`/`.zw-mc-legend`/`.zw-mc-hua-section`/`.zw-mqas-*` 等，移除旧 `.mobile-tab-bar`/`.zw-mobile-analysis-tab`/`.zw-mobile-reader-card` |
+| `scripts/css-color-baseline.json` | 行号偏移自动更新 |
+
+---
+
+## 2026-05-22: 首页 Bento Grid 重新设计 — 多功能展示
+
+### 背景
+原首页仅展示 SQL 转换功能。应用已拥有 5 大功能模块（SQL 转换、证件号码、紫微斗数、AI 对话/配置、操作日志），需要重新设计首页以全面展示所有功能，提升视觉吸引力。
+
+### 设计方向
+Apple 产品页 + Bento Grid 布局。玻璃拟态卡片、鼠标追踪光晕、交错入场动画、环境光球。
+
+### 文件变更
+
+1. **`src/pages/splash/index.vue`** — 完整重写
+   - **Hero**：移除旧版三角形数据库可视化，新增 "Dev Studio" 渐变品牌标题 + 副标题展示所有功能 + 双 CTA（进入工作台 + 滚动到功能区）+ 顶部 badge 胶囊
+   - **Stats Strip**：4 项核心数据展示（17 种数据库 / 400+ 规则 / 3 种 SQL / AI 分析）
+   - **Bento Grid**：5 张卡片
+     - SQL 转换（2×2）：迷你代码对比 + 17 个数据库 pill 徽章
+     - 证件号码（1×2）：身份证号段可视化 + USCC 预览
+     - 紫微斗数（1×1）：迷你命宫 4×3 网格
+     - AI 对话（1×1）：聊天气泡模拟
+     - 更多工具（1×1）：AI 配置 + 操作日志链接
+   - **保留**：SQL 翻译深度预览、Final CTA（文案更新）、Footer、FeedbackWidget
+   - **新增导入**：`DB_META_MAP` from `@/features/sql/db-meta`
+   - **修正路由**：`/workbench/ddl` → `/workbench/sql-convert`（正确的 URL slug）
+   - **紫微入口**：auth-gated（通过 `canAccessZiweiTool` 判断）
+
+2. **`src/pages/splash/splash.css`** — 大幅重写
+   - **移除**：`.sp-feat-card/icon/title/desc/stat`（旧特性网格）、`.sp-features-section/grid`、`.sp-db-viz/node/line`（三角可视化）
+   - **新增**：
+     - Ambient Orbs：3 个浮动光球 CSS（连接已有 HTML）
+     - Hero Badge：品牌胶囊 pill
+     - Stats Strip：居中 flex 行 + code 字体数值
+     - Bento Grid：3 列 CSS grid，glass-bg 卡片，`::before` 鼠标追踪光晕（`radial-gradient` + `--mouse-x/y`），nth-child 交错动画
+     - 卡片可视化：迷你代码面板、ID 号段色块、命宫网格、聊天气泡
+     - DB Pills：`color-mix()` 半透明背景 + `var(--db-{slug})` 颜色
+   - **响应式**：`<=1180px` 2 列、`<=768px` 代码预览纵向堆叠、`<=480px` 单列 + 光球缩小
+   - **Light theme**：Bento 卡片、迷你面板、聊天气泡的 light 覆写
+   - **保留**：Shell / Layout 区块（sidebar/overlay/menu-toggle 等）
+
+3. **`tests/smoke.mjs`** — 断言更新
+   - `sp-enter-btn` → `sp-bento-section`（匹配新页面结构）
+
+4. **CSS color baseline** — 更新
+   - 移除旧三角可视化的 18 处硬编码色值
+   - 保留 Shell/Layout 和 light-theme nav 的 6 处已有半透明色值
+
+### 验证
+- `pnpm typecheck` ✅
+- `pnpm lint --quiet` ✅
+- `pnpm check:css-colors` ✅（baseline 已更新）
+- `pnpm test` ✅（12 suites）
+- `pnpm test:unit` ✅（13 tests）
+
+---
+
+## 2026-05-22: AI_DEV 二次合规修复 — 全面审计后的剩余违规清理
+
+### 背景
+首轮整改恢复了 `pnpm verify` 门禁。对照 AI_DEV.md 全量审计后，发现 4 类剩余违规需要修复。
+
+### P0：空 catch 清零（23 处）
+
+1. **Edge Function wrapper 内部 catch 修复**
+   - `supabase/functions/ai-chat/index.ts`：本地 `logOperation` wrapper 内 2 处 `.catch(() => {})` 改为 `console.warn`；call-site 14 处冗余 `.catch(() => {})` 移除（wrapper 已保证不 reject）
+   - `supabase/functions/ai-config/index.ts`：wrapper 内 1 处改为 `console.warn`
+   - `supabase/functions/ziwei-analysis/handler.ts`：`writeZiweiAiLog` 内 1 处改为 `console.warn`
+
+2. **直接调用处 catch 修复**
+   - `supabase/functions/sql-convert/index.ts`：4 处改为 `console.warn`
+   - `src/composables/useZiweiForm.ts`：1 处改为 `console.warn`
+
+### P1：模块封装修复
+
+1. **`export *` 收敛**
+   - `src/features/ai/index.ts`：2 处 `export *` 替换为具名 re-export（6 个 type + 6 个 const）
+
+### P2：架构分层与命名规范
+
+1. **Features 目录浏览器依赖清理**
+   - `src/features/browser/file-actions.ts` → `src/utils/file-actions.ts`（含 4 个导出函数）
+   - 删除 `src/features/browser/` 目录（`file-actions.ts` + `index.ts`）
+   - 更新 `tests/browser-file-actions.mjs` 和 `tests/smoke.mjs` 中的路径引用和断言
+
+2. **localStorage key 命名统一**
+   - `src/stores/ai.ts`：`sqldev:ai_config_cache:` → `sqldev:ai:config-cache:`（30 分钟 TTL 缓存，无需迁移）
+
+### 修改文件
+
+| 文件 | 变更类型 |
+|---|---|
+| `supabase/functions/ai-chat/index.ts` | 空 catch 修复（wrapper + 14 处 call-site） |
+| `supabase/functions/ai-config/index.ts` | 空 catch 修复（wrapper） |
+| `supabase/functions/ziwei-analysis/handler.ts` | 空 catch 修复（wrapper） |
+| `supabase/functions/sql-convert/index.ts` | 空 catch 修复（4 处） |
+| `src/composables/useZiweiForm.ts` | 空 catch 修复 |
+| `src/features/ai/index.ts` | `export *` → 具名 re-export |
+| `src/utils/file-actions.ts` | 新增（从 features/browser 迁移） |
+| `src/features/browser/` | 删除 |
+| `src/stores/ai.ts` | localStorage key 重命名 |
+| `tests/browser-file-actions.mjs` | 路径更新 |
+| `tests/smoke.mjs` | 路径 + 断言更新 |
+
+### 验证
+- `pnpm verify` ✔（typecheck + lint + utf8 + css-colors + test + test:unit）
+- `pnpm build` ✔
+
+### 部署
+- 前端常规构建部署
+- Edge Function 涉及 `ai-chat`、`ai-config`、`ziwei-analysis`、`sql-convert` 四个函数的 catch 逻辑变更，需重新部署
+
+---
+
+## 2026-05-22: AI_DEV 规范整改 — 恢复 pnpm verify 门禁
+
+### 背景
+按 `docs/AI_DEV_REMEDIATION_PLAN.md` 执行整改，恢复 `pnpm verify` 为完整可用的质量门禁。
+
+### P0：修复门禁阻塞项
+
+1. **ESLint 错误修复**
+   - `src/pages/operation-logs/index.vue:188`：`modalDrag.isDragging` → `modalDrag.value.isDragging`
+   - `src/stores/ai.ts`：删除未使用的 `persistSelection()`、`selectedConfigId`、`readSelectedFromStorage()`、`writeSelectedToStorage()`
+
+2. **单元测试修复**
+   - `tests/unit/api-http.test.ts`：导入路径从 `@/api/http` 修正为 `@/lib/edge`
+   - `tests/unit/composables.test.ts`：重写主题测试 — 修正 storage key（`sqldev:theme` → `sqldev:app:theme`）、使用 `vi.resetModules()` 绕过 `initialized` 模块守卫、移除已废弃的 `system` 主题模式测试、新增 legacy 迁移测试
+
+3. **Smoke 断言修复**
+   - `tests/smoke.mjs`：workbench 路由断言改为语义检查（`buildWorkbenchPath` + `router.replace`），不再依赖完整调用字符串
+   - `tests/smoke.mjs`：ziwei analysis provider 断言从 `fetchAiChat` 更新为 `createAiRequestConfig`
+   - `tests/smoke.mjs`：ziwei prompt-template 断言从 `normalizeQaTemplate` 更新为 `buildQaSystemPrompt`
+
+### P1：收敛工程规范偏差
+
+1. **收敛前端直接 fetch**
+   - `src/api/feedback.ts`：新增 `warmupFeedback()` 封装 OPTIONS warmup 请求
+   - `src/components/business/feedback/FeedbackWidget.vue`：移除直接 `fetch` 调用，改用 `warmupFeedback()`
+   - `src/components/business/workbench/pages/IdToolPage.vue`：静态资源 fetch 增加豁免注释
+
+2. **收敛空 catch**
+   - `src/utils/storage.ts`：`setJson`/`removeJson` 的空 catch 增加 `console.warn` 日志
+   - `src/components/business/workbench/pages/IdToolPage.vue`：operation log 写入失败增加 warn 日志
+   - `supabase/functions/_shared/operation-logger.ts`：`createLogger` 内部 catch 增加 warn 日志（影响所有 23+ 处 logOperation 调用）
+
+### P2：Design Token 与样式治理
+
+1. **CSS 颜色检查脚本优化**
+   - `scripts/check-css-colors.mjs`：新增 `TOKEN_SOURCE_FILES` 跳过集合，豁免 `tokens.css` 和 `skins.css`
+   - `scripts/css-color-baseline.json`：重新生成基线（738 → 110 条记录）
+
+### P3：门禁可读性
+
+1. `package.json`：`verify` 脚本中 `pnpm lint` 改为 `pnpm lint --quiet`，抑制 CRLF warning 噪音
+2. `tests/smoke.mjs`：verify 脚本断言同步更新为 `pnpm lint --quiet`，保持与 package.json 一致
+
+### 修改文件
+
+| 文件 | 变更类型 |
+|---|---|
+| `src/pages/operation-logs/index.vue` | Bug fix: ref .value |
+| `src/stores/ai.ts` | 删除 dead code |
+| `tests/unit/api-http.test.ts` | 修复导入路径 |
+| `tests/unit/composables.test.ts` | 重写主题测试 |
+| `tests/smoke.mjs` | 修复 3 处过脆断言 + verify 脚本断言同步 |
+| `src/api/feedback.ts` | 新增 warmupFeedback |
+| `src/components/business/feedback/FeedbackWidget.vue` | 移除直接 fetch |
+| `src/components/business/workbench/pages/IdToolPage.vue` | 注释 + catch 日志 |
+| `src/utils/storage.ts` | catch 日志 |
+| `supabase/functions/_shared/operation-logger.ts` | catch 日志 |
+| `scripts/check-css-colors.mjs` | Token 文件豁免 |
+| `scripts/css-color-baseline.json` | 重新生成基线 |
+| `package.json` | verify 脚本 lint --quiet |
+
+### 验证
+- `pnpm verify` ✔（typecheck + lint + utf8 + css-colors + test + test:unit）
+- `pnpm build` ✔
+
+### 部署
+- 前端常规构建部署
+- 如需部署 Edge Function（operation-logger.ts 有改动），需重新部署引用该模块的函数
 
 ---
 
@@ -79,6 +339,32 @@ Last updated: 2026-05-21
 
 ### 设计文档
 完整设计方案见 `docs/SKIN_SYSTEM_PLAN.md`
+
+---
+
+## 2026-05-22: 紫微分享海报重新设计 — 命格卡 (Destiny Card)
+
+### 问题
+上一版海报虽对齐了页面风格，但仍以固定宣传文案为主（"把命盘做成一张会被转发的封面"），所有用户生成的海报几乎一样，缺乏个人化数据和社交传播动力。
+
+### 方案
+完全重写 `SharePosterModal.vue`，改为个人化"命格身份卡"，展示用户真实命盘数据：
+- **设计理念**：借鉴 MBTI/星座卡的病毒传播逻辑——人们分享能代表自己身份的内容
+- **背景**：深空渐变（深靛蓝→深紫蓝）+ 金色/蓝色/紫色径向光晕 + 极淡天体环装饰
+- **个人信息**：用户姓名 28px 居中显示 + 出生信息 + 金色分割线
+- **数据网格**：2×3 毛玻璃统计卡（命主/身主/五行局/大限/流年/虚岁）
+- **三层四化**：独立面板，生年/大限/流年三行，各层不同色调图标（金/紫/蓝）
+- **状态指示**：待排盘/已排盘/AI就绪 三态圆点
+- **底部CTA**：QR码 + "扫码排你的命盘" 引导文案
+- **色彩方案**：海报自有 CSS 变量（`--poster-gold`、`--poster-ink`、`--poster-glass` 等），暖金色 `#e8c372` 为主强调色
+- 移除对 `createZiweiSharePosterSpec` 的依赖，仅保留 `buildZiweiShareLink`
+- Props 接口不变，ZiweiPage.vue 无需修改
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/modals/SharePosterModal.vue` | 完全重写模板+样式 |
+| `scripts/css-color-baseline.json` | 更新海报颜色基线 |
 
 ---
 

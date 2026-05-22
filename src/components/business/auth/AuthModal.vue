@@ -333,8 +333,8 @@ const {
 }
 
 .auth-modal {
-  width: min(92vw, 472px);
-  max-width: 472px;
+  width: min(92vw, 400px);
+  max-width: 400px;
   max-height: min(90vh, 760px);
   background: var(--color-panel);
   border: 1px solid var(--color-border);
@@ -452,12 +452,17 @@ const {
 
 .auth-label {
   display: block;
+  margin-top: 14px;
   margin-bottom: 5px;
   color: var(--color-text-subtle);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.auth-label:first-child {
+  margin-top: 0;
 }
 
 .auth-input {
@@ -635,8 +640,8 @@ const {
 
 @media (max-width: 640px) {
   .auth-modal {
-    width: min(94vw, 420px);
-    max-width: 420px;
+    width: min(94vw, 380px);
+    max-width: 380px;
   }
 
   .auth-modal-head {

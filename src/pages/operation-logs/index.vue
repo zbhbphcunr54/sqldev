@@ -185,7 +185,7 @@ function handleSelectLog(log: OperationLog): void {
 
 function handleCloseDetail(): void {
   selectedLog.value = null
-  modalDrag.isDragging = false
+  modalDrag.value.isDragging = false
 }
 
 // Modal drag

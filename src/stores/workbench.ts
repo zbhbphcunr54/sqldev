@@ -33,7 +33,7 @@ function persistSampleCache(samples: Record<string, string>): void {
   setJson(SAMPLE_CACHE_KEY, { version: 1, samples, timestamp: Date.now() })
 }
 
-export type WorkbenchPage = 'sqlConvert' | 'idTool' | 'ziweiTool' | 'aiConfig' | 'opLogs'
+export type WorkbenchPage = 'home' | 'sqlConvert' | 'idTool' | 'ziweiTool' | 'aiConfig' | 'opLogs'
 
 export type SqlType = 'ddl' | 'function' | 'procedure' | 'auto'
 export type TranslateStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -44,9 +44,10 @@ export interface DbOption {
   abbr: string
 }
 
-const NAV_PAGES: WorkbenchPage[] = ['sqlConvert', 'idTool', 'ziweiTool', 'aiConfig', 'opLogs']
+const NAV_PAGES: WorkbenchPage[] = ['home', 'sqlConvert', 'idTool', 'ziweiTool', 'aiConfig', 'opLogs']
 
 const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = {
+  home: { title: '首页', subtitle: '功能导航与使用指引' },
   sqlConvert: { title: 'SQL 转换', subtitle: 'DDL / 函数 / 存储过程 AI 互转' },
   idTool: { title: '证件工具', subtitle: '身份证 / 统一社会信用代码' },
   ziweiTool: { title: '紫微斗数', subtitle: '命盘排盘与 AI 分析' },
@@ -56,7 +57,7 @@ const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = 
 
 export const useWorkbenchStore = defineStore('workbench', () => {
   // === Navigation State ===
-  const activePage = ref<WorkbenchPage>('sqlConvert')
+  const activePage = ref<WorkbenchPage>('home')
   const sidebarOpen = ref(false)
   const sidebarCollapsed = ref(false)
   const sidebarSettingsOpen = ref(false)

@@ -1,4 +1,4 @@
-import { downloadTextFileByDom, fallbackCopyTextByDom } from '../../utils/browser-dom'
+import { downloadTextFileByDom, fallbackCopyTextByDom } from './browser-dom'
 
 export function resolveSqlFileExtension(dbKey: unknown): 'mysql' | 'pgsql' | 'oracle' {
   if (dbKey === 'mysql') return 'mysql'

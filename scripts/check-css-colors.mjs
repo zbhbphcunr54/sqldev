@@ -12,6 +12,8 @@ const targets = [
   path.join(root, 'src/styles')
 ]
 
+const TOKEN_SOURCE_FILES = new Set(['tokens.css', 'skins.css'])
+
 const colorPattern =
   /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g
 
@@ -20,6 +22,7 @@ function collectFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const fullPath = path.join(dir, entry.name)
     if (entry.isDirectory()) return collectFiles(fullPath)
+    if (TOKEN_SOURCE_FILES.has(entry.name)) return []
     if (!/\.(css|vue)$/i.test(entry.name)) return []
     return [fullPath]
   })

@@ -17,13 +17,13 @@ const router = createRouter({
     },
     {
       path: '/workbench',
-      redirect: '/workbench/sql-convert'
+      redirect: '/workbench/home'
     },
     {
       path: '/workbench/:section',
       name: 'workbench',
       component: () => import('@/pages/workbench/index.vue'),
-      meta: { layout: 'workbench' }
+      meta: { requiresAuth: true, layout: 'workbench' }
     },
     {
       path: '/ai-config',

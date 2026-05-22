@@ -2,6 +2,8 @@ vendor/.playwright-cli/
 test-results/
 supabase/.temp/
 dist/
+package-lock.json
+_tmp_*
 supabase/functions/ziwei-analysis/index.legacy.ts
 supabase/functions/ziwei-analysis/index.rewrite.ts
 node_modules/

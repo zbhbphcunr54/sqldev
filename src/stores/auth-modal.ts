@@ -15,13 +15,13 @@ export const useAuthModalStore = defineStore('auth-modal', () => {
   const view = ref<AuthModalView>('login')
   const loginMode = ref<AuthLoginMode>('password')
   const message = ref('')
-  const redirectTo = ref('/workbench/ddl')
+  const redirectTo = ref('/workbench/home')
 
   function openModal(options: OpenAuthModalOptions = {}): void {
     open.value = true
     view.value = options.view ?? 'login'
     message.value = options.message ?? ''
-    redirectTo.value = options.redirectTo ?? '/workbench/ddl'
+    redirectTo.value = options.redirectTo ?? '/workbench/home'
   }
 
   function closeModal(): void {

@@ -7,16 +7,14 @@ create table if not exists public.convert_cache (
   from_db     text not null,
   to_db       text not null,
   input_hash  text not null,
-  rules_ver   text not null,
   output_sql  text not null,
   created_at  timestamptz not null default now(),
   hit_count   int not null default 0
 );
 
 comment on table public.convert_cache is 'SQL 转换结果缓存，由 Edge Function 管理，service_role 读写，前端不可直连';
-comment on column public.convert_cache.cache_key is '缓存键：kind|from_db|to_db|rules_ver|input_hash 拼接';
+comment on column public.convert_cache.cache_key is '缓存键：kind|from_db|to_db|input_hash 拼接';
 comment on column public.convert_cache.input_hash is '输入 SQL 的哈希值（SHA-256），用于去重';
-comment on column public.convert_cache.rules_ver is '规则版本号，规则变更时旧缓存自动失效';
 comment on column public.convert_cache.hit_count is '缓存命中次数，用于监控和清理低频缓存';
 
 alter table public.convert_cache enable row level security;

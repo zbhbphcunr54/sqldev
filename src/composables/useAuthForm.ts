@@ -111,7 +111,7 @@ export function useAuthForm() {
   async function finishLogin(successText = '登录成功'): Promise<void> {
     setStatus('success', successText)
     closeModal()
-    await router.push(redirectTo.value || '/workbench/ddl')
+    await router.push(redirectTo.value || '/workbench/home')
   }
 
   async function loginWithPassword(): Promise<void> {

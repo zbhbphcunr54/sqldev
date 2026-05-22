@@ -21,8 +21,8 @@ comment on table public.operation_logs is '用户操作日志，记录所有关�
 comment on column public.operation_logs.user_id is '操作用户 ID，未登录时为空';
 comment on column public.operation_logs.user_email is '操作用户邮箱快照，便于查询时直接展示（避免 join）';
 comment on column public.operation_logs.client_ip is '客户端 IP 地址，从请求头 X-Forwarded-For 或 CF-Connecting-IP 提取';
-comment on column public.operation_logs.operation is '操作类型，如 convert_ddl / convert_func / rule_save / feedback_submit / ziwei_ai_analysis 等';
-comment on column public.operation_logs.api_name is 'Edge Function 名称，如 convert / rules / feedback / ziwei-analysis';
+comment on column public.operation_logs.operation is '操作类型，如 convert_ddl / convert_func / feedback_submit / ziwei_ai_analysis 等';
+comment on column public.operation_logs.api_name is 'Edge Function 名称，如 sql-convert / feedback / ziwei-analysis';
 comment on column public.operation_logs.request_body is '上送报文（脱敏后），敏感字段（token/key/password）已移除';
 comment on column public.operation_logs.response_body is '返回报文（脱敏后），大型响应截断至前 2000 字符';
 comment on column public.operation_logs.response_status is 'HTTP 响应状态码，200/400/401/500 等';

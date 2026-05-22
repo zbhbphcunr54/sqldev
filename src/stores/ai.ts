@@ -16,7 +16,7 @@ interface CacheData {
 }
 
 function getCacheKey(userId: string | null): string {
-  return `sqldev:ai_config_cache:${userId ?? 'anonymous'}`
+  return `sqldev:ai:config-cache:${userId ?? 'anonymous'}`
 }
 
 function getSelectedKeyStorageKey(userId: string | null): string {
@@ -45,13 +45,6 @@ function clearSelections(userId: string | null): void {
   removeJson(getSelectedKeyStorageKey(userId))
 }
 
-function readSelectedFromStorage(userId: string | null): Record<string, string> {
-  return getJson<Record<string, string>>(getSelectedKeyStorageKey(userId), {})
-}
-
-function writeSelectedToStorage(userId: string | null, map: Record<string, string>): void {
-  setJson(getSelectedKeyStorageKey(userId), map)
-}
 
 export const useAiStore = defineStore('ai', () => {
   const providers = ref<AiProviderDef[]>([])
@@ -77,7 +70,6 @@ export const useAiStore = defineStore('ai', () => {
   )
   const hasActiveConfig = computed(() => !!activeConfig.value)
 
-  const selectedConfigId = ref<Record<string, string>>(readSelectedFromStorage(currentUserId.value))
 
   function restoreFromCache(): void {
     const cached = getCache(currentUserId.value)
@@ -88,9 +80,6 @@ export const useAiStore = defineStore('ai', () => {
     hasGlobalActive.value = cached.hasGlobalActive
   }
 
-  function persistSelection(): void {
-    writeSelectedToStorage(currentUserId.value, selectedConfigId.value)
-  }
 
   function setScope(scope: 'personal' | 'global'): void {
     activeScope.value = scope

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>A · 新中式水墨风</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --parchment:#f4ede3;--parchment2:#ebe3d5;--ink:#1a1a2e;--ink2:#2d2a3e;--ink3:#3d3850;
+  --gold:#b8952e;--gold-light:#d4b04a;--gold-glow:rgba(184,149,46,.18);
+  --vermilion:#b83a3a;--jade:#3a7a5a;--indigo:#4a6a9a;--violet:#6a4a8a;
+  --hua-lu:#b8952e;--hua-quan:#c06820;--hua-ke:#2a8a7a;--hua-ji:#b83a3a;
+  --text:#2a2018;--text2:#5a4a38;--text3:#8a7a68;
+  --serif:'Noto Serif SC',Georgia,'SimSun',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;
+}
+body{font-family:var(--sans);background:var(--parchment);color:var(--text);
+  max-width:430px;margin:0 auto;min-height:100dvh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 20% 0%,rgba(184,149,46,.06),transparent 50%),
+    radial-gradient(ellipse at 80% 100%,rgba(90,60,30,.04),transparent 50%)}
+/* Header */
+.hdr{background:linear-gradient(135deg,var(--ink) 0%,var(--ink2) 60%,var(--ink3) 100%);
+  padding:calc(env(safe-area-inset-top,20px)+6px) 16px 14px;color:#fff;position:relative}
+.hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hdr h1{font-family:var(--serif);font-size:18px;letter-spacing:5px;text-align:center;font-weight:400}
+.hdr small{display:block;text-align:center;font-size:9px;color:rgba(255,255,255,.35);letter-spacing:3px;margin-top:1px}
+/* Tabs */
+.tabs{display:flex;background:#fff;border-bottom:1px solid rgba(0,0,0,.06);position:sticky;top:0;z-index:10}
+.tabs button{flex:1;padding:10px 0;font-size:12px;color:var(--text3);border:none;background:none;
+  border-bottom:2px solid transparent;font-family:var(--sans);cursor:pointer;transition:all .2s}
+.tabs button.on{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+/* Panels */
+.panel{display:none;padding:12px}.panel.show{display:block}
+/* --- FORM --- */
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:11px;color:var(--text3);margin-bottom:4px;letter-spacing:.5px}
+.form-input,.form-select{width:100%;padding:9px 10px;border:1px solid rgba(0,0,0,.08);border-radius:8px;
+  background:#fff;font-size:13px;color:var(--text);font-family:var(--sans);appearance:none;outline:none}
+.form-select{background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7a68'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form-radio-group{display:flex;gap:8px}
+.form-radio{flex:1;display:flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid rgba(0,0,0,.08);
+  border-radius:8px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s}
+.form-radio.checked{border-color:var(--gold);background:var(--gold-glow)}
+.form-radio .dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(0,0,0,.15)}
+.form-radio.checked .dot{border-color:var(--gold);background:var(--gold);box-shadow:inset 0 0 0 3px #fff}
+.btn-primary{width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:600;
+  font-family:var(--serif);letter-spacing:2px;cursor:pointer;
+  background:linear-gradient(135deg,var(--ink),var(--ink2));color:#fff;margin-bottom:8px}
+.btn-outline{width:100%;padding:10px;border:1px solid rgba(0,0,0,.1);border-radius:8px;
+  background:none;font-size:12px;color:var(--text2);cursor:pointer}
+.step-bar{display:flex;align-items:center;gap:4px;padding:10px;background:#fff;border-radius:8px;margin-bottom:12px}
+.step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:600;border:1px solid rgba(0,0,0,.1);color:var(--text3)}
+.step-num.done{background:var(--jade);color:#fff;border-color:var(--jade)}
+.step-num.cur{background:var(--gold-glow);color:var(--gold);border-color:var(--gold)}
+.step-txt{font-size:9px;color:var(--text3)}.step-line{flex:1;height:1px;background:rgba(0,0,0,.06)}
+/* --- CHART 三方四正 --- */
+.chart-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,auto);gap:2px;margin-bottom:12px}
+.cell{background:#fff;border:1px solid rgba(0,0,0,.06);padding:5px 4px;min-height:72px;position:relative;
+  border-radius:3px;overflow:hidden}
+.cell.ming{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold-glow);background:linear-gradient(135deg,#fff,rgba(184,149,46,.04))}
+.cell.shen{border-color:var(--jade);background:linear-gradient(135deg,#fff,rgba(58,122,90,.03))}
+.cell .badge{position:absolute;top:2px;right:3px;font-size:7px;color:#fff;width:14px;height:14px;
+  display:flex;align-items:center;justify-content:center;border-radius:50%}
+.cell .badge.m{background:var(--gold)}.cell .badge.s{background:var(--jade)}
+.cell .pname{font-family:var(--serif);font-size:10px;font-weight:600;line-height:1.2;margin-bottom:1px}
+.cell .gz{font-size:7px;color:var(--text3);margin-bottom:3px}
+.cell .stars{display:flex;flex-wrap:wrap;gap:1px 3px;margin-bottom:2px}
+.cell .star{font-size:8px;font-weight:600}
+.cell .star sup{font-size:6px;font-weight:400;margin-left:0.5px}
+.cell .star.miao{color:var(--gold)}.cell .star.wang{color:#c07020}.cell .star.de{color:var(--indigo)}
+.cell .star.xian{color:var(--vermilion)}.cell .star.norm{color:var(--text)}
+.cell .aux{font-size:7px;color:var(--text3);line-height:1.3}
+.cell .hua{display:flex;gap:2px;margin-top:2px}
+.cell .ht{font-size:6px;padding:1px 3px;border-radius:2px;font-weight:600}
+.cell .ht.lu{color:var(--hua-lu);background:rgba(184,149,46,.1)}
+.cell .ht.quan{color:var(--hua-quan);background:rgba(192,104,32,.1)}
+.cell .ht.ke{color:var(--hua-ke);background:rgba(42,138,122,.1)}
+.cell .ht.ji{color:var(--hua-ji);background:rgba(184,58,58,.1)}
+/* Center */
+.center{grid-column:2/4;grid-row:2/4;background:linear-gradient(135deg,var(--ink),var(--ink2));
+  color:#fff;border-radius:4px;padding:10px;display:flex;flex-direction:column;justify-content:center;
+  border:1px solid rgba(184,149,46,.3);position:relative;overflow:hidden}
+.center::before{content:'紫微';position:absolute;top:4px;right:6px;font-family:var(--serif);
+  font-size:36px;opacity:.04;letter-spacing:4px}
+.center .cname{font-family:var(--serif);font-size:14px;letter-spacing:1px;margin-bottom:1px}
+.center .cmeta{font-size:9px;color:rgba(255,255,255,.4);margin-bottom:8px}
+.center .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.center .ci{text-align:center}
+.center .ci .v{font-size:11px;color:var(--gold-light);font-weight:600}
+.center .ci .l{font-size:7px;color:rgba(255,255,255,.35)}
+.center .cdiv{grid-column:1/-1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);margin:3px 0}
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 4px;font-size:8px;color:var(--text3);margin-bottom:8px}
+.legend i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:2px;vertical-align:middle}
+/* 四化 Summary */
+.hua-summary{background:#fff;border-radius:8px;padding:10px;margin-bottom:12px;border:1px solid rgba(0,0,0,.04)}
+.hua-row{display:flex;align-items:center;gap:6px;padding:6px 0;font-size:11px}
+.hua-row:not(:last-child){border-bottom:1px solid rgba(0,0,0,.03)}
+.hua-layer{font-size:9px;color:#fff;padding:2px 6px;border-radius:3px;min-width:36px;text-align:center;font-weight:500}
+.hua-layer.birth{background:var(--gold)}.hua-layer.dx{background:var(--indigo)}.hua-layer.ln{background:var(--violet)}
+.hua-tags{display:flex;gap:3px;flex-wrap:wrap}
+.hua-tag{font-size:10px;padding:2px 5px;border-radius:3px;font-weight:500}
+.hua-tag.lu{color:var(--hua-lu);background:rgba(184,149,46,.08)}.hua-tag.quan{color:var(--hua-quan);background:rgba(192,104,32,.08)}
+.hua-tag.ke{color:var(--hua-ke);background:rgba(42,138,122,.08)}.hua-tag.ji{color:var(--hua-ji);background:rgba(184,58,58,.08)}
+/* --- AI 解读 --- */
+.sec-title{display:flex;align-items:center;gap:6px;margin:12px 0 8px}
+.sec-title::before{content:'';width:3px;height:14px;background:var(--gold);border-radius:2px}
+.sec-title span{font-family:var(--serif);font-size:13px;letter-spacing:1px}
+.sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(0,0,0,.06),transparent)}
+.ai-sub-tabs{display:flex;gap:4px;margin-bottom:10px}
+.ai-sub-tabs button{padding:6px 14px;border:1px solid rgba(0,0,0,.08);border-radius:6px;background:#fff;
+  font-size:11px;color:var(--text3);cursor:pointer;font-family:var(--sans)}
+.ai-sub-tabs button.on{border-color:var(--gold);color:var(--gold);background:var(--gold-glow)}
+.ai-card{background:#fff;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid rgba(0,0,0,.04);
+  box-shadow:0 1px 3px rgba(0,0,0,.02)}
+.ai-card.hero{border-left:3px solid var(--gold)}
+.ai-card h4{font-family:var(--serif);font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.ai-card h4 .idx{font-size:9px;color:#fff;background:var(--gold);padding:2px 6px;border-radius:3px}
+.ai-card p{font-size:12px;color:var(--text2);line-height:1.7}
+.ai-card .meta{margin-top:8px;padding-top:8px;border-top:1px dashed rgba(0,0,0,.06)}
+.ai-card .meta-label{font-size:10px;color:var(--text3);margin-bottom:3px}
+.ai-card .meta-list{font-size:11px;color:var(--text2);line-height:1.6}
+.ai-card.section{border-left:3px solid var(--indigo)}
+.ai-card.year{border-left:3px solid var(--violet)}
+.ai-card.action{border-left:3px solid var(--jade)}
+/* QA */
+.qa-input-wrap{display:flex;gap:6px;margin-bottom:12px}
+.qa-input{flex:1;padding:10px;border:1px solid rgba(0,0,0,.08);border-radius:8px;font-size:13px;
+  background:#fff;font-family:var(--sans);outline:none}
+.qa-btn{padding:10px 16px;border:none;border-radius:8px;background:var(--ink);color:#fff;font-size:12px;cursor:pointer}
+.qa-q{font-size:12px;color:var(--text3);margin-bottom:6px;padding:8px;background:rgba(0,0,0,.02);
+  border-radius:6px;border-left:2px solid var(--text3)}
+.qa-card{background:#fff;border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid var(--indigo);
+  border-top:1px solid rgba(0,0,0,.03)}
+.qa-card h5{font-size:12px;font-weight:600;margin-bottom:4px;color:var(--indigo)}
+.qa-card p{font-size:12px;color:var(--text2);line-height:1.7}
+.qa-lead{border-left-color:var(--gold)}
+.qa-lead h5{color:var(--gold)}
+/* Footer */
+.foot{text-align:center;padding:16px;font-size:9px;color:var(--text3);letter-spacing:1px;
+  padding-bottom:calc(16px+env(safe-area-inset-bottom,0px))}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>紫 微 斗 数</h1><small>ZIWEI ASTROLOGY</small></div>
+<div class="tabs">
+  <button class="on" onclick="sw(0)">输入信息</button>
+  <button onclick="sw(1)">命盘</button>
+  <button onclick="sw(2)">AI 解读</button>
+  <button onclick="sw(3)">AI 问答</button>
+</div>
+
+<!-- ====== 输入信息 ====== -->
+<div class="panel show" id="p0">
+  <div class="step-bar">
+    <span class="step-num cur">1</span><span class="step-txt">填写信息</span>
+    <span class="step-line"></span>
+    <span class="step-num">2</span><span class="step-txt">排盘</span>
+    <span class="step-line"></span>
+    <span class="step-num">3</span><span class="step-txt">AI解读</span>
+  </div>
+  <button class="btn-primary">排 盘</button>
+  <button class="btn-outline" style="margin-bottom:12px">清除</button>
+  <div class="form-group"><label>命主名称</label><input class="form-input" placeholder="选填，用于命盘标注"></div>
+  <div class="form-group"><label>历注输入</label><select class="form-select"><option>公历</option><option>农历</option></select></div>
+  <div class="form-group"><label>出生年份</label><select class="form-select"><option>1990</option></select></div>
+  <div class="form-row">
+    <div class="form-group"><label>月</label><select class="form-select"><option>06</option></select></div>
+    <div class="form-group"><label>日</label><select class="form-select"><option>15</option></select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>时</label><select class="form-select"><option>12</option></select></div>
+    <div class="form-group"><label>分</label><select class="form-select"><option>00</option></select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>省份</label><select class="form-select"><option>浙江</option></select></div>
+    <div class="form-group"><label>城市</label><select class="form-select"><option>杭州</option></select></div>
+  </div>
+  <div style="padding:8px 10px;background:#fff;border-radius:6px;font-size:10px;color:var(--text3);margin-bottom:10px;border:1px solid rgba(0,0,0,.04)">
+    经度：120.16° · 真太阳时模式
+  </div>
+  <div class="form-group">
+    <label>性别</label>
+    <div class="form-radio-group">
+      <div class="form-radio checked"><span class="dot"></span>男</div>
+      <div class="form-radio"><span class="dot"></span>女</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 命盘 三方四正 ====== -->
+<div class="panel" id="p1">
+  <div class="chart-grid">
+    <!-- Row 0: 寅 卯 辰 巳 -->
+    <div class="cell"><div class="pname">福德宫</div><div class="gz">寅·丙寅</div><div class="stars"><span class="star miao">太阴<sup>庙</sup></span></div><div class="aux">龙池·凤阁</div><div class="hua"><span class="ht ji">忌</span></div></div>
+    <div class="cell"><div class="pname">田宅宫</div><div class="gz">卯·丁卯</div><div class="stars"><span class="star wang">贪狼<sup>旺</sup></span></div><div class="aux">天喜·华盖</div><div class="hua"><span class="ht quan">权</span><span class="ht lu">禄</span></div></div>
+    <div class="cell"><div class="pname">官禄宫</div><div class="gz">辰·戊辰</div><div class="stars"><span class="star miao">天同<sup>庙</sup></span><span class="star de">天梁<sup>得</sup></span></div><div class="aux">文昌</div><div class="hua"><span class="ht ke">科</span></div></div>
+    <div class="cell"><div class="pname">交友宫</div><div class="gz">巳·己巳</div><div class="stars"><span class="star norm">武曲</span><span class="star de">天相<sup>得</sup></span></div><div class="aux">右弼·天钺</div></div>
+    <!-- Row 1: 子 [center] [center] 午 -->
+    <div class="cell ming"><div class="badge m">命</div><div class="pname">命宫</div><div class="gz">子·甲子</div><div class="stars"><span class="star miao">紫微<sup>庙</sup></span><span class="star wang">天府<sup>旺</sup></span></div><div class="aux">左辅·文昌·天魁</div><div class="hua"><span class="ht lu">禄</span><span class="ht ke">科</span></div></div>
+    <div class="center">
+      <div class="cname">张三丰</div>
+      <div class="cmeta">甲子年 六月十五 午时 · 男命</div>
+      <div class="cgrid">
+        <div class="ci"><div class="v">廉贞</div><div class="l">命主</div></div>
+        <div class="ci"><div class="v">天机</div><div class="l">身主</div></div>
+        <div class="ci"><div class="v">水二局</div><div class="l">五行</div></div>
+        <div class="cdiv"></div>
+        <div class="ci"><div class="v">32-41</div><div class="l">大限</div></div>
+        <div class="ci"><div class="v">甲辰</div><div class="l">流年</div></div>
+        <div class="ci"><div class="v">35岁</div><div class="l">虚岁</div></div>
+      </div>
+    </div>
+    <div class="cell shen"><div class="badge s">身</div><div class="pname">迁移宫</div><div class="gz">午·庚午</div><div class="stars"><span class="star wang">太阳<sup>旺</sup></span><span class="star xian">巨门<sup>陷</sup></span></div><div class="aux">禄存·擎羊</div><div class="hua"><span class="ht quan">权</span></div></div>
+    <!-- Row 2: 亥 [center cont] [center cont] 未 -->
+    <div class="cell"><div class="pname">兄弟宫</div><div class="gz">亥·乙亥</div><div class="stars"><span class="star de">天同<sup>得</sup></span></div><div class="aux">天姚·红鸾</div></div>
+    <div class="cell"><div class="pname">疾厄宫</div><div class="gz">未·辛未</div><div class="stars"><span class="star de">七杀<sup>得</sup></span></div><div class="aux">地劫·天哭</div></div>
+    <!-- Row 3: 戌 酉 申 丑 -->
+    <div class="cell"><div class="pname">夫妻宫</div><div class="gz">戌·甲戌</div><div class="stars"><span class="star de">天机<sup>得</sup></span></div><div class="aux">天刑·寡宿</div><div class="hua"><span class="ht ji">忌</span></div></div>
+    <div class="cell"><div class="pname">子女宫</div><div class="gz">酉·癸酉</div><div class="stars"><span class="star xian">天梁<sup>陷</sup></span></div><div class="aux">孤辰·天虚</div></div>
+    <div class="cell"><div class="pname">财帛宫</div><div class="gz">申·壬申</div><div class="stars"><span class="star wang">廉贞<sup>旺</sup></span><span class="star miao">破军<sup>庙</sup></span></div><div class="aux">陀罗·天马</div><div class="hua"><span class="ht lu">禄</span></div></div>
+    <div class="cell"><div class="pname">父母宫</div><div class="gz">丑·乙丑</div><div class="stars"><span class="star de">天机<sup>得</sup></span><span class="star miao">太阴<sup>庙</sup></span></div><div class="aux">文曲·铃星</div></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--gold)"></i>庙</span>
+    <span><i style="background:#c07020"></i>旺</span>
+    <span><i style="background:var(--indigo)"></i>得/利</span>
+    <span><i style="background:var(--vermilion)"></i>陷</span>
+    <span><i style="background:var(--hua-lu)"></i>禄</span>
+    <span><i style="background:var(--hua-quan)"></i>权</span>
+    <span><i style="background:var(--hua-ke)"></i>科</span>
+    <span><i style="background:var(--hua-ji)"></i>忌</span>
+  </div>
+  <div class="sec-title"><span>三层四化</span></div>
+  <div class="hua-summary">
+    <div class="hua-row"><span class="hua-layer birth">生年</span><div class="hua-tags"><span class="hua-tag lu">廉贞化禄</span><span class="hua-tag quan">破军化权</span><span class="hua-tag ke">武曲化科</span><span class="hua-tag ji">太阳化忌</span></div></div>
+    <div class="hua-row"><span class="hua-layer dx">大限</span><div class="hua-tags"><span class="hua-tag lu">天梁化禄</span><span class="hua-tag quan">紫微化权</span><span class="hua-tag ke">左辅化科</span><span class="hua-tag ji">武曲化忌</span></div></div>
+    <div class="hua-row"><span class="hua-layer ln">流年</span><div class="hua-tags"><span class="hua-tag lu">廉贞化禄</span><span class="hua-tag quan">破军化权</span><span class="hua-tag ke">武曲化科</span><span class="hua-tag ji">太阳化忌</span></div></div>
+  </div>
+</div>
+
+<!-- ====== AI 解读 ====== -->
+<div class="panel" id="p2">
+  <div class="ai-sub-tabs">
+    <button class="on">AI 解读</button>
+    <button>问答</button>
+  </div>
+  <div class="ai-card hero">
+    <h4>总体结论</h4>
+    <p>命主紫微天府同守命宫于庙旺之地，格局端正、主导力强。廉贞化禄入财帛宫，一生财源可期但需防贪狼化权带来的冲动投资。太阳化忌在迁移宫，外出发展需谨慎人际关系。</p>
+    <div style="display:flex;gap:4px;margin-top:8px">
+      <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(74,106,154,.08);color:var(--indigo)">长期倾向</span>
+      <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(106,74,138,.08);color:var(--violet)">阶段表现</span>
+      <span style="font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(184,149,46,.08);color:var(--gold)">行动导向</span>
+    </div>
+  </div>
+  <div class="ai-card section">
+    <h4><span class="idx">01</span>事业与能力</h4>
+    <p>紫微坐命，天生领导气质，适合管理层或独立创业。天府旺度加持，理财能力突出，资源整合力强。</p>
+    <div class="meta"><div class="meta-label">命盘证据</div><div class="meta-list">紫微庙坐命 · 天府旺 · 左辅同宫</div></div>
+    <div class="meta"><div class="meta-label">建议</div><div class="meta-list">35-41岁大限内适合拓展事业版图</div></div>
+  </div>
+  <div class="ai-card section" style="border-left-color:var(--jade)">
+    <h4><span class="idx" style="background:var(--jade)">02</span>财运分析</h4>
+    <p>廉贞化禄入财帛宫，正财稳健；破军庙坐守，偏财运势亦可。但武曲化忌在大限四化，32-41岁间需防大额亏损。</p>
+    <div class="meta"><div class="meta-label">命盘证据</div><div class="meta-list">廉贞化禄·破军庙·武曲化忌(大限)</div></div>
+  </div>
+  <div class="ai-card year">
+    <h4><span class="idx" style="background:var(--violet)">YR</span>当前阶段重点</h4>
+    <p>甲辰流年命宫化禄，本年整体运势上扬。流年四化与生年四化叠加，双禄加身，是拓展资源的黄金期。</p>
+    <div class="meta"><div class="meta-label">机遇</div><div class="meta-list">人脉拓展 · 晋升窗口 · 副业启动</div></div>
+    <div class="meta"><div class="meta-label">风险</div><div class="meta-list">太阳化忌迁移，远行谨慎</div></div>
+  </div>
+  <div class="ai-card action">
+    <h4><span class="idx" style="background:var(--jade)">DO</span>接下来怎么做</h4>
+    <div class="meta-list" style="font-size:12px;color:var(--text2);line-height:1.8">
+      ✦ 把握35岁前后的事业窗口期<br>
+      ✦ 大额投资决策需多方咨询<br>
+      ✦ 外出合作注意契约细节<br>
+      ✦ 关注健康，疾厄宫七杀提示注意肝胆
+    </div>
+  </div>
+  <div style="padding:10px;background:rgba(0,0,0,.02);border-radius:6px;font-size:10px;color:var(--text3);text-align:center">
+    以上解读仅供参考，紫微斗数为传统命理学，不构成任何决策依据。
+  </div>
+</div>
+
+<!-- ====== AI 问答 ====== -->
+<div class="panel" id="p3">
+  <div class="qa-input-wrap">
+    <input class="qa-input" placeholder="输入您的问题..." value="我今年适合跳槽吗？">
+    <button class="qa-btn">提问</button>
+  </div>
+  <div class="qa-q">Q: 我今年适合跳槽吗？</div>
+  <div class="qa-card qa-lead">
+    <h5>核心结论</h5>
+    <p>甲辰流年整体利于变动，但需择时。上半年（流年命宫化禄期间）更适合主动出击，下半年宜稳守。跳槽可行，但建议在获得明确 offer 后再行动，不宜裸辞。</p>
+  </div>
+  <div class="qa-card">
+    <h5>事业</h5>
+    <p>官禄宫天同天梁组合主安稳，适合体制内或大企业。若跳槽方向仍是稳定行业，成功率更高。创业类冒险方向本年不建议。</p>
+  </div>
+  <div class="qa-card" style="border-left-color:var(--jade)">
+    <h5>财运</h5>
+    <p>跳槽涨薪幅度可期，廉贞化禄加持财帛宫。但武曲大限化忌提醒：新工作的股权/期权承诺需仔细评估，避免纸面富贵。</p>
+  </div>
+  <div class="qa-card" style="border-left-color:var(--violet)">
+    <h5>建议</h5>
+    <p>最佳窗口：农历三月至五月。面试时注意太阳化忌的影响——与面试官的第一印象管理尤为重要，准备充分再出手。</p>
+  </div>
+</div>
+
+<div class="foot">Dev Studio · 紫微斗数 · 新中式水墨风</div>
+
+<script>
+function sw(n){
+  document.querySelectorAll('.panel').forEach((p,i)=>{p.classList.toggle('show',i===n)});
+  document.querySelectorAll('.tabs button').forEach((b,i)=>{b.classList.toggle('on',i===n)});
+}
+</script>
+</body>
+</html>

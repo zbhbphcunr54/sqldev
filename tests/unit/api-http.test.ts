@@ -34,7 +34,7 @@ describe('invokeEdgeFunction', () => {
   })
 
   it('maps 401 responses to a sanitized ApiError', async () => {
-    const { invokeEdgeFunction } = await import('@/api/http')
+    const { invokeEdgeFunction } = await import('@/lib/edge')
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -52,7 +52,7 @@ describe('invokeEdgeFunction', () => {
   })
 
   it('maps 429 responses to rate limit errors', async () => {
-    const { invokeEdgeFunction } = await import('@/api/http')
+    const { invokeEdgeFunction } = await import('@/lib/edge')
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -70,7 +70,7 @@ describe('invokeEdgeFunction', () => {
   })
 
   it('maps 500 responses to safe fallback messages', async () => {
-    const { invokeEdgeFunction } = await import('@/api/http')
+    const { invokeEdgeFunction } = await import('@/lib/edge')
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -90,7 +90,7 @@ describe('invokeEdgeFunction', () => {
   it('aborts hanging requests after the configured timeout', async () => {
     vi.useFakeTimers()
     vi.stubEnv('VITE_API_TIMEOUT_MS', '25')
-    const { invokeEdgeFunction } = await import('@/api/http')
+    const { invokeEdgeFunction } = await import('@/lib/edge')
     vi.stubGlobal(
       'fetch',
       vi.fn((_url: string, init?: RequestInit) => {

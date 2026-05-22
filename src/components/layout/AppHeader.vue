@@ -30,7 +30,7 @@ async function handleSignOut() {
 }
 
 function openLoginModal() {
-  authModal.openModal({ redirectTo: route.fullPath || '/workbench/ddl' })
+  authModal.openModal({ redirectTo: route.fullPath || '/workbench/home' })
 }
 
 function handleClickOutside(e: MouseEvent): void {

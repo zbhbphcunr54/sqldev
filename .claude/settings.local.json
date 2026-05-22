@@ -53,7 +53,23 @@
       "Bash(node tests/smoke.mjs)",
       "Bash(npx vite *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node tests/run-all.mjs)",
+      "Bash(node scripts/check-css-colors.mjs)",
+      "Bash(node scripts/check-utf8.mjs)",
+      "Bash(node -e \"console.log\\(typeof globalThis.localStorage\\)\")",
+      "Bash(node -e \"console.log\\(typeof localStorage\\)\")",
+      "Bash(node --experimental-global-webcrypto -e \"console.log\\(typeof localStorage\\)\")",
+      "Bash(node ./scripts/check-css-colors.mjs)",
+      "WebSearch",
+      "WebFetch(domain:www.claudedirectory.org)",
+      "Bash(node tests/navigation-page-state.mjs)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(tasklist)",
+      "Bash(timeout 8 bash -c 'npx vite --host 2>&1')",
+      "Bash(curl -s http://localhost:5174)",
+      "Bash(node scripts/check-css-colors.mjs --update)",
+      "Bash(git stash *)"
     ]
   }
 }

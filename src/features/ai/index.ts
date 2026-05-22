@@ -1,3 +1,2 @@
-// [2026-04-30] 新增：AI 模块 barrel export
-export * from './types'
-export * from './constants'
+export type { AiProviderDef, AiProviderConfig, AiConfigPayload, TestResult, ProviderFilterTab, ConfigStatus } from './types'
+export { PROVIDER_FILTER_TABS, REGION_MAP, DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS, MAX_CONFIGS_GLOBAL } from './constants'

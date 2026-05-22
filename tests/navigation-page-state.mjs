@@ -8,7 +8,7 @@ function assertEqual(actual, expected, message) {
   }
 }
 
-const routePageKeys = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool', 'rules', 'bodyRules']
+const routePageKeys = ['ddl', 'func', 'proc', 'idTool', 'ziweiTool']
 
 assertEqual(
   pageState.normalizeLegacyPageKey('unknown', routePageKeys, 'ddl'),

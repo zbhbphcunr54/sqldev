@@ -25,8 +25,26 @@ defineProps<{
     :class="$props.class"
     class="icon"
   >
+    <!-- Home / 首页 -->
+    <template v-if="name === 'home'">
+      <path
+        d="M3 10L10 3L17 10"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M5 8.5V16C5 16.5523 5.44772 17 6 17H9V12H11V17H14C14.5523 17 15 16.5523 15 16V8.5"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </template>
+
     <!-- Grid / Squares-2x2 -->
-    <template v-if="name === 'grid'">
+    <template v-else-if="name === 'grid'">
       <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" />
       <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" />
       <rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" />

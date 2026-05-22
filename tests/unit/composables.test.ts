@@ -5,40 +5,39 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useAuth } from '@/composables/useAuth'
-import { useThemeRuntime } from '@/composables/useThemeRuntime'
 
-function installDomMocks(options: { storedTheme?: string | null; systemDark?: boolean } = {}) {
+function installDomMocks(options: {
+  storedTheme?: string | null
+  storageKey?: string
+  systemDark?: boolean
+} = {}) {
   const attributes = new Map<string, string>()
   const classState = new Set<string>()
   const storage = new Map<string, string>()
-  if (options.storedTheme) storage.set('sqldev:theme', options.storedTheme)
-
-  const mediaQuery = {
-    matches: options.systemDark ?? false,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn()
-  }
+  const key = options.storageKey ?? 'sqldev:app:theme'
+  if (options.storedTheme) storage.set(key, JSON.stringify(options.storedTheme))
 
   vi.stubGlobal('document', {
     documentElement: {
-      setAttribute: (key: string, value: string) => attributes.set(key, value),
+      setAttribute: (k: string, value: string) => attributes.set(k, value),
       classList: {
-        toggle: (key: string, enabled: boolean) => {
-          if (enabled) classState.add(key)
-          else classState.delete(key)
+        toggle: (k: string, enabled: boolean) => {
+          if (enabled) classState.add(k)
+          else classState.delete(k)
         }
       }
     }
   })
-  vi.stubGlobal('window', {
-    localStorage: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value)
-    },
-    matchMedia: vi.fn(() => mediaQuery)
-  })
 
-  return { attributes, classState, storage, mediaQuery }
+  const localStorageStub = {
+    getItem: (k: string) => storage.get(k) ?? null,
+    setItem: (k: string, value: string) => storage.set(k, value),
+    removeItem: (k: string) => storage.delete(k)
+  }
+  vi.stubGlobal('localStorage', localStorageStub)
+  vi.stubGlobal('window', { localStorage: localStorageStub })
+
+  return { attributes, classState, storage }
 }
 
 describe('useAsyncState', () => {
@@ -87,12 +86,15 @@ describe('useThemeRuntime', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.unstubAllGlobals()
+    vi.resetModules()
   })
 
   it('hydrates stored theme and applies it to the document', async () => {
     const { attributes, classState, storage } = installDomMocks({ storedTheme: 'dark' })
+    storage.set('sqldev:app:theme-touched', JSON.stringify(true))
     const appStore = useAppStore()
 
+    const { useThemeRuntime } = await import('@/composables/useThemeRuntime')
     useThemeRuntime()
     await nextTick()
 
@@ -102,25 +104,36 @@ describe('useThemeRuntime', () => {
 
     appStore.setTheme('light')
     await nextTick()
-    expect(storage.get('sqldev:theme')).toBe('light')
+    expect(storage.get('sqldev:app:theme')).toBe(JSON.stringify('light'))
     expect(attributes.get('data-theme')).toBe('light')
     expect(classState.has('dark')).toBe(false)
   })
 
-  it('follows system theme changes when theme mode is system', async () => {
-    const { attributes, mediaQuery } = installDomMocks({ systemDark: true })
+  it('defaults to light when no stored theme exists', async () => {
+    const { attributes, classState } = installDomMocks()
     const appStore = useAppStore()
 
+    const { useThemeRuntime } = await import('@/composables/useThemeRuntime')
     useThemeRuntime()
     await nextTick()
 
-    expect(attributes.get('data-theme')).toBe('dark')
-    const handler = mediaQuery.addEventListener.mock.calls[0]?.[1] as () => void
-    mediaQuery.matches = false
-    handler()
+    expect(appStore.themeMode).toBe('light')
+    expect(attributes.get('data-theme')).toBe('light')
+    expect(classState.has('dark')).toBe(false)
+  })
+
+  it('normalizes legacy "system" stored value to light', async () => {
+    const { attributes } = installDomMocks({
+      storedTheme: 'system',
+      storageKey: 'sqldev:theme'
+    })
+    const appStore = useAppStore()
+
+    const { useThemeRuntime } = await import('@/composables/useThemeRuntime')
+    useThemeRuntime()
     await nextTick()
 
-    expect(appStore.themeMode).toBe('system')
+    expect(appStore.themeMode).toBe('light')
     expect(attributes.get('data-theme')).toBe('light')
   })
 })

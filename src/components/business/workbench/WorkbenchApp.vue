@@ -73,6 +73,10 @@ const OperationLogsPage = defineAsyncComponent({
   ...asyncPageOptions,
   loader: () => import('./pages/OperationLogsPage.vue')
 })
+const HomePage = defineAsyncComponent({
+  ...asyncPageOptions,
+  loader: () => import('./pages/HomePage.vue')
+})
 
 import AlertModal from './modals/AlertModal.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
@@ -81,6 +85,7 @@ const store = useWorkbenchStore()
 const auth = useAuth()
 const ziweiCacheScope = computed(() => auth.user.value?.id ?? 'guest')
 const activePageComponent = computed(() => {
+  if (store.activePage === 'home') return HomePage
   if (store.activePage === 'sqlConvert') return SqlConvertPage
   if (store.activePage === 'idTool') return IdToolPage
   if (store.activePage === 'ziweiTool') {
@@ -109,7 +114,7 @@ onMounted(() => {
 
     <!-- 移动端汉堡按钮 -->
     <button
-      class="wb-hamburger hidden"
+      class="wb-hamburger"
       :class="{ 'wb-hamburger--open': store.sidebarOpen }"
       aria-label="切换导航菜单"
       @click="store.sidebarOpen = !store.sidebarOpen"
@@ -222,7 +227,7 @@ onMounted(() => {
   z-index: 110;
   width: 44px;
   height: 44px;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);

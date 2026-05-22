@@ -504,7 +504,7 @@ Deno.serve(async (req: Request) => {
                 ai_ratio: result?.ai_ratio,
                 phase_timings: phaseTimings
               }
-            }).catch(() => {})
+            }).catch((e: unknown) => { console.warn('[sql-convert] log failed:', e) })
 
             controller.enqueue(encodeSseEvent('done', {
               output_sql: result?.converted_sql ?? decodeEscapedSqlText(rawSql),
@@ -554,7 +554,7 @@ Deno.serve(async (req: Request) => {
                 temperature: config.temperature,
                 phase_timings: phaseTimings
               }
-            }).catch(() => {})
+            }).catch((e: unknown) => { console.warn('[sql-convert] log failed:', e) })
 
             controller.enqueue(encodeSseEvent('error', { error: code }))
             controller.close()
@@ -607,7 +607,7 @@ Deno.serve(async (req: Request) => {
         ai_ratio: result?.ai_ratio,
         phase_timings: phaseTimings
       }
-    }).catch(() => {})
+    }).catch((e: unknown) => { console.warn('[sql-convert] log failed:', e) })
 
     return jsonResponse(
       200,
@@ -661,7 +661,7 @@ Deno.serve(async (req: Request) => {
         temperature: config.temperature,
         phase_timings: phaseTimings
       }
-    }).catch(() => {})
+    }).catch((e: unknown) => { console.warn('[sql-convert] log failed:', e) })
 
     return errorResponse(code === 'ai_timeout' ? 504 : 502, code, corsHeaders)
   }

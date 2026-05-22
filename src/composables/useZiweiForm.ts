@@ -376,7 +376,7 @@ export function useZiweiForm() {
       },
       response_body: responseBody,
       error_message: errorMessage
-    }).catch(() => {})
+    }).catch((e: unknown) => { console.warn('[ziwei-form] log failed:', e) })
   }
 
   async function handleGenerate(): Promise<void> {

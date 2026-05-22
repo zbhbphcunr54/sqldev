@@ -13,8 +13,6 @@ INSERT INTO app_configs (category, key, value, value_type, is_active) VALUES
 ('rate_limit', 'ziwei_window_ms', '60000', 'number', true),
 ('rate_limit', 'feedback_requests', '10', 'number', true),
 ('rate_limit', 'feedback_window_ms', '60000', 'number', true),
-('rate_limit', 'rules_requests', '10', 'number', true),
-('rate_limit', 'rules_window_ms', '60000', 'number', true),
 ('rate_limit', 'store_mode', 'kv', 'string', true);
 
 -- 功能配置

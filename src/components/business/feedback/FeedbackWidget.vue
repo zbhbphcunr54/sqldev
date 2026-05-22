@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { submitFeedback, type FeedbackRequest } from '@/api/feedback'
+import { submitFeedback, warmupFeedback, type FeedbackRequest } from '@/api/feedback'
 import { ApiError } from '@/api/http'
 import { mapErrorCodeToMessage } from '@/utils/error-map'
 import FormSelect from '@/components/common/FormSelect.vue'
@@ -38,17 +38,11 @@ const categoryOptions: { label: string; value: FeedbackRequest['category'] }[] =
   { label: '其他', value: 'other' }
 ]
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-
 watch(open, (isOpen) => {
   document.body.classList.toggle('feedback-open', isOpen)
   if (isOpen) {
     status.value = { type: 'idle', text: '' }
-    if (supabaseUrl) {
-      fetch(`${supabaseUrl}/functions/v1/feedback`, { method: 'OPTIONS' }).catch(() => {
-        // Warmup failure is non-critical; user may still submit successfully
-      })
-    }
+    warmupFeedback()
   }
 })
 

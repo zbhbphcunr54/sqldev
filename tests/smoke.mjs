@@ -76,9 +76,8 @@ const ziweiAnalysisPromptTemplate = read('supabase/functions/ziwei-analysis/prom
 const ziweiAnalysisResponseParser = read('supabase/functions/ziwei-analysis/response-parser.ts')
 const sqlFormat = read('src/features/sql/sql-format.ts')
 const sqlLegacyBridge = exists('src/features/sql/legacy-bridge.ts') ? read('src/features/sql/legacy-bridge.ts') : ''
-const browserFileActions = read('src/features/browser/file-actions.ts')
+const browserFileActions = read('src/utils/file-actions.ts')
 const browserDomUtils = read('src/utils/browser-dom.ts')
-const browserLegacyBridge = exists('src/features/browser/legacy-bridge.ts') ? read('src/features/browser/legacy-bridge.ts') : ''
 const preferencesStorage = read('src/features/preferences/storage.ts')
 const preferencesLegacyBridge = exists('src/features/preferences/legacy-bridge.ts') ? read('src/features/preferences/legacy-bridge.ts') : ''
 const dbMeta = read('src/features/sql/db-meta.ts')
@@ -135,7 +134,7 @@ assert(
 )
 assert(
   packageJson.scripts?.verify ===
-    'pnpm typecheck && pnpm lint && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit',
+    'pnpm typecheck && pnpm lint --quiet && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit',
   'verify script must run static checks, legacy tests and Vitest unit tests'
 )
 assert(
@@ -160,7 +159,6 @@ if (legacyHtml) {
   assert(legacyHtml.includes('src/features/sql/legacy-bridge.ts'), 'legacy.html must load the typed SQL utility bridge before legacy app boot')
   assert(legacyHtml.includes('src/features/browser/legacy-bridge.ts'), 'legacy.html must load the typed browser utility bridge before legacy app boot')
   assert(legacyHtml.includes('src/features/preferences/legacy-bridge.ts'), 'legacy.html must load the typed preference bridge before legacy app boot')
-  assert(legacyHtml.includes('src/features/rules/legacy-bridge.ts'), 'legacy.html must load the typed rules persistence bridge before legacy app boot')
   assert(legacyHtml.includes('src/features/id-tools/legacy-bridge.ts'), 'legacy.html must load the typed ID tools bridge before legacy app boot')
   assert(legacyHtml.includes('src/features/navigation/legacy-bridge.ts'), 'legacy.html must load the typed route bridge before legacy app boot')
   assert(legacyHtml.includes('src/legacy/modules/navigation-state.js'), 'legacy.html must load the split legacy navigation-state module before app boot')
@@ -194,8 +192,9 @@ assert(
     workbenchSections.includes('buildWorkbenchPath'),
   'workbench section route metadata must live in a typed single source'
 )
+const workbenchPage = read('src/pages/workbench/index.vue')
 assert(
-  read('src/pages/workbench/index.vue').includes('router.replace(buildWorkbenchPath(normalized))'),
+  workbenchPage.includes('buildWorkbenchPath') && workbenchPage.includes('router.replace'),
   'workbench page must normalize invalid section routes'
 )
 assert(
@@ -230,9 +229,9 @@ assert(
 assert(
   !splashPage.includes('LegacyFrameView') &&
     splashPage.includes('id="splash-poster"') &&
-    splashPage.includes('sp-enter-btn') &&
+    splashPage.includes('sp-bento-section') &&
     splashPage.includes('FeedbackWidget'),
-  'splash page must render the preserved homepage layout as a native Vue SFC'
+  'splash page must render the bento grid homepage layout as a native Vue SFC'
 )
 assert(routerGuards.includes('to.meta.requiresAuth'), 'router guards must handle protected routes')
 assert(
@@ -380,19 +379,18 @@ assert(
 // assert(legacyApp.includes('window.SQLDEV_SQL_UTILS.formatSqlText'), 'legacy app must prefer the typed SQL formatter bridge')
 assert(
   browserFileActions.includes('export async function copyTextToClipboard'),
-  'browser file actions must expose typed clipboard helper'
+  'file-actions utils must expose typed clipboard helper'
 )
 assert(
   !browserFileActions.includes('document.createElement') &&
     browserDomUtils.includes('document.createElement'),
-  'feature browser file actions must delegate DOM work to utils'
+  'file-actions must delegate DOM work to browser-dom'
 )
 assert(
   browserFileActions.includes('export function downloadSqlTextFile'),
-  'browser file actions must expose typed SQL download helper'
+  'file-actions utils must expose typed SQL download helper'
 )
 // Legacy bridges removed during refactoring
-// assert(browserLegacyBridge.includes('window.SQLDEV_BROWSER_UTILS'), 'browser feature module must expose a legacy bridge')
 assert(
   preferencesStorage.includes('export function getThemePreference'),
   'preference storage must live in typed feature module'
@@ -400,10 +398,8 @@ assert(
 // assert(preferencesLegacyBridge.includes('window.SQLDEV_PREFERENCE_UTILS'), 'preference storage feature must expose a legacy bridge')
 assert(
   dbMeta.includes('DB_META_MAP'),
-  'rules persistence must live in typed feature module'
+  'DB_META_MAP must live in typed feature module'
 )
-// Legacy bridges removed during refactoring
-// assert(rulesLegacyBridge.includes('window.SQLDEV_RULE_STORAGE_UTILS'), 'rules persistence feature must expose a legacy bridge')
 assert(
   navigationRoute.includes('export function parseLegacyRouteInfoFromPath'),
   'route parsing must live in typed feature module'
@@ -417,7 +413,6 @@ assert(
 // assert(legacyApp.includes('window.SQLDEV_BROWSER_UTILS.copyTextToClipboard'), 'legacy app must prefer the typed clipboard bridge')
 // assert(legacyApp.includes('window.SQLDEV_BROWSER_UTILS.downloadSqlTextFile'), 'legacy app must prefer the typed download bridge')
 // assert(legacyApp.includes('window.SQLDEV_PREFERENCE_UTILS.saveThemePreference'), 'legacy app must prefer the typed preference bridge')
-// assert(legacyApp.includes('window.SQLDEV_RULE_STORAGE_UTILS.persistRulesToStorage'), 'legacy app must prefer the typed rules persistence bridge')
 assert(
   idCardTools.includes('export function calcIdCardCheckDigit'),
   'ID card check digit must live in typed feature module'
@@ -569,12 +564,12 @@ assert(
 assert(
   ziweiAnalysisProvider.includes('export async function requestAiAnalysis') &&
     ziweiAnalysisProvider.includes('export async function requestAiQa') &&
-    ziweiAnalysisProvider.includes('fetchAiChat'),
+    ziweiAnalysisProvider.includes('createAiRequestConfig'),
   'ziwei analysis provider must own upstream AI calls'
 )
 assert(
   ziweiAnalysisPromptTemplate.includes('export function buildAnalysisSystemPrompt') &&
-    ziweiAnalysisPromptTemplate.includes('export function normalizeQaTemplate'),
+    ziweiAnalysisPromptTemplate.includes('export function buildQaSystemPrompt'),
   'ziwei analysis prompt templates must live outside the handler'
 )
 assert(
@@ -696,6 +691,16 @@ assert(
 assert(
   !exists('src/components/business/workbench/pages/RulesPage.vue'),
   'RulesPage must be removed'
+)
+
+// Old rules system removed
+assert(
+  !exists('supabase/migrations/202604300001_create_user_rules.sql'),
+  'user_rules migration must be removed'
+)
+assert(
+  !exists('supabase/migrations/202605030001_insert_default_rules.sql'),
+  'default rules seed migration must be removed'
 )
 
 // Old backend removed

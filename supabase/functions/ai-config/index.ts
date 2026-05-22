@@ -128,7 +128,7 @@ function logOperation(entry: Parameters<typeof baseLogOperation>[0]): Promise<vo
   return baseLogOperation({
     ...entry,
     operation
-  }).catch(() => {})
+  }).catch((e: unknown) => { console.warn('[ai-config] log failed:', e) })
 }
 
 

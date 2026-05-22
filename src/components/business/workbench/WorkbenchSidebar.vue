@@ -36,6 +36,7 @@ const activeKey = computed(() => {
   // 工作台内部页面
   if (path.startsWith('/workbench/')) {
     const section = path.replace('/workbench/', '')
+    if (section === 'home') return 'home'
     if (section === 'sql-convert') return 'sqlConvert'
     if (section === 'id-tool') return 'idTool'
     if (section === 'ziwei') return 'ziweiTool'
@@ -45,7 +46,7 @@ const activeKey = computed(() => {
   }
   // 独立路由页面
   if (path === '/operation-logs') return 'op-logs'
-  return 'sqlConvert'
+  return 'home'
 })
 
 // 同步选中状态到 store

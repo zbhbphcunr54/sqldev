@@ -14,7 +14,7 @@ const { isAuthenticated, user } = auth
 const showMenu = ref(false)
 
 function openLoginModal() {
-  authModal.openModal({ redirectTo: '/workbench/ddl' })
+  authModal.openModal({ redirectTo: '/workbench/home' })
 }
 
 async function handleSignOut() {

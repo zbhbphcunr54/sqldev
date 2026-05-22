@@ -14,24 +14,21 @@ export function setupRouterGuards(router: Router) {
       await authStore.initAuth()
     }
 
-    if (to.path.startsWith('/workbench/ziwei') && !isZiweiShareMode()) {
-      if (!authStore.isAuthenticated) {
-        return {
-          path: '/login',
-          query: { redirect: sanitizeInternalRedirectPath(to.fullPath) }
-        }
-      }
-
-      await authStore.ensureAdminStatus()
-      if (!authStore.isAdmin) {
-        return { path: '/workbench/sql-convert', replace: true }
-      }
-    }
-
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+      if (to.path.startsWith('/workbench/ziwei') && isZiweiShareMode()) {
+        return true
+      }
+
       return {
         path: '/login',
         query: { redirect: sanitizeInternalRedirectPath(to.fullPath) }
+      }
+    }
+
+    if (to.path.startsWith('/workbench/ziwei') && !isZiweiShareMode()) {
+      await authStore.ensureAdminStatus()
+      if (!authStore.isAdmin) {
+        return { path: '/workbench/home', replace: true }
       }
     }
 

@@ -296,7 +296,7 @@ function writeIdToolLog(params: {
     response_body: params.responseBody,
     response_status: params.responseStatus,
     error_message: params.errorMessage
-  }).catch(() => {})
+  }).catch((err: unknown) => { console.warn('[IdTool] operation log write failed:', err) })
 }
 
 // ==================== 数据加载 ====================
@@ -318,6 +318,7 @@ async function loadRegionData(): Promise<void> {
   regionLoadError.value = ''
   try {
     const baseUrl = import.meta.env.BASE_URL || '/'
+    // Static asset read, not a business API request — exempt from API layer requirement
     const response = await fetch(baseUrl + 'region_codes_2024.json')
     const data: RegionJsonItem[] = await response.json()
 

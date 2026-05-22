@@ -9,6 +9,23 @@ export interface ZiweiPosterFeatureCard {
   color: string
 }
 
+export interface ZiweiPosterMetric {
+  value: string
+  label: string
+}
+
+export interface ZiweiPosterKeyword {
+  label: string
+  tone: 'gold' | 'teal' | 'coral' | 'blue'
+}
+
+export interface ZiweiPosterPalacePreview {
+  name: string
+  summary: string
+  stars: string[]
+  tone: 'gold' | 'teal' | 'coral'
+}
+
 export interface ZiweiSharePosterSpec {
   posterWidth: number
   posterHeight: number
@@ -16,12 +33,17 @@ export interface ZiweiSharePosterSpec {
   eyebrow: string
   title: string
   subtitle: string
+  insightHeadline: string
+  insightBody: string
   shareEntryTitle: string
   shareEntryDescription: string
   footerTitle: string
   footerSubtitle: string
   shareLink: string
   shareLinkDisplay: string
+  heroMetrics: ZiweiPosterMetric[]
+  keywords: ZiweiPosterKeyword[]
+  palacePreview: ZiweiPosterPalacePreview[]
   featureCards: ZiweiPosterFeatureCard[]
   backgroundStops: Array<{ offset: number; color: string }>
   glows: Array<{ x: number; y: number; radius: number; color: string }>
@@ -40,7 +62,6 @@ const ZIWEI_POSTER_COLORS = {
   glowPurple: 'rgba(139,92,246,.24)'
 } as const
 
-// 海报中分享链接的显示长度限制
 const SHARE_LINK_DISPLAY_MAX_LENGTH = 74
 
 export function buildZiweiShareLink(
@@ -63,34 +84,67 @@ export function createZiweiSharePosterSpec(shareLinkValue: unknown): ZiweiShareP
     posterWidth: 1200,
     posterHeight: 1880,
     gridStep: 36,
-    eyebrow: 'Z I W E I  D O U  S H U',
-    title: '紫微斗数命盘',
-    subtitle: '专业排盘 + AI 深度解读 + 一键分享',
+    eyebrow: 'ZIWEI DOSSIER',
+    title: '把命盘做成一张会被转发的封面',
+    subtitle: '真太阳时校正 · 三层四化 · AI 深度解读 · 连续追问',
+    insightHeadline: '不是一句“运势如何”，而是把你的主线、关系、转折点一次摊开。',
+    insightBody: '用更有封面感的呈现，让紫微斗数从工具页变成值得截图、愿意转发的内容物。',
     shareEntryTitle: '体验入口',
-    shareEntryDescription: '扫码或打开链接，即可进入命盘界面体验完整功能',
-    footerTitle: 'SQLDev × 紫微斗数工具',
+    shareEntryDescription: '扫码即可进入紫微页面，直接排盘、看解读、继续追问，不需要额外下载。',
+    footerTitle: 'SQLDev × 紫微斗数',
     footerSubtitle: 'AI Powered Professional Charting Platform',
     shareLink,
     shareLinkDisplay,
+    heroMetrics: [
+      { value: '12 宫', label: '主线同屏展开' },
+      { value: '3 层', label: '生年 / 大限 / 流年四化' },
+      { value: 'AI', label: '可继续追问解盘' }
+    ],
+    keywords: [
+      { label: '命盘主线', tone: 'gold' },
+      { label: '关系节奏', tone: 'coral' },
+      { label: '事业转折', tone: 'blue' },
+      { label: 'AI 追问', tone: 'teal' }
+    ],
+    palacePreview: [
+      {
+        name: '命宫',
+        summary: '格局与气场',
+        stars: ['紫微', '天府'],
+        tone: 'gold'
+      },
+      {
+        name: '财帛',
+        summary: '赚钱方式',
+        stars: ['武曲', '天相'],
+        tone: 'teal'
+      },
+      {
+        name: '官禄',
+        summary: '事业表达',
+        stars: ['廉贞', '破军'],
+        tone: 'coral'
+      }
+    ],
     featureCards: [
       {
-        title: '完整命盘分析',
-        desc: '支持主星/辅星/杂曜/四化、大限/流年/小限',
+        title: '完整命盘展开',
+        desc: '主星、辅星、杂曜、四化与宫位结构一次看全。',
         color: ZIWEI_POSTER_COLORS.featureBlue
       },
       {
-        title: 'AI 个性化解盘',
-        desc: '一键生成专业结构化解读，并支持追问',
+        title: 'AI 深度解盘',
+        desc: '围绕命盘结构给出重点，不是模板式的泛泛而谈。',
         color: ZIWEI_POSTER_COLORS.featureCyan
       },
       {
-        title: '云端配置模板',
-        desc: '解读模板、问答建议由服务端统一控制',
+        title: '连续追问问答',
+        desc: '感情、事业、财富等具体议题都可以继续向下追问。',
         color: ZIWEI_POSTER_COLORS.featureGold
       },
       {
-        title: '分享友好体验',
-        desc: '生成专属分享入口，访客可直达命盘界面',
+        title: '一键分享入口',
+        desc: '分享链接直达紫微页，把体验从封面一路带进内容。',
         color: ZIWEI_POSTER_COLORS.featurePurple
       }
     ],

@@ -1,6 +1,6 @@
 ﻿import { loadTsModule } from './helpers/load-ts-module.mjs'
 
-const { buildSqlDownloadFileName, resolveSqlFileExtension } = loadTsModule('src/features/browser/file-actions.ts')
+const { buildSqlDownloadFileName, resolveSqlFileExtension } = loadTsModule('src/utils/file-actions.ts')
 const fixedDate = new Date('2026-04-23T12:00:00.000Z')
 
 function assertEqual(actual, expected, message) {

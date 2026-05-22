@@ -49,7 +49,7 @@
     "test:routine-generators": "node ./tests/routine-generators.mjs",
     "test": "node ./tests/run-all.mjs",
     "prepare": "husky",
-    "verify": "pnpm typecheck && pnpm lint && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit"
+    "verify": "pnpm typecheck && pnpm lint --quiet && pnpm check:utf8 && pnpm check:css-colors && pnpm test && pnpm test:unit"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",

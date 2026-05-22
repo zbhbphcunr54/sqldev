@@ -112,6 +112,6 @@ export function createLogger(ctx: { userId?: string; userEmail?: string; clientI
       durationMs: overrides?.durationMs ?? 0,
       ...overrides
     }
-    logOperation(entry).catch(() => {})
+    logOperation(entry).catch((err: unknown) => { console.warn('[op-logger] background log failed:', err) })
   }
 }
