@@ -6,7 +6,7 @@
  * <Icon name="grid" size="20" />
  *
  * 支持的图标：grid, layers, terminal, document, clock, document-text,
- *            sparkles, cog, clock-history, chevron-down, chevron-right,
+ *            sparkles, cog, clock-history, chevron-down, chevron-up, chevron-right,
  *            check, x, plus, minus, search, refresh
  */
 defineProps<{
@@ -174,6 +174,17 @@ defineProps<{
     <template v-else-if="name === 'chevron-down'">
       <path
         d="M4 7.5L10 13.5L16 7.5"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </template>
+
+    <!-- Chevron Up -->
+    <template v-else-if="name === 'chevron-up'">
+      <path
+        d="M4 13.5L10 7.5L16 13.5"
         stroke="currentColor"
         stroke-width="1.5"
         stroke-linecap="round"

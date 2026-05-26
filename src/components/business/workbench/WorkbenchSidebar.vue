@@ -37,6 +37,7 @@ const activeKey = computed(() => {
   if (path.startsWith('/workbench/')) {
     const section = path.replace('/workbench/', '')
     if (section === 'home') return 'home'
+    if (section === 'metadata') return 'metadata'
     if (section === 'sql-convert') return 'sqlConvert'
     if (section === 'id-tool') return 'idTool'
     if (section === 'ziwei') return 'ziweiTool'

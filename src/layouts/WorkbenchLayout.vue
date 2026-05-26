@@ -10,6 +10,8 @@ const feedbackSource = computed<'splash' | 'workbench' | 'ziwei'>(() => {
   if (route.path.startsWith('/workbench/ziwei')) return 'ziwei'
   return 'workbench'
 })
+
+const isZiweiPage = computed(() => route.path.startsWith('/workbench/ziwei'))
 </script>
 
 <template>
@@ -19,5 +21,5 @@ const feedbackSource = computed<'splash' | 'workbench' | 'ziwei'>(() => {
     </Transition>
   </RouterView>
   <FeedbackWidget :source="feedbackSource" />
-  <FloatingChat />
+  <FloatingChat :class="{ 'lg:block hidden': isZiweiPage }" />
 </template>

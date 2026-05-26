@@ -19,8 +19,9 @@ export interface MenuAccessOptions {
   canAccessZiweiTool?: boolean
 }
 
-export const SECTION_MAP: Record<string, string> = {
+export const SECTION_MAP: Record<WorkbenchPage, string> = {
   home: '/workbench/home',
+  metadata: '/workbench/metadata',
   sqlConvert: '/workbench/sql-convert',
   idTool: '/workbench/id-tool',
   ziweiTool: '/workbench/ziwei',
@@ -40,7 +41,10 @@ export function buildMenuGroups(options: MenuAccessOptions = {}): MenuGroup[] {
       key: 'sqlTools',
       title: null,
       collapsible: false,
-      items: [{ key: 'sqlConvert', label: 'SQL 转换', icon: 'grid', page: 'sqlConvert' }]
+      items: [
+        { key: 'metadata', label: '元数据', icon: 'document-text', page: 'metadata' },
+        { key: 'sqlConvert', label: 'SQL 转换', icon: 'grid', page: 'sqlConvert' }
+      ]
     },
     {
       key: 'testTools',

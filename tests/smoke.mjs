@@ -177,7 +177,7 @@ if (legacyHtml) {
 }
 assert(
   router.includes("path: '/workbench'") &&
-    router.includes("redirect: '/workbench/sql-convert'") &&
+    router.includes("redirect: '/workbench/home'") &&
     router.includes("path: '/workbench/:section'") &&
     router.includes("component: () => import('@/pages/workbench/index.vue')"),
   'router must expose one normalized workbench section route'

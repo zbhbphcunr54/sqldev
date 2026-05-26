@@ -205,9 +205,8 @@ function onMaskClick(e: MouseEvent): void {
       aria-label="AI 小助手"
       @click="handleFabClick"
     >
-      <span v-if="!open" class="fab-bot-glow"></span>
+      <span class="fab-bot-glow"></span>
       <svg
-        v-if="!open"
         width="26"
         height="26"
         viewBox="0 0 24 24"
@@ -226,20 +225,6 @@ function onMaskClick(e: MouseEvent): void {
         <circle cx="12" cy="1" r="1.5" class="fab-bot-antenna" stroke="none" />
         <rect x="1" y="9" width="3" height="4" rx="1" stroke-width="1" />
         <rect x="20" y="9" width="3" height="4" rx="1" stroke-width="1" />
-      </svg>
-      <svg
-        v-else
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M18 6L6 18M6 6l12 12" />
       </svg>
     </button>
 

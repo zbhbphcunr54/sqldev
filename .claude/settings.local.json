@@ -69,7 +69,8 @@
       "Bash(timeout 8 bash -c 'npx vite --host 2>&1')",
       "Bash(curl -s http://localhost:5174)",
       "Bash(node scripts/check-css-colors.mjs --update)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git restore *)"
     ]
   }
 }

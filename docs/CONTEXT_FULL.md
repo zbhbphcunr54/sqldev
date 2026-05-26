@@ -3,7 +3,366 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-22
+Last updated: 2026-05-26
+
+---
+
+## 2026-05-26: 元数据方案 Rev. 4 — 14 项二次评审修订
+
+### 背景
+
+Rev. 3（清单 + 决策双文档）落地后再次评审，发现 14 处遗漏或不一致，集中在：Step 5 最小闭环责任边界、性能基线粒度、Step 6 冲突处理与 [M4] 自相矛盾、Step 8.1 依赖标错、连接线兼容性。一次性整合到 PLAN + DECISIONS 两个文件。
+
+### 改动
+
+- **修改** `docs/METADATA_IMPROVEMENT_PLAN.md`（400 → 455 行）：
+  - 顶部追加整体工期估算（18–22 个工作日，约 4 周）
+  - Step 2.2 明确 fractional indexing 计算职责落地分工
+  - Step 5 最小闭环由 4 个路由扩为 **5 个**（新增 `POST rebalance`），新增 case 转换约定、snapshot 填充规则、operation_logs 操作名、rate-limit 配额
+  - Step 5 性能基线拆分为 PUT/PATCH 单条/PATCH 批量/rebalance 四档
+  - Step 6.1 重写冲突处理段，统一冲突入口，明确"服务端无差别 409 + 前端区分"语义；列全 6 种 syncStatus；显式加入 `tabId`
+  - Step 7 路由表说明同步更新（最小闭环 5 个）
+  - Step 8 增加依赖说明（8.1 依赖 Step 6，8.2/8.3/8.4 仅依赖 Step 2）
+  - 任务 8.3 增加导入与 fractional indexing 衔接策略（替换全部/追加/按字段名合并）
+  - Step 9.1 列隐藏改用 `visibility: hidden`（避免破坏 `useConnectorLines` 的 DOM rect 计算）
+  - Step 10.1 显式补充 `enum_values jsonb` schema 校验责任
+  - 通用验收性能基线同步拆档
+  - 文件总览 MetadataPage.vue 按 Step 列出详细改动
+- **修改** `docs/METADATA_DECISIONS.md`（145 → 164 行）：
+  - [M3] 增加"落地分工"小节（store / 写入器 / rebalance 路由 / 前端拦截器 / 导入路径）
+  - [M12] 由"`foreign_key` 结构"扩展为"`foreign_key` 与 `enum_values` 双结构"，列出 jsonb 形态并明确禁止纯字符串数组
+  - 索引同步更新
+
+### 影响
+
+- 仅文档变更，未触及源码与数据库。
+- Step 5 最小闭环新增 `POST rebalance`，实施工作量约 +0.5 天（与 PATCH 共享事务逻辑）。
+- Step 8.1（撤销/重做）原列在"Step 2 完成后可做"，现明确必须等 Step 6 完成；如有团队按旧依赖排期需调整。
+- 列隐藏实现方式从 `display: none` 改为 `visibility: hidden`，避免实施 9.1 时回归 ER 连接线。
+
+### 验证
+
+- 两份文档全文 grep 一致性核对：所有 [M*] 引用、Step 编号、路由数（5 个最小闭环）已自洽。
+- "display: none" 全文仅剩 1 处（Step 9.1 关键约束中的禁止条款），符合预期。
+- 未运行 `pnpm verify`：纯文档修订，无代码影响面。
+
+### 部署
+
+- 无需部署、无需 migration、无需配置变更。
+
+---
+
+## 2026-05-26: 元数据方案 Rev. 3 + 决策文档拆分
+
+### 背景
+
+`docs/METADATA_IMPROVEMENT_PLAN.md` 由 859 行设计方案重构为 317 行任务执行清单（Rev. 3），可执行性提升但关键设计语义流失。经评审采用"清单 + 决策"双文档结构。
+
+### 改动
+
+- **新建** `docs/METADATA_DECISIONS.md`（145 行）：承载 M1–M16 决策语义，每条含"决策 + Why + 落地约束"。作为执行清单的姊妹篇，落地冲突时以决策文档为准。
+- **修改** `docs/METADATA_IMPROVEMENT_PLAN.md`（317 → 400 行）：
+  - 每个 Step（1–10）末尾新增"关键约束"子段，把不可妥协的语义保证显式写出
+  - 把 PATCH 路由从 Step 7 提到 Step 5（最小闭环），解决 Step 6 上线即性能崩的硬依赖
+  - Step 5 增加 4 项关键验证 case；Step 6 增加 6 项关键验证 case
+  - Step 4 增加回滚预案（down migration + 降级回 localStorage-only）
+  - Step 7 新增 `restore` 路由 + `migrate` 路由独立列出
+  - 顶部添加 DECISIONS.md 指针
+
+### 影响
+
+- 仅文档变更，未触及源码与数据库。
+- 实施 Phase 1B（Step 4–7）时，工程师除阅读清单外**必须**参考决策文档；落地时若与代码冲突，以决策文档为准。
+- Step 5 最小闭环路由数由 3 个变 4 个（GET×2 + PUT + PATCH），实际工作量基本持平（PUT 与 PATCH 共用核心写入逻辑）。
+
+### 验证
+
+- 文档内 10 个 Step 关键约束子段已 grep 校验完整。
+- DECISIONS.md 内 16 条索引与 Rev. 2 评审的 M1–M16 完全对齐。
+- 未运行 `pnpm verify`：纯文档修订，无代码影响面。
+
+---
+
+## 2026-05-26: METADATA_IMPROVEMENT_PLAN.md 评审整合 (Rev. 2)
+
+### 背景
+
+`docs/METADATA_IMPROVEMENT_PLAN.md` 初稿（Rev. 1）经资深全栈视角评审后，发现 3 处 P0 硬伤与 13 处 P1/P2/P3 优化点。本次将全部修订点内嵌整合到方案文档，并新增"实施路线建议"章节。
+
+### 修订要点
+
+P0：
+- [M1] Migration 文件命名统一为项目实际约定 `YYYYMMDDNNNN_`（12 位无下划线）
+- [M2] 整存策略由 `DELETE + INSERT` 改为 `upsert + diff`；`metadata_revisions.record_id` FK 改为 `on delete set null`，新增 `record_id_snapshot` / `field_name_snapshot` 冗余字段，保护审计不可篡改性
+- [M3] `display_order` 由 `integer` 改为 `numeric` fractional indexing，保证移动/插入 O(1)
+
+P1：
+- [M4] workspace.version 保留为快照锁；同账号多标签页改为 record 级 `updated_at` last-write-wins 自动合并
+- [M5] Undo/Redo 后强制置 `local-only` 状态并提示用户，避免覆盖远程已 push 版本
+- [M6] localStorage 阈值改用 `navigator.storage.estimate()` 配额比例（60% 警告 / 80% 危险）
+- [M7] 数据迁移走服务端单事务 + `seed_from_local_at` 标记，保证幂等
+
+P2：
+- [M8] Edge Function 新增 `PATCH /workspaces/:id/records` 增量保存路由
+- [M9] `metadata_revisions.snapshot` 通过 pg_cron 每月清理 12 个月以上快照
+- [M10] 跨标签页冲突横幅文案明确风险 + 提供"先导出"按钮
+- [M11] Undo 栈仅内存驻留、刷新清空，最大深度由 50 下调到 20
+- [M12] `foreign_key jsonb` 字段结构在 migration comment 中预定义
+
+P3：
+- [M13] `supabase gen types typescript` 纳入 Phase 1B.1 完成标准
+- [M14] `fieldName` 空字符串不参与唯一性校验（前后端一致）
+- [M15] `metadata_workspaces` 加 `deleted_at` 软删 + pg_cron 7 天物理清理
+- [M16] 同步状态指示器新增独立 `offline` 状态
+
+### 影响
+
+- 仅文档变更，未触及源码与数据库。
+- 进入 Phase 1B 实施前必须以此 Rev. 2 为准；落地排期参见方案末尾"实施路线建议"。
+- 推荐路径：Phase 0（0.5d）→ Phase 1A（2–3d）→ Phase 1B POC（2d）→ Phase 1B 完整（3–4d）→ Phase 2/3/4。
+
+### 验证
+
+- 文档内交叉引用一致性已校验（migration 命名、API 路由、状态字段、表结构均同步）。
+- 未运行 `pnpm verify`：本次为纯文档修订，无代码影响面。
+
+---
+
+## 2026-05-25: 移动端紫微 AI 解读标签页 — 消除双卡、统一字体、固定标签栏、流式直出总体结论
+
+### 背景
+移动端点击"AI解读"时出现两层卡片（外层 `.zw-analysis-panel` 有背景/边框/阴影，内层 `.zw-analysis-card` 也是卡片），视觉上呈现两个 AI 解读卡片。同时生成的卡片内字体大小不一致（11px–14px），底部导航标签随卡片滚动而不固定。桌面端流式卡 `.zw-analysis-stream-card` 因 Vue scoped CSS 特异性覆盖 Tailwind `hidden` 在移动端也泄漏显示。
+
+### 修改内容
+1. **消除双卡**：移动端 `@media (max-width: 1023px)` 和 `@media (max-width: 600px)` 中为 `.zw-analysis-panel` 添加 `background: none; border: none; box-shadow: none; border-radius: 0;`，使外层面板透明，仅保留内层卡片的视觉效果。
+2. **隐藏桌面端标题**：`.zw-analysis-panel-head` 和 `.zw-analysis-stream-card` 在移动端设为 `display: none`，解决 Vue scoped CSS 属性选择器特异性高于 Tailwind `hidden` 类的问题。
+3. **流式直出总体结论**：移除独立的移动端加载卡（`.zw-mobile-analysis-stream`），将流式输出直接嵌入 `.zw-mobile-hscroll-track` 内的总体结论卡位置。条件 `v-if="aiResult"` 改为 `v-if="aiResult || (aiLoading && !aiResult)"`，加载时直接显示带"AI思考中"标签的总体结论卡，流式文本实时渲染。
+4. **统一字体**：移动端统一 `.zw-analysis-card-text` 系列为 `font-size: 13px; line-height: 1.75`，`.zw-analysis-meta-title` 为 `12px`，`.zw-analysis-meta-list` 为 `13px`。
+5. **固定底部标签栏**：将 `.zw-center-panel`、`.zw-main-stage`、`.zw-analysis-stage`、`.zw-analysis-panel`、`.zw-analysis-panel-body`、`.zw-analysis-result-wrap` 改为 flex 布局并 `flex: 1`，使高度链正确传播，`.zw-mobile-hscroll-tags` 自然定位在底部。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | 模板：移除 `.zw-mobile-analysis-stream` 独立加载卡，将流式输出嵌入 hscroll-track 的总体结论卡位；CSS：移动端隐藏 `.zw-analysis-stream-card`，`.zw-analysis-panel` 去视觉样式，字体统一，flex 高度链传播 |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `pnpm test:smoke` ✔
+- CSS color check：无新增硬编码颜色
+
+---
+
+## 2026-05-25: 元数据全面增强 — 导出 + 排序 + 搜索 + 版本递增 + 组件拆分 + 性能优化
+
+### 背景
+基于对元数据功能的全面评审，按 P0（导出）→ P1（交互）→ P2（架构）优先级实施改进。
+
+### 修改内容
+1. **P0 — CSV/JSON 导出**：新建 `src/features/metadata/export.ts`，实现 `exportMetadataAsCsv` 和 `exportMetadataAsJson`（复用 `downloadTextFileByDom`）。CSV 使用 BOM 头保证 Excel 中文不乱码。工具栏新增"导出 CSV""导出 JSON"按钮。
+2. **P1 — 行排序 + 自动编号**：Store 新增 `moveMetadataRecord(id, 'up'|'down')` 和 `reorderMetadataRecords()`，`addMetadataRecord`/`deleteMetadataRecord` 末尾自动重算序号。序号列改为只读 `<span>`，操作列新增上移/下移按钮。
+3. **P1 — 搜索过滤**：工具栏新增搜索框，`filteredRows` computed 按 zhName/fieldName/attrType 模糊匹配，表格和修订面板同步过滤。
+4. **P1 — 版本号自动递增**：`openRevisionModal` 读取该记录最新修订版本号，patch +1 自动填入（如 v1.0.0 → v1.0.1）。新增 `incrementVersion()` 辅助函数。
+5. **P1 — 空状态引导**：表格无记录时显示引导文字；搜索无结果时显示"无匹配结果"。
+6. **P1 — 修订标题优化**：从 `记录 N` 改为 `N - {zhName || fieldName || '未命名'}`。
+7. **P2 — Composable 提取**：新建 `useConnectorLines.ts`（SVG 连线 + 滚动同步 + 生命周期）和 `useMetadataValidation.ts`（校验逻辑），MetadataPage.vue script 减少约 143 行。
+8. **P2 — 性能优化**：`getRecordRevisions()` 从 O(N*M) filter 改为 `revisionsByRecord` computed Map，O(1) 查找。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/features/metadata/export.ts` | 新建，CSV/JSON 导出函数 |
+| `src/composables/useConnectorLines.ts` | 新建，SVG 连线 + 滚动同步逻辑 |
+| `src/composables/useMetadataValidation.ts` | 新建，字段校验逻辑 |
+| `src/stores/workbench.ts` | 新增 moveMetadataRecord / reorderMetadataRecords，add/delete 末尾调 reorder |
+| `src/components/business/workbench/pages/MetadataPage.vue` | 集成 composable、导出按钮、搜索框、排序按钮、序号只读、版本递增、空状态、修订标题、filteredRows、revisionsByRecord |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-25: 元数据字段校验 — 必填 + 中英文格式 + 版本号格式
+
+### 背景
+表格中中文名称、字段名称、属性类型需为必填；中文名称须包含中文，字段名称须为英文标识符；修订/删除弹窗的版本号须符合 `v1.0.0` 格式。
+
+### 修改内容
+1. **实时字段校验**：新增 `fieldErrors` reactive Map + `validateField()` / `getFieldError()` / `validateRecord()` 函数。`updateRecord` 和 `updateRecordSelect` 执行后即触发校验。
+   - `zhName`：非空 + 至少含一个中文字符 (`/[一-鿿]/`)
+   - `fieldName`：非空 + 英文标识符 (`/^[a-zA-Z_][a-zA-Z0-9_]*$/`)
+   - `attrType`：非空
+2. **保存拦截**：`openRevisionModal()` 先调 `validateRecord()`，未通过则 `showAlert` 阻止打开弹窗。
+3. **版本号格式校验**：新增 `isValidVersion()` (`/^[vV]\d+\.\d+\.\d+$/`)，`revisionCanConfirm` 和 `deleteCanConfirm` 均加入此条件。弹窗中版本号输入不合法时显示红框 + 格式提示。
+4. **UI 反馈**：输入框校验不通过时边框变红（`.md-input-error`），下方显示错误文字（`.md-field-error`）；属性类型下拉框通过 `.md-select-error :deep(.form-select-trigger)` 变红。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/MetadataPage.vue` | 新增 fieldErrors/validateField/getFieldError/validateRecord/isValidVersion；updateRecord/updateRecordSelect 接入校验；openRevisionModal 加拦截；revisionCanConfirm/deleteCanConfirm 加版本校验；模板三列添加 error class + 错误提示、弹窗版本号添加格式校验 UI；CSS 新增 .md-input-error/.md-field-error/.md-select-error/.md-validated-cell |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-25: 元数据修订标签交互优化 — 标签缩短 + 右移 + 双向高亮联动
+
+### 背景
+修订信息栏标签偏长且右侧大量空白，标签与记录之间连接线过短。点击标签无法得知对应表格行，点击表格行也无法得知关联标签，缺乏交互反馈。
+
+### 修改内容
+1. **标签缩短**：`truncate()` 默认 maxLen 从 24 缩至 14；标签内移除 author 显示（仅保留 version + revisionNote），进一步缩短标签总长。
+2. **标签右移**：`.md-revision-content` 左侧内边距从 16px 增至 48px，拉长连接线距离。
+3. **点击标签→高亮对应行**：新增 `highlightedRecordId` ref 和 `toggleHighlight()` 函数。标签 `@click.stop` 设置 `highlightedRecordId`，对应 `<tr>` 通过 `.md-row-highlight` 类添加品牌色浅底高亮（`color-mix(brand 8%)`）。再次点击或点击其他标签/行时切换。
+4. **点击行→高亮对应标签**：`<tr>` 添加 `@click="toggleHighlight(record.id)"`，关联的标签通过 `.md-tag-highlight` 类获得品牌色边框 + 浅色背景 + 外发光效果。
+5. **连接线高亮**：选中时对应 SVG 路径通过 `.md-connector-highlight` 类提升透明度（0.25→0.7）和线宽（1→1.5），强化视觉关联。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/MetadataPage.vue` | 新增 `highlightedRecordId`/`toggleHighlight()`；标签模板移除 author、添加 click + class 绑定；tr 添加 click + class 绑定；SVG path 添加 class 绑定；CSS 新增 `.md-row-highlight`/`.md-tag-highlight`/`.md-connector-highlight`/`.md-record-row cursor`；`truncate` maxLen 24→14；`.md-revision-content` padding-left 16→48 |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-25: 元数据页面六项交互修复 — 滚动联动 + 连线固定 + 序号冻结 + 列宽 + 边框 + 删除修订
+
+### 背景
+元数据页面投入使用后发现六处交互问题：(1) 表格往下翻时右侧修订面板不跟着走；(2) 表格左右滑动时 SVG 连线跟着移动导致错位；(3) 序号列在水平滚动时被滚走；(4) 序号列和标准代码列偏宽；(5) 操作列的行间分割线与其他列不在同一直线上；(6) 删除记录直接丢弃修订标签且无需确认。
+
+### 修改内容
+1. **表格↔修订面板垂直滚动联动**：新增 `onTableScroll`/`onRevisionScroll` 双向比例同步，使用 `scrollSyncSource` 守卫防止 ping-pong 循环。表格或修订面板任一垂直滚动时，另一侧按 `scrollTop/scrollMax` 比例跟随。
+2. **SVG 连线不随水平滚动移动**：新增 `tablePanelRef` 引用表格面板 section 元素。`recalcLines()` 中 x1 从 `rowRect.right - wsRect.left`（随水平滚动偏移）改为 `tablePanelRef.getBoundingClientRect().right - wsRect.left`（固定为面板可视右边缘）。
+3. **序号列冻结**：第 1 列 th/td 添加 `position: sticky; left: 0; background: var(--color-page-panel)`，th 额外 `z-index: 2`（高于 td 的 z-index: 1），水平滚动时序号列固定不动。
+4. **列宽调整**：序号列从 72px 缩至 52px；标准代码列（第 6 列）新增 `width: 100px` 约束。
+5. **操作列边框对齐修复**：`td.md-action-col` 移除 `display: flex`（该属性破坏 table-cell 布局导致行高和 border-bottom 不参与表格统一计算）。操作按钮改为包裹在 `<div class="md-action-inner">` 内做 flex 布局，`<td>` 保持默认 `display: table-cell`。
+6. **删除记录需填写修订说明 + 标签迁移**：
+   - 删除按钮不再直接调用 `store.deleteMetadataRecord()`，改为打开删除确认弹窗（版本号 + 修订说明，与保存弹窗复用 `.md-revision-modal` 样式，确认按钮为红色危险态）。
+   - Store `deleteMetadataRecord` 签名扩展为 `(id, author, version, revisionNote)`。被删记录上已有的修订标签 `recordId` 自动改写为上一条记录的 id（首条删除时归到下一条），而非丢弃。同时追加一条包含删除说明的新修订记录。
+   - 最后一条记录被删时，创建空白记录并将所有修订迁移到新记录上。
+   - ESC 键可关闭删除弹窗。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/stores/workbench.ts` | `deleteMetadataRecord` 签名扩展（新增 author/version/revisionNote 参数），实现修订迁移逻辑 |
+| `src/components/business/workbench/pages/MetadataPage.vue` | 滚动联动（onTableScroll/onRevisionScroll）、SVG x1 固定（tablePanelRef）、序号列 sticky、列宽调整、操作列 td→div flex、删除弹窗 UI + handleDeleteRecord/confirmDelete |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `eslint` ✔（0 errors, 0 warnings）
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-24: 元数据修订标签四项优化 — Popover展开 + 曲线优化 + 标题固定 + 默认空标签
+
+### 背景
+用户反馈四个问题：(1) 长修订说明直接撑开标签导致布局变形；(2) SVG 虚线曲线视觉粗糙；(3) 新增记录时自动创建默认标签；(4) 修订面板标题被记录 zhName/fieldName 覆盖。
+
+### 修改内容
+1. **Popover 替代 inline 展开**：移除 `expandedTagIds` Set 和 `isTagExpanded`/`toggleTagExpand` 逻辑；改用 `popoverRevisionId` ref 跟踪弹出状态。长修订说明点击展开按钮后，在标签下方弹出浮层卡片（`.md-tag-popover`）显示完整内容，而非撑开标签本身。ESC 键可关闭。
+2. **SVG 曲线优化**：虚线改为实线（移除 `stroke-dasharray`），线宽从 1.5 降为 1，透明度从 0.35 降为 0.25，添加 `stroke-linecap: round`；贝塞尔控制点偏移从 `max(dx*0.4, 40)` 改为 `max(dx*0.35, 30)` 使曲线更平滑。
+3. **新增记录不创建默认标签**：`addMetadataRecord` 移除内联 revision 创建逻辑，新增记录后修订栏显示"暂无修订"。
+4. **标题固定为"记录 N"**：修订面板标题从 `record.zhName || record.fieldName || 记录N` 改为固定使用 `记录 ${index + 1}`，用 v-for index 保证连续序号。
+5. **标签缩短**：移除日期显示（仅保留在 tooltip 和 popover 中），padding 从 `5px 10px` 缩为 `3px 8px`。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/stores/workbench.ts` | `addMetadataRecord` 移除自动创建 revision 的代码 |
+| `src/components/business/workbench/pages/MetadataPage.vue` | 标签展开→popover、曲线样式优化、标题固定、标签缩短、移除 expanded/full CSS 类、新增 popover CSS |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `eslint` ✔（0 errors, 0 warnings）
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-24: 元数据页面修订联动 — 保存弹窗 + 标签卡 + SVG 跨面板曲线
+
+### 背景
+元数据表格的保存操作与修订信息缺乏联动：保存时直接写入无需填写修订说明，右侧修订面板使用可编辑卡片布局占据较多空间，修订与元数据记录之间缺乏视觉关联。
+
+### 修改内容
+1. **保存弹窗门控**：点击表格操作列的保存按钮不再直接保存，而是弹出修订信息弹窗（版本号 + 修订说明），填完后才能确认保存。弹窗支持 ESC 关闭和背景点击关闭。
+2. **修订标签卡**：右侧修订面板的编辑卡片全部替换为紧凑的 pill 形标签，显示日期·作者·版本·修订说明（截断），hover 显示完整 tooltip。移除"新增修订"按钮，修订仅通过保存流程创建。
+3. **SVG 跨面板曲线**：在 `.md-workspace` 上叠加绝对定位 SVG 层，为每个修订标签绘制 cubic bezier 曲线连接到左侧表格中对应的元数据行。曲线使用品牌色虚线（`stroke-dasharray: 6 3`，opacity 0.35）。
+4. **位置同步**：通过 ResizeObserver + 双面板 scroll 监听 + window resize 监听 + 数据 watch 保持曲线位置实时更新，使用 requestAnimationFrame 节流。
+5. **响应式**：≤1279px 单列布局时隐藏 SVG 曲线（面板堆叠后曲线无意义）。
+
+### Store 变更
+`addMetadataRevision` 签名扩展：新增 `version` 和 `revisionNote` 可选参数（默认值保持向后兼容）。
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/stores/workbench.ts` | `addMetadataRevision` 签名扩展，支持传入 version/revisionNote |
+| `src/components/business/workbench/pages/MetadataPage.vue` | 保存弹窗、标签卡、SVG 曲线、ESC 处理、CSS 重构（移除旧卡片样式，新增标签/弹窗/SVG 样式） |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `eslint` ✔（0 errors, 0 warnings）
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-24: 元数据修订联动优化 — 默认空标签 + 仅编辑 + 标签展开 + chevron-up 图标
+
+### 背景
+第一版修订联动完成后，用户提出三点优化需求：标签默认不应存在（仅保存后才出现）、标签不需要删除功能只需编辑、长修订说明需要支持展开查看。
+
+### 修改内容
+1. **默认空标签**：`createDefaultMetadataState` 不再为首条记录自动创建修订，返回空 `revisions: []`；`normalizeMetadataRevisions` 移除自动补全逻辑，仅做字段归一化和孤儿清理；`ensureMetadataRevisions` 简化为只修剪关联失效的修订。修订面板无标签时显示"暂无修订"空状态。
+2. **编辑替代删除**：标签上的删除按钮移除，替换为编辑按钮（`edit` 图标）。点击编辑打开修订弹窗，预填当前版本号和修订说明。弹窗标题/按钮文字根据新增/编辑模式动态切换。Store 新增 `updateMetadataRevision` 方法。
+3. **可展开标签**：当修订说明超过 20 字符时显示展开/收起按钮（`chevron-down`/`chevron-up`）。展开后标签切换为 `white-space: normal; flex-wrap: wrap`，说明文字显示完整内容。使用 `Set<string>` 跟踪展开状态。
+4. **新增 chevron-up 图标**：`Icon.vue` 新增 `chevron-up` SVG 路径（chevron-down 的垂直镜像），注册到支持图标列表。
+
+### Store 变更
+- `addMetadataRevision`：签名不变，行为不变
+- `updateMetadataRevision`：新增方法，按 ID 更新修订的 version 和 revisionNote
+- `createDefaultMetadataState`：不再自动创建修订
+- `normalizeMetadataRevisions`：移除 fallbackRevision 参数和自动补全
+- `ensureMetadataRevisions`：移除 author 参数，简化为仅修剪孤儿
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/stores/workbench.ts` | 新增 `updateMetadataRevision`；简化 `createDefaultMetadataState`、`normalizeMetadataRevisions`、`ensureMetadataRevisions` |
+| `src/components/business/workbench/pages/MetadataPage.vue` | 移除删除按钮，新增编辑按钮/展开按钮；新增编辑模式弹窗逻辑；空状态"暂无修订"；展开/收起 CSS |
+| `src/components/common/Icon.vue` | 新增 `chevron-up` 图标 |
+
+### 验证
+- `vue-tsc --noEmit` ✔
+- `eslint` ✔（0 errors, 0 warnings）
+- `tests/smoke.mjs` ✔
+
+---
+
+## 2026-05-22: 紫微移动端 UI 修复 — Tab抖动/中央信息/彩色标题/AI流式卡片/QA去重
+
+### 背景
+移动端紫微页存在多处体验问题：Tab 切换抖动、中央区信息缺失、宫位详情和命盘要素缺少彩色标题、AI 解读流式输出未直接使用卡片布局、问答栏存在重复输入框、屏幕未占满。
+
+### 修改内容
+1. **Tab 栏抖动修复**：inactive 按钮从 `border: none` 改为 `border: 1px solid transparent`，消除 active 切换时 1px 布局偏移；min-height 从 44px 降至 36px，padding 从 8px 降至 5px，margin 从 `0 12px 12px` 改为 `4px 12px 8px` 下移一点
+2. **中央区信息补全**：新增 `mobileCenterBasicInfo` 计算属性展示性别、农历、公历、时辰、出生地；`mobileCenterLiunian` 从 3 项扩展为 4 项（新增流年命宫）；中央面板新增基本信息列表和分割线；stats 网格从 3 列改为 2 列适配 4 项；添加 `word-break: keep-all` 防止汉字被挤压
+3. **宫位详情彩色标题**：主星标题使用 `--color-major-star`，基础信息使用 `--color-accent`，辅佐与四化使用 `--color-hua-lu`；辅佐列表各行标签分别着色（吉曜绿/煞曜红/杂曜灰/生年四化蓝/大限四化紫/流年四化紫）
+4. **命盘要素彩色标签**：`mobileChartYaosu` 每项新增 `colorClass`，命主身主用 accent、五行局用 major-star、命宫身宫用 hua-lu、起运大限用 liunian 色
+5. **AI 解读流式卡片输出**：流式输出时若 `aiResult` 已存在（通过 partial 回调），直接展示水平滚动卡片而非单一 hero 文本卡；`mobileAnalysisEntries` 移除 `showDeferredAnalysisCards` 守卫，使 yearFocus/nextActions 在流式期间即可显示；导航标签改为 `position: sticky; bottom: 0` 固定在底部
+6. **问答去重输入框**：在 ≤1023px 断点显式 `display: none` 隐藏 `.zw-qa-compose-card`（因 scoped CSS `display: grid` 覆盖了 Tailwind `hidden` 的优先级）；QA 卡片样式从 `zw-mqas-card` 改为与 AI 解读一致的 `zw-analysis-card` + toneClass/titleClass/iconClass
+7. **屏幕填满**：根容器新增 `min-h-dvh`；`.zw-main-grid` 和 `.zw-main-stage` 在移动端新增 `flex: 1; min-height: 0`；`.zw-analysis-stage` 移动端改为 `grid-template-rows: auto minmax(0, 1fr); flex: 1`
+
+### 修改文件
+| 文件 | 变更类型 |
+|---|---|
+| `src/components/business/workbench/pages/ZiweiPage.vue` | 模板：中央面板新增基本信息区、stats 扩展4项、宫位详情彩色标题/标签、QA 卡片统一为 analysis-card 风格；Script：新增 `mobileCenterBasicInfo` 计算属性、`mobileChartYaosu` 增加 colorClass、`mobileCenterLiunian` 扩展为 4 项、`mobileAnalysisEntries` 移除 showDeferredAnalysisCards 守卫；CSS：Tab 栏防抖动、中央面板响应式布局、彩色标题/标签类、AI 流式卡片条件修改、导航标签 sticky、QA compose-card 移动端隐藏、屏幕填满 flex 布局 |
 
 ---
 

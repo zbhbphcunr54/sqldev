@@ -13,7 +13,7 @@ export type SkinId =
 export const useAppStore = defineStore('app', () => {
   const themeMode = ref<ThemeMode>('light')
   const resolvedTheme = ref<ResolvedTheme>('light')
-  const skinId = ref<SkinId>('teal-neutral')
+  const skinId = ref<SkinId>('coral-sunset')
   const themeTouched = ref(false)
 
   function setTheme(mode: ThemeMode, options: { touched?: boolean } = {}): void {

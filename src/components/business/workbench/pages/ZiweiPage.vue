@@ -13,6 +13,10 @@ const mobileTab = ref<'input' | 'chart' | 'analysis' | 'qa'>('input')
 const aiReadingTab = ref<'analysis' | 'qa'>('analysis')
 const showSharePoster = ref(false)
 const mobileActivePalaceIndex = ref<number | null>(null)
+const analysisScrollRef = ref<HTMLElement | null>(null)
+const activeAnalysisCardIdx = ref(0)
+const qaScrollRef = ref<HTMLElement | null>(null)
+const activeQaCardIdx = ref(0)
 const {
   calendarType,
   solarYear,
@@ -489,6 +493,42 @@ const mobileChartHuaFacts = computed(() => [
   { label: '流年四化', value: compactSummaryText(centerInfo.value?.liunianHuaSummary || [], 3) }
 ])
 
+const qaSuggestions = [
+  '我的事业运势如何？',
+  '今年适合跳槽吗？',
+  '感情方面有什么建议？',
+  '我的财运怎么样？'
+]
+
+const mobileCenterLiunian = computed(() => [
+  { label: '当前大限', value: centerInfo.value?.currentDaXianLabel || '--' },
+  { label: '流年干支', value: centerInfo.value?.currentYearGanZhiLabel || '--' },
+  { label: '流年命宫', value: centerInfo.value?.currentLiuNianPalaceLabel || '--' },
+  { label: '虚岁', value: centerInfo.value?.age ? `${centerInfo.value.age}岁` : '--' }
+])
+
+const mobileCenterBasicInfo = computed(() => [
+  { label: '性别', value: centerInfo.value?.gender ? `${centerInfo.value.gender}命` : '--' },
+  { label: '农历', value: centerInfo.value?.lunar || '--' },
+  { label: '公历', value: centerInfo.value?.solarText || '--' },
+  { label: '时辰', value: centerInfo.value?.shichenLabel || '--' },
+  { label: '出生地', value: (birthProvince.value && birthCity.value) ? `${birthProvince.value} ${birthCity.value}` : '--' }
+])
+
+const mobileChartYaosu = computed(() => [
+  { label: '命主', value: centerInfo.value?.mingZhu || '--', colorClass: 'zw-yaosu-k--accent' },
+  { label: '身主', value: centerInfo.value?.shenZhu || '--', colorClass: 'zw-yaosu-k--accent' },
+  { label: '五行局', value: centerInfo.value?.bureau || '--', colorClass: 'zw-yaosu-k--major' },
+  { label: '命宫', value: centerInfo.value?.mingBranch
+    ? `${centerInfo.value.mingBranch}${centerInfo.value.mingPalaceName ? '（' + centerInfo.value.mingPalaceName + '）' : ''}`
+    : '--', colorClass: 'zw-yaosu-k--hua' },
+  { label: '身宫', value: centerInfo.value?.shenBranch
+    ? `${centerInfo.value.shenBranch}${centerInfo.value.shenPalaceName ? '（' + centerInfo.value.shenPalaceName + '）' : ''}`
+    : '--', colorClass: 'zw-yaosu-k--hua' },
+  { label: '起运', value: centerInfo.value?.qiYunText || '--', colorClass: 'zw-yaosu-k--liunian' },
+  { label: '大限', value: centerInfo.value?.daXianDirectionLabel || '--', colorClass: 'zw-yaosu-k--liunian' }
+])
+
 const mobileAnalysisEntries = computed(() => {
   const entries: Array<{
     id: string
@@ -521,7 +561,7 @@ const mobileAnalysisEntries = computed(() => {
     })
   })
 
-  if (showDeferredAnalysisCards.value && hasYearFocus.value) {
+  if (hasYearFocus.value) {
     entries.push({
       id: 'year-focus',
       title: '当前阶段重点',
@@ -536,7 +576,7 @@ const mobileAnalysisEntries = computed(() => {
     })
   }
 
-  if (showDeferredAnalysisCards.value && hasNextActions.value) {
+  if (hasNextActions.value) {
     entries.push({
       id: 'next-actions',
       title: '接下来怎么做',
@@ -604,6 +644,54 @@ const mobileQaFlowBlocks = computed(() => {
   return blocks
 })
 
+const analysisNavTags = computed(() => {
+  const tags: Array<{ id: string; label: string }> = []
+  if (aiResult.value?.overview) tags.push({ id: 'overview', label: '总体结论' })
+  mobileAnalysisEntries.value.forEach(e => {
+    tags.push({ id: e.id, label: e.title.length > 4 ? e.title.slice(0, 4) : e.title })
+  })
+  return tags
+})
+
+const qaNavTags = computed(() =>
+  mobileQaFlowBlocks.value.map(b => ({
+    id: b.id,
+    label: b.title.length > 4 ? b.title.slice(0, 4) : b.title
+  }))
+)
+
+function scrollToAnalysisCard(idx: number): void {
+  const container = analysisScrollRef.value
+  if (!container) return
+  const card = container.children[idx] as HTMLElement
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  activeAnalysisCardIdx.value = idx
+}
+
+function onAnalysisScroll(): void {
+  const container = analysisScrollRef.value
+  if (!container || !container.children.length) return
+  const scrollLeft = container.scrollLeft
+  const cardWidth = (container.children[0] as HTMLElement)?.offsetWidth || 1
+  activeAnalysisCardIdx.value = Math.round(scrollLeft / (cardWidth + 8))
+}
+
+function scrollToQaCard(idx: number): void {
+  const container = qaScrollRef.value
+  if (!container) return
+  const card = container.children[idx] as HTMLElement
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  activeQaCardIdx.value = idx
+}
+
+function onQaScroll(): void {
+  const container = qaScrollRef.value
+  if (!container || !container.children.length) return
+  const scrollLeft = container.scrollLeft
+  const cardWidth = (container.children[0] as HTMLElement)?.offsetWidth || 1
+  activeQaCardIdx.value = Math.round(scrollLeft / (cardWidth + 8))
+}
+
 watch(
   () => mobilePalaceCells.value.length,
   (length) => {
@@ -664,13 +752,13 @@ function showQaView(): void {
 
 async function handleAiAnalysis(): Promise<void> {
   if (!chart.value) return
-  mobileTab.value = 'ai'
+  mobileTab.value = 'analysis'
   aiReadingTab.value = 'analysis'
   await runAiAnalysis()
 }
 
 async function handleAiQuestion(): Promise<void> {
-  mobileTab.value = 'ai'
+  mobileTab.value = 'qa'
   aiReadingTab.value = 'qa'
   await runAiQuestion()
 }
@@ -678,7 +766,7 @@ async function handleAiQuestion(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex flex-col min-h-full bg-bg text-text">
+  <div class="flex flex-col min-h-full min-h-dvh bg-bg text-text">
     <!-- 椤堕儴瀵艰埅鏍?-->
     <header
       class="flex items-center justify-between shrink-0 px-6 ziwei-header bg-panel"
@@ -824,32 +912,14 @@ async function handleAiQuestion(): Promise<void> {
           >
             清除
           </button>
-        </div>
-        <div class="zw-share-row flex flex-col gap-2 mb-4">
-          <button class="ziwei-btn-outline w-full gap-1.5 text-xs" @click="showSharePoster = true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect
-                x="8"
-                y="14"
-                width="8"
-                height="8"
-                rx="1"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <path
-                d="M16 10V18M16 18L12 14M16 18L20 14"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M8 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V16"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
+          <button
+            class="ziwei-btn-outline zw-share-btn gap-1 text-xs"
+            @click="showSharePoster = true"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+              <path d="M16 10V18M16 18L12 14M16 18L20 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M8 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
             {{ UI_LABELS.BTN_SHARE }}
           </button>
@@ -1115,7 +1185,7 @@ async function handleAiQuestion(): Promise<void> {
           >
             {{ centerInfo.timeCorrectionText }}
           </p>
-          <div v-if="mobileTab === 'analysis' || mobileTab === 'qa'" class="zw-analysis-stage">
+          <div v-if="mobileTab === 'analysis' || mobileTab === 'qa'" class="zw-analysis-stage lg:flex">
             <div
               v-if="aiError"
               class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
@@ -1124,54 +1194,22 @@ async function handleAiQuestion(): Promise<void> {
               {{ aiError }}
             </div>
 
-            <template
-              v-if="
-                aiReadingTab === 'qa' ||
-                aiLoading ||
-                aiResult ||
-                lastAiQuestion ||
-                qaAnswerCards.length ||
-                aiQuestionAnswer
-              "
-            >
-              <section v-if="aiReadingTab === 'analysis'" class="zw-analysis-panel zw-analysis-panel--analysis">
+            <!-- AI 解读内容 -->
+            <template v-if="mobileTab === 'analysis'">
+              <section v-if="aiResult || aiLoading" class="zw-analysis-panel zw-analysis-panel--analysis">
                 <div class="zw-analysis-panel-head hidden lg:flex">
                   <div class="zw-analysis-panel-title">
-                    <span class="zw-analysis-panel-kicker">深度解读</span>
+                    <!--<span class="zw-analysis-panel-kicker">深度解读</-- span> -->
                     <h3 class="text-sm font-semibold text-text">AI 解读</h3>
                   </div>
-                  <span class="zw-analysis-panel-chip">结构化阅读模式</span>
+                   <!--<span class="zw-analysis-panel-chip">结构化阅读模式</--span> -->
                 </div>
 
                 <div class="zw-analysis-panel-body">
-                  <div v-if="aiLoading" class="zw-mobile-analysis-stream lg:hidden">
-                    <article class="zw-analysis-card zw-analysis-card--hero zw-mobile-flow-hero">
-                      <div class="zw-analysis-card-head">
-                        <h3 class="text-sm font-semibold text-text">AI 正在解读</h3>
-                        <span class="text-[11px] text-accent">流式输出中</span>
-                      </div>
-                      <div class="zw-analysis-badge-row">
-                        <span class="zw-analysis-badge zw-analysis-badge--blue">稳定阅读</span>
-                        <span class="zw-analysis-badge zw-analysis-badge--purple">完成后分卡</span>
-                      </div>
-                      <div class="zw-analysis-card-text zw-analysis-card-text--stream">
-                        <template
-                          v-for="(line, lineIdx) in splitDisplayText(aiStreamingText || 'AI 正在整理命盘结构，请稍候...')"
-                          :key="`mobile-analysis-stream-${lineIdx}`"
-                        >
-                          <p class="zw-analysis-text-line">
-                            <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                            <span>{{ line.body }}</span>
-                          </p>
-                        </template>
-                      </div>
-                    </article>
-                  </div>
-
                   <div v-if="aiLoading && !aiResult" class="zw-analysis-stream-card hidden lg:block">
                     <div class="zw-analysis-card-head">
                       <h3 class="text-sm font-semibold text-text">AI 正在解读</h3>
-                      <span class="text-[11px] text-accent">流式输出中</span>
+                      <span class="text-[11px] text-accent">AI思考中</span>
                     </div>
                     <div class="zw-analysis-badge-row">
                       <span class="zw-analysis-badge zw-analysis-badge--blue">结构化输出</span>
@@ -1183,112 +1221,143 @@ async function handleAiQuestion(): Promise<void> {
                     </p>
                   </div>
 
-                  <div v-if="aiResult" class="zw-analysis-result-wrap">
-                    <div v-if="!aiLoading" class="zw-mobile-analysis-flow lg:hidden">
-                      <article
-                        v-if="aiResult.overview"
-                        class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--hero zw-mobile-flow-hero"
-                      >
-                        <div class="zw-analysis-card-head">
-                          <h3 class="text-sm font-semibold text-text">总体结论</h3>
-                        </div>
-                        <div class="zw-analysis-card-text zw-analysis-card-text--hero">
-                          <template v-for="(line, lineIdx) in splitDisplayText(aiResult.overview)" :key="`overview-mobile-${lineIdx}`">
-                            <p class="zw-analysis-text-line">
-                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                              <span>{{ line.body }}</span>
-                            </p>
-                          </template>
-                        </div>
-                      </article>
-
-                      <article
-                        v-for="entry in mobileAnalysisEntries"
-                        :key="`mobile-flow-${entry.id}`"
-                        class="zw-analysis-card zw-mobile-flow-card"
-                        :class="entry.toneClass"
-                      >
-                        <div class="zw-analysis-card-head">
-                          <h4 class="zw-analysis-section-title" :class="entry.titleClass">
-                            <span class="zw-analysis-section-icon" :class="entry.iconClass"></span>
-                            <span>{{ entry.title }}</span>
-                          </h4>
-                          <span class="zw-analysis-section-index">{{ entry.indexLabel }}</span>
-                        </div>
-                        <div v-if="entry.summary" class="zw-analysis-card-text zw-analysis-card-text--subtle">
-                          <template
-                            v-for="(line, lineIdx) in splitDisplayText(entry.summary)"
-                            :key="`${entry.id}-summary-mobile-${lineIdx}`"
-                          >
-                            <p class="zw-analysis-text-line">
-                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                              <span>{{ line.body }}</span>
-                            </p>
-                          </template>
-                        </div>
-                        <div
-                          v-if="hasItems(entry.evidence) || hasItems(entry.opportunities) || hasItems(entry.risks)"
-                          class="zw-analysis-meta-grid"
+                  <div v-if="aiResult || aiLoading" class="zw-analysis-result-wrap">
+                    <div class="zw-mobile-hscroll lg:hidden">
+                      <div ref="analysisScrollRef" class="zw-mobile-hscroll-track" @scroll="onAnalysisScroll">
+                        <article
+                          v-if="aiLoading && !aiResult"
+                          class="zw-analysis-card zw-hscroll-card zw-analysis-card--hero"
                         >
-                          <section v-if="hasItems(entry.evidence)" class="zw-analysis-meta-block">
-                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--evidence">命盘依据</h5>
-                            <ul class="zw-analysis-meta-list">
-                              <li v-for="(item, itemIdx) in entry.evidence" :key="`${entry.id}-ev-${itemIdx}`">
-                                <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-ev-${itemIdx}-${lineIdx}`">
-                                  <p class="zw-analysis-list-line">
-                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                                    <span>{{ line.body }}</span>
-                                  </p>
-                                </template>
-                              </li>
-                            </ul>
-                          </section>
-                          <section v-if="hasItems(entry.opportunities)" class="zw-analysis-meta-block">
-                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--opportunities">可把握机会</h5>
-                            <ul class="zw-analysis-meta-list">
-                              <li v-for="(item, itemIdx) in entry.opportunities" :key="`${entry.id}-opp-${itemIdx}`">
-                                <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-opp-${itemIdx}-${lineIdx}`">
-                                  <p class="zw-analysis-list-line">
-                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                                    <span>{{ line.body }}</span>
-                                  </p>
-                                </template>
-                              </li>
-                            </ul>
-                          </section>
-                          <section v-if="hasItems(entry.risks)" class="zw-analysis-meta-block">
-                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--risks">需要留意</h5>
-                            <ul class="zw-analysis-meta-list">
-                              <li v-for="(item, itemIdx) in entry.risks" :key="`${entry.id}-risk-${itemIdx}`">
-                                <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-risk-${itemIdx}-${lineIdx}`">
-                                  <p class="zw-analysis-list-line">
-                                    <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                                    <span>{{ line.body }}</span>
-                                  </p>
-                                </template>
-                              </li>
-                            </ul>
-                          </section>
-                        </div>
-                        <div v-if="hasItems(entry.actions)" class="zw-analysis-meta-grid">
-                          <section class="zw-analysis-meta-block">
-                            <h5 class="zw-analysis-meta-title zw-analysis-meta-title--advice">接下来怎么做</h5>
-                            <div class="zw-analysis-card-text zw-analysis-card-text--subtle" style="line-height: 1.8">
-                              <p v-for="(item, itemIdx) in entry.actions" :key="`${entry.id}-act-${itemIdx}`" class="zw-analysis-list-line">
-                                · {{ item }}
+                          <div class="zw-analysis-card-head">
+                            <h3 class="text-sm font-semibold text-text">总体结论</h3>
+                            <span class="text-[11px] text-accent">AI思考中</span>
+                          </div>
+                          <div class="zw-analysis-card-text zw-analysis-card-text--hero zw-analysis-card-text--stream">
+                            <template
+                              v-for="(line, lineIdx) in splitDisplayText(aiStreamingText || 'AI 正在整理命盘结构，请稍候...')"
+                              :key="`mobile-analysis-stream-${lineIdx}`"
+                            >
+                              <p class="zw-analysis-text-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
                               </p>
-                            </div>
-                          </section>
-                        </div>
-                      </article>
+                            </template>
+                          </div>
+                        </article>
+                        <article
+                          v-if="aiResult?.overview"
+                          class="zw-analysis-card zw-hscroll-card zw-analysis-card--hero"
+                        >
+                          <div class="zw-analysis-card-head">
+                            <h3 class="text-sm font-semibold text-text">总体结论</h3>
+                          </div>
+                          <div class="zw-analysis-card-text zw-analysis-card-text--hero">
+                            <template v-for="(line, lineIdx) in splitDisplayText(aiResult.overview)" :key="`overview-mobile-${lineIdx}`">
+                              <p class="zw-analysis-text-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
+                              </p>
+                            </template>
+                          </div>
+                        </article>
+
+                        <article
+                          v-for="entry in mobileAnalysisEntries"
+                          :key="`mobile-flow-${entry.id}`"
+                          class="zw-analysis-card zw-hscroll-card"
+                          :class="entry.toneClass"
+                        >
+                          <div class="zw-analysis-card-head">
+                            <h4 class="zw-analysis-section-title" :class="entry.titleClass">
+                              <span class="zw-analysis-section-icon" :class="entry.iconClass"></span>
+                              <span>{{ entry.title }}</span>
+                            </h4>
+                            <span class="zw-analysis-section-index">{{ entry.indexLabel }}</span>
+                          </div>
+                          <div v-if="entry.summary" class="zw-analysis-card-text zw-analysis-card-text--subtle">
+                            <template
+                              v-for="(line, lineIdx) in splitDisplayText(entry.summary)"
+                              :key="`${entry.id}-summary-mobile-${lineIdx}`"
+                            >
+                              <p class="zw-analysis-text-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
+                              </p>
+                            </template>
+                          </div>
+                          <div
+                            v-if="hasItems(entry.evidence) || hasItems(entry.opportunities) || hasItems(entry.risks)"
+                            class="zw-analysis-meta-grid"
+                          >
+                            <section v-if="hasItems(entry.evidence)" class="zw-analysis-meta-block">
+                              <h5 class="zw-analysis-meta-title zw-analysis-meta-title--evidence">命盘依据</h5>
+                              <ul class="zw-analysis-meta-list">
+                                <li v-for="(item, itemIdx) in entry.evidence" :key="`${entry.id}-ev-${itemIdx}`">
+                                  <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-ev-${itemIdx}-${lineIdx}`">
+                                    <p class="zw-analysis-list-line">
+                                      <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                      <span>{{ line.body }}</span>
+                                    </p>
+                                  </template>
+                                </li>
+                              </ul>
+                            </section>
+                            <section v-if="hasItems(entry.opportunities)" class="zw-analysis-meta-block">
+                              <h5 class="zw-analysis-meta-title zw-analysis-meta-title--opportunities">可把握机会</h5>
+                              <ul class="zw-analysis-meta-list">
+                                <li v-for="(item, itemIdx) in entry.opportunities" :key="`${entry.id}-opp-${itemIdx}`">
+                                  <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-opp-${itemIdx}-${lineIdx}`">
+                                    <p class="zw-analysis-list-line">
+                                      <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                      <span>{{ line.body }}</span>
+                                    </p>
+                                  </template>
+                                </li>
+                              </ul>
+                            </section>
+                            <section v-if="hasItems(entry.risks)" class="zw-analysis-meta-block">
+                              <h5 class="zw-analysis-meta-title zw-analysis-meta-title--risks">需要留意</h5>
+                              <ul class="zw-analysis-meta-list">
+                                <li v-for="(item, itemIdx) in entry.risks" :key="`${entry.id}-risk-${itemIdx}`">
+                                  <template v-for="(line, lineIdx) in splitDisplayText(item)" :key="`${entry.id}-risk-${itemIdx}-${lineIdx}`">
+                                    <p class="zw-analysis-list-line">
+                                      <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                      <span>{{ line.body }}</span>
+                                    </p>
+                                  </template>
+                                </li>
+                              </ul>
+                            </section>
+                          </div>
+                          <div v-if="hasItems(entry.actions)" class="zw-analysis-meta-grid">
+                            <section class="zw-analysis-meta-block">
+                              <h5 class="zw-analysis-meta-title zw-analysis-meta-title--advice">接下来怎么做</h5>
+                              <div class="zw-analysis-card-text zw-analysis-card-text--subtle" style="line-height: 1.8">
+                                <p v-for="(item, itemIdx) in entry.actions" :key="`${entry.id}-act-${itemIdx}`" class="zw-analysis-list-line">
+                                  · {{ item }}
+                                </p>
+                              </div>
+                            </section>
+                          </div>
+                        </article>
+                      </div>
+                      <div v-if="analysisNavTags.length > 1" class="zw-mobile-hscroll-tags">
+                        <button
+                          v-for="(tag, idx) in analysisNavTags"
+                          :key="tag.id"
+                          class="zw-mobile-hscroll-tag"
+                          :class="{ 'zw-mobile-hscroll-tag--active': activeAnalysisCardIdx === idx }"
+                          @click="scrollToAnalysisCard(idx)"
+                        >{{ tag.label }}</button>
+                      </div>
                     </div>
 
-                    <div class="zw-analysis-desktop-grid">
+                    <div v-if="aiResult" class="zw-analysis-desktop-grid">
                       <article v-if="aiResult.overview" class="zw-analysis-card zw-analysis-card--overview zw-analysis-card--hero">
                         <div class="zw-analysis-card-head">
                           <h3 class="text-sm font-semibold text-text">总体结论</h3>
                           <span class="text-[11px]" :class="aiLoading ? 'text-accent' : 'text-subtle'">
-                            {{ aiLoading ? '流式输出中' : 'AI 结构化解读' }}
+                            {{ aiLoading ? 'AI思考中' : 'AI 思考完成' }}
                           </span>
                         </div>
                         <div class="zw-analysis-badge-row">
@@ -1467,10 +1536,37 @@ async function handleAiQuestion(): Promise<void> {
                 </div>
               </section>
 
-              <section v-else class="zw-analysis-panel zw-analysis-panel--qa">
+              <section
+                v-else
+                class="zw-analysis-empty zw-analysis-empty--full"
+              >
+                <div class="text-muted">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 3C7.02944 3 3 6.58172 3 11C3 13.0808 3.89941 14.9757 5.38463 16.4117C5.17118 17.4794 4.73212 18.6407 4 20C5.70683 19.7164 7.11718 19.2844 8.23549 18.7362C9.41518 19.185 10.677 19.4167 12 19.4167C16.9706 19.4167 21 15.835 21 11.4167C21 6.99839 16.9706 3 12 3Z"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <h3 class="text-sm font-semibold text-text">AI 解读还未生成</h3>
+                <button
+                  type="button"
+                  class="ziwei-btn-outline"
+                  :disabled="!chart || aiLoading"
+                  @click="handleAiAnalysis"
+                >
+                  {{ aiButtonLabel }}
+                </button>
+              </section>
+            </template>
+
+            <!-- 问答内容 -->
+            <template v-if="mobileTab === 'qa'">
+              <section class="zw-analysis-panel zw-analysis-panel--qa lg:flex">
                 <div class="zw-analysis-panel-head hidden lg:flex">
                   <div class="zw-analysis-panel-title">
-                    <span class="zw-analysis-panel-kicker">问题拆解</span>
                     <h3 class="text-sm font-semibold text-text">问答</h3>
                   </div>
                   <span class="zw-analysis-panel-chip zw-analysis-panel-chip--ghost">{{ lastAiQuestion || '等待提问' }}</span>
@@ -1479,7 +1575,6 @@ async function handleAiQuestion(): Promise<void> {
                 <div class="zw-analysis-panel-body">
                   <div class="zw-qa-compose-card hidden lg:block">
                     <div class="zw-qa-compose-head">
-                      <p class="text-xs text-subtle leading-relaxed">{{ UI_LABELS.QA_DESC }}</p>
                       <span class="zw-analysis-badge zw-analysis-badge--blue">
                         {{ aiAnalysisReady ? '可继续追问' : '可直接基于命盘提问' }}
                       </span>
@@ -1496,10 +1591,6 @@ async function handleAiQuestion(): Promise<void> {
                       />
                       <button
                         class="zw-qa-send-btn"
-                        :class="{
-                          'opacity-50 cursor-not-allowed':
-                            !chart || !aiQuestionInput.trim() || aiQuestionLoading
-                        }"
                         :disabled="!chart || !aiQuestionInput.trim() || aiQuestionLoading"
                         aria-label="发送问题"
                         @click="handleAiQuestion"
@@ -1534,6 +1625,68 @@ async function handleAiQuestion(): Promise<void> {
                   </div>
 
                   <div class="zw-mobile-qa-simple lg:hidden">
+                    <div class="zw-mqas-conversation">
+                      <!-- 空状态：引导卡片 -->
+                      <div v-if="!mobileQaFlowBlocks.length && !lastAiQuestion" class="zw-mqas-welcome">
+                        <div class="zw-mqas-welcome-head">
+                          <span class="zw-mqas-avatar zw-mqas-avatar--ai">AI</span>
+                          <span class="zw-mqas-welcome-title">可以问我任何关于命盘的问题</span>
+                        </div>
+                        <div class="zw-mqas-suggestions">
+                          <p class="zw-mqas-suggestions-label">💡 试试问：</p>
+                          <button
+                            v-for="suggestion in qaSuggestions"
+                            :key="suggestion"
+                            class="zw-mqas-suggestion"
+                            @click="aiQuestionInput = suggestion"
+                          >{{ suggestion }}</button>
+                        </div>
+                      </div>
+
+                      <!-- 有回答时：对话流 -->
+                      <template v-if="mobileQaFlowBlocks.length">
+                        <article
+                          v-for="block in mobileQaFlowBlocks"
+                          :key="block.id"
+                          class="zw-mqas-message zw-mqas-message--ai"
+                        >
+                          <div class="zw-mqas-message-head">
+                            <span class="zw-mqas-avatar zw-mqas-avatar--ai">AI</span>
+                            <span class="zw-mqas-message-title" :class="block.titleClass">{{ block.title }}</span>
+                          </div>
+                          <div class="zw-mqas-message-body">
+                            <template v-for="(line, lineIdx) in splitDisplayText(block.body)" :key="`${block.id}-${lineIdx}`">
+                              <p class="zw-analysis-text-line">
+                                <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
+                                <span>{{ line.body }}</span>
+                              </p>
+                            </template>
+                          </div>
+                        </article>
+                      </template>
+
+                      <!-- 用户问题气泡 -->
+                      <div v-if="lastAiQuestion" class="zw-mqas-message zw-mqas-message--user">
+                        <div class="zw-mqas-message-head">
+                          <span class="zw-mqas-avatar zw-mqas-avatar--user">我</span>
+                          <span class="zw-mqas-message-title">我的问题</span>
+                        </div>
+                        <div class="zw-mqas-message-body">
+                          <p>{{ lastAiQuestion }}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 错误提示 -->
+                    <div
+                      v-if="aiQuestionError"
+                      class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
+                      role="alert"
+                    >
+                      {{ aiQuestionError }}
+                    </div>
+
+                    <!-- 输入区域 -->
                     <div class="zw-mqas-input-row">
                       <input
                         v-model="aiQuestionInput"
@@ -1549,35 +1702,6 @@ async function handleAiQuestion(): Promise<void> {
                         @click="handleAiQuestion"
                       >提问</button>
                     </div>
-                    <div v-if="aiQuestionLoading" class="text-xs text-subtle" style="padding: 4px 0;">
-                      {{ UI_LABELS.HINT_AI_QA_LOADING }}
-                    </div>
-                    <div
-                      v-if="aiQuestionError"
-                      class="p-2.5 bg-dangerBg border border-danger/30 rounded-md text-xs text-danger"
-                      role="alert"
-                    >
-                      {{ aiQuestionError }}
-                    </div>
-                    <div v-if="lastAiQuestion" class="zw-mqas-echo">Q: {{ lastAiQuestion }}</div>
-                    <template v-if="mobileQaFlowBlocks.length">
-                      <article
-                        v-for="(block, bIdx) in mobileQaFlowBlocks"
-                        :key="block.id"
-                        class="zw-mqas-card"
-                        :class="{ 'zw-mqas-card--lead': bIdx === 0 }"
-                      >
-                        <h5 class="zw-mqas-card-title" :class="{ 'zw-mqas-card-title--lead': bIdx === 0 }">{{ block.title }}</h5>
-                        <div class="zw-mqas-card-text">
-                          <template v-for="(line, lineIdx) in splitDisplayText(block.body)" :key="`${block.id}-${lineIdx}`">
-                            <p class="zw-analysis-text-line">
-                              <span v-if="line.label" class="zw-analysis-inline-label">{{ line.label }}：</span>
-                              <span>{{ line.body }}</span>
-                            </p>
-                          </template>
-                        </div>
-                      </article>
-                    </template>
                   </div>
 
                   <template v-if="lastAiQuestion || qaAnswerCards.length">
@@ -1610,11 +1734,11 @@ async function handleAiQuestion(): Promise<void> {
                         </div>
                       </article>
 
-                      <div v-if="qaFollowCards.length" class="zw-qa-card-grid">
+                      <div v-if="qaFollowCards.length" class="zw-qa-follow-grid">
                         <article
                           v-for="(card, qaIdx) in qaFollowCards"
-                          :key="`qa-card-${qaIdx + 1}`"
-                          class="zw-analysis-card zw-analysis-card--qa zw-analysis-card--qa-detail"
+                          :key="`qa-follow-${qaIdx}`"
+                          class="zw-analysis-card zw-analysis-card--qa"
                           :class="[
                             getAnalysisSectionToneClass(qaIdx + (aiResult?.sections.length ?? 0) + 2),
                             { 'zw-analysis-card--span-full': shouldSpanFullWidth(qaIdx, qaFollowCards.length) }
@@ -1677,42 +1801,9 @@ async function handleAiQuestion(): Promise<void> {
                     </div>
                   </template>
 
-                  <div v-else class="zw-analysis-panel-empty">
-                    <p class="text-xs text-subtle leading-relaxed">
-                      提交问题后，问答卡片会在这里按阅读模式分块展示。
-                    </p>
-                  </div>
                 </div>
               </section>
             </template>
-
-            <section
-              v-else
-              class="zw-analysis-empty zw-analysis-empty--full"
-            >
-              <div class="text-muted">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 3C7.02944 3 3 6.58172 3 11C3 13.0808 3.89941 14.9757 5.38463 16.4117C5.17118 17.4794 4.73212 18.6407 4 20C5.70683 19.7164 7.11718 19.2844 8.23549 18.7362C9.41518 19.185 10.677 19.4167 12 19.4167C16.9706 19.4167 21 15.835 21 11.4167C21 6.99839 16.9706 3 12 3Z"
-                    stroke="currentColor"
-                    stroke-width="1.6"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-              <h3 class="text-sm font-semibold text-text">AI 解读还未生成</h3>
-              <p class="text-xs text-subtle leading-relaxed">
-                点击上方按钮后，AI 解读会在这里以完整阅读布局展示。
-              </p>
-              <button
-                type="button"
-                class="ziwei-btn-outline"
-                :disabled="!chart || aiLoading"
-                @click="handleAiAnalysis"
-              >
-                {{ aiButtonLabel }}
-              </button>
-            </section>
 
             <p v-if="mobileTab !== 'qa'" class="zw-analysis-disclaimer">
               {{ analysisDisclaimer }}
@@ -1726,17 +1817,17 @@ async function handleAiQuestion(): Promise<void> {
                   <div v-if="index === 5" class="zw-mobile-center-panel">
                     <div class="zw-mc-center-name">{{ profileName || '当前命盘' }}</div>
                     <div class="zw-mc-center-meta">{{ chartMeta }}</div>
-                    <div class="zw-mc-center-stats">
-                      <div v-for="item in mobileChartHighlights" :key="item.label" class="zw-mc-stat">
-                        <span class="zw-mc-stat-v">{{ item.value }}</span>
-                        <span class="zw-mc-stat-l">{{ item.label }}</span>
+                    <div class="zw-mc-center-info-list">
+                      <div v-for="item in mobileCenterBasicInfo" :key="item.label" class="zw-mc-info-row">
+                        <span class="zw-mc-info-k">{{ item.label }}</span>
+                        <span class="zw-mc-info-v">{{ item.value }}</span>
                       </div>
                     </div>
                     <div class="zw-mc-center-divider"></div>
-                    <div class="zw-mc-center-hua">
-                      <div v-for="item in mobileChartHuaFacts" :key="item.label" class="zw-mc-hua-row">
-                        <span class="zw-mc-hua-label">{{ item.label }}</span>
-                        <span class="zw-mc-hua-value">{{ item.value }}</span>
+                    <div class="zw-mc-center-stats">
+                      <div v-for="item in mobileCenterLiunian" :key="item.label" class="zw-mc-stat">
+                        <span class="zw-mc-stat-v">{{ item.value }}</span>
+                        <span class="zw-mc-stat-l">{{ item.label }}</span>
                       </div>
                     </div>
                   </div>
@@ -1782,6 +1873,15 @@ async function handleAiQuestion(): Promise<void> {
                 <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-wang" /><span>旺</span></span>
                 <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-de" /><span>得</span></span>
                 <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-xian" /><span>陷</span></span>
+              </div>
+              <div v-if="centerInfo" class="zw-mc-yaosu-card">
+                <div class="zw-mc-yaosu-title">命 盘 要 素</div>
+                <div class="zw-mc-yaosu-grid">
+                  <div v-for="item in mobileChartYaosu" :key="item.label" class="zw-mc-yaosu-item">
+                    <span class="zw-mc-yaosu-k" :class="item.colorClass">{{ item.label }}</span>
+                    <span class="zw-mc-yaosu-v">{{ item.value }}</span>
+                  </div>
+                </div>
               </div>
               <div v-if="centerInfo" class="zw-mc-hua-section">
                 <div class="zw-mc-hua-section-title">三 层 四 化</div>
@@ -1978,29 +2078,29 @@ async function handleAiQuestion(): Promise<void> {
                   </div>
 
                   <section class="zw-mobile-detail-block">
-                    <h4 class="zw-mobile-detail-title">主星</h4>
+                    <h4 class="zw-mobile-detail-title zw-mobile-detail-title--stars">主星</h4>
                     <p class="zw-mobile-detail-text">{{ formatMainStarText(activeMobilePalace.mainStars) }}</p>
                   </section>
 
                   <section class="zw-mobile-detail-block">
-                    <h4 class="zw-mobile-detail-title">基础信息</h4>
+                    <h4 class="zw-mobile-detail-title zw-mobile-detail-title--basic">基础信息</h4>
                     <div class="zw-mobile-detail-grid">
-                      <div class="zw-mobile-detail-item"><span>地支</span><strong>{{ activeMobilePalace.branch }}</strong></div>
-                      <div class="zw-mobile-detail-item"><span>长生</span><strong>{{ activeMobilePalace.changSheng || '--' }}</strong></div>
-                      <div class="zw-mobile-detail-item"><span>大限</span><strong>{{ activeMobilePalace.daXianAge || '--' }}</strong></div>
-                      <div class="zw-mobile-detail-item"><span>流年</span><strong>{{ activeMobilePalace.liuNianPalaceName || '--' }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span class="zw-mdi-label--branch">地支</span><strong>{{ activeMobilePalace.branch }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span class="zw-mdi-label--changsheng">长生</span><strong>{{ activeMobilePalace.changSheng || '--' }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span class="zw-mdi-label--daxian">大限</span><strong>{{ activeMobilePalace.daXianAge || '--' }}</strong></div>
+                      <div class="zw-mobile-detail-item"><span class="zw-mdi-label--liunian">流年</span><strong>{{ activeMobilePalace.liuNianPalaceName || '--' }}</strong></div>
                     </div>
                   </section>
 
                   <section class="zw-mobile-detail-block">
-                    <h4 class="zw-mobile-detail-title">辅佐与四化</h4>
+                    <h4 class="zw-mobile-detail-title zw-mobile-detail-title--hua">辅佐与四化</h4>
                     <div class="zw-mobile-detail-list">
-                      <div class="zw-mobile-detail-row"><span>吉曜</span><p>{{ formatStarNameText(activeMobilePalace.luckyStars) }}</p></div>
-                      <div class="zw-mobile-detail-row"><span>煞曜</span><p>{{ formatStarNameText(activeMobilePalace.evilStars) }}</p></div>
-                      <div class="zw-mobile-detail-row"><span>杂曜</span><p>{{ formatStarNameText(activeMobilePalace.miscStars) }}</p></div>
-                      <div class="zw-mobile-detail-row"><span>生年四化</span><p>{{ formatBirthHuaText(activeMobilePalace.birthHuaStars) }}</p></div>
-                      <div class="zw-mobile-detail-row"><span>大限四化</span><p>{{ formatTransitHuaText(activeMobilePalace.daxianSiHua) }}</p></div>
-                      <div class="zw-mobile-detail-row"><span>流年四化</span><p>{{ formatTransitHuaText(activeMobilePalace.liunianSiHua) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--lucky">吉曜</span><p>{{ formatStarNameText(activeMobilePalace.luckyStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--evil">煞曜</span><p>{{ formatStarNameText(activeMobilePalace.evilStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--misc">杂曜</span><p>{{ formatStarNameText(activeMobilePalace.miscStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--birth-hua">生年四化</span><p>{{ formatBirthHuaText(activeMobilePalace.birthHuaStars) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--dx-hua">大限四化</span><p>{{ formatTransitHuaText(activeMobilePalace.daxianSiHua) }}</p></div>
+                      <div class="zw-mobile-detail-row"><span class="zw-mdr-label--ln-hua">流年四化</span><p>{{ formatTransitHuaText(activeMobilePalace.liunianSiHua) }}</p></div>
                     </div>
                   </section>
                 </div>
@@ -3350,9 +3450,9 @@ async function handleAiQuestion(): Promise<void> {
 
 /* 移动端 Tab 栏 - 玻璃态浮动药丸 */
 .zw-mobile-tab-bar {
-  display: flex;
+  display: none;
   gap: 3px;
-  margin: 0 12px 12px;
+  margin: 4px 12px 8px;
   padding: 2px;
   background: var(--color-panel);
   border: 1px solid var(--color-border);
@@ -3363,13 +3463,13 @@ async function handleAiQuestion(): Promise<void> {
 
 .zw-mobile-tab-btn {
   flex: 1;
-  padding: 8px 0;
-  min-height: 44px;
+  padding: 5px 0;
+  min-height: 36px;
   font-size: 11px;
   font-weight: 500;
   font-family: var(--font-body);
   color: var(--color-text-muted);
-  border: none;
+  border: 1px solid transparent;
   background: none;
   border-radius: 10px;
   cursor: pointer;
@@ -3379,15 +3479,16 @@ async function handleAiQuestion(): Promise<void> {
 .zw-mobile-tab-btn--active {
   background: var(--color-accent-bg);
   color: var(--color-text);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 @media (max-width: 1023px) {
   /* 解除滚动阻塞 */
   .zw-main-grid {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
   }
 
   .zw-center-panel {
@@ -3396,7 +3497,11 @@ async function handleAiQuestion(): Promise<void> {
   }
 
   .zw-main-stage {
+    display: flex;
+    flex-direction: column;
     height: auto;
+    min-height: 0;
+    flex: 1;
   }
 
   /* D 对齐：隐藏命盘/AI 标题栏 */
@@ -3439,8 +3544,12 @@ async function handleAiQuestion(): Promise<void> {
   }
 
   /* tab bar 触控 */
+  .zw-mobile-tab-bar {
+    display: flex;
+  }
+
   .zw-mobile-tab-btn {
-    min-height: 44px;
+    min-height: 36px;
     font-size: 12px;
   }
 
@@ -3449,24 +3558,32 @@ async function handleAiQuestion(): Promise<void> {
     padding: 0 12px 12px;
   }
 
-  /* 移动端输入面板：D 风格 — 排盘大按钮 + 清除独占一行 + 隐藏分享/步骤 */
+  /* 移动端输入面板：排盘+清除同行 + 控件缩小 */
   .zw-action-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .zw-generate-btn {
-    min-height: 46px;
-    height: 46px;
-    font-size: 14px;
+    min-height: 40px;
+    height: 40px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     border-radius: var(--radius-lg);
   }
 
   .zw-clear-btn {
-    min-height: 40px;
-    height: 40px;
+    min-height: 36px;
+    height: 36px;
+    font-size: 12px;
     border-radius: 12px;
+  }
+
+  .zw-form-body :deep(.input-control),
+  .zw-form-body :deep(.form-select-trigger) {
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 13px;
   }
 
   .zw-share-row,
@@ -3531,8 +3648,11 @@ async function handleAiQuestion(): Promise<void> {
   }
 
   .zw-analysis-stage {
-    grid-template-rows: auto auto;
+    display: flex;
+    flex-direction: column;
     height: auto;
+    min-height: 0;
+    flex: 1;
   }
 
   .zw-analysis-split {
@@ -3541,28 +3661,66 @@ async function handleAiQuestion(): Promise<void> {
 
   .zw-analysis-panel {
     grid-template-rows: auto auto;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
     padding: 12px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .zw-analysis-panel--qa {
+    align-self: stretch;
   }
 
   .zw-analysis-panel-body {
     overflow-y: visible;
     padding-right: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
   }
 
   .zw-analysis-panel-head {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+    display: none;
   }
 
-  .zw-analysis-panel-title {
-    gap: 3px;
+  .zw-analysis-stream-card {
+    display: none;
+  }
+
+  .zw-analysis-result-wrap {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .zw-analysis-card-text,
+  .zw-analysis-card-text--hero,
+  .zw-analysis-card-text--feature,
+  .zw-analysis-card-text--lead {
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .zw-analysis-meta-title {
+    font-size: 12px;
+  }
+
+  .zw-analysis-meta-list {
+    font-size: 13px;
+    line-height: 1.62;
   }
 
   .zw-analysis-panel-chip {
-    width: 100%;
-    max-width: none;
+    width: fit-content;
+    max-width: 100%;
     justify-content: flex-start;
     white-space: normal;
     line-height: 1.35;
@@ -3577,7 +3735,7 @@ async function handleAiQuestion(): Promise<void> {
   .zw-mobile-sanfang-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, auto);
+    grid-template-rows: repeat(4, minmax(0, 1fr));
     gap: 2px;
   }
 
@@ -3587,13 +3745,13 @@ async function handleAiQuestion(): Promise<void> {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 6px;
-    padding: 10px;
+    gap: 4px;
+    padding: 8px;
     background:
       linear-gradient(135deg, color-mix(in srgb, var(--color-accent-bg) 48%, var(--color-panel)), var(--color-panel));
     border: 1px solid color-mix(in srgb, var(--color-accent) 15%, var(--color-border));
     border-radius: var(--radius-lg);
-    overflow: hidden;
+    overflow-y: auto;
     position: relative;
   }
 
@@ -3608,20 +3766,50 @@ async function handleAiQuestion(): Promise<void> {
   }
 
   .zw-mc-center-name {
-    font: 700 15px/1.2 var(--font-body);
+    font: 700 14px/1.2 var(--font-body);
     color: var(--color-text);
+    word-break: keep-all;
   }
 
   .zw-mc-center-meta {
     font-size: 9px;
     color: var(--color-text-muted);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    word-break: keep-all;
+  }
+
+  .zw-mc-center-info-list {
+    display: grid;
+    gap: 2px;
+  }
+
+  .zw-mc-info-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 3px;
+    align-items: baseline;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .zw-mc-info-k {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    word-break: keep-all;
+    white-space: nowrap;
+  }
+
+  .zw-mc-info-v {
+    color: var(--color-text);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
   }
 
   .zw-mc-center-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3px;
   }
 
   .zw-mc-stat {
@@ -3630,10 +3818,12 @@ async function handleAiQuestion(): Promise<void> {
 
   .zw-mc-stat-v {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--color-text);
     line-height: 1.3;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
 
   .zw-mc-stat-l {
@@ -3641,6 +3831,7 @@ async function handleAiQuestion(): Promise<void> {
     font-size: 7px;
     color: var(--color-text-muted);
     line-height: 1.2;
+    word-break: keep-all;
   }
 
   .zw-mc-center-divider {
@@ -3828,6 +4019,66 @@ async function handleAiQuestion(): Promise<void> {
   .zw-mc-legend-dot.level-wang { background: var(--color-hua-quan); }
   .zw-mc-legend-dot.level-de { background: var(--color-accent); }
   .zw-mc-legend-dot.level-xian { background: var(--color-hua-ji); }
+
+  .zw-mc-yaosu-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .zw-mc-yaosu-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-border) 60%, transparent), transparent);
+  }
+
+  .zw-mc-yaosu-title {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .zw-mc-yaosu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .zw-mc-yaosu-item {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 4px;
+    align-items: start;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .zw-mc-yaosu-k {
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  .zw-yaosu-k--accent { color: var(--color-accent); }
+  .zw-yaosu-k--major { color: var(--color-major-star); }
+  .zw-yaosu-k--hua { color: var(--color-hua-lu); }
+  .zw-yaosu-k--liunian { color: var(--color-liunian); }
+
+  .zw-mc-yaosu-v {
+    color: var(--color-text);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 
   .zw-mc-hua-section {
     background: var(--color-panel);
@@ -4062,12 +4313,26 @@ async function handleAiQuestion(): Promise<void> {
     margin: 0;
     font-size: 13px;
     font-weight: 700;
+    font-family: var(--font-body);
     line-height: 1.2;
     color: var(--color-accent);
   }
 
+  .zw-mobile-detail-title--stars {
+    color: var(--color-major-star);
+  }
+
+  .zw-mobile-detail-title--basic {
+    color: var(--color-accent);
+  }
+
+  .zw-mobile-detail-title--hua {
+    color: var(--color-hua-lu);
+  }
+
   .zw-mobile-detail-text {
     font-size: 13px;
+    font-family: var(--font-body);
     line-height: 1.6;
     color: var(--color-text);
   }
@@ -4088,13 +4353,16 @@ async function handleAiQuestion(): Promise<void> {
 
   .zw-mobile-detail-item span,
   .zw-mobile-detail-row span {
-    font-size: 11px;
-    line-height: 1.2;
+    font-size: 13px;
+    font-family: var(--font-body);
+    line-height: 1.45;
     color: var(--color-subtle);
   }
 
   .zw-mobile-detail-item strong {
     font-size: 13px;
+    font-family: var(--font-body);
+    font-weight: 400;
     line-height: 1.45;
     color: var(--color-text);
   }
@@ -4111,28 +4379,265 @@ async function handleAiQuestion(): Promise<void> {
     align-items: start;
   }
 
+  .zw-mobile-detail-row p {
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .zw-mobile-detail-row .zw-mdr-label--lucky { color: var(--color-hua-lu); }
+  .zw-mobile-detail-row .zw-mdr-label--evil { color: var(--color-hua-ji); }
+  .zw-mobile-detail-row .zw-mdr-label--misc { color: var(--color-text-muted); }
+  .zw-mobile-detail-row .zw-mdr-label--birth-hua { color: var(--color-hua-quan); }
+  .zw-mobile-detail-row .zw-mdr-label--dx-hua { color: var(--color-accent); }
+  .zw-mobile-detail-row .zw-mdr-label--ln-hua { color: var(--color-liunian); }
+
+  .zw-mobile-detail-item .zw-mdi-label--branch { color: var(--color-accent); }
+  .zw-mobile-detail-item .zw-mdi-label--changsheng { color: var(--color-major-star); }
+  .zw-mobile-detail-item .zw-mdi-label--daxian { color: var(--color-hua-lu); }
+  .zw-mobile-detail-item .zw-mdi-label--liunian { color: var(--color-liunian); }
+
   .zw-mobile-analysis-flow,
   .zw-mobile-analysis-stream {
     display: grid;
     gap: 8px;
   }
 
+  .zw-mobile-hscroll {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .zw-mobile-hscroll-track {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    min-height: 200px;
+  }
+
+  .zw-mobile-hscroll-track::-webkit-scrollbar { display: none; }
+
+  .zw-hscroll-card {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .zw-hscroll-card.zw-mqas-card {
+    min-height: auto;
+  }
+
+  .zw-mobile-hscroll-tags {
+    display: none;
+  }
+
+  .zw-mobile-hscroll-tag {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-panel);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-apple);
+    white-space: nowrap;
+  }
+
+  .zw-mobile-hscroll-tag--active {
+    background: var(--color-accent-bg);
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
   /* 移动端 QA 简洁布局 — 匹配 D 方案 */
   .zw-mobile-qa-simple {
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .zw-mqas-conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    width: 100%;
+  }
+
+  .zw-mqas-conversation::-webkit-scrollbar { display: none; }
+
+  /* 欢迎卡片 */
+  .zw-mqas-welcome {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: 14px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .zw-mqas-welcome-head {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .zw-mqas-welcome-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .zw-mqas-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .zw-mqas-suggestions-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .zw-mqas-suggestion {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--color-panel-2);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-apple);
+    box-sizing: border-box;
+  }
+
+  .zw-mqas-suggestion:hover {
+    background: var(--color-accent-bg);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  /* 对话消息 */
+  .zw-mqas-message {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .zw-mqas-message--ai {
+    border-left: 3px solid var(--color-accent);
+  }
+
+  .zw-mqas-message--user {
+    border-left: 3px solid var(--color-success);
+    order: -1;
+  }
+
+  .zw-mqas-message--loading {
+    display: none;
+  }
+
+  .zw-mqas-message-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .zw-mqas-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .zw-mqas-avatar--ai {
+    background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 80%, var(--color-text)));
+    color: var(--color-panel);
+  }
+
+  .zw-mqas-avatar--user {
+    background: linear-gradient(135deg, var(--color-success), color-mix(in srgb, var(--color-success) 80%, var(--color-text)));
+    color: var(--color-panel);
+  }
+
+  .zw-mqas-message-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .zw-mqas-message-body {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--color-text);
+  }
+
+  .zw-mqas-message-body p {
+    margin: 0;
+  }
+
+  /* 打字动画 */
+  .zw-mqas-typing {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+  }
+
+  .zw-mqas-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    animation: zw-mqas-typing 1.4s infinite;
+  }
+
+  .zw-mqas-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .zw-mqas-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes zw-mqas-typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
   }
 
   .zw-mqas-input-row {
     display: flex;
     gap: 6px;
+    padding-top: 4px;
+    flex-shrink: 0;
+    width: 100%;
   }
 
   .zw-mqas-input {
     flex: 1;
-    padding: 10px;
+    padding: 6px 10px;
     border: 1px solid var(--color-border);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--color-panel);
     color: var(--color-text);
     font-size: 13px;
@@ -4140,35 +4645,29 @@ async function handleAiQuestion(): Promise<void> {
     outline: none;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    min-height: 34px;
+    box-sizing: border-box;
   }
 
   .zw-mqas-btn {
-    padding: 10px 14px;
+    padding: 6px 12px;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 80%, var(--color-text)));
     color: var(--color-panel);
     font-size: 12px;
     font-weight: 500;
     font-family: var(--font-body);
     cursor: pointer;
-    box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 20%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 20%, transparent);
     flex-shrink: 0;
+    min-height: 34px;
+    box-sizing: border-box;
   }
 
   .zw-mqas-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .zw-mqas-echo {
-    font-size: 11px;
-    color: var(--color-text-muted);
-    padding: 8px 10px;
-    background: var(--color-panel);
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    border-left: 2px solid var(--color-text-muted);
   }
 
   .zw-mqas-card {
@@ -4315,6 +4814,10 @@ async function handleAiQuestion(): Promise<void> {
     align-items: stretch;
   }
 
+  .zw-qa-compose-card {
+    display: none;
+  }
+
   .zw-qa-send-btn {
     width: 100%;
     min-height: 44px;
@@ -4346,9 +4849,9 @@ async function handleAiQuestion(): Promise<void> {
 }
 
 @media (max-width: 600px) {
-  /* 手机端：宫位卡片 2 列紧凑布局 */
+  /* 手机端 */
   .zw-action-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .zw-step-card {
@@ -4414,7 +4917,11 @@ async function handleAiQuestion(): Promise<void> {
   }
 
   .zw-analysis-panel {
-    padding: 10px;
+    padding: 8px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
   }
 
   .zw-analysis-card-head {
@@ -4456,6 +4963,7 @@ async function handleAiQuestion(): Promise<void> {
 
   .zw-analysis-card {
     border-radius: 14px;
+    overflow: visible;
   }
 
   .zw-center-panel {

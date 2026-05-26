@@ -77,6 +77,16 @@ const HomePage = defineAsyncComponent({
   ...asyncPageOptions,
   loader: () => import('./pages/HomePage.vue')
 })
+const MetadataPage = defineAsyncComponent({
+  ...asyncPageOptions,
+  loader: () => import('./pages/MetadataPage.vue')
+})
+const KeepAliveMetadataPage = defineComponent({
+  name: 'KeepAliveMetadataPage',
+  setup() {
+    return () => h(MetadataPage)
+  }
+})
 
 import AlertModal from './modals/AlertModal.vue'
 import ConfirmModal from './modals/ConfirmModal.vue'
@@ -86,6 +96,7 @@ const auth = useAuth()
 const ziweiCacheScope = computed(() => auth.user.value?.id ?? 'guest')
 const activePageComponent = computed(() => {
   if (store.activePage === 'home') return HomePage
+  if (store.activePage === 'metadata') return KeepAliveMetadataPage
   if (store.activePage === 'sqlConvert') return SqlConvertPage
   if (store.activePage === 'idTool') return IdToolPage
   if (store.activePage === 'ziweiTool') {
@@ -95,9 +106,11 @@ const activePageComponent = computed(() => {
   if (store.activePage === 'opLogs') return OperationLogsPage
   return null
 })
-const activePageKey = computed(() =>
-  store.activePage === 'ziweiTool' ? 'ziweiTool' : store.activePage
-)
+const activePageKey = computed(() => {
+  if (store.activePage === 'ziweiTool') return 'ziweiTool'
+  if (store.activePage === 'metadata') return 'metadata'
+  return store.activePage
+})
 
 onMounted(() => {
   store.isMacPlatform = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
@@ -153,7 +166,11 @@ onMounted(() => {
     <div class="wb-main">
       <!-- Page Content -->
       <main class="wb-content" :class="{ 'wb-content-no-scroll': store.activePage === 'aiConfig' }">
-        <KeepAlive :key="ziweiCacheScope" include="KeepAliveZiweiPage" :max="1">
+        <KeepAlive
+          :key="ziweiCacheScope"
+          :include="['KeepAliveZiweiPage', 'KeepAliveMetadataPage']"
+          :max="2"
+        >
           <component :is="activePageComponent" v-if="activePageComponent" :key="activePageKey" />
         </KeepAlive>
         <div v-if="!activePageComponent" class="placeholder" role="status" aria-live="polite">

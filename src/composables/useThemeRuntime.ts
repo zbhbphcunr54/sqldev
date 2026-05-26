@@ -56,7 +56,7 @@ function writeStoredTheme(mode: ThemeMode): void {
 
 function readStoredSkin(): SkinId {
   const stored = getJson<string | null>(SKIN_KEY, null)
-  return VALID_SKINS.includes(stored as SkinId) ? (stored as SkinId) : 'teal-neutral'
+  return VALID_SKINS.includes(stored as SkinId) ? (stored as SkinId) : 'coral-sunset'
 }
 
 function writeStoredSkin(skin: SkinId): void {

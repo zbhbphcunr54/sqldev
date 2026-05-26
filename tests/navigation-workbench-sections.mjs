@@ -10,7 +10,7 @@ function assertEqual(actual, expected, message) {
   }
 }
 
-assertEqual(sections.WORKBENCH_DEFAULT_SECTION, 'sql-convert', 'default workbench section must be sql-convert')
+assertEqual(sections.WORKBENCH_DEFAULT_SECTION, 'home', 'default workbench section must be home')
 assertEqual(sections.normalizeWorkbenchSection('ziwei'), 'ziwei', 'known section must be preserved')
 assertEqual(
   sections.normalizeWorkbenchSection(['id-tool']),
@@ -19,8 +19,13 @@ assertEqual(
 )
 assertEqual(
   sections.normalizeWorkbenchSection('unknown'),
-  'sql-convert',
-  'unknown section must fallback to sql-convert'
+  'home',
+  'unknown section must fallback to home'
+)
+assertEqual(
+  sections.buildWorkbenchPath('metadata'),
+  '/workbench/metadata',
+  'path builder must support metadata section'
 )
 assertEqual(
   sections.buildWorkbenchPath('ai-config'),

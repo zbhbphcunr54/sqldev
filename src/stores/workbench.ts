@@ -11,11 +11,38 @@ import { getJson, setJson } from '@/utils/storage'
 const SAMPLE_CACHE_KEY = 'sqldev:workbench:sample_cache'
 const SAMPLE_CACHE_TTL = 30 * 60 * 1000
 const STREAM_PREVIEW_FLUSH_MS = 120
+const METADATA_CACHE_KEY = 'sqldev:workbench:metadata'
 
 interface SampleCacheData {
   version: number
   samples: Record<string, string>
   timestamp: number
+}
+
+export interface MetadataRecord {
+  id: string
+  order: string
+  zhName: string
+  fieldName: string
+  attrType: string
+  length: string
+  standardCode: string
+  businessDesc: string
+}
+
+export interface MetadataRevisionInfo {
+  id: string
+  recordId: string
+  revisionDate: string
+  version: string
+  revisionNote: string
+  author: string
+}
+
+interface MetadataCacheData {
+  version: 2
+  records: MetadataRecord[]
+  revisions: MetadataRevisionInfo[]
 }
 
 function createEmptyCache(): SampleCacheData {
@@ -33,7 +60,112 @@ function persistSampleCache(samples: Record<string, string>): void {
   setJson(SAMPLE_CACHE_KEY, { version: 1, samples, timestamp: Date.now() })
 }
 
-export type WorkbenchPage = 'home' | 'sqlConvert' | 'idTool' | 'ziweiTool' | 'aiConfig' | 'opLogs'
+function createMetadataRecord(index: number): MetadataRecord {
+  const order = String(index + 1)
+  return {
+    id: `metadata-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    order,
+    zhName: '',
+    fieldName: '',
+    attrType: '',
+    length: '',
+    standardCode: '',
+    businessDesc: ''
+  }
+}
+
+function getTodayString(): string {
+  const now = new Date()
+  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
+function createMetadataRevision(recordId: string, author = ''): MetadataRevisionInfo {
+  return {
+    id: `metadata-revision-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    recordId,
+    revisionDate: getTodayString(),
+    version: 'v1.0.0',
+    revisionNote: '',
+    author
+  }
+}
+
+function createDefaultMetadataState(_author = ''): MetadataCacheData {
+  const firstRecord = createMetadataRecord(0)
+  return {
+    version: 2,
+    records: [firstRecord],
+    revisions: []
+  }
+}
+
+function normalizeMetadataRecords(records: MetadataRecord[]): MetadataRecord[] {
+  if (records.length === 0) return [createMetadataRecord(0)]
+  return records.map((record, index) => ({
+    ...record,
+    id: record.id || createMetadataRecord(index).id,
+    order: record.order || String(index + 1),
+    zhName: record.zhName || '',
+    fieldName: record.fieldName || '',
+    attrType: record.attrType || '',
+    length: record.length || '',
+    standardCode: record.standardCode || '',
+    businessDesc: record.businessDesc || ''
+  }))
+}
+
+function normalizeMetadataRevisions(
+  revisions: MetadataRevisionInfo[],
+  records: MetadataRecord[]
+): MetadataRevisionInfo[] {
+  const recordIds = new Set(records.map((record) => record.id))
+  return revisions
+    .filter((revision) => recordIds.has(revision.recordId))
+    .map((revision) => ({
+      id: revision.id || createMetadataRevision(revision.recordId).id,
+      recordId: revision.recordId,
+      revisionDate: revision.revisionDate || getTodayString(),
+      version: revision.version || 'v1.0.0',
+      revisionNote: revision.revisionNote || '',
+      author: revision.author || ''
+    }))
+}
+
+function getMetadataCache(): MetadataCacheData {
+  const data = getJson<{
+    version?: number
+    records?: MetadataRecord[]
+    revisions?: MetadataRevisionInfo[]
+  } | null>(METADATA_CACHE_KEY, null)
+  if (!data) return createDefaultMetadataState()
+  const records = normalizeMetadataRecords(Array.isArray(data.records) ? data.records : [])
+  return {
+    version: 2,
+    records,
+    revisions: normalizeMetadataRevisions(
+      Array.isArray(data.revisions) ? data.revisions : [],
+      records
+    )
+  }
+}
+
+function persistMetadataCache(records: MetadataRecord[], revisions: MetadataRevisionInfo[]): void {
+  setJson(METADATA_CACHE_KEY, {
+    version: 2,
+    records,
+    revisions
+  })
+}
+
+export type WorkbenchPage =
+  | 'home'
+  | 'metadata'
+  | 'sqlConvert'
+  | 'idTool'
+  | 'ziweiTool'
+  | 'aiConfig'
+  | 'opLogs'
 
 export type SqlType = 'ddl' | 'function' | 'procedure' | 'auto'
 export type TranslateStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -44,10 +176,19 @@ export interface DbOption {
   abbr: string
 }
 
-const NAV_PAGES: WorkbenchPage[] = ['home', 'sqlConvert', 'idTool', 'ziweiTool', 'aiConfig', 'opLogs']
+const NAV_PAGES: WorkbenchPage[] = [
+  'home',
+  'metadata',
+  'sqlConvert',
+  'idTool',
+  'ziweiTool',
+  'aiConfig',
+  'opLogs'
+]
 
 const PAGE_TITLES: Record<WorkbenchPage, { title: string; subtitle: string }> = {
   home: { title: '首页', subtitle: '功能导航与使用指引' },
+  metadata: { title: '元数据', subtitle: '字段元数据维护与修订信息管理' },
   sqlConvert: { title: 'SQL 转换', subtitle: 'DDL / 函数 / 存储过程 AI 互转' },
   idTool: { title: '证件工具', subtitle: '身份证 / 统一社会信用代码' },
   ziweiTool: { title: '紫微斗数', subtitle: '命盘排盘与 AI 分析' },
@@ -68,6 +209,11 @@ export const useWorkbenchStore = defineStore('workbench', () => {
   const actionBarCollapsed = ref(false)
   const refCollapsed = ref(true)
   const isMacPlatform = ref(false)
+
+  // === Metadata State ===
+  const metadataCache = getMetadataCache()
+  const metadataRecords = ref<MetadataRecord[]>(metadataCache.records)
+  const metadataRevisions = ref<MetadataRevisionInfo[]>(metadataCache.revisions)
 
   // === SQL Convert State (unified) ===
   const dbOptions = ref<DbOption[]>([])
@@ -197,21 +343,24 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     statusText.value = 'AI 正在建立连接...'
 
     try {
-      const result = await requestSqlConvertStream({
-        sourceDb: sourceDb.value,
-        targetDb: targetDb.value,
-        sqlType: sqlType.value,
-        inputSql: inputSql.value
-      }, {
-        onMeta: ({ model }) => {
-          statusText.value = model ? `AI 正在流式生成 - ${model}` : 'AI 正在流式生成...'
+      const result = await requestSqlConvertStream(
+        {
+          sourceDb: sourceDb.value,
+          targetDb: targetDb.value,
+          sqlType: sqlType.value,
+          inputSql: inputSql.value
         },
-        onDelta: ({ text, replace }) => {
-          previewBuffer = replace ? text : previewBuffer + text
-          schedulePreviewFlush()
-          statusText.value = 'AI 正在流式生成...'
+        {
+          onMeta: ({ model }) => {
+            statusText.value = model ? `AI 正在流式生成 - ${model}` : 'AI 正在流式生成...'
+          },
+          onDelta: ({ text, replace }) => {
+            previewBuffer = replace ? text : previewBuffer + text
+            schedulePreviewFlush()
+            statusText.value = 'AI 正在流式生成...'
+          }
         }
-      })
+      )
 
       translateTimeMs.value = Date.now() - startTime
 
@@ -314,6 +463,150 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
   }
 
+  function syncMetadataCache(): void {
+    persistMetadataCache(metadataRecords.value, metadataRevisions.value)
+  }
+
+  function reorderMetadataRecords(): void {
+    metadataRecords.value = metadataRecords.value.map((record, i) => ({
+      ...record,
+      order: String(i + 1)
+    }))
+    syncMetadataCache()
+  }
+
+  function moveMetadataRecord(id: string, direction: 'up' | 'down'): void {
+    const arr = [...metadataRecords.value]
+    const idx = arr.findIndex((r) => r.id === id)
+    if (idx === -1) return
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= arr.length) return
+    ;[arr[idx], arr[targetIdx]] = [arr[targetIdx], arr[idx]]
+    metadataRecords.value = arr
+    reorderMetadataRecords()
+  }
+
+  function addMetadataRecord(_author = ''): void {
+    const record = createMetadataRecord(metadataRecords.value.length)
+    metadataRecords.value = [...metadataRecords.value, record]
+    reorderMetadataRecords()
+  }
+
+  function updateMetadataRecord(
+    id: string,
+    field: keyof Omit<MetadataRecord, 'id'>,
+    value: string
+  ): void {
+    metadataRecords.value = metadataRecords.value.map((record) =>
+      record.id === id ? { ...record, [field]: value } : record
+    )
+    syncMetadataCache()
+  }
+
+  function deleteMetadataRecord(
+    id: string,
+    author = '',
+    version = '',
+    revisionNote = ''
+  ): void {
+    const idx = metadataRecords.value.findIndex((record) => record.id === id)
+    if (idx === -1) return
+
+    const filtered = metadataRecords.value.filter((record) => record.id !== id)
+    const orphanRevisions = metadataRevisions.value.filter(
+      (revision) => revision.recordId === id
+    )
+
+    if (filtered.length > 0) {
+      const targetIdx = idx > 0 ? idx - 1 : 0
+      const targetId = filtered[targetIdx].id
+      const migratedRevisions = metadataRevisions.value.map((revision) =>
+        revision.recordId === id ? { ...revision, recordId: targetId } : revision
+      )
+      metadataRecords.value = filtered
+      metadataRevisions.value = migratedRevisions
+
+      if (version && revisionNote) {
+        const deleteRevision = createMetadataRevision(targetId, author)
+        deleteRevision.version = version
+        deleteRevision.revisionNote = revisionNote
+        metadataRevisions.value = [...metadataRevisions.value, deleteRevision]
+      }
+    } else {
+      const record = createMetadataRecord(0)
+      metadataRecords.value = [record]
+      const migratedRevisions = orphanRevisions.map((revision) => ({
+        ...revision,
+        recordId: record.id
+      }))
+      if (version && revisionNote) {
+        const deleteRevision = createMetadataRevision(record.id, author)
+        deleteRevision.version = version
+        deleteRevision.revisionNote = revisionNote
+        migratedRevisions.push(deleteRevision)
+      }
+      metadataRevisions.value = migratedRevisions
+    }
+    reorderMetadataRecords()
+  }
+
+  function updateMetadataRevision(
+    id: string,
+    field: keyof MetadataRevisionInfo,
+    value: string
+  ): void {
+    metadataRevisions.value = metadataRevisions.value.map((revision) =>
+      revision.id === id ? { ...revision, [field]: value } : revision
+    )
+    syncMetadataCache()
+  }
+
+  function addMetadataRevision(
+    recordId: string,
+    author = '',
+    version = 'v1.0.0',
+    revisionNote = ''
+  ): void {
+    if (!metadataRecords.value.some((record) => record.id === recordId)) return
+    const revision = createMetadataRevision(recordId, author)
+    revision.version = version
+    revision.revisionNote = revisionNote
+    metadataRevisions.value = [...metadataRevisions.value, revision]
+    syncMetadataCache()
+  }
+
+  function ensureMetadataRevisions(): void {
+    const before = metadataRevisions.value.length
+    const pruned = metadataRevisions.value.filter((revision) =>
+      metadataRecords.value.some((record) => record.id === revision.recordId)
+    )
+    if (pruned.length === before) return
+    metadataRevisions.value = pruned
+    syncMetadataCache()
+  }
+
+  function deleteMetadataRevision(id: string): void {
+    const target = metadataRevisions.value.find((revision) => revision.id === id)
+    if (!target) return
+    const sameRecordCount = metadataRevisions.value.filter(
+      (revision) => revision.recordId === target.recordId
+    ).length
+    if (sameRecordCount <= 1) return
+    metadataRevisions.value = metadataRevisions.value.filter((revision) => revision.id !== id)
+    syncMetadataCache()
+  }
+
+  function saveMetadataWorkspace(): void {
+    syncMetadataCache()
+  }
+
+  function resetMetadataWorkspace(author = ''): void {
+    const defaults = createDefaultMetadataState(author)
+    metadataRecords.value = defaults.records
+    metadataRevisions.value = defaults.revisions
+    syncMetadataCache()
+  }
+
   function clearAll(): void {
     inputSql.value = ''
     resetOutputState()
@@ -398,6 +691,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     refCollapsed,
     isMacPlatform,
 
+    // Metadata
+    metadataRecords,
+    metadataRevisions,
+
     // SQL Convert (unified)
     dbOptions,
     dbMetaMap,
@@ -447,6 +744,17 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     convert,
     loadSample,
     prefetchSamples,
+    addMetadataRecord,
+    updateMetadataRecord,
+    deleteMetadataRecord,
+    moveMetadataRecord,
+    reorderMetadataRecords,
+    updateMetadataRevision,
+    addMetadataRevision,
+    ensureMetadataRevisions,
+    deleteMetadataRevision,
+    saveMetadataWorkspace,
+    resetMetadataWorkspace,
     clearAll,
     resetSqlConvertWorkspace,
     setDbOptions,

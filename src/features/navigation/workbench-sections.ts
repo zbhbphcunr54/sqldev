@@ -2,6 +2,7 @@ export const WORKBENCH_DEFAULT_SECTION = 'home'
 
 export const WORKBENCH_SECTIONS = [
   'home',
+  'metadata',
   'sql-convert',
   'id-tool',
   'ziwei',
@@ -24,6 +25,7 @@ export interface WorkbenchSectionAccessConfig {
 
 export const WORKBENCH_SECTION_NAV_ITEMS: readonly WorkbenchSectionNavItem[] = [
   { section: 'home', to: '/workbench/home', label: '首页', icon: 'HOME' },
+  { section: 'metadata', to: '/workbench/metadata', label: '元数据', icon: 'META' },
   { section: 'sql-convert', to: '/workbench/sql-convert', label: 'SQL 转换', icon: 'SQL' },
   { section: 'id-tool', to: '/workbench/id-tool', label: '证件号码', icon: 'ID' },
   { section: 'ziwei', to: '/workbench/ziwei', label: '紫微斗数', icon: 'ZW' },
