@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import QRCode from 'qrcode'
 import { buildZiweiShareLink } from '@/features/ziwei/share'
+import { useAppStore } from '@/stores/app'
+import type { ZiweiAnalysisResult } from '@/api/ziwei-analysis'
 
 type PosterFact = {
   label: string
@@ -17,6 +19,7 @@ const props = withDefaults(defineProps<{
   huaFacts?: PosterFact[]
   chartReady?: boolean
   aiAnalysisReady?: boolean
+  aiResult?: ZiweiAnalysisResult | null
 }>(), {
   profileName: '',
   chartMeta: '',
@@ -24,22 +27,79 @@ const props = withDefaults(defineProps<{
   highlights: () => [],
   huaFacts: () => [],
   chartReady: false,
-  aiAnalysisReady: false
+  aiAnalysisReady: false,
+  aiResult: null
 })
 
 const emit = defineEmits<{
   close: []
 }>()
 
+type PersonaEntry = {
+  persona: string
+  hook: string
+}
+
+const STAR_PERSONA_MAP: Record<string, PersonaEntry> = {
+  '紫微': { persona: '帝星坐命', hook: '主贵气，有领导才能' },
+  '天机': { persona: '善星坐命', hook: '主机谋聪慧，善筹划' },
+  '太阳': { persona: '日星坐命', hook: '主光明磊落，有官禄之象' },
+  '武曲': { persona: '财星坐命', hook: '主刚毅果断，利财帛' },
+  '天同': { persona: '福星坐命', hook: '主安逸享福，性情温和' },
+  '廉贞': { persona: '次桃花坐命', hook: '主情绪起伏，桃花重' },
+  '天府': { persona: '库星坐命', hook: '主稳重保守，有财库之象' },
+  '太阴': { persona: '月星坐命', hook: '主细腻内敛，田宅有缘' },
+  '贪狼': { persona: '桃花坐命', hook: '主欲望强，多才艺' },
+  '巨门': { persona: '暗星坐命', hook: '主口才佳，易惹是非' },
+  '天相': { persona: '印星坐命', hook: '主贵人运，善协调' },
+  '天梁': { persona: '荫星坐命', hook: '主逢凶化吉，有长者风范' },
+  '七杀': { persona: '将星坐命', hook: '主刚烈冲劲，人生多变动' },
+  '破军': { persona: '耗星坐命', hook: '主破耗开创，不喜守旧' }
+}
+
+const FALLBACK_HOOK = '你的命格，百中无一'
+
+const appStore = useAppStore()
+const isDark = computed(() => appStore.resolvedTheme === 'dark')
 const qrDataUrl = ref('')
 const shareLink = computed(() => buildZiweiShareLink(window.location))
-const displayName = computed(() => props.profileName.trim() || '命盘档案')
-const displayHighlights = computed(() =>
-  props.highlights.filter(item => item.value && item.value !== '--').slice(0, 6)
+
+const heroStarName = computed(() => {
+  const ming = props.highlights.find(h => h.label === '命主')
+  return (ming?.value && ming.value !== '--') ? ming.value : props.profileName.trim() || '命盘'
+})
+
+const heroPersona = computed(() => STAR_PERSONA_MAP[heroStarName.value]?.persona ?? '')
+
+const heroHook = computed(() => {
+  if (props.aiResult?.overview) {
+    const text = props.aiResult.overview.replace(/\n+/g, ' ').trim()
+    return text.length > 30 ? text.slice(0, 30) + '…' : text
+  }
+  return STAR_PERSONA_MAP[heroStarName.value]?.hook ?? FALLBACK_HOOK
+})
+
+const displayNaYin = computed(() => {
+  const item = props.highlights.find(h => h.label === '纳音')
+  return (item?.value && item.value !== '--') ? item.value : ''
+})
+
+const coreStats = computed(() =>
+  props.highlights.filter(h =>
+    h.value && h.value !== '--' && (h.label === '命主' || h.label === '身主' || h.label === '五行局')
+  )
 )
+
+const timeInfo = computed(() =>
+  props.highlights.filter(h =>
+    h.value && h.value !== '--' && (h.label === '当前大限' || h.label === '流年')
+  )
+)
+
 const displayHuaFacts = computed(() =>
   props.huaFacts.filter(item => item.value && item.value !== '--').slice(0, 3)
 )
+
 const statusText = computed(() => {
   if (props.aiAnalysisReady) return 'AI 解读已就绪'
   if (props.chartReady) return '已完成排盘'
@@ -50,10 +110,13 @@ const huaLayerIcons = ['生', '限', '年']
 
 async function generateQR(): Promise<void> {
   try {
+    const qrColor = isDark.value
+      ? { dark: '#c4b5fd', light: '#00000000' }
+      : { dark: '#4338ca', light: '#00000000' }
     qrDataUrl.value = await QRCode.toDataURL(shareLink.value, {
       width: 200,
       margin: 0,
-      color: { dark: '#1a1a2e', light: '#00000000' }
+      color: qrColor
     })
   } catch (error: unknown) {
     console.warn('[ziwei-share-poster] QR generation failed:', error)
@@ -82,42 +145,44 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
       <div v-if="visible" class="poster-mask" @click.self="emit('close')">
         <div class="poster-shell">
           <div class="poster-card">
-            <!-- Decorative background glows -->
-            <div class="poster-glow poster-glow--gold"></div>
-            <div class="poster-glow poster-glow--blue"></div>
-            <div class="poster-glow poster-glow--purple"></div>
-
-            <!-- Decorative ring -->
-            <div class="poster-ring"></div>
-
-            <!-- Title -->
-            <header class="poster-header">
-              <span class="poster-ornament">*</span>
-              <span class="poster-title-text">紫 微 命 格</span>
-              <span class="poster-ornament">*</span>
-            </header>
-
-            <!-- Name + Birth info panel -->
-            <section class="poster-identity">
-              <h2 class="poster-name">{{ displayName }}</h2>
-              <div class="poster-divider"></div>
-              <p v-if="chartMeta" class="poster-birth-meta">{{ chartMeta }}</p>
-              <p v-if="correctionText" class="poster-correction">{{ correctionText }}</p>
+            <!-- Hero: 品牌渐变大色块 + 命格揭示 -->
+            <section class="poster-hero">
+              <span class="poster-hero-label">✦ 命格已锁定 ✦</span>
+              <h1 class="poster-hero-title">★ {{ heroStarName }} ★</h1>
+              <p v-if="heroPersona" class="poster-hero-persona">「 {{ heroPersona }} 」</p>
+              <p class="poster-hero-hook">{{ heroHook }}</p>
             </section>
 
-            <!-- Stats grid -->
-            <section v-if="displayHighlights.length" class="poster-stats">
-              <div
-                v-for="item in displayHighlights"
-                :key="item.label"
-                class="poster-stat"
-              >
-                <span class="poster-stat-label">{{ item.label }}</span>
-                <span class="poster-stat-value">{{ item.value }}</span>
+            <!-- 核心信息：命主/身主/五行局+纳音 -->
+            <section class="poster-core">
+              <div class="poster-core-row">
+                <span
+                  v-for="item in coreStats"
+                  :key="item.label"
+                  class="poster-core-item"
+                >
+                  <span class="poster-core-label">{{ item.label }}：</span>
+                  <span class="poster-core-value">{{ item.value }}</span>
+                </span>
+                <span v-if="displayNaYin" class="poster-core-item">
+                  <span class="poster-core-label">纳音：</span>
+                  <span class="poster-core-value poster-core-value--nayin">{{ displayNaYin }}</span>
+                </span>
               </div>
             </section>
 
-            <!-- Three-layer Hua panel -->
+            <!-- 时间线：大限/流年 -->
+            <section v-if="timeInfo.length" class="poster-time">
+              <span
+                v-for="item in timeInfo"
+                :key="item.label"
+                class="poster-time-item"
+              >
+                {{ item.label }}：{{ item.value }}
+              </span>
+            </section>
+
+            <!-- 三层四化面板 -->
             <section v-if="displayHuaFacts.length" class="poster-hua">
               <h3 class="poster-hua-title">三 层 四 化</h3>
               <div class="poster-hua-list">
@@ -135,7 +200,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
               </div>
             </section>
 
-            <!-- Status indicator -->
+            <!-- 状态指示器 -->
             <div class="poster-status">
               <span class="poster-status-dot" :class="{ 'poster-status-dot--ai': aiAnalysisReady, 'poster-status-dot--chart': chartReady && !aiAnalysisReady }"></span>
               <span class="poster-status-text">{{ statusText }}</span>
@@ -145,10 +210,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
             <footer class="poster-footer">
               <div class="poster-cta">
                 <span class="poster-cta-main">扫码排你的命盘</span>
-                <span class="poster-cta-sub">SQLDev · 紫微斗数</span>
+                <span class="poster-cta-sub">紫微斗数 · ziwei.life</span>
               </div>
               <div class="poster-qr-wrap">
-                <img v-if="qrDataUrl" :src="qrDataUrl" alt="分享二维码" width="72" height="72" />
+                <img v-if="qrDataUrl" :src="qrDataUrl" alt="分享二维码" width="80" height="80" />
                 <div v-else class="poster-qr-empty"></div>
               </div>
             </footer>
@@ -172,7 +237,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
 
 <style scoped>
 /* ================================================
-   命格卡 (Destiny Card) — 深空主题分享海报
+   命格卡 (Destiny Card) — 命运揭示风格
    ================================================ */
 
 .poster-mask {
@@ -183,7 +248,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(2, 4, 16, 0.88);
+  background: var(--color-overlay, rgba(0, 0, 0, 0.6));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -194,223 +259,181 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
 }
 
 .poster-card {
-  --poster-gold: #e8c372;
-  --poster-gold-dim: rgba(232, 195, 114, 0.5);
-  --poster-gold-glow: rgba(232, 195, 114, 0.18);
-  --poster-ink: #f0eadd;
-  --poster-ink-muted: rgba(240, 234, 221, 0.52);
-  --poster-glass: rgba(255, 255, 255, 0.04);
-  --poster-glass-border: rgba(255, 255, 255, 0.08);
-  --poster-glass-strong: rgba(255, 255, 255, 0.06);
+  --poster-bg: var(--color-panel);
+  --poster-bg-2: var(--color-panel-2);
+  --poster-accent: var(--color-accent);
+  --poster-accent-dim: var(--color-accent-bg);
+  --poster-accent-border: var(--color-accent-border);
+  --poster-ink: var(--color-text);
+  --poster-ink-muted: var(--color-text-subtle);
+  --poster-ink-faint: var(--color-text-muted);
+  --poster-border: var(--color-border);
+  --poster-glass: var(--glass-bg, rgba(255, 255, 255, 0.06));
+  --poster-glass-border: var(--color-border);
+  --poster-brand-gradient: var(--gradient-brand-primary);
+  --poster-brand-shadow: var(--shadow-brand);
 
   position: relative;
   overflow: hidden;
   border-radius: 28px;
-  padding: 32px 24px 28px;
+  padding: 20px 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 
-  background:
-    radial-gradient(ellipse 120% 80% at 20% 10%, rgba(232, 195, 114, 0.1), transparent 50%),
-    radial-gradient(ellipse 100% 60% at 85% 20%, rgba(87, 135, 255, 0.08), transparent 40%),
-    radial-gradient(ellipse 80% 60% at 50% 90%, rgba(139, 92, 246, 0.07), transparent 40%),
-    linear-gradient(168deg, #070b1e 0%, #0c1230 40%, #111a40 72%, #0e1535 100%);
-
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--poster-bg);
+  border: 1px solid var(--poster-border);
   box-shadow:
-    0 40px 80px rgba(0, 0, 0, 0.5),
-    0 12px 28px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    var(--poster-brand-shadow),
+    var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.2));
 }
 
-/* --- Decorative glow orbs --- */
-.poster-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  pointer-events: none;
-  z-index: 0;
+/* --- Hero 区域：品牌渐变大色块 --- */
+.poster-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 14px 16px;
+  border-radius: 18px;
+  background: var(--poster-brand-gradient);
+  color: var(--color-btn-primary-text, #fff);
+  text-align: center;
+  overflow: hidden;
 }
 
-.poster-glow--gold {
-  top: -60px;
-  left: -30px;
-  width: 200px;
-  height: 200px;
-  background: rgba(232, 195, 114, 0.15);
-  opacity: 0.6;
-}
-
-.poster-glow--blue {
-  top: 30px;
-  right: -50px;
-  width: 180px;
-  height: 180px;
-  background: rgba(87, 135, 255, 0.12);
-  opacity: 0.5;
-}
-
-.poster-glow--purple {
-  bottom: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 240px;
-  height: 200px;
-  background: rgba(139, 92, 246, 0.1);
-  opacity: 0.4;
-}
-
-/* --- Decorative celestial ring --- */
-.poster-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 340px;
-  height: 340px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 1px solid rgba(232, 195, 114, 0.04);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.poster-ring::after {
+.poster-hero::before {
   content: '';
   position: absolute;
-  inset: 20px;
-  border-radius: 50%;
-  border: 1px dashed rgba(232, 195, 114, 0.03);
+  top: -50%;
+  left: -30%;
+  width: 160%;
+  height: 100%;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-/* --- All content above glow --- */
-.poster-header,
-.poster-identity,
-.poster-stats,
-.poster-hua,
-.poster-status,
-.poster-footer {
+.poster-hero-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  opacity: 0.8;
+  position: relative;
+}
+
+.poster-hero-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  margin: 0;
+  text-shadow: 0 0 24px var(--color-chat-glow, rgba(255, 255, 255, 0.4));
+  position: relative;
+}
+
+.poster-hero-persona {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  opacity: 0.9;
+  margin: 0;
+  position: relative;
+}
+
+.poster-hero-hook {
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0.75;
+  margin: 0;
+  max-width: 240px;
+  position: relative;
+}
+
+.poster-hero-stars {
+  font-size: 8px;
+  letter-spacing: 0.5em;
+  opacity: 0.35;
+  position: relative;
+}
+
+/* --- 核心信息行 --- */
+.poster-core {
   position: relative;
   z-index: 1;
 }
 
-/* --- Title --- */
-.poster-header {
+.poster-core-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-}
-
-.poster-ornament {
-  font-size: 10px;
-  color: var(--poster-gold-dim);
-  line-height: 1;
-}
-
-.poster-title-text {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.36em;
-  color: var(--poster-gold);
-  text-transform: uppercase;
-}
-
-/* --- Name + Birth Info --- */
-.poster-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 16px;
-  border-radius: 20px;
-  background: var(--poster-glass);
-  border: 1px solid var(--poster-glass-border);
-  backdrop-filter: blur(8px);
-}
-
-.poster-name {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--poster-ink);
-  text-align: center;
-  margin: 0;
-}
-
-.poster-divider {
-  width: 48px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--poster-gold-dim), transparent);
-}
-
-.poster-birth-meta {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--poster-ink-muted);
-  text-align: center;
-  margin: 0;
-}
-
-.poster-correction {
-  font-size: 11px;
-  line-height: 1.4;
-  color: rgba(232, 195, 114, 0.6);
-  text-align: center;
-  margin: 0;
-}
-
-/* --- Stats Grid (2×3) --- */
-.poster-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.poster-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 14px 12px;
+  gap: 16px;
+  padding: 14px 16px;
   border-radius: 16px;
   background: var(--poster-glass);
   border: 1px solid var(--poster-glass-border);
-  backdrop-filter: blur(6px);
+  flex-wrap: wrap;
 }
 
-.poster-stat-label {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+.poster-core-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.poster-core-label {
+  font-size: 11px;
   color: var(--poster-ink-muted);
 }
 
-.poster-stat-value {
-  font-size: 17px;
+.poster-core-value {
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
   color: var(--poster-ink);
 }
 
-/* --- Three-layer Hua panel --- */
+.poster-core-value--nayin {
+  color: var(--poster-accent);
+}
+
+/* --- 时间线信息 --- */
+.poster-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.poster-time-item {
+  font-size: 11px;
+  color: var(--poster-ink-muted);
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--poster-glass);
+  border: 1px solid var(--poster-glass-border);
+}
+
+/* --- 三层四化面板 --- */
 .poster-hua {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px;
   border-radius: 18px;
-  background: var(--poster-glass-strong);
+  background: var(--poster-glass);
   border: 1px solid var(--poster-glass-border);
-  backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 1;
 }
 
 .poster-hua-title {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.24em;
-  color: var(--poster-gold);
+  color: var(--poster-accent);
   margin: 0;
   text-align: center;
 }
@@ -441,54 +464,56 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
 }
 
 .poster-hua-icon--0 {
-  background: rgba(232, 195, 114, 0.15);
-  color: var(--poster-gold);
-  border: 1px solid rgba(232, 195, 114, 0.2);
+  background: var(--poster-accent-dim);
+  color: var(--poster-accent);
+  border: 1px solid var(--poster-accent-border);
 }
 
 .poster-hua-icon--1 {
-  background: rgba(139, 92, 246, 0.12);
-  color: #c4a3ff;
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  background: var(--color-brand-100, rgba(139, 92, 246, 0.12));
+  color: var(--color-brand-600, #7c3aed);
+  border: 1px solid var(--color-brand-200, rgba(139, 92, 246, 0.18));
 }
 
 .poster-hua-icon--2 {
-  background: rgba(87, 135, 255, 0.12);
-  color: #8fb5ff;
-  border: 1px solid rgba(87, 135, 255, 0.18);
+  background: var(--color-brand-50, rgba(87, 135, 255, 0.12));
+  color: var(--color-brand-700, #0e7490);
+  border: 1px solid var(--color-brand-100, rgba(87, 135, 255, 0.18));
 }
 
 .poster-hua-text {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(240, 234, 221, 0.78);
+  color: var(--poster-ink-muted);
   flex: 1;
   min-width: 0;
 }
 
-/* --- Status --- */
+/* --- 状态 --- */
 .poster-status {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
+  position: relative;
+  z-index: 1;
 }
 
 .poster-status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--poster-ink-muted);
+  background: var(--poster-ink-faint);
 }
 
 .poster-status-dot--chart {
-  background: var(--poster-gold);
-  box-shadow: 0 0 8px rgba(232, 195, 114, 0.4);
+  background: var(--poster-accent);
+  box-shadow: 0 0 8px var(--poster-accent-dim);
 }
 
 .poster-status-dot--ai {
-  background: #7ce7d8;
-  box-shadow: 0 0 8px rgba(124, 231, 216, 0.4);
+  background: var(--color-success, #22c55e);
+  box-shadow: 0 0 8px var(--color-successBg, rgba(34, 197, 94, 0.3));
 }
 
 .poster-status-text {
@@ -498,7 +523,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
   letter-spacing: 0.02em;
 }
 
-/* --- Footer / QR --- */
+/* --- 底部 / 二维码 --- */
 .poster-footer {
   display: flex;
   align-items: center;
@@ -508,7 +533,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
   border-radius: 18px;
   background: var(--poster-glass);
   border: 1px solid var(--poster-glass-border);
-  backdrop-filter: blur(6px);
+  position: relative;
+  z-index: 1;
 }
 
 .poster-cta {
@@ -534,12 +560,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
 
 .poster-qr-wrap {
   flex-shrink: 0;
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   padding: 6px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  background: var(--poster-bg-2);
+  border: 1px solid var(--poster-border);
 }
 
 .poster-qr-wrap img,
@@ -550,10 +576,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
 }
 
 .poster-qr-empty {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--poster-glass);
 }
 
-/* --- Close button --- */
+/* --- 关闭按钮 --- */
 .poster-close {
   position: absolute;
   top: 12px;
@@ -565,19 +591,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
   height: 32px;
   border: 0;
   border-radius: 50%;
-  background: rgba(7, 14, 25, 0.7);
-  color: rgba(240, 234, 221, 0.9);
+  background: var(--poster-bg-2);
+  color: var(--poster-ink-muted);
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
   z-index: 2;
+  border: 1px solid var(--poster-border);
 }
 
 .poster-close:hover {
-  background: rgba(7, 14, 25, 0.9);
+  background: var(--poster-accent-dim);
+  color: var(--poster-accent);
   transform: scale(1.05);
 }
 
-/* --- Entrance animation --- */
+/* --- 入场动画 --- */
 .poster-enter-enter-active {
   transition: opacity 0.3s ease;
 }
@@ -606,27 +634,30 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEscape))
   }
 }
 
-/* --- Responsive --- */
+/* --- 响应式 --- */
 @media (max-width: 400px) {
   .poster-card {
-    padding: 28px 18px 24px;
-    gap: 16px;
+    padding: 16px 16px 20px;
+    gap: 12px;
   }
 
-  .poster-name {
-    font-size: 24px;
+  .poster-hero {
+    padding: 14px 12px 12px;
+    gap: 4px;
+    border-radius: 16px;
   }
 
-  .poster-stat-value {
-    font-size: 15px;
+  .poster-hero-title {
+    font-size: 20px;
   }
 
-  .poster-stats {
-    gap: 6px;
+  .poster-core-row {
+    gap: 10px;
+    padding: 12px 12px;
   }
 
-  .poster-stat {
-    padding: 12px 12px 10px;
+  .poster-core-value {
+    font-size: 13px;
   }
 }
 </style>

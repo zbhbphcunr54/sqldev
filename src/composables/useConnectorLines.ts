@@ -1,5 +1,5 @@
 import { ref, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue'
-import type { MetadataRecord, MetadataRevisionInfo } from '@/stores/workbench'
+import type { MetadataRecord, MetadataRevisionInfo } from '@/stores/metadata'
 
 export interface ConnectorLine {
   id: string

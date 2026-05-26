@@ -78,6 +78,7 @@ function getRequestKey(method: string, path: string, body?: unknown): string {
 
 interface RequestOptions {
   skipRetry?: boolean
+  extraHeaders?: Record<string, string>
 }
 
 async function request<T>(
@@ -91,6 +92,7 @@ async function request<T>(
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
+  if (opts?.extraHeaders) Object.assign(headers, opts.extraHeaders)
 
   const controller = new AbortController()
   const timeoutId = globalThis.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)

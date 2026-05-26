@@ -1,6 +1,6 @@
 import { getAppConfig } from './app-config.ts'
 
-export const CORS_DEFAULT_ALLOW_HEADERS = 'authorization, x-client-info, apikey, content-type'
+export const CORS_DEFAULT_ALLOW_HEADERS = 'authorization, x-client-info, apikey, content-type, x-client-tab-id'
 export const CORS_DEFAULT_ALLOW_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS'
 
 const LOCAL_ORIGIN_RE = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i

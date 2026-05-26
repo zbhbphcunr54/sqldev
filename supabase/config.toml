@@ -30,3 +30,7 @@ verify_jwt = false
 [functions.app-config]
 # Application config management - admin CRUD, all users read non-encrypted configs
 verify_jwt = false
+
+[functions.metadata]
+# Metadata CRUD - bearer token validated inside the function
+verify_jwt = false

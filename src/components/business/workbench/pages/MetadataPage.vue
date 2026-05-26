@@ -7,14 +7,17 @@ import { useAuthStore } from '@/stores/auth'
 import { useEscapeKey } from '@/composables/useEscapeKey'
 import { useMetadataValidation } from '@/composables/useMetadataValidation'
 import { useConnectorLines } from '@/composables/useConnectorLines'
+import { useWorkbenchStore } from '@/stores/workbench'
 import {
-  useWorkbenchStore,
+  useMetadataStore,
   type MetadataRecord,
   type MetadataRevisionInfo
-} from '@/stores/workbench'
+} from '@/stores/metadata'
 import { exportMetadataAsCsv, exportMetadataAsJson } from '@/features/metadata/export'
+import { useStorageSync } from '@/composables/useStorageSync'
 
 const store = useWorkbenchStore()
+const mdStore = useMetadataStore()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
@@ -28,8 +31,8 @@ const attrTypeOptions = [
   { value: 'json', label: 'JSON' }
 ]
 
-const rows = computed(() => store.metadataRecords)
-const revisions = computed(() => store.metadataRevisions)
+const rows = computed(() => mdStore.metadataRecords)
+const revisions = computed(() => mdStore.metadataRevisions)
 const currentAuthor = computed(() => user.value?.email ?? user.value?.id ?? '当前用户')
 const searchQuery = ref('')
 const filteredRows = computed(() => {
@@ -68,6 +71,18 @@ const popoverRevisionId = ref<string | null>(null)
 // --- Validation ---
 const { isValidVersion, validateField, getFieldError, validateRecord } =
   useMetadataValidation()
+
+// --- Multi-tab conflict detection ---
+const { conflictDetected, dismissConflict } = useStorageSync()
+
+function handleConflictRefresh(): void {
+  window.location.reload()
+}
+
+function handleConflictExport(): void {
+  handleExportJson()
+  dismissConflict()
+}
 
 // --- Delete modal state ---
 const deleteModalOpen = ref(false)
@@ -108,8 +123,8 @@ const { svgLines, bezierPath } = useConnectorLines(
 )
 
 watch(
-  () => store.metadataRecords,
-  () => store.ensureMetadataRevisions(),
+  () => mdStore.metadataRecords,
+  () => mdStore.ensureMetadataRevisions(),
   { deep: true }
 )
 
@@ -120,8 +135,8 @@ function updateRecord(
 ): void {
   const target = event.target
   if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return
-  store.updateMetadataRecord(recordId, field, target.value)
-  validateField(recordId, field, target.value)
+  mdStore.updateMetadataRecord(recordId, field, target.value)
+  validateField(recordId, field, target.value, { allRecords: rows.value, currentRecordId: recordId })
 }
 
 function updateRecordSelect(
@@ -129,8 +144,8 @@ function updateRecordSelect(
   field: keyof Omit<MetadataRecord, 'id'>,
   value: string
 ): void {
-  store.updateMetadataRecord(recordId, field, value)
-  validateField(recordId, field, value)
+  mdStore.updateMetadataRecord(recordId, field, value)
+  validateField(recordId, field, value, { allRecords: rows.value, currentRecordId: recordId })
 }
 
 function incrementVersion(version: string): string {
@@ -141,7 +156,7 @@ function incrementVersion(version: string): string {
 
 function openRevisionModal(recordId: string): void {
   const record = rows.value.find((r) => r.id === recordId)
-  if (!record || !validateRecord(record)) {
+  if (!record || !validateRecord(record, rows.value)) {
     store.showAlert('校验未通过', '请先完成必填字段：中文名称（中文）、字段名称（英文）、属性类型。')
     return
   }
@@ -175,13 +190,13 @@ function confirmRevisionAndSave(): void {
   if (!revisionCanConfirm.value) return
 
   if (revisionEditId.value) {
-    store.updateMetadataRevision(revisionEditId.value, 'version', revisionVersion.value.trim())
-    store.updateMetadataRevision(revisionEditId.value, 'revisionNote', revisionNote.value.trim())
+    mdStore.updateMetadataRevision(revisionEditId.value, 'version', revisionVersion.value.trim())
+    mdStore.updateMetadataRevision(revisionEditId.value, 'revisionNote', revisionNote.value.trim())
     closeRevisionModal()
     store.showAlert('修改成功', '修订信息已更新。')
   } else if (revisionModalRecordId.value) {
-    store.saveMetadataWorkspace()
-    store.addMetadataRevision(
+    mdStore.saveMetadataWorkspace()
+    mdStore.addMetadataRevision(
       revisionModalRecordId.value,
       currentAuthor.value,
       revisionVersion.value.trim(),
@@ -244,7 +259,7 @@ function closeDeleteModal(): void {
 
 function confirmDelete(): void {
   if (!deleteCanConfirm.value || !deleteModalRecordId.value) return
-  store.deleteMetadataRecord(
+  mdStore.deleteMetadataRecord(
     deleteModalRecordId.value,
     currentAuthor.value,
     deleteVersion.value.trim(),
@@ -260,7 +275,7 @@ async function handleReset(): Promise<void> {
     '确认清空当前元数据记录与修订信息并恢复初始状态？'
   )
   if (!confirmed) return
-  store.resetMetadataWorkspace(currentAuthor.value)
+  mdStore.resetMetadataWorkspace(currentAuthor.value)
 }
 
 function handleExportCsv(): void {
@@ -288,7 +303,7 @@ function handleExportJson(): void {
         <button
           class="btn btn-primary md-btn-primary"
           type="button"
-          @click="store.addMetadataRecord(currentAuthor)"
+          @click="mdStore.addMetadataRecord(currentAuthor)"
         >
           <Icon name="plus" :size="14" />
           <span>新增记录</span>
@@ -318,6 +333,16 @@ function handleExportJson(): void {
           <span>重置</span>
         </button>
       </div>
+    </div>
+
+    <div v-if="conflictDetected" class="md-conflict-banner">
+      <span class="md-conflict-text">数据已在其他标签页更新。刷新会丢弃未保存修改。</span>
+      <button class="btn btn-primary md-btn-primary md-conflict-btn" type="button" @click="handleConflictRefresh">
+        刷新加载
+      </button>
+      <button class="btn md-btn-outline md-conflict-btn" type="button" @click="handleConflictExport">
+        先导出当前数据
+      </button>
     </div>
 
     <div ref="workspaceRef" class="md-workspace">
@@ -460,7 +485,7 @@ function handleExportJson(): void {
                         title="上移"
                         aria-label="上移"
                         :disabled="idx === 0"
-                        @click.stop="store.moveMetadataRecord(record.id, 'up')"
+                        @click.stop="mdStore.moveMetadataRecord(record.id, 'up')"
                       >
                         <Icon name="chevron-up" :size="14" />
                       </button>
@@ -470,7 +495,7 @@ function handleExportJson(): void {
                         title="下移"
                         aria-label="下移"
                         :disabled="idx === filteredRows.length - 1"
-                        @click.stop="store.moveMetadataRecord(record.id, 'down')"
+                        @click.stop="mdStore.moveMetadataRecord(record.id, 'down')"
                       >
                         <Icon name="chevron-down" :size="14" />
                       </button>
@@ -795,6 +820,26 @@ function handleExportJson(): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.md-conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-bottom: 1px solid var(--color-warning);
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+}
+
+.md-conflict-text {
+  flex: 1;
+}
+
+.md-conflict-btn {
+  flex-shrink: 0;
 }
 
 .md-btn-primary,

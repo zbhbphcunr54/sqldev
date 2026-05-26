@@ -1,5 +1,10 @@
 import { reactive } from 'vue'
-import type { MetadataRecord } from '@/stores/workbench'
+import type { MetadataRecord } from '@/stores/metadata'
+
+interface ValidationContext {
+  allRecords: MetadataRecord[]
+  currentRecordId: string
+}
 
 export function useMetadataValidation() {
   const fieldErrors = reactive(new Map<string, Map<string, string>>())
@@ -8,7 +13,12 @@ export function useMetadataValidation() {
     return /^[vV]\d+\.\d+\.\d+$/.test(v.trim())
   }
 
-  function validateField(recordId: string, field: string, value: string): void {
+  function validateField(
+    recordId: string,
+    field: string,
+    value: string,
+    ctx?: ValidationContext
+  ): void {
     let errors = fieldErrors.get(recordId)
     if (!errors) {
       errors = new Map()
@@ -24,6 +34,12 @@ export function useMetadataValidation() {
     } else if (field === 'fieldName') {
       if (!v) errors.set(field, '必填')
       else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v)) errors.set(field, '请输入英文标识符')
+      else if (
+        ctx &&
+        ctx.allRecords.some(
+          (r) => r.id !== ctx.currentRecordId && r.fieldName.trim().toLowerCase() === v.toLowerCase()
+        )
+      ) errors.set(field, '字段名已存在')
       else errors.delete(field)
     } else if (field === 'attrType') {
       if (!v) errors.set(field, '必填')
@@ -35,10 +51,11 @@ export function useMetadataValidation() {
     return fieldErrors.get(recordId)?.get(field) ?? ''
   }
 
-  function validateRecord(record: MetadataRecord): boolean {
-    validateField(record.id, 'zhName', record.zhName)
-    validateField(record.id, 'fieldName', record.fieldName)
-    validateField(record.id, 'attrType', record.attrType)
+  function validateRecord(record: MetadataRecord, allRecords?: MetadataRecord[]): boolean {
+    const ctx = allRecords ? { allRecords, currentRecordId: record.id } : undefined
+    validateField(record.id, 'zhName', record.zhName, ctx)
+    validateField(record.id, 'fieldName', record.fieldName, ctx)
+    validateField(record.id, 'attrType', record.attrType, ctx)
     const errors = fieldErrors.get(record.id)
     return !errors || errors.size === 0
   }

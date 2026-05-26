@@ -7,6 +7,113 @@ Last updated: 2026-05-26
 
 ---
 
+## 2026-05-26: 元数据改进必做清单 — 6 项核心任务实施
+
+**Why**：从 `METADATA_IMPROVEMENT_PLAN.md` 的 30+ 子任务中精选 6 项必做任务，解决数据安全隐患、代码架构问题、多标签页数据丢失风险，并搭建后端持久化基础。
+
+### 完成的 6 项任务
+
+**Task 1.1 — UUID 生成工具**
+- 新建 `src/lib/uuid.ts`：导出 `uuid()` 函数，优先 `crypto.randomUUID()` 降级 `crypto.getRandomValues` v4
+- `src/stores/workbench.ts`：两处 `Math.random().toString(36)` ID 生成替换为 `uuid()`
+
+**Task 1.2 — fieldName 唯一性校验**
+- `src/composables/useMetadataValidation.ts`：`validateField` 新增可选 `ctx` 参数支持跨记录去重（大小写不敏感），空 fieldName 走必填分支不参与唯一性 [M14]
+- `MetadataPage.vue`：调用方传入 `{ allRecords, currentRecordId }` 上下文
+
+**Task 2.1 — Store 拆分**
+- 新建 `src/stores/metadata.ts`：从 workbench.ts 提取 ~280 行元数据代码（类型、工厂函数、state、12 个 action），使用 `defineStore('metadata', () => {})` Pinia setup 语法
+- `src/stores/workbench.ts`：移除全部元数据代码
+- 更新 6 个消费方的 import：`MetadataPage.vue`、`export.ts`、`useMetadataValidation.ts`、`useConnectorLines.ts`、`auth.ts`
+- localStorage key `sqldev:workbench:metadata` 保持不变
+
+**Task 3.2 — 多标签页冲突检测**
+- 新建 `src/composables/useTabId.ts`：sessionStorage 持久化标签页唯一 ID
+- 新建 `src/composables/useStorageSync.ts`：监听 `storage` 事件，通过 `_writerTabId` 排除自身写入
+- `src/stores/metadata.ts` 的 `persistMetadataCache` 写入 `_writerTabId` + `_lastWrittenAt`
+- `MetadataPage.vue`：工具栏下方显示冲突横幅，提供「刷新加载」和「先导出当前数据」按钮
+
+**Task 4.1 — 数据库 Migration**
+- 新建 `supabase/migrations/202605260001_create_metadata_tables.sql`
+- 三张表：`metadata_workspaces`（乐观锁 version、软删 deleted_at）、`metadata_records`（冗余 user_id [M26]、fractional indexing display_order numeric [M3]、部分唯一索引 [M14]）、`metadata_revisions`（ON DELETE SET NULL [M2]、record_id_snapshot 备份）
+- RLS：user_id 直接比对，revisions 仅 SELECT + INSERT
+- 触发器：updated_at 自动维护、records/revisions user_id 从 workspace 同步
+- pg_cron：软删 7 天清理 + 超期 snapshot 90 天清理
+
+**Task 5.1 — Edge Function + 前端 API**
+- `supabase/functions/_shared/cors.ts`：`CORS_DEFAULT_ALLOW_HEADERS` 追加 `x-client-tab-id` [M23]
+- `supabase/functions/_shared/operation-logger.ts`：`ALLOWED_OPERATIONS` 追加 3 个操作名
+- 新建 `supabase/functions/metadata/index.ts`：5 路由（GET list、GET detail、PUT full save、PATCH incremental、POST rebalance），通过 `supabase.rpc()` 调 PG function [M20]
+- `src/api/http.ts`：`RequestOptions` 新增 `extraHeaders` 支持
+- 新建 `src/api/metadata.ts`：封装 5 个 API 方法，写请求自动附加 `X-Client-Tab-Id`
+
+### 新增文件清单
+
+```
+src/lib/uuid.ts                           — UUID 生成工具
+src/stores/metadata.ts                     — 独立元数据 store
+src/composables/useTabId.ts                — 标签页 ID 管理
+src/composables/useStorageSync.ts          — 多标签页 storage 同步
+src/api/metadata.ts                        — 元数据 API 客户端
+supabase/migrations/202605260001_*.sql     — 元数据三张表 migration
+supabase/functions/metadata/index.ts       — 元数据 Edge Function
+supabase/functions/metadata/config.toml    — Edge Function 配置
+```
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
+- `pnpm lint` 无新增错误（3 个 pre-existing 错误在 ZiweiPage.vue 未使用变量）
+- `pnpm test` 中 `workbench-ziwei-cache.mjs` 为 pre-existing 失败（KeepAlive 属性不匹配），与本次变更无关
+
+---
+
+## 2026-05-26: 元数据方案 Rev. 5 — 16 项三次评审修订（M20–M30）
+
+**Why**：用户请资深全栈视角对 `docs/METADATA_IMPROVEMENT_PLAN.md`（Rev. 4）做评审。识别出 5 项关键问题 + 5 项设计层问题 + 6 项较小修正，共 16 点。用户要求全部修订到文档。
+
+**新增决策（METADATA_DECISIONS.md M20–M30，共 11 条）**：
+
+| ID | 决策摘要 | 触发评审点 |
+|----|---------|-----------|
+| M20 | 核心写入逻辑必须用 PostgreSQL function 封装事务 | #1 Edge Function 事务边界含糊 |
+| M21 | PATCH 必须传字段级 `changedFields`，不传整条 record | #2 字段级冲突合并不闭环 |
+| M22 | 离线队列重放合并为单个 PATCH + 摘要 revision | #3 离线队列策略缺失 |
+| M23 | CORS `Access-Control-Allow-Headers` 必须包含 `X-Client-Tab-Id` | #4 CORS 白名单遗漏 |
+| M24 | UUID 生成必须有 `crypto.randomUUID` 兜底 | #5 浏览器兼容性 |
+| M25 | localStorage payload 顶层必须带 `schemaVersion` | #8 type 迁移不可逆 |
+| M26 | `metadata_records` 冗余 `user_id` 列，RLS 不 JOIN | #10 RLS 性能未评估 |
+| M27 | pg_cron 部署前置：自托管需 EXTENSION、Cloud 需 ≥ Pro | #9 pg_cron 限制 |
+| M28 | Revisions cursor 必须为复合 cursor `(created_at desc, id desc)` | #16 UUID 单调性 |
+| M29 | 性能基线必须标注 p95 + 单用户/并发条件 | #15 基线无并发条件 |
+| M30 | Undo 栈用 diff-based 而非完整快照 | #13 内存估算偏低 |
+
+**修改文件**：
+- `docs/METADATA_DECISIONS.md`（约 188 → 约 350 行）：索引表追加 M20–M30 + 正文 11 条新决策（每条含决策 + Why + 落地约束）
+- `docs/METADATA_IMPROVEMENT_PLAN.md`（约 487 → 约 570 行）：
+  - 文档顶部新增"执行策略：先做垂直切片 PoC"章节（1 周 PoC 验证关键技术假设）
+  - 配套文档版本号 M1–M19 → M1–M30
+  - Step 1.1：`crypto.randomUUID` 替换为 `uuid()` 工具，新增 `src/lib/uuid.ts`
+  - Step 2.2：加入 `schemaVersion: 2` 顶层字段、`dirtyFields` 追踪机制（为 [M21] 服务）
+  - Step 3.1：5MB 上限改为"保守估算"+ 文案修正
+  - Step 4：拆为 4.0（部署前置检查）+ 4.1（建表）+ 4.2（PG function 封装事务）；表加 `user_id` 冗余列、`updated_at` record 级乐观锁、复合索引；RLS 改为直接 `auth.uid() = user_id`
+  - Step 5：CORS 白名单前置修改、PATCH 字段级 `changedFields` payload 结构、Edge Function 调 `supabase.rpc()` 翻译错误码、新增并发性能基线、新增 4 条验证 case（字段级合并、PG function 原子性、CORS preflight 等）
+  - Step 6：拆分为 6a（必做 3–4 天）+ 6b（按需 5–7 天）；新增任务 6.5 离线队列重放；登出清理改为 `subscribeLogout()` 事件总线（替代动态 import 反向调用）
+  - Step 7：revisions cursor 改为复合 cursor 签名
+  - Step 8.1：undo 栈改为 diff-based entry
+  - 通用验收：性能基线全部标注 p95 + 测量条件，加入并发 100 用户基线
+  - 自动化测试策略：补 PG function 原子性、字段级合并、离线重放、复合 cursor、diff-based undo 等测试要求
+  - 文件总览：新增 `src/lib/uuid.ts`、`offlineReplay.ts`、PG function migration、cors.ts 修改
+
+**关键变化的影响**：
+- Step 6 拆分后，6a 完成即可上线"单用户多设备同步"的最小可用产品；6b 按业务需求决定是否做，整体关键路径从 8–12 天 → 3–4 天
+- Step 4 加入 PG function 后，Edge Function 退化为薄壳（鉴权 + RPC 调用 + 错误码翻译），事务原子性由 PG 保证
+- PATCH 字段级 payload 让"不同字段并发自动合并"承诺真正可达
+- 引入 PoC 阶段（1 周），先验证关键假设（事务、RLS 性能、Edge Function 冷启动）再投入全量执行，降低 30+ 天计划的执行风险
+
+**How to apply**：执行实施时先按 PoC 路径验证；若 PoC 通过，按 Step 1 → 2 → 3 → 4（含 4.0 部署前置）→ 5 → 6a 顺序推进，6b 与 Step 7+ 按业务优先级排期。落地冲突时以 DECISIONS.md 为准。
+
+---
+
 ## 2026-05-26: 元数据方案 Rev. 4 — 14 项二次评审修订
 
 ### 背景

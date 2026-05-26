@@ -35,7 +35,10 @@ const ALLOWED_OPERATIONS = new Set([
   'ai_config_append_model',
   'ai_config_test',
   'ai_config_delete',
-  'ai_chat_message'
+  'ai_chat_message',
+  'metadata_save',
+  'metadata_patch',
+  'metadata_rebalance'
 ])
 
 export interface OperationLogEntry {

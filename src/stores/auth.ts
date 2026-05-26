@@ -46,6 +46,13 @@ async function resetSensitiveClientState(previousUserId?: string | null): Promis
   }
 
   try {
+    const { useMetadataStore } = await import('@/stores/metadata')
+    useMetadataStore(pinia).resetMetadataWorkspace()
+  } catch {
+    // Reset failure should not block auth state changes.
+  }
+
+  try {
     const { useAiStore } = await import('@/stores/ai')
     useAiStore(pinia).$reset(previousUserId)
   } catch {

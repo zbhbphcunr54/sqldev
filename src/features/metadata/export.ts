@@ -1,5 +1,5 @@
 import { downloadTextFileByDom } from '@/utils/browser-dom'
-import type { MetadataRecord, MetadataRevisionInfo } from '@/stores/workbench'
+import type { MetadataRecord, MetadataRevisionInfo } from '@/stores/metadata'
 
 function getTodayString(): string {
   const now = new Date()

@@ -2121,6 +2121,7 @@ async function handleAiQuestion(): Promise<void> {
       :hua-facts="mobileChartHuaFacts"
       :chart-ready="Boolean(chart)"
       :ai-analysis-ready="aiAnalysisReady"
+      :ai-result="aiResult"
       @close="showSharePoster = false"
     />
   </div>
