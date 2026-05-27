@@ -51,6 +51,11 @@ export interface MetadataSaveResponse {
 }
 
 export const metadataApi = {
+  createWorkspace: (name?: string) =>
+    edgeFn.post<{ ok: boolean; workspace: MetadataWorkspaceSummary }>(
+      '/metadata', { name }, { skipRetry: true, ...tabIdHeaders() }
+    ),
+
   listWorkspaces: () =>
     edgeFn.get<{ ok: boolean; workspaces: MetadataWorkspaceSummary[] }>('/metadata'),
 

@@ -71,7 +71,9 @@
       "Bash(node scripts/check-css-colors.mjs --update)",
       "Bash(git stash *)",
       "Bash(git restore *)",
-      "Bash(awk 'NR>=599 && NR<=900' D:/codextest/sqldev/src/components/business/workbench/pages/MetadataPage.vue)"
+      "Bash(awk 'NR>=599 && NR<=900' D:/codextest/sqldev/src/components/business/workbench/pages/MetadataPage.vue)",
+      "Bash(python3 *)",
+      "Bash(python *)"
     ]
   }
 }

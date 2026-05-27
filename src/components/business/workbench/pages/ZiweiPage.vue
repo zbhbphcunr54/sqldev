@@ -5,6 +5,7 @@ import { useZiweiAI } from '@/composables/useZiweiAI'
 import { useZiweiChart } from '@/composables/useZiweiChart'
 import { UI_LABELS } from '@/features/ziwei/ui-constants'
 import { getPalaceLevelClass, getHuaTagClass } from '@/features/ziwei/star-classifier'
+import { offsetBranch } from '@/features/ziwei/compute'
 import FormSelect from '@/components/common/FormSelect.vue'
 import SharePosterModal from '../modals/SharePosterModal.vue'
 
@@ -500,13 +501,6 @@ const qaSuggestions = [
   '我的财运怎么样？'
 ]
 
-const mobileCenterLiunian = computed(() => [
-  { label: '当前大限', value: centerInfo.value?.currentDaXianLabel || '--' },
-  { label: '流年干支', value: centerInfo.value?.currentYearGanZhiLabel || '--' },
-  { label: '流年命宫', value: centerInfo.value?.currentLiuNianPalaceLabel || '--' },
-  { label: '虚岁', value: centerInfo.value?.age ? `${centerInfo.value.age}岁` : '--' }
-])
-
 const mobileCenterBasicInfo = computed(() => [
   { label: '性别', value: centerInfo.value?.gender ? `${centerInfo.value.gender}命` : '--' },
   { label: '农历', value: centerInfo.value?.lunar || '--' },
@@ -528,6 +522,126 @@ const mobileChartYaosu = computed(() => [
   { label: '起运', value: centerInfo.value?.qiYunText || '--', colorClass: 'zw-yaosu-k--liunian' },
   { label: '大限', value: centerInfo.value?.daXianDirectionLabel || '--', colorClass: 'zw-yaosu-k--liunian' }
 ])
+
+/* ---------- 移动端命盘：选中宫位 + 三方四正 + 派生数据 ---------- */
+const mobileSelectedPalaceBranch = ref<string>('')
+
+watch(
+  () => centerInfo.value?.mingBranch,
+  (mingBranch) => {
+    if (mingBranch && !mobileSelectedPalaceBranch.value) {
+      mobileSelectedPalaceBranch.value = mingBranch
+    }
+  },
+  { immediate: true }
+)
+
+const selectedMobilePalaceCell = computed(() =>
+  mobilePalaceCells.value.find((c) => c.branch === mobileSelectedPalaceBranch.value) ?? null
+)
+
+type SanFangRole = '本宫' | '财帛' | '官禄' | '迁移'
+
+const sanFangSiZhengCells = computed<
+  Array<{ role: SanFangRole; branch: string; cell: NonNullable<(typeof mobilePalaceCells.value)[number]> }>
+>(() => {
+  const base = mobileSelectedPalaceBranch.value
+  if (!base) return []
+  const roles: Array<{ role: SanFangRole; branch: string }> = [
+    { role: '本宫', branch: base },
+    { role: '财帛', branch: offsetBranch(base, 4) },
+    { role: '官禄', branch: offsetBranch(base, 8) },
+    { role: '迁移', branch: offsetBranch(base, 6) }
+  ]
+  return roles
+    .map((r) => {
+      const cell = mobilePalaceCells.value.find((c) => c.branch === r.branch)
+      return cell ? { role: r.role, branch: r.branch, cell } : null
+    })
+    .filter(isPresent)
+})
+
+const mobileSanPan = computed(() => [
+  {
+    label: '命宫',
+    value: centerInfo.value?.mingBranch || '--',
+    sub: centerInfo.value?.mingPalaceName || ''
+  },
+  {
+    label: '身宫',
+    value: centerInfo.value?.shenBranch || '--',
+    sub: centerInfo.value?.shenPalaceName || ''
+  },
+  { label: '命主', value: centerInfo.value?.mingZhu || '--', sub: '主星' },
+  { label: '身主', value: centerInfo.value?.shenZhu || '--', sub: '主星' }
+])
+
+const mobileChartPrefs = computed(() => {
+  const huaCount = centerInfo.value?.huaSummary?.length ?? 0
+  const dxCount = centerInfo.value?.daxianHuaSummary?.length ?? 0
+  return [
+    { label: '事业', toneClass: 'zw-mc-pref--accent', hint: dxCount >= 2 ? '推荐重点关注' : '稳健发展' },
+    { label: '财运', toneClass: 'zw-mc-pref--gold', hint: huaCount >= 1 ? '化禄主财' : '平稳' },
+    { label: '感情', toneClass: 'zw-mc-pref--purple', hint: '需更多关注' },
+    { label: '健康', toneClass: 'zw-mc-pref--green', hint: '基础稳定' }
+  ]
+})
+
+const mobileLiuNianInfo = computed(() => [
+  { label: '流年干支', value: centerInfo.value?.currentYearGanZhiLabel || '--' },
+  { label: '流年命宫', value: centerInfo.value?.currentLiuNianPalaceLabel || '--' },
+  { label: '虚岁', value: centerInfo.value?.age ? `${centerInfo.value.age}岁` : '--' },
+  { label: '当前大限', value: centerInfo.value?.currentDaXianLabel || '--' }
+])
+
+const ENERGY_COLOR_VARS: Record<SanFangRole, string> = {
+  本宫: 'var(--color-accent)',
+  财帛: 'var(--color-hua-lu)',
+  官禄: 'var(--color-major-star)',
+  迁移: 'var(--color-liunian)'
+}
+
+const mobileEnergyData = computed(() => {
+  const cells = sanFangSiZhengCells.value
+  if (!cells.length) return []
+  const raw = cells.map((c) => {
+    const main = c.cell.mainStars.length
+    const lucky = c.cell.luckyStars.length
+    const hua = c.cell.birthHuaStars.length
+    const score = main * 3 + lucky * 2 + hua * 2 + 1
+    return {
+      label: c.role,
+      score,
+      color: ENERGY_COLOR_VARS[c.role]
+    }
+  })
+  const total = raw.reduce((sum, x) => sum + x.score, 0) || 1
+  return raw.map((x) => ({ ...x, percent: Math.round((x.score / total) * 100) }))
+})
+
+const mobileEnergyArc = computed(() => {
+  const segments = mobileEnergyData.value
+  if (!segments.length) return []
+  const radius = 38
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+  return segments.map((seg) => {
+    const length = (seg.percent / 100) * circumference
+    const arc = {
+      ...seg,
+      radius,
+      circumference,
+      dasharray: `${length} ${circumference - length}`,
+      dashoffset: -offset
+    }
+    offset += length
+    return arc
+  })
+})
+
+function selectMobilePalace(branch: string): void {
+  if (branch) mobileSelectedPalaceBranch.value = branch
+}
 
 const mobileAnalysisEntries = computed(() => {
   const entries: Array<{
@@ -1812,77 +1926,128 @@ async function handleAiQuestion(): Promise<void> {
 
           <div v-else class="zw-chart-stage">
             <div class="zw-mobile-chart-layout lg:hidden">
-              <div class="zw-mobile-sanfang-grid">
-                <template v-for="(cell, index) in palaceGrid" :key="'m-' + index">
-                  <div v-if="index === 5" class="zw-mobile-center-panel">
-                    <div class="zw-mc-center-name">{{ profileName || '当前命盘' }}</div>
-                    <div class="zw-mc-center-meta">{{ chartMeta }}</div>
-                    <div class="zw-mc-center-info-list">
-                      <div v-for="item in mobileCenterBasicInfo" :key="item.label" class="zw-mc-info-row">
-                        <span class="zw-mc-info-k">{{ item.label }}</span>
-                        <span class="zw-mc-info-v">{{ item.value }}</span>
-                      </div>
-                    </div>
-                    <div class="zw-mc-center-divider"></div>
-                    <div class="zw-mc-center-stats">
-                      <div v-for="item in mobileCenterLiunian" :key="item.label" class="zw-mc-stat">
-                        <span class="zw-mc-stat-v">{{ item.value }}</span>
-                        <span class="zw-mc-stat-l">{{ item.label }}</span>
-                      </div>
-                    </div>
+              <!-- ① 基本信息 + 命盘要素 合并卡片 -->
+              <section class="zw-mc-basic-card">
+                <header class="zw-mc-card-head">
+                  <span class="zw-mc-card-title">基本信息</span>
+                  <span class="zw-mc-card-meta">{{ chartMeta }}</span>
+                </header>
+                <div class="zw-mc-basic-name">{{ profileName || '当前命盘' }}</div>
+                <div class="zw-mc-basic-list">
+                  <div v-for="item in mobileCenterBasicInfo" :key="item.label" class="zw-mc-basic-row">
+                    <span class="zw-mc-basic-k">{{ item.label }}</span>
+                    <span class="zw-mc-basic-v">{{ item.value }}</span>
                   </div>
-                  <template v-else-if="!cell" />
-                  <button
-                    v-else
-                    type="button"
-                    class="zw-mobile-cell"
-                    :class="{
-                      'zw-mobile-cell--ming': cell.isMing,
-                      'zw-mobile-cell--shen': cell.isShen,
-                      'zw-mobile-cell--daxian': cell.isCurrentDaXian
-                    }"
-                    @click="openMobilePalaceByBranch(cell.branch)"
-                  >
-                    <span v-if="cell.isMing" class="zw-mc-badge zw-mc-badge--ming">命</span>
-                    <span v-else-if="cell.isShen" class="zw-mc-badge zw-mc-badge--shen">身</span>
-                    <span v-else-if="cell.isCurrentDaXian" class="zw-mc-badge zw-mc-badge--daxian">限</span>
-                    <div class="zw-mc-pn">{{ cell.palace }}</div>
-                    <div class="zw-mc-gz">{{ cell.ganzhi }}</div>
-                    <div class="zw-mc-stars">
-                      <span
-                        v-for="star in cell.mainStars"
-                        :key="star.name"
-                        class="zw-mc-star"
-                        :class="star.level ? getPalaceLevelClass(star.level) : ''"
-                      >{{ star.name }}<sup v-if="star.level">{{ star.level }}</sup></span>
-                    </div>
-                    <div v-if="cell.luckyStars.length || cell.evilStars.length" class="zw-mc-aux">{{ [...cell.luckyStars, ...cell.evilStars].map(s => s.name).join('·') }}</div>
-                    <div v-if="cell.birthHuaStars.length" class="zw-mc-hua-tags">
-                      <span
-                        v-for="h in cell.birthHuaStars"
-                        :key="h.label"
-                        class="zw-mc-ht"
-                        :class="getHuaTagClass(h.tag)"
-                      >{{ h.tag }}</span>
-                    </div>
-                  </button>
-                </template>
-              </div>
-              <div class="zw-mc-legend">
-                <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-miao" /><span>庙</span></span>
-                <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-wang" /><span>旺</span></span>
-                <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-de" /><span>得</span></span>
-                <span class="zw-mc-legend-item"><i class="zw-mc-legend-dot level-xian" /><span>陷</span></span>
-              </div>
-              <div v-if="centerInfo" class="zw-mc-yaosu-card">
-                <div class="zw-mc-yaosu-title">命 盘 要 素</div>
-                <div class="zw-mc-yaosu-grid">
+                </div>
+                <div v-if="centerInfo" class="zw-mc-yaosu-divider"></div>
+                <div v-if="centerInfo" class="zw-mc-yaosu-grid zw-mc-yaosu-grid--compact">
                   <div v-for="item in mobileChartYaosu" :key="item.label" class="zw-mc-yaosu-item">
                     <span class="zw-mc-yaosu-k" :class="item.colorClass">{{ item.label }}</span>
                     <span class="zw-mc-yaosu-v">{{ item.value }}</span>
                   </div>
                 </div>
-              </div>
+              </section>
+
+              <!-- ② 12宫位命盘网格 -->
+              <section class="zw-mc-palace-ring-card">
+                <header class="zw-mc-card-head">
+                  <span class="zw-mc-card-title">命盘十二宫</span>
+                </header>
+                <div class="zw-mc-palace-ring">
+                  <template v-for="(cell, index) in palaceGrid" :key="'mc-pc-' + index">
+                    <div
+                      v-if="cell"
+                      class="zw-mc-palace-cell"
+                      :class="{
+                        'zw-mc-palace-cell--ming': cell.isMing,
+                        'zw-mc-palace-cell--shen': cell.isShen,
+                        'zw-mc-palace-cell--daxian': cell.isCurrentDaXian,
+                        'zw-mc-palace-cell--selected': cell.branch === mobileSelectedPalaceBranch
+                      }"
+                      @click="selectMobilePalace(cell.branch)"
+                    >
+                      <div class="zw-mc-pc-head">
+                        <span class="zw-mc-pc-name">{{ cell.palace }}</span>
+                        <span class="zw-mc-pc-gz">{{ cell.ganzhi }}</span>
+                      </div>
+                      <div class="zw-mc-pc-stars">
+                        <span
+                          v-for="star in cell.mainStars"
+                          :key="'mc-star-' + star.name"
+                          class="zw-mc-pc-star"
+                          :class="star.level ? getPalaceLevelClass(star.level) : ''"
+                        >{{ star.name }}</span>
+                        <span v-if="!cell.mainStars.length" class="zw-mc-pc-empty">无主星</span>
+                      </div>
+                      <div class="zw-mc-pc-tags">
+                        <span v-if="cell.isMing" class="zw-tag zw-tag--ming">命</span>
+                        <span v-if="cell.isShen" class="zw-tag zw-tag--shen">身</span>
+                        <span v-if="cell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </section>
+
+              <!-- ③ 选中宫位详情 -->
+              <section
+                v-if="selectedMobilePalaceCell"
+                class="zw-mc-palace-detail-card"
+                :class="{
+                  'zw-mc-palace-detail-card--ming': selectedMobilePalaceCell.isMing,
+                  'zw-mc-palace-detail-card--shen': selectedMobilePalaceCell.isShen,
+                  'zw-mc-palace-detail-card--daxian': selectedMobilePalaceCell.isCurrentDaXian
+                }"
+                @click="openMobilePalaceByBranch(selectedMobilePalaceCell.branch)"
+              >
+                <div class="zw-mc-pd-head">
+                  <div class="zw-mc-pd-title">
+                    <span class="zw-mc-pd-ganzhi">{{ selectedMobilePalaceCell.ganzhi }}</span>
+                    <span class="zw-mc-pd-name">{{ selectedMobilePalaceCell.palace }}</span>
+                    <span v-if="selectedMobilePalaceCell.isMing" class="zw-tag zw-tag--ming">命</span>
+                    <span v-if="selectedMobilePalaceCell.isShen" class="zw-tag zw-tag--shen">身</span>
+                    <span v-if="selectedMobilePalaceCell.isCurrentDaXian" class="zw-tag zw-tag--daxian">限</span>
+                  </div>
+                  <span class="zw-mc-pd-hint">点击查看详情</span>
+                </div>
+                <div class="zw-mc-pd-stars">
+                  <span
+                    v-for="star in selectedMobilePalaceCell.mainStars"
+                    :key="'pd-' + star.name"
+                    class="zw-mc-pd-star"
+                    :class="star.level ? getPalaceLevelClass(star.level) : ''"
+                  >
+                    {{ star.name }}<sup v-if="star.level">{{ star.level }}</sup>
+                  </span>
+                  <span v-if="!selectedMobilePalaceCell.mainStars.length" class="zw-mc-pd-empty">无主星</span>
+                  <span
+                    v-for="hua in selectedMobilePalaceCell.birthHuaStars"
+                    :key="'pd-h-' + hua.label"
+                    class="zw-mc-pd-hua"
+                    :class="getHuaTagClass(hua.tag)"
+                  >{{ hua.tag }}</span>
+                </div>
+                <div class="zw-mc-pd-grid">
+                  <div class="zw-mc-pd-item">
+                    <span class="zw-mc-pd-k">长生</span>
+                    <span class="zw-mc-pd-v">{{ selectedMobilePalaceCell.changSheng || '--' }}</span>
+                  </div>
+                  <div class="zw-mc-pd-item">
+                    <span class="zw-mc-pd-k">大限</span>
+                    <span class="zw-mc-pd-v">{{ selectedMobilePalaceCell.daXianAge || '--' }}</span>
+                  </div>
+                  <div class="zw-mc-pd-item">
+                    <span class="zw-mc-pd-k">流年</span>
+                    <span class="zw-mc-pd-v">{{ selectedMobilePalaceCell.liuNianPalaceName || '--' }}</span>
+                  </div>
+                  <div class="zw-mc-pd-item">
+                    <span class="zw-mc-pd-k">辅星</span>
+                    <span class="zw-mc-pd-v">{{ formatStarNameText([...selectedMobilePalaceCell.luckyStars, ...selectedMobilePalaceCell.evilStars]) }}</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ④ 三层四化 -->
               <div v-if="centerInfo" class="zw-mc-hua-section">
                 <div class="zw-mc-hua-section-title">三 层 四 化</div>
                 <div class="zw-mc-hua-section-row">
@@ -1919,6 +2084,71 @@ async function handleAiQuestion(): Promise<void> {
                   </div>
                 </div>
               </div>
+
+              <!-- ⑤ 流年信息 -->
+              <section v-if="centerInfo" class="zw-mc-liunian-card">
+                <header class="zw-mc-card-head">
+                  <span class="zw-mc-card-title">流年信息</span>
+                </header>
+                <div class="zw-mc-liunian-grid">
+                  <div v-for="item in mobileLiuNianInfo" :key="item.label" class="zw-mc-liunian-item">
+                    <span class="zw-mc-liunian-k">{{ item.label }}</span>
+                    <span class="zw-mc-liunian-v">{{ item.value }}</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ⑥ 能量分布 -->
+              <section v-if="mobileEnergyData.length" class="zw-mc-energy-card">
+                <header class="zw-mc-card-head">
+                  <span class="zw-mc-card-title">能量分布</span>
+                </header>
+                <div class="zw-mc-energy-body">
+                  <svg class="zw-mc-energy-ring" viewBox="0 0 100 100" aria-hidden="true">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="38"
+                      fill="none"
+                      stroke="var(--color-border)"
+                      stroke-width="10"
+                      opacity="0.35"
+                    />
+                    <circle
+                      v-for="(seg, idx) in mobileEnergyArc"
+                      :key="'arc-' + seg.label + idx"
+                      cx="50"
+                      cy="50"
+                      :r="seg.radius"
+                      fill="none"
+                      :stroke="seg.color"
+                      stroke-width="10"
+                      :stroke-dasharray="seg.dasharray"
+                      :stroke-dashoffset="seg.dashoffset"
+                      stroke-linecap="butt"
+                      transform="rotate(-90 50 50)"
+                    />
+                  </svg>
+                  <ul class="zw-mc-energy-legend">
+                    <li v-for="seg in mobileEnergyData" :key="'lg-' + seg.label" class="zw-mc-energy-leg-item">
+                      <i class="zw-mc-energy-dot" :style="{ background: seg.color }"></i>
+                      <span class="zw-mc-energy-leg-l">{{ seg.label }}</span>
+                      <span class="zw-mc-energy-leg-v">{{ seg.percent }}%</span>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+
+              <!-- ⑦ 查看 AI 解读 -->
+              <button
+                type="button"
+                class="zw-mc-ai-cta"
+                :disabled="!chart"
+                @click="handleAiAnalysis"
+              >
+                查看 AI 解读
+              </button>
+
               <p v-if="centerInfo?.timeCorrectionText" class="zw-mobile-chart-note">
                 {{ centerInfo.timeCorrectionText }}
               </p>
@@ -3733,260 +3963,284 @@ async function handleAiQuestion(): Promise<void> {
     gap: 10px;
   }
 
-  .zw-mobile-sanfang-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(0, 1fr));
-    gap: 2px;
-  }
-
-  .zw-mobile-center-panel {
-    grid-column: 2 / 4;
-    grid-row: 2 / 4;
+  /* ---------- 通用卡片小标题 ---------- */
+  .zw-mc-card-head {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding: 8px;
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--color-accent-bg) 48%, var(--color-panel)), var(--color-panel));
-    border: 1px solid color-mix(in srgb, var(--color-accent) 15%, var(--color-border));
-    border-radius: var(--radius-lg);
-    overflow-y: auto;
-    position: relative;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
-  .zw-mobile-center-panel::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent);
-  }
-
-  .zw-mc-center-name {
-    font: 700 14px/1.2 var(--font-body);
-    color: var(--color-text);
-    word-break: keep-all;
-  }
-
-  .zw-mc-center-meta {
-    font-size: 9px;
+  .zw-mc-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
     color: var(--color-text-muted);
-    margin-bottom: 2px;
-    word-break: keep-all;
   }
 
-  .zw-mc-center-info-list {
-    display: grid;
-    gap: 2px;
+  .zw-mc-card-meta {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.5px;
   }
 
-  .zw-mc-info-row {
+  /* ---------- ① 基本信息 ---------- */
+  .zw-mc-basic-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .zw-mc-basic-name {
+    font: 700 14px/1.3 var(--font-body);
+    color: var(--color-text);
+    margin-bottom: 8px;
+  }
+
+  .zw-mc-basic-list {
     display: grid;
-    grid-template-columns: 32px minmax(0, 1fr);
-    gap: 3px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+
+  .zw-mc-basic-row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 6px;
     align-items: baseline;
-    font-size: 8px;
+    font-size: 11px;
     line-height: 1.4;
   }
 
-  .zw-mc-info-k {
+  .zw-mc-basic-k {
     color: var(--color-text-muted);
-    font-weight: 600;
-    word-break: keep-all;
-    white-space: nowrap;
+    font-weight: 500;
   }
 
-  .zw-mc-info-v {
+  .zw-mc-basic-v {
     color: var(--color-text);
     min-width: 0;
     overflow-wrap: anywhere;
-    word-break: keep-all;
   }
 
-  .zw-mc-center-stats {
+  /* ---------- ② 命盘三盘 ---------- */
+  .zw-mc-sanpan-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .zw-mc-sanpan-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
   }
 
-  .zw-mc-stat {
+  .zw-mc-sanpan-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    background: color-mix(in srgb, var(--color-accent-bg) 35%, var(--color-panel));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 10%, var(--color-border));
+    border-radius: var(--radius-md);
     text-align: center;
   }
 
-  .zw-mc-stat-v {
-    display: block;
+  .zw-mc-sanpan-l {
     font-size: 10px;
-    font-weight: 600;
-    color: var(--color-text);
-    line-height: 1.3;
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-  }
-
-  .zw-mc-stat-l {
-    display: block;
-    font-size: 7px;
     color: var(--color-text-muted);
-    line-height: 1.2;
-    word-break: keep-all;
+    letter-spacing: 1px;
   }
 
-  .zw-mc-center-divider {
-    height: 1px;
-    background: color-mix(in srgb, var(--color-border) 60%, transparent);
-    margin: 2px 0;
+  .zw-mc-sanpan-v {
+    font: 700 14px/1.2 var(--font-body);
+    color: var(--color-text);
   }
 
-  .zw-mc-center-hua {
-    display: grid;
-    gap: 3px;
-  }
-
-  .zw-mc-hua-row {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 4px;
-    align-items: start;
+  .zw-mc-sanpan-sub {
     font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- ③ 选中宫位详情 ---------- */
+  .zw-mc-palace-detail-card {
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--color-accent-bg) 55%, var(--color-panel)), var(--color-panel));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 18%, var(--color-border));
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-apple);
+  }
+
+  .zw-mc-palace-detail-card:active {
+    transform: scale(0.995);
+  }
+
+  .zw-mc-palace-detail-card--ming {
+    border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+  }
+
+  .zw-mc-palace-detail-card--shen {
+    border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  }
+
+  .zw-mc-palace-detail-card--daxian {
+    border-color: color-mix(in srgb, var(--color-hua-lu) 35%, var(--color-border));
+  }
+
+  .zw-mc-pd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .zw-mc-pd-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .zw-mc-pd-ganzhi {
+    font: 600 12px/1.2 var(--font-body);
+    color: var(--color-accent);
+    letter-spacing: 1px;
+  }
+
+  .zw-mc-pd-name {
+    font: 700 16px/1.2 var(--font-body);
+    color: var(--color-text);
+  }
+
+  .zw-mc-pd-hint {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .zw-mc-pd-stars {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin-bottom: 10px;
+  }
+
+  .zw-mc-pd-star {
+    font: 600 13px/1.3 var(--font-body);
+    color: var(--color-major-star);
+  }
+
+  .zw-mc-pd-star sup {
+    font-size: 9px;
+    font-weight: 400;
+    margin-left: 1px;
+    opacity: 0.75;
+  }
+
+  .zw-mc-pd-empty {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  .zw-mc-pd-hua {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .zw-mc-pd-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+
+  .zw-mc-pd-item {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 6px;
+    align-items: baseline;
+    font-size: 11px;
     line-height: 1.4;
   }
 
-  .zw-mc-hua-label {
+  .zw-mc-pd-k {
     color: var(--color-text-muted);
-    font-weight: 600;
+    font-weight: 500;
   }
 
-  .zw-mc-hua-value {
+  .zw-mc-pd-v {
     color: var(--color-text);
     min-width: 0;
     overflow-wrap: anywhere;
   }
 
-  .zw-mobile-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 5px 4px;
-    min-height: 72px;
+  /* ---------- ⑤ 三方四正 ---------- */
+  .zw-mc-sanfang-card {
     background: var(--color-panel);
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-    text-align: left;
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .zw-mc-sanfang-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .zw-mc-sanfang-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 6px;
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-align: center;
     font-family: var(--font-body);
+    cursor: pointer;
     transition:
       border-color var(--duration-fast) var(--ease-apple),
-      box-shadow var(--duration-fast) var(--ease-apple);
+      background var(--duration-fast) var(--ease-apple);
   }
 
-  .zw-mobile-cell::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-border) 40%, transparent), transparent);
-  }
-
-  .zw-mobile-cell:active {
+  .zw-mc-sanfang-item:active {
     transform: scale(0.97);
   }
 
-  .zw-mobile-cell--ming {
-    border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
-    background: color-mix(in srgb, var(--color-danger) 3%, var(--color-panel));
+  .zw-mc-sanfang-item--active {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent-bg) 55%, var(--color-panel));
   }
 
-  .zw-mobile-cell--shen {
-    border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
-    background: color-mix(in srgb, var(--color-accent) 3%, var(--color-panel));
+  .zw-mc-sf-role {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    letter-spacing: 1px;
   }
 
-  .zw-mobile-cell--daxian {
-    border-color: color-mix(in srgb, var(--color-hua-lu) 40%, var(--color-border));
-    background: var(--color-daxian-active-bg);
+  .zw-mc-sf-name {
+    font: 700 12px/1.2 var(--font-body);
+    color: var(--color-text);
   }
 
-  .zw-mc-badge {
-    position: absolute;
-    top: 2px;
-    right: 3px;
-    font-size: 7px;
-    padding: 1px 4px;
-    border-radius: 5px;
-    font-weight: 600;
-    line-height: 1.3;
-  }
-
-  .zw-mc-badge--ming {
-    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-    color: var(--color-danger);
-  }
-
-  .zw-mc-badge--shen {
-    background: var(--color-accent-bg);
+  .zw-mc-sf-gz {
+    font-size: 9px;
     color: var(--color-accent);
   }
 
-  .zw-mc-badge--daxian {
-    background: color-mix(in srgb, var(--color-hua-lu) 14%, transparent);
-    color: var(--color-hua-lu);
-  }
-
-  .zw-mc-pn {
+  .zw-mc-sf-stars {
     font-size: 10px;
-    font-weight: 600;
-    color: var(--color-text);
-    line-height: 1.2;
-  }
-
-  .zw-mc-gz {
-    font-size: 7px;
-    color: var(--color-text-muted);
-    margin-bottom: 1px;
-  }
-
-  .zw-mc-stars {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1px 3px;
-  }
-
-  .zw-mc-star {
-    font-size: 8.5px;
-    font-weight: 600;
-    line-height: 1.3;
-  }
-
-  .zw-mc-star sup {
-    font-size: 6px;
-    font-weight: 400;
-    margin-left: 0.5px;
-    opacity: 0.7;
-  }
-
-  .zw-mc-hua-tags {
-    display: flex;
-    gap: 2px;
-    margin-top: 1px;
-  }
-
-  .zw-mc-ht {
-    font-size: 6px;
-    padding: 1px 3px;
-    border-radius: 2px;
-    font-weight: 600;
-  }
-
-  .zw-mc-aux {
-    font-size: 7px;
     color: var(--color-text-muted);
     line-height: 1.3;
     overflow: hidden;
@@ -3994,32 +4248,284 @@ async function handleAiQuestion(): Promise<void> {
     white-space: nowrap;
   }
 
-  .zw-mc-legend {
+  /* ---------- ⑥ 应用偏好 + 能量分布 ---------- */
+  .zw-mc-prefs-energy-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .zw-mc-prefs-card,
+  .zw-mc-energy-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  /* ---------- 12宫位命盘网格 ---------- */
+  .zw-mc-palace-ring-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .zw-mc-palace-ring {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .zw-mc-palace-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 6px;
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-apple);
+    min-height: 72px;
+  }
+
+  .zw-mc-palace-cell:active {
+    transform: scale(0.97);
+  }
+
+  .zw-mc-palace-cell--ming {
+    border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+    background: color-mix(in srgb, var(--color-danger) 3%, var(--color-panel));
+  }
+
+  .zw-mc-palace-cell--shen {
+    border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+    background: color-mix(in srgb, var(--color-accent) 3%, var(--color-panel));
+  }
+
+  .zw-mc-palace-cell--daxian {
+    background: var(--color-daxian-active-bg);
+    border-color: color-mix(in srgb, var(--color-hua-lu) 40%, var(--color-border));
+  }
+
+  .zw-mc-palace-cell--selected {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent), var(--shadow-md);
+  }
+
+  .zw-mc-pc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .zw-mc-pc-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+    font-family: var(--font-body);
+    line-height: 1.2;
+  }
+
+  .zw-mc-pc-gz {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+  }
+
+  .zw-mc-pc-stars {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 10px;
-    padding: 6px 2px;
-    font-size: 8px;
+    gap: 2px;
+    min-height: 16px;
+  }
+
+  .zw-mc-pc-star {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-major-star);
+    font-family: var(--font-body);
+    line-height: 1.2;
+  }
+
+  .zw-mc-pc-empty {
+    font-size: 9px;
     color: var(--color-text-muted);
   }
 
-  .zw-mc-legend-item {
+  .zw-mc-pc-tags {
+    display: flex;
+    gap: 3px;
+    margin-top: auto;
+  }
+
+  /* ---------- 命盘要素紧凑样式 ---------- */
+  .zw-mc-yaosu-divider {
+    height: 1px;
+    background: var(--color-border);
+    margin: 10px 0;
+  }
+
+  .zw-mc-yaosu-grid--compact {
+    margin-top: 0;
+  }
+
+  /* ---------- 流年信息卡片 ---------- */
+  .zw-mc-liunian-card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .zw-mc-liunian-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .zw-mc-liunian-item {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 6px;
+    align-items: baseline;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .zw-mc-liunian-k {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .zw-mc-liunian-v {
+    color: var(--color-text);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .zw-mc-prefs-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .zw-mc-pref-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-accent-bg) 30%, var(--color-panel));
+    border: 1px solid color-mix(in srgb, var(--color-accent) 8%, var(--color-border));
+  }
+
+  .zw-mc-pref--accent {
+    background: color-mix(in srgb, var(--color-accent-bg) 55%, var(--color-panel));
+    border-color: color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
+  }
+
+  .zw-mc-pref--gold {
+    background: color-mix(in srgb, var(--color-hua-lu) 8%, var(--color-panel));
+    border-color: color-mix(in srgb, var(--color-hua-lu) 22%, var(--color-border));
+  }
+
+  .zw-mc-pref--purple {
+    background: color-mix(in srgb, var(--color-liunian) 8%, var(--color-panel));
+    border-color: color-mix(in srgb, var(--color-liunian) 22%, var(--color-border));
+  }
+
+  .zw-mc-pref--green {
+    background: color-mix(in srgb, var(--color-hua-ke) 8%, var(--color-panel));
+    border-color: color-mix(in srgb, var(--color-hua-ke) 22%, var(--color-border));
+  }
+
+  .zw-mc-pref-l {
+    font: 600 12px/1.3 var(--font-body);
+    color: var(--color-text);
+  }
+
+  .zw-mc-pref-hint {
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .zw-mc-energy-body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .zw-mc-energy-ring {
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+  }
+
+  .zw-mc-energy-legend {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .zw-mc-energy-leg-item {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+  }
+
+  .zw-mc-energy-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .zw-mc-energy-leg-l {
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .zw-mc-energy-leg-v {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  /* ---------- ⑦ AI CTA ---------- */
+  .zw-mc-ai-cta {
+    width: 100%;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 18px;
+    border-radius: var(--radius-lg);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+    background:
+      linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-liunian)));
+    color: var(--color-on-accent, white);
+    font: 600 14px/1 var(--font-body);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: transform var(--duration-fast) var(--ease-apple);
   }
 
-  .zw-mc-legend-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+  .zw-mc-ai-cta:active {
+    transform: scale(0.98);
   }
-
-  .zw-mc-legend-dot.level-miao { background: var(--color-hua-lu); }
-  .zw-mc-legend-dot.level-wang { background: var(--color-hua-quan); }
-  .zw-mc-legend-dot.level-de { background: var(--color-accent); }
-  .zw-mc-legend-dot.level-xian { background: var(--color-hua-ji); }
 
   .zw-mc-yaosu-card {
     background: var(--color-panel);
@@ -4981,42 +5487,43 @@ async function handleAiQuestion(): Promise<void> {
     padding: 12px;
   }
 
-  .zw-mobile-cell {
-    min-height: 64px;
-    padding: 4px 3px;
-  }
-
-  .zw-mc-pn {
-    font-size: 9px;
-  }
-
-  .zw-mc-star {
-    font-size: 8px;
-  }
-
-  .zw-mc-center-name {
-    font-size: 13px;
-  }
-
-  .zw-mc-center-stats {
-    gap: 3px;
-  }
-
-  .zw-mc-stat-v {
-    font-size: 10px;
-  }
-
-  .zw-mc-hua-row {
-    grid-template-columns: 44px minmax(0, 1fr);
-    font-size: 8px;
-  }
-
   .zw-mobile-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .zw-mobile-detail-row {
     grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .zw-mc-palace-ring {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .zw-mc-palace-cell {
+    min-height: 64px;
+    padding: 6px 5px;
+  }
+
+  .zw-mc-pc-name {
+    font-size: 10px;
+  }
+
+  .zw-mc-pc-gz {
+    font-size: 8px;
+  }
+
+  .zw-mc-pc-star {
+    font-size: 9px;
+  }
+
+  .zw-mc-liunian-grid {
+    gap: 6px;
+  }
+
+  .zw-mc-liunian-item {
+    font-size: 10px;
+    grid-template-columns: 48px minmax(0, 1fr);
   }
 
   .zw-mobile-sheet-backdrop {

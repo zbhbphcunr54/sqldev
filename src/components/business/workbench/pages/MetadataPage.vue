@@ -11,15 +11,188 @@ import { useWorkbenchStore } from '@/stores/workbench'
 import {
   useMetadataStore,
   type MetadataRecord,
-  type MetadataRevisionInfo
+  type MetadataRevisionInfo,
+  type SyncStatus
 } from '@/stores/metadata'
 import { exportMetadataAsCsv, exportMetadataAsJson } from '@/features/metadata/export'
+import { createSampleRecords, createSampleRevisions } from '@/features/metadata/sampleData'
+import { measureLocalStorageUsage, type StorageUsage } from '@/features/metadata/storageMonitor'
 import { useStorageSync } from '@/composables/useStorageSync'
+import { useTableSort, type SortField } from '@/composables/useTableSort'
+import { useBreakpoint } from '@/composables/useBreakpoint'
+import { parseMetadataCsv, parseMetadataJson, type ImportResult } from '@/features/metadata/import'
 
 const store = useWorkbenchStore()
 const mdStore = useMetadataStore()
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
+
+const syncStatusLabel: Record<SyncStatus, string> = {
+  idle: '仅本地',
+  syncing: '同步中…',
+  synced: '已同步',
+  error: '同步失败'
+}
+const syncStatusInfo = computed(() => ({
+  status: mdStore.syncStatus as SyncStatus,
+  label: syncStatusLabel[mdStore.syncStatus as SyncStatus] ?? '仅本地',
+  showRetry: mdStore.syncStatus === 'error'
+}))
+function handleSyncRetry(): void {
+  mdStore.pushToRemote()
+}
+
+// --- Storage capacity monitor ---
+const storageUsage = ref<StorageUsage | null>(null)
+const storageBannerDismissed = ref(false)
+const showStorageBanner = computed(() =>
+  storageUsage.value && storageUsage.value.level !== 'ok' && !storageBannerDismissed.value
+)
+function refreshStorageUsage(): void {
+  storageUsage.value = measureLocalStorageUsage()
+}
+refreshStorageUsage()
+
+const isWorkspaceEmpty = computed(() => {
+  const recs = mdStore.metadataRecords
+  return recs.length <= 1 && !recs[0]?.zhName && !recs[0]?.fieldName
+})
+
+function getSortIcon(field: SortField): string {
+  if (sortField.value !== field) return 'sort'
+  return sortDir.value === 'asc' ? 'chevron-up' : 'chevron-down'
+}
+
+function handleLoadSample(): void {
+  const records = createSampleRecords()
+  const revisions = createSampleRevisions(records)
+  mdStore.metadataRecords = records
+  mdStore.metadataRevisions = revisions
+  mdStore.saveMetadataWorkspace()
+}
+
+// --- Import ---
+const importFileRef = ref<HTMLInputElement | null>(null)
+const importModalOpen = ref(false)
+const importResult = ref<ImportResult | null>(null)
+const importFileName = ref('')
+const importMergeStrategy = ref('replace')
+const importMergeOptions = [
+  { value: 'replace', label: '替换全部' },
+  { value: 'append', label: '追加' },
+  { value: 'merge', label: '按字段名合并' }
+]
+
+function triggerImportFile(): void {
+  importFileRef.value?.click()
+}
+
+async function handleImportFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    importFileName.value = file.name
+    const isJson = file.name.endsWith('.json')
+    importResult.value = isJson ? parseMetadataJson(text) : parseMetadataCsv(text)
+    importMergeStrategy.value = 'replace'
+    importModalOpen.value = true
+  } catch {
+    store.showAlert('错误', '文件读取失败')
+  }
+  input.value = ''
+}
+
+function closeImportModal(): void {
+  importModalOpen.value = false
+  importResult.value = null
+  importFileName.value = ''
+}
+
+function confirmImport(): void {
+  const result = importResult.value
+  if (!result || result.records.length === 0) return
+
+  const imported = result.records
+  const strategy = importMergeStrategy.value
+
+  if (strategy === 'replace') {
+    mdStore.metadataRecords = imported
+    mdStore.metadataRevisions = result.revisions
+  } else if (strategy === 'append') {
+    const offset = mdStore.metadataRecords.length
+    const reordered = imported.map((r, i) => ({ ...r, order: String(offset + i + 1) }))
+    mdStore.metadataRecords = [...mdStore.metadataRecords, ...reordered]
+  } else {
+    const existing = new Map(mdStore.metadataRecords.map(r => [r.fieldName, r]))
+    const merged = [...mdStore.metadataRecords]
+    for (const r of imported) {
+      const match = r.fieldName ? existing.get(r.fieldName) : null
+      if (match) {
+        Object.assign(match, { zhName: r.zhName, attrType: r.attrType, length: r.length, standardCode: r.standardCode, businessDesc: r.businessDesc })
+      } else {
+        merged.push({ ...r, order: String(merged.length + 1) })
+      }
+    }
+    mdStore.metadataRecords = merged
+  }
+
+  mdStore.reorderMetadataRecords()
+  mdStore.saveMetadataWorkspace()
+  closeImportModal()
+  store.showAlert('导入成功', `已导入 ${imported.length} 条记录`)
+}
+
+// --- Batch operations ---
+const selectedIds = ref<Set<string>>(new Set())
+const hasSelection = computed(() => selectedIds.value.size > 0)
+const isAllSelected = computed(() =>
+  filteredRows.value.length > 0 && selectedIds.value.size === filteredRows.value.length
+)
+
+function toggleSelectAll(): void {
+  if (isAllSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(filteredRows.value.map(r => r.id))
+  }
+}
+
+function toggleSelectRow(id: string): void {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+async function handleBatchDelete(): Promise<void> {
+  const count = selectedIds.value.size
+  if (count === 0) return
+  const confirmed = await store.showConfirm('批量删除', `确认删除 ${count} 条记录？`)
+  if (!confirmed) return
+  mdStore.deleteMetadataRecordsBatch([...selectedIds.value])
+  selectedIds.value = new Set()
+  store.showAlert('删除成功', `已删除 ${count} 条记录`)
+}
+
+function handleBatchChangeType(attrType: string): void {
+  if (!attrType || selectedIds.value.size === 0) return
+  mdStore.batchUpdateAttrType([...selectedIds.value], attrType)
+  selectedIds.value = new Set()
+}
+
+function clearSelection(): void {
+  selectedIds.value = new Set()
+}
+
+// --- Mobile breakpoint ---
+const isMobile = useBreakpoint(767)
+const expandedCardId = ref<string | null>(null)
+
+function toggleCardExpand(id: string): void {
+  expandedCardId.value = expandedCardId.value === id ? null : id
+}
 
 const attrTypeOptions = [
   { value: 'string', label: '字符串' },
@@ -35,16 +208,25 @@ const rows = computed(() => mdStore.metadataRecords)
 const revisions = computed(() => mdStore.metadataRevisions)
 const currentAuthor = computed(() => user.value?.email ?? user.value?.id ?? '当前用户')
 const searchQuery = ref('')
-const filteredRows = computed(() => {
+const filterType = ref('')
+const searchAndTypeFiltered = computed(() => {
+  let result = rows.value
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return rows.value
-  return rows.value.filter(
-    (r) =>
-      r.zhName.toLowerCase().includes(q) ||
-      r.fieldName.toLowerCase().includes(q) ||
-      r.attrType.toLowerCase().includes(q)
-  )
+  if (q) {
+    result = result.filter(
+      (r) =>
+        r.zhName.toLowerCase().includes(q) ||
+        r.fieldName.toLowerCase().includes(q) ||
+        r.attrType.toLowerCase().includes(q)
+    )
+  }
+  if (filterType.value) {
+    result = result.filter((r) => r.attrType === filterType.value)
+  }
+  return result
 })
+const { sortField, sortDir, toggleSort, sortedRows } = useTableSort(searchAndTypeFiltered)
+const filteredRows = sortedRows
 const highlightedRecordId = ref<string | null>(null)
 const expandedRecordId = ref<string | null>(null)
 const expandedRecord = computed(
@@ -74,6 +256,14 @@ const { isValidVersion, validateField, getFieldError, validateRecord } =
 
 // --- Multi-tab conflict detection ---
 const { conflictDetected, dismissConflict } = useStorageSync()
+
+let _remoteSyncStarted = false
+watch(user, (u) => {
+  if (u && !_remoteSyncStarted) {
+    _remoteSyncStarted = true
+    mdStore.initRemoteSync()
+  }
+}, { immediate: true })
 
 function handleConflictRefresh(): void {
   window.location.reload()
@@ -216,7 +406,8 @@ function closeBusinessDesc(): void {
 }
 
 useEscapeKey(() => {
-  if (deleteModalOpen.value) closeDeleteModal()
+  if (importModalOpen.value) closeImportModal()
+  else if (deleteModalOpen.value) closeDeleteModal()
   else if (revisionModalOpen.value) closeRevisionModal()
   else if (popoverRevisionId.value) popoverRevisionId.value = null
   else if (expandedRecordId.value) closeBusinessDesc()
@@ -275,7 +466,7 @@ async function handleReset(): Promise<void> {
     '确认清空当前元数据记录与修订信息并恢复初始状态？'
   )
   if (!confirmed) return
-  mdStore.resetMetadataWorkspace(currentAuthor.value)
+  mdStore.resetMetadataWorkspace()
 }
 
 function handleExportCsv(): void {
@@ -317,9 +508,41 @@ function handleExportJson(): void {
             placeholder="搜索字段..."
           />
         </div>
+        <FormSelect
+          :model-value="filterType"
+          :options="[{ value: '', label: '全部类型' }, ...attrTypeOptions]"
+          placeholder="类型筛选"
+          compact
+          class="md-filter-select"
+          @update:model-value="(v: string) => (filterType = v)"
+        />
       </div>
 
       <div class="md-toolbar-right">
+        <div class="md-sync-indicator" :class="`md-sync--${syncStatusInfo.status}`">
+          <span class="md-sync-dot" />
+          <span class="md-sync-label">{{ syncStatusInfo.label }}</span>
+          <button
+            v-if="syncStatusInfo.showRetry"
+            class="md-sync-retry"
+            type="button"
+            title="重试同步"
+            @click="handleSyncRetry"
+          >
+            <Icon name="refresh" :size="12" />
+          </button>
+        </div>
+        <button class="btn md-btn-outline" type="button" @click="triggerImportFile">
+          <Icon name="upload" :size="14" />
+          <span>导入</span>
+        </button>
+        <input
+          ref="importFileRef"
+          type="file"
+          accept=".csv,.json"
+          style="display: none"
+          @change="handleImportFile"
+        />
         <button class="btn md-btn-outline" type="button" @click="handleExportCsv">
           <Icon name="download" :size="14" />
           <span>导出 CSV</span>
@@ -345,6 +568,16 @@ function handleExportJson(): void {
       </button>
     </div>
 
+    <div v-if="showStorageBanner" class="md-storage-banner" :class="`md-storage--${storageUsage!.level}`">
+      <Icon name="warning" :size="14" class="md-storage-icon" />
+      <span class="md-storage-text">
+        本地数据已使用约 {{ storageUsage!.percent }}%（基于保守估算，实际配额可能更大）。建议导出备份或同步到云端。
+      </span>
+      <button class="md-storage-dismiss" type="button" @click="storageBannerDismissed = true">
+        <Icon name="x" :size="14" />
+      </button>
+    </div>
+
     <div ref="workspaceRef" class="md-workspace">
       <svg class="md-svg-overlay" aria-hidden="true">
         <path
@@ -362,14 +595,33 @@ function handleExportJson(): void {
         </div>
 
         <div class="md-panel-content">
-          <div ref="tableScrollRef" class="md-table-scroll">
+          <!-- Desktop: table view -->
+          <div v-if="!isMobile" ref="tableScrollRef" class="md-table-scroll">
             <table class="md-table">
               <thead>
                 <tr>
+                  <th class="md-th-check">
+                    <input
+                      type="checkbox"
+                      class="md-checkbox"
+                      :checked="isAllSelected"
+                      :indeterminate="hasSelection && !isAllSelected"
+                      @change="toggleSelectAll"
+                    />
+                  </th>
                   <th>序号</th>
-                  <th>中文名称</th>
-                  <th>字段名称</th>
-                  <th>属性类型</th>
+                  <th class="md-th-sortable" @click="toggleSort('zhName')">
+                    中文名称
+                    <Icon :name="getSortIcon('zhName')" :size="12" class="md-sort-icon" :class="{ 'md-sort-active': sortField === 'zhName' }" />
+                  </th>
+                  <th class="md-th-sortable" @click="toggleSort('fieldName')">
+                    字段名称
+                    <Icon :name="getSortIcon('fieldName')" :size="12" class="md-sort-icon" :class="{ 'md-sort-active': sortField === 'fieldName' }" />
+                  </th>
+                  <th class="md-th-sortable" @click="toggleSort('attrType')">
+                    属性类型
+                    <Icon :name="getSortIcon('attrType')" :size="12" class="md-sort-icon" :class="{ 'md-sort-active': sortField === 'attrType' }" />
+                  </th>
                   <th>长度</th>
                   <th>标准代码</th>
                   <th>业务说明</th>
@@ -385,6 +637,15 @@ function handleExportJson(): void {
                   :class="{ 'md-row-highlight': highlightedRecordId === record.id }"
                   @click="toggleHighlight(record.id)"
                 >
+                  <td class="md-td-check">
+                    <input
+                      type="checkbox"
+                      class="md-checkbox"
+                      :checked="selectedIds.has(record.id)"
+                      @click.stop
+                      @change="toggleSelectRow(record.id)"
+                    />
+                  </td>
                   <td>
                     <span class="md-order-label">{{ record.order }}</span>
                   </td>
@@ -521,13 +782,135 @@ function handleExportJson(): void {
                   </td>
                 </tr>
                 <tr v-if="filteredRows.length === 0">
-                  <td colspan="8" class="md-empty-state">
+                  <td colspan="9" class="md-empty-state">
                     <template v-if="searchQuery.trim()">无匹配结果</template>
+                    <template v-else-if="isWorkspaceEmpty">
+                      <div class="md-empty-guide">
+                        <Icon name="layers" :size="32" class="md-empty-icon" />
+                        <p class="md-empty-title">开始管理你的字段元数据</p>
+                        <p class="md-empty-desc">点击上方「新增记录」逐条添加，或加载示例数据快速体验</p>
+                        <button class="btn btn-primary md-btn-primary" type="button" @click="handleLoadSample">
+                          <Icon name="download" :size="14" />
+                          <span>加载示例数据</span>
+                        </button>
+                      </div>
+                    </template>
                     <template v-else>暂无记录，点击上方「新增记录」开始</template>
                   </td>
                 </tr>
               </tbody>
             </table>
+
+            <!-- Batch action bar -->
+            <div v-if="hasSelection" class="md-batch-bar">
+              <span class="md-batch-count">已选 {{ selectedIds.size }} 项</span>
+              <button class="btn md-btn-outline md-batch-btn--danger" type="button" @click="handleBatchDelete">
+                <Icon name="trash" :size="14" />
+                <span>批量删除</span>
+              </button>
+              <FormSelect
+                model-value=""
+                :options="attrTypeOptions"
+                placeholder="批量改类型"
+                compact
+                class="md-batch-type-select"
+                @update:model-value="(v: string) => handleBatchChangeType(v)"
+              />
+              <button class="btn md-btn-outline" type="button" @click="clearSelection">
+                <Icon name="x" :size="14" />
+                <span>取消选择</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile: card view -->
+          <div v-else class="md-card-list">
+            <div v-if="filteredRows.length === 0" class="md-empty-state" style="padding: 40px 16px; text-align: center;">
+              <template v-if="isWorkspaceEmpty">
+                <div class="md-empty-guide">
+                  <Icon name="layers" :size="32" class="md-empty-icon" />
+                  <p class="md-empty-title">开始管理你的字段元数据</p>
+                  <p class="md-empty-desc">点击上方「新增记录」逐条添加，或加载示例数据快速体验</p>
+                  <button class="btn btn-primary md-btn-primary" type="button" @click="handleLoadSample">
+                    <Icon name="download" :size="14" />
+                    <span>加载示例数据</span>
+                  </button>
+                </div>
+              </template>
+              <template v-else>暂无记录</template>
+            </div>
+            <div
+              v-for="(record, idx) in filteredRows"
+              :key="record.id"
+              class="md-card"
+              :class="{ 'md-card--expanded': expandedCardId === record.id }"
+              @click="toggleCardExpand(record.id)"
+            >
+              <div class="md-card-header">
+                <span class="md-card-order">{{ record.order }}</span>
+                <span class="md-card-name">{{ record.zhName || record.fieldName || '未命名' }}</span>
+                <span v-if="record.attrType" class="md-card-badge">{{ record.attrType }}</span>
+              </div>
+              <div class="md-card-fields">
+                <div v-if="record.fieldName" class="md-card-field">
+                  <span class="md-card-label">字段名</span>
+                  <code class="md-card-value">{{ record.fieldName }}</code>
+                </div>
+                <div v-if="record.length" class="md-card-field">
+                  <span class="md-card-label">长度</span>
+                  <span class="md-card-value">{{ record.length }}</span>
+                </div>
+                <div v-if="record.standardCode" class="md-card-field">
+                  <span class="md-card-label">标准代码</span>
+                  <span class="md-card-value">{{ record.standardCode }}</span>
+                </div>
+                <div v-if="record.businessDesc" class="md-card-field">
+                  <span class="md-card-label">说明</span>
+                  <span class="md-card-value">{{ record.businessDesc }}</span>
+                </div>
+              </div>
+              <!-- Expanded editing -->
+              <div v-if="expandedCardId === record.id" class="md-card-edit" @click.stop>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">中文名称</label>
+                  <input :value="record.zhName" class="md-input" type="text" placeholder="客户名称" @input="updateRecord(record.id, 'zhName', $event)" />
+                </div>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">字段名称</label>
+                  <input :value="record.fieldName" class="md-input" type="text" placeholder="customer_name" @input="updateRecord(record.id, 'fieldName', $event)" />
+                </div>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">属性类型</label>
+                  <FormSelect :model-value="record.attrType" :options="attrTypeOptions" placeholder="选择类型" compact @update:model-value="(v: string) => updateRecordSelect(record.id, 'attrType', v)" />
+                </div>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">长度</label>
+                  <input :value="record.length" class="md-input" type="text" inputmode="numeric" placeholder="64" @input="updateRecord(record.id, 'length', $event)" />
+                </div>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">标准代码</label>
+                  <input :value="record.standardCode" class="md-input" type="text" placeholder="STD_001" @input="updateRecord(record.id, 'standardCode', $event)" />
+                </div>
+                <div class="md-card-edit-row">
+                  <label class="md-card-edit-label">业务说明</label>
+                  <textarea :value="record.businessDesc" class="md-textarea" rows="2" placeholder="字段业务含义" @input="updateRecord(record.id, 'businessDesc', $event)"></textarea>
+                </div>
+              </div>
+              <div class="md-card-footer">
+                <button class="md-icon-btn" type="button" :disabled="idx === 0" @click.stop="mdStore.moveMetadataRecord(record.id, 'up')">
+                  <Icon name="chevron-up" :size="14" />
+                </button>
+                <button class="md-icon-btn" type="button" :disabled="idx === filteredRows.length - 1" @click.stop="mdStore.moveMetadataRecord(record.id, 'down')">
+                  <Icon name="chevron-down" :size="14" />
+                </button>
+                <button class="md-icon-btn success" type="button" @click.stop="openRevisionModal(record.id)">
+                  <Icon name="check" :size="15" />
+                </button>
+                <button class="md-icon-btn danger" type="button" @click.stop="handleDeleteRecord(record.id)">
+                  <Icon name="trash" :size="15" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -764,6 +1147,52 @@ function handleExportJson(): void {
         </footer>
       </section>
     </div>
+
+    <!-- Import modal -->
+    <div v-if="importModalOpen" class="md-desc-overlay" @click.self="closeImportModal">
+      <section class="md-revision-modal" role="dialog" aria-modal="true" aria-label="导入元数据">
+        <header class="md-revision-modal-header">
+          <div>
+            <h2>导入元数据</h2>
+            <p>{{ importFileName }}</p>
+          </div>
+          <button class="md-icon-btn" type="button" title="关闭" aria-label="关闭" @click="closeImportModal">
+            <Icon name="x" :size="16" />
+          </button>
+        </header>
+
+        <div class="md-revision-modal-body">
+          <div v-if="importResult" class="md-import-summary">
+            <p v-if="importResult.records.length > 0" class="md-import-count">
+              解析到 <strong>{{ importResult.records.length }}</strong> 条记录
+            </p>
+            <div v-if="importResult.errors.length > 0" class="md-import-errors">
+              <p v-for="(err, i) in importResult.errors" :key="i" class="md-import-error">{{ err }}</p>
+            </div>
+          </div>
+          <div class="md-revision-modal-field">
+            <label class="md-revision-modal-label">合并策略</label>
+            <FormSelect
+              :model-value="importMergeStrategy"
+              :options="importMergeOptions"
+              @update:model-value="(v: string) => (importMergeStrategy = v)"
+            />
+          </div>
+        </div>
+
+        <footer class="md-revision-modal-footer">
+          <button class="btn md-btn-cancel" type="button" @click="closeImportModal">取消</button>
+          <button
+            class="btn btn-primary md-btn-confirm"
+            type="button"
+            :disabled="!importResult || importResult.records.length === 0"
+            @click="confirmImport"
+          >
+            确认导入
+          </button>
+        </footer>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -840,6 +1269,104 @@ function handleExportJson(): void {
 
 .md-conflict-btn {
   flex-shrink: 0;
+}
+
+.md-sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--color-page-elevated);
+  font-size: var(--text-xs);
+  color: var(--color-page-text-muted);
+  white-space: nowrap;
+}
+
+.md-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-page-text-muted);
+}
+
+.md-sync--synced .md-sync-dot { background: var(--color-page-success); }
+.md-sync--synced .md-sync-label { color: var(--color-page-success); }
+.md-sync--syncing .md-sync-dot { background: var(--color-page-brand); animation: md-pulse 1.2s infinite; }
+.md-sync--syncing .md-sync-label { color: var(--color-page-brand); }
+.md-sync--error .md-sync-dot { background: var(--color-page-danger); }
+.md-sync--error .md-sync-label { color: var(--color-page-danger); }
+
+@keyframes md-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.md-sync-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-page-danger);
+  cursor: pointer;
+}
+
+.md-sync-retry:hover {
+  background: var(--color-danger-bg);
+}
+
+.md-storage-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-page-border);
+}
+
+.md-storage--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text, var(--color-page-text));
+}
+
+.md-storage--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text, var(--color-page-danger));
+}
+
+.md-storage-icon {
+  flex-shrink: 0;
+}
+
+.md-storage-text {
+  flex: 1;
+}
+
+.md-storage-dismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: currentColor;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.md-storage-dismiss:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .md-btn-primary,
@@ -1016,8 +1543,22 @@ function handleExportJson(): void {
   white-space: nowrap;
 }
 
-.md-table th:nth-child(1),
-.md-table td:nth-child(1) {
+.md-th-check,
+.md-td-check {
+  width: 36px;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.md-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-page-brand);
+}
+
+.md-table th:nth-child(2),
+.md-table td:nth-child(2) {
   width: 48px;
   padding: 8px 4px;
   position: sticky;
@@ -1026,27 +1567,27 @@ function handleExportJson(): void {
   background: var(--color-page-panel);
 }
 
-.md-table th:nth-child(1) {
+.md-table th:nth-child(2) {
   z-index: 3;
-}
-
-.md-table th:nth-child(4),
-.md-table td:nth-child(4) {
-  width: 110px;
 }
 
 .md-table th:nth-child(5),
 .md-table td:nth-child(5) {
-  width: 64px;
+  width: 110px;
 }
 
 .md-table th:nth-child(6),
 .md-table td:nth-child(6) {
+  width: 64px;
+}
+
+.md-table th:nth-child(7),
+.md-table td:nth-child(7) {
   width: 100px;
 }
 
-.md-table th:nth-child(8),
-.md-table td:nth-child(8) {
+.md-table th:nth-child(9),
+.md-table td:nth-child(9) {
   width: 140px;
   position: sticky;
   right: 0;
@@ -1054,7 +1595,7 @@ function handleExportJson(): void {
   background: var(--color-page-panel);
 }
 
-.md-table th:nth-child(8) {
+.md-table th:nth-child(9) {
   z-index: 3;
 }
 
@@ -1205,6 +1746,60 @@ function handleExportJson(): void {
   padding: 40px 16px;
   color: var(--color-page-text-muted);
   font-size: var(--text-sm);
+}
+
+.md-empty-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+}
+
+.md-empty-icon {
+  color: var(--color-page-brand);
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.md-empty-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-page-text);
+}
+
+.md-empty-desc {
+  margin: 0 0 8px;
+  font-size: var(--text-xs);
+  color: var(--color-page-text-muted);
+  max-width: 320px;
+}
+
+.md-filter-select {
+  width: 110px;
+}
+
+.md-th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.md-th-sortable:hover {
+  color: var(--color-page-text);
+}
+
+.md-sort-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 2px;
+  opacity: 0.3;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.md-sort-active {
+  opacity: 1;
+  color: var(--color-page-brand);
 }
 
 .md-row-highlight > td {
@@ -1581,6 +2176,192 @@ function handleExportJson(): void {
 
 .md-btn-confirm--danger:hover:not(:disabled) {
   filter: brightness(0.9);
+}
+
+/* --- Batch action bar --- */
+.md-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--color-page-elevated);
+  border-top: 1px solid var(--color-page-border);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.md-batch-count {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-page-text);
+  margin-right: 4px;
+}
+
+.md-batch-btn--danger {
+  color: var(--color-page-danger);
+  border-color: var(--color-page-danger);
+}
+
+.md-batch-btn--danger:hover {
+  background: var(--color-danger-bg);
+}
+
+.md-batch-type-select {
+  width: 120px;
+}
+
+/* --- Import modal --- */
+.md-import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.md-import-count {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-page-text);
+}
+
+.md-import-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-sm);
+  max-height: 120px;
+  overflow: auto;
+}
+
+.md-import-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-page-danger);
+}
+
+/* --- Mobile card view --- */
+.md-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.md-card {
+  border: 1px solid var(--color-page-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-page-panel);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.md-card:active {
+  border-color: var(--color-page-brand);
+}
+
+.md-card--expanded {
+  border-color: var(--color-page-brand);
+}
+
+.md-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.md-card-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--color-page-elevated);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-page-text-muted);
+  flex-shrink: 0;
+}
+
+.md-card-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-page-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.md-card-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-bg);
+  color: var(--color-page-brand);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.md-card-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 0 12px 8px;
+}
+
+.md-card-field {
+  display: flex;
+  gap: 4px;
+  font-size: var(--text-xs);
+}
+
+.md-card-label {
+  color: var(--color-page-text-muted);
+  white-space: nowrap;
+}
+
+.md-card-value {
+  color: var(--color-page-text);
+  word-break: break-all;
+}
+
+code.md-card-value {
+  font-family: var(--font-code);
+}
+
+.md-card-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--color-page-border);
+}
+
+.md-card-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.md-card-edit-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-page-text-muted);
+}
+
+.md-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--color-page-border);
 }
 
 /* --- Responsive --- */

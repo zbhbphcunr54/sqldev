@@ -318,6 +318,7 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
 .sp-bento-card:nth-child(3) { animation-delay: .3s; }
 .sp-bento-card:nth-child(4) { animation-delay: .35s; }
 .sp-bento-card:nth-child(5) { animation-delay: .4s; }
+.sp-bento-card:nth-child(6) { animation-delay: .45s; }
 
 .sp-bento-card::before {
   content: '';
@@ -467,9 +468,105 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
   transform: translateY(-1px);
 }
 
-/* Card 2: 证件号码 — spans 1 col × 2 rows */
-.sp-bento-id {
+/* Card 2: 元数据 — spans 1 col × 2 rows */
+.sp-bento-meta {
   grid-row: span 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-meta-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+  flex: 1;
+}
+
+.sp-meta-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-page-card);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.sp-meta-row--head {
+  background: transparent;
+  border-color: transparent;
+  padding: 2px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.sp-meta-cn {
+  color: var(--color-text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-meta-type {
+  display: inline-flex;
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sp-meta-type--str {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.sp-meta-type--num {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+.sp-meta-type--date {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+}
+
+.sp-meta-ver {
+  font-family: var(--font-code, var(--font-body));
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-subtle);
+  letter-spacing: 0.02em;
+}
+
+.sp-meta-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sp-meta-sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-success) 22%, transparent);
 }
 
 .sp-id-anatomy {
@@ -638,6 +735,7 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
 [data-theme="light"] .sp-chat-ai { background: var(--color-panel-2); border-color: var(--color-border); }
 [data-theme="light"] .sp-more-link { background: var(--color-panel-2); border-color: var(--color-border); }
 [data-theme="light"] .sp-id-uscc { background: var(--color-panel-2); border-color: var(--color-border); }
+[data-theme="light"] .sp-meta-row { background: var(--color-panel-2); border-color: var(--color-border); }
 
 [data-theme="light"] .sp-nav {
   background: rgba(255, 255, 255, 0.78);
@@ -649,6 +747,7 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
 @media (max-width: 1180px) {
   .sp-bento-grid { grid-template-columns: repeat(2, 1fr); }
   .sp-bento-sql { grid-column: span 2; grid-row: span 1; }
+  .sp-bento-meta { grid-row: span 1; }
   .sp-bento-id { grid-row: span 1; }
 }
 
@@ -659,6 +758,7 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
 @media (max-width: 768px) {
   .sp-bento-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
   .sp-bento-sql { grid-column: span 2; }
+  .sp-bento-meta { grid-row: span 1; }
   .sp-bento-id { grid-row: span 1; }
 
   .sp-bento-sql-preview { flex-direction: column; }
@@ -694,6 +794,7 @@ body:not(.splash-active) #app { opacity: 1; filter: none; transform: none; }
 @media (max-width: 480px) {
   .sp-bento-grid { grid-template-columns: 1fr; }
   .sp-bento-sql { grid-column: span 1; }
+  .sp-bento-meta { grid-row: span 1; }
   .sp-bento-id { grid-row: span 1; }
 
   .sp-hero-cta { flex-direction: column; width: 100%; max-width: 320px; }

@@ -30,6 +30,25 @@ interface RouteContext {
   corsHeaders: Record<string, string>
 }
 
+// ── Route: POST /metadata (create workspace) ──
+
+async function handleCreateWorkspace(ctx: RouteContext, req: Request) {
+  const body = await parseJsonBody<{ name?: string }>(req).catch(() => null)
+  const name = body?.name || '默认工作区'
+
+  const { data, error } = await ctx.supabase
+    .from('metadata_workspaces')
+    .insert({ user_id: ctx.userId, name })
+    .select('id, name, version, updated_at, created_at')
+    .single()
+
+  if (error) {
+    logEdgeError('metadata', 'createWorkspace', error)
+    return errorResponse(500, sanitizeError(error), ctx.corsHeaders)
+  }
+  return jsonResponse(200, { ok: true, workspace: data }, ctx.corsHeaders)
+}
+
 // ── Route: GET /metadata (list workspaces) ──
 
 async function handleListWorkspaces(ctx: RouteContext) {
@@ -225,6 +244,11 @@ Deno.serve(async (req) => {
     const funcIdx = segments.indexOf('metadata')
     const idSegment = funcIdx >= 0 ? segments[funcIdx + 1] : undefined
     const actionSegment = funcIdx >= 0 ? segments[funcIdx + 2] : undefined
+
+    // POST /metadata — create workspace
+    if (req.method === 'POST' && !idSegment) {
+      return await handleCreateWorkspace(ctx, req)
+    }
 
     // GET /metadata — list workspaces
     if (req.method === 'GET' && !idSegment) {

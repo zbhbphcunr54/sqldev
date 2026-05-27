@@ -25,6 +25,12 @@ const stats = [
   { value: 'AI', label: '智能分析' }
 ]
 
+const metaPreviewRows = [
+  { cn: '订单编号', type: '字符串', typeClass: 'str', version: 'v1.2.0' },
+  { cn: '下单金额', type: '数值', typeClass: 'num', version: 'v1.0.3' },
+  { cn: '创建时间', type: '日期时间', typeClass: 'date', version: 'v1.0.0' }
+]
+
 const dbBadges = Object.values(DB_META_MAP).map((db) => ({
   label: db.abbr,
   slug: db.slug
@@ -199,7 +205,36 @@ function handleBentoMouseMove(e: MouseEvent): void {
               </div>
             </div>
 
-            <!-- Card 2: 证件号码 (1col × 2row) -->
+            <!-- Card 2: 元数据 (1col × 2row) -->
+            <div class="sp-bento-card sp-bento-meta">
+              <div class="sp-bento-pill">数据治理</div>
+              <h3 class="sp-bento-title">元数据管理</h3>
+              <p class="sp-bento-desc">业务字段与修订版本一体化维护，多端云同步</p>
+              <div class="sp-meta-table">
+                <div class="sp-meta-row sp-meta-row--head">
+                  <span>字段</span>
+                  <span>类型</span>
+                  <span>版本</span>
+                </div>
+                <div
+                  v-for="row in metaPreviewRows"
+                  :key="row.cn"
+                  class="sp-meta-row"
+                >
+                  <span class="sp-meta-cn">{{ row.cn }}</span>
+                  <span class="sp-meta-type" :class="`sp-meta-type--${row.typeClass}`">
+                    {{ row.type }}
+                  </span>
+                  <span class="sp-meta-ver">{{ row.version }}</span>
+                </div>
+              </div>
+              <div class="sp-meta-sync">
+                <span class="sp-meta-sync-dot" aria-hidden="true"></span>
+                <span>已同步 · 修订可追溯</span>
+              </div>
+            </div>
+
+            <!-- Card 3: 证件号码 (1×1) -->
             <div class="sp-bento-card sp-bento-id">
               <div class="sp-bento-pill">实用工具</div>
               <h3 class="sp-bento-title">证件号码生成</h3>

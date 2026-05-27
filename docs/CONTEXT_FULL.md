@@ -3,7 +3,309 @@
 > 本文档仅记录项目当前状态和历史变更。协作规则、编码规范请参阅 `AI_DEV.md`。
 > 更新频率：每日 17:00 保存一次，或重大变更后即时更新。
 
-Last updated: 2026-05-26
+Last updated: 2026-05-27
+
+---
+
+## 2026-05-27: 元数据第三梯队 — CSV/JSON 导入 + 批量操作 + 移动端卡片视图
+
+**Why**：前两梯队完成核心增删改查和远程同步后，补齐三个高频使用场景：批量数据导入、多选操作、手机端可用。
+
+### 完成的 3 项任务
+
+**8. CSV/JSON 导入 (Step 8.3)**
+- 新建 `src/features/metadata/import.ts`：`parseMetadataCsv` + `parseMetadataJson` + `validateImportRecords`
+- CSV 解析：处理 BOM、引号转义、支持中文表头（导出格式）和英文 camelCase 表头
+- JSON 解析：接受 `{ records, revisions? }` 格式（匹配导出格式）
+- 校验：检查必填字段（zhName/fieldName 至少一个）、attrType 合法值
+- 工具栏新增「导入」按钮 + 隐藏 file input + 导入弹窗（预览记录数、校验错误、合并策略选择）
+- 三种合并策略：替换全部 / 追加 / 按字段名合并
+
+**9. 批量操作 (Step 8.2)**
+- 表格新增 checkbox 列（表头全选 + 行内单选）
+- `selectedIds: Set<string>` 管理选中状态
+- 选中时底部浮动批量操作栏：已选计数 + 批量删除 + 批量改类型 + 取消选择
+- Store 新增 `deleteMetadataRecordsBatch(ids)` — 一次性删除多条，只 reorder 一次；被删记录的 revisions 直接删除不迁移
+- Store 新增 `batchUpdateAttrType(ids, type)` — 批量更新属性类型
+- 操作完成后自动清空选择
+
+**10. 移动端卡片视图 (Step 9.2)**
+- 新建 `src/composables/useBreakpoint.ts`：基于 `window.matchMedia` 的响应式 boolean
+- `<768px` 时表格自动切换为卡片列表
+- 卡片显示：序号圆标 + 名称 + 类型徽标 + 字段键值对
+- 点击卡片展开编辑区域（同表格 inline editing 功能）
+- 卡片底部操作按钮：上移/下移/保存/删除
+
+### 新增文件
+```
+src/features/metadata/import.ts            — CSV/JSON 解析 + 校验
+src/composables/useBreakpoint.ts           — 响应式媒体查询 composable
+```
+
+### 修改文件
+```
+src/stores/metadata.ts                     — 新增 deleteMetadataRecordsBatch + batchUpdateAttrType
+src/components/.../MetadataPage.vue        — 导入弹窗 + checkbox 批量操作 + 移动端卡片视图
+```
+
+### CSS 变更注意
+- 新增 checkbox 列导致所有 `nth-child` 选择器 +1（原 1→2, 4→5, 5→6, 6→7, 8→9）
+- 新增样式类：`.md-checkbox`, `.md-batch-bar`, `.md-card-*`, `.md-import-*`
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
+
+---
+
+## 2026-05-27: 首页元数据介绍补全 — 工作台卡片替换 + Splash Bento 新增
+
+**Why**：元数据已成为 SQL 工具组核心功能，但两个首页均未展示。工作台首页指引里仍是已下沉到「设置」分组的「操作日志」卡片，落地页（Splash）Bento 网格也没有元数据入口。
+
+### 改动内容
+
+**1. 工作台首页指引卡片替换** `src/components/business/workbench/pages/HomePage.vue`
+- `features` 数组中原 `opLogs`（操作日志）卡片整体替换为 `metadata`（元数据管理）卡片
+- 新卡片 `page: 'metadata'`、`icon: 'document-text'`，5 步轮播指引：新增记录 → 编辑/业务描述 → 保存生成修订 → 查看版本历史 → 导出与同步
+- 点击「前往使用」经 `SECTION_MAP.metadata` 跳转 `/workbench/metadata`
+
+**2. Splash 落地页新增元数据 Bento 卡片** `src/pages/splash/index.vue`
+- 新增 `metaPreviewRows` 预览数据（字段/类型/版本三列示意）
+- 在 SQL 卡片之后插入 `.sp-bento-meta` 卡片（占 1col × 2row，原 SQL 右侧位置）
+- 原「证件号码」卡片由 1col × 2row 降为 1×1，与 AI 对话、更多工具同处第三行，三个 1×1 卡片铺满整行
+- 卡片内容：迷你字段表（订单编号/下单金额/创建时间 + 类型 pill + 版本号）+「已同步 · 修订可追溯」状态标签
+
+**3. Splash 样式** `src/pages/splash/splash.css`
+- 移除 `.sp-bento-id { grid-row: span 2 }`，新增 `.sp-bento-meta`（`grid-row: span 2`）及 `.sp-meta-table/-row/-cn/-type(--str/num/date)/-ver/-sync/-sync-dot` 系列样式
+- 类型 pill 与同步标签全部走 `color-mix(... var(--color-accent/warning/success) ...)`，零硬编码
+- 新增 `nth-child(6)` 入场动画延迟；三档响应式断点（1180/768/480px）补 `.sp-bento-meta { grid-row: span 1 }`；light 主题补 `.sp-meta-row` 覆写
+
+### 修改文件
+```
+src/components/business/workbench/pages/HomePage.vue  — opLogs 卡片 → metadata 卡片
+src/pages/splash/index.vue                            — Bento 新增元数据卡片 + 证件号码降级 1×1
+src/pages/splash/splash.css                           — 元数据卡片样式 + 响应式 + light 覆写
+docs/CONTEXT_FULL.md                                  — 本条目
+```
+
+### 验证
+- `pnpm typecheck`：通过（零错误）
+- `npx eslint`（仅本次两个 .vue/.css 文件）：0 error，仅既有 CRLF 行尾 prettier 警告
+- 注：`pnpm lint` 全量仍有 6 个 pre-existing error（mobileSanPan / mobileChartPrefs / qaNavTags / scrollToQaCard / onQaScroll / orphanRevisions，main 上已存在），本次零新增
+- UI 未在浏览器实测（无可用浏览器环境），仅静态校验布局与 token
+
+### 部署
+未执行部署，纯前端改动，无 migration / Edge Function 变更；常规构建发布即可：
+```
+pnpm build
+```
+
+---
+
+**Why**：用户反馈删除记录后修订标签残留、最后一条记录删不干净、重置后刷新数据回来。
+
+### 修复内容
+
+**Bug 1 & 2：删除最后记录时残留空白行 + 修订标签**
+- `deleteMetadataRecord` 原 else 分支会创建一条空白 fallback 记录并将孤儿修订迁移过去
+- 修复：当 `filtered.length === 0`，直接 `metadataRecords = []`、`metadataRevisions = []`，不再创建 fallback
+- `normalizeMetadataRecords` 空数组不再自动插入默认记录
+- `createDefaultMetadataState` 返回空数组而非带一条空记录
+
+**Bug 3：重置后服务端数据未清除，刷新回来**
+- `resetMetadataWorkspace` 原先调 `syncMetadataCache()` → 走 debounce 的 `pushToRemote()`，但增量模式下无脏数据直接跳过
+- 修复：重置后直接调 `pushFullToRemote()`（PUT 全量），服务端会删除所有旧 records
+
+**附带修复：`saveMetadataWorkspace` 脏标记**
+- 显式保存（如加载示例数据）会标记所有 records + revisions 为 dirty，确保增量模式下也能同步
+
+### 修改文件
+```
+src/stores/metadata.ts                     — 3 处 bug 修复 + saveWorkspace 脏标记
+src/components/.../MetadataPage.vue        — resetMetadataWorkspace 调用签名更新
+```
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
+
+---
+
+## 2026-05-27: 紫微移动端「命盘」分段卡片化重构
+
+**Why**：依据 `docs/命盘.png` 设计稿，移动端 4×4 宫位网格信息密度过高、可读性差；改为自上而下的分段卡片堆叠，与现代移动端 UI 范式对齐。桌面端 12 宫位 ring 不变。
+
+### 移动端新结构（自上而下 7 段）
+
+1. **基本信息卡** `.zw-mc-basic-card` — 姓名 + 性别/农历/公历/时辰/出生地（2 列 grid）
+2. **命盘三盘卡** `.zw-mc-sanpan-card` — 命宫/身宫/命主/身主（4 列）
+3. **选中宫位详情卡** `.zw-mc-palace-detail-card` — 干支/宫名/主星/化耀/长生/大限/流年/辅星；选中态高亮（命/身/大限 modifiers）
+4. **命盘要素卡** `.zw-mc-yaosu-card`（复用）
+5. **三方四正卡** `.zw-mc-sanfang-card` — 本宫/财帛(三合+4)/官禄(三合+8)/迁移(对宫+6)，点击切换基准宫，联动详情卡与能量环
+6. **应用偏好 + 能量分布双列** `.zw-mc-prefs-energy-row` — 事业/财运/感情/健康偏好；SVG donut + legend（占位数据，由三方四正主星数派生）
+7. **AI CTA 按钮** `.zw-mc-ai-cta` — 全宽 44px，渐变 accent→liunian，跳转 AI 解读 Tab
+
+### 实现要点
+
+- `mobileSelectedPalaceBranch` `ref<string>` + watch `centerInfo.mingBranch` 默认初始化为命宫
+- `sanFangSiZhengCells` computed：用 `offsetBranch(base, 4|8|6)` 计算三合+对宫
+- `mobileEnergyData` / `mobileEnergyArc` computed：按主星+辅星+四化派生 score，SVG `stroke-dasharray`/`stroke-dashoffset` 生成弧段，`transform="rotate(-90 50 50)"` 顶端起点
+- 所有颜色走 `var(--color-*)` token（`--color-accent`、`--color-hua-lu/quan/ke/ji`、`--color-major-star`、`--color-liunian` 等），零硬编码
+
+### 移除（@media max-width: 1023px 段内）
+
+- `.zw-mobile-sanfang-grid`、`.zw-mobile-center-panel`、`.zw-mc-center-*`、`.zw-mc-info-*`、`.zw-mc-stat*`、`.zw-mc-hua-row/label/value`
+- `.zw-mobile-cell`、`.zw-mc-pn`、`.zw-mc-gz`、`.zw-mc-stars`、`.zw-mc-star`、`.zw-mc-hua-tags`、`.zw-mc-ht`、`.zw-mc-aux`、`.zw-mc-badge*`
+- `.zw-mc-legend*`（12 宫色级图例不再需要）
+- 未使用的 `mobileCenterLiunian` computed
+- 同段小屏 fallback 中对以上选择器的尺寸覆盖
+
+### 保留
+
+- `.zw-mc-yaosu-card`、`.zw-mc-hua-section`（三层四化）— 在新布局中继续出现
+- `.zw-mobile-sheet*` 弹层 — 点击中央卡片或三方四正条目仍走原 `openMobilePalaceByBranch()` 显示完整宫位详情
+- `.zw-mobile-chart-note`、`.zw-mobile-tab-bar`、`.zw-view-switch*`
+- 桌面端 `.zw-chart-desktop-layout` / `.zw-palace-ring` 完全不变
+
+### 修改文件
+
+```
+src/components/business/workbench/pages/ZiweiPage.vue   — template + script + style
+docs/CONTEXT_FULL.md                                    — 本条目
+```
+
+### 验证
+
+- `pnpm typecheck`：通过
+- `pnpm lint`：仅 3 个 pre-existing 错误（qaNavTags / scrollToQaCard / onQaScroll，main 上已存在），本次零新增
+
+### 部署
+
+未执行部署，仅前端改动，无 migration / Edge Function 变更；普通构建发布即可：
+```
+pnpm build
+```
+
+---
+
+## 2026-05-27: 元数据第二梯队 — 后端能力补全（增量 PATCH）
+
+**Why**：每次编辑都 PUT 全量上传所有记录和修订，当记录增多时不可接受。PATCH/rebalance 路由在 Edge Function 中已写好但对应的 PG Function 不存在，调用必失败。
+
+### 完成的 3 项任务
+
+**1. PG Function `metadata_apply_patch`**
+- 追加到 `supabase/migrations/202605260002_create_metadata_functions.sql`
+- payload 结构：`{ creates, upserts, deletes, revisions }`
+- creates → INSERT 新 records；upserts → INSERT ... ON CONFLICT DO UPDATE 全字段；deletes → DELETE WHERE id = ANY
+- revisions → INSERT ON CONFLICT DO NOTHING
+- 与 `metadata_apply_put` 同模式：text 参数 + jsonb cast + FOR UPDATE 行锁 + 乐观锁 + version+1
+
+**2. PG Function `metadata_rebalance`**
+- 无 payload：直接用 `row_number() OVER (ORDER BY display_order, created_at)` 重排
+- 同模式乐观锁 + version+1
+
+**3. Store 增量同步（脏追踪 + PATCH）**
+- 新增 3 个运行时 Set：`_dirtyRecordIds`、`_deletedRecordIds`、`_newRevisionIds`（闭包变量，不持久化）
+- 各 action 自动标记脏数据：update→dirty、add→dirty、delete→deletedIds+清dirty、reorder→全dirty、addRevision→newRevision
+- `pushToRemote()` 改为增量：无脏数据跳过；serverVersion=0 时 fallback 到 fullSave；否则构造 PATCH payload 只含变更部分
+- 新增 `pushFullToRemote()`：原 PUT 全量逻辑（供 initRemoteSync / reset 使用）
+- `initRemoteSync()` 优化：空工作区只建 workspace 不推空数据；有实质数据（zhName 或 fieldName 非空）才 pushFull
+
+### 修改文件
+```
+supabase/migrations/202605260002_*.sql     — 追加 metadata_apply_patch + metadata_rebalance（改）
+src/stores/metadata.ts                     — 脏追踪 Set + pushToRemote PATCH + pushFullToRemote + initRemoteSync 优化（改）
+```
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
+- Edge Function 路由无需改动（PATCH/rebalance handler 已就绪）
+
+---
+
+## 2026-05-26: 元数据第一梯队快速任务 — 4 项 UI/UX 增强
+
+**Why**：基础设施和后端联通完成后，补充 4 项快速见效的前端功能，提升日常使用体验。
+
+### 完成的 4 项任务
+
+**6.2 同步状态 UI**
+- MetadataPage.vue 工具栏右侧新增同步状态指示器（圆点 + 文字）
+- 4 种状态：idle 灰点"仅本地"、syncing 蓝闪烁"同步中"、synced 绿点"已同步"、error 红点"同步失败"+重试按钮
+- 读取 `mdStore.syncStatus`，CSS 动画 `md-pulse` 实现闪烁
+
+**3.1 localStorage 容量监控**
+- 新建 `src/features/metadata/storageMonitor.ts`：纯函数 `measureLocalStorageUsage()`
+- 遍历 localStorage 所有 key，按 UTF-16 编码（每字符 2 字节）计算已用字节
+- 5MB 为保守配额上限，60% 警告（黄）、80% 危险（红）
+- MetadataPage.vue 工具栏下方显示可关闭的警告横幅，文案注明"基于保守估算"
+
+**3.3 空状态引导**
+- 新建 `src/features/metadata/sampleData.ts`：5 条示例记录（客户编号/名称/手机/注册日期/是否激活）
+- 工作区仅有 1 条空白记录时判定为空状态
+- 空状态显示引导卡片：图标 + 说明文案 + "加载示例数据"按钮
+
+**8.4 表头排序 + 类型筛选**
+- 新建 `src/composables/useTableSort.ts`：通用排序 composable，支持 asc/desc 切换
+- 表头「中文名称」「字段名称」「属性类型」可点击排序，排序图标高亮
+- 工具栏搜索栏旁新增 FormSelect 类型筛选下拉（全部类型 + 7 种属性类型）
+- 排序为纯前端 sort，不影响 `display_order`
+
+### 新增文件
+```
+src/features/metadata/storageMonitor.ts    — localStorage 容量检测纯函数
+src/features/metadata/sampleData.ts        — 示例记录工厂
+src/composables/useTableSort.ts            — 通用表头排序 composable
+```
+
+### 修改文件
+```
+src/components/.../MetadataPage.vue        — 同步状态指示器 + 容量横幅 + 空状态引导 + 排序/筛选
+```
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
+
+---
+
+## 2026-05-26: 元数据前后端联通 — PG Function + Store↔API 集成
+
+**Why**：6 项基础任务完成后，前端 Store 仍只写 localStorage 不写数据库。缺 PG Function（Edge Function 的 `rpc('metadata_apply_put')` 找不到目标）和 Store→API 调用。本次补全这两块，实现增删改自动同步到 Supabase 数据库。
+
+### 完成的 3 项任务
+
+**1. PG Function `metadata_apply_put`**
+- 新建 `supabase/migrations/202605260002_create_metadata_functions.sql`
+- 逻辑：行锁 → 乐观锁校验 → UPSERT records → DELETE 不在新列表中的 records → INSERT revisions（ON CONFLICT DO NOTHING）→ version +1
+- `SECURITY INVOKER` 确保 RLS 生效
+
+**2. Edge Function POST 路由 + API 方法**
+- `supabase/functions/metadata/index.ts`：新增 `POST /metadata`（`handleCreateWorkspace`），创建新 workspace 并返回
+- `src/api/metadata.ts`：新增 `createWorkspace()` 方法
+
+**3. Store ↔ API 联通**
+- `src/stores/metadata.ts`：
+  - 新增 state：`currentWorkspaceId`、`serverVersion`、`syncStatus`
+  - 新增 mapper 函数：`toRemoteRecord`/`fromRemoteRecord`/`toRemoteRevision`/`fromRemoteRevision`（camelCase↔snake_case + ID 前缀剥离/添加）
+  - 新增 `initRemoteSync()`：列出 workspaces → 无则创建 + pushToRemote → 有则拉取服务端数据覆盖本地
+  - 新增 `pushToRemote()`：调 `metadataApi.fullSave()` 上传全量数据
+  - `syncMetadataCache()` 增加 debounce 1s 自动调 `pushToRemote()`
+- `MetadataPage.vue`：`onMounted` 中登录用户自动调 `initRemoteSync()`
+
+### ID 前缀映射
+- Store `metadata-{uuid}` → DB 存裸 `{uuid}`
+- Store `metadata-revision-{uuid}` → DB 存裸 `{uuid}`
+
+### 新增/修改文件
+```
+supabase/migrations/202605260002_*.sql     — PG Function metadata_apply_put（新建）
+supabase/functions/metadata/index.ts       — 新增 POST /metadata 路由（改）
+src/stores/metadata.ts                     — 新增 remote sync state + mapper + initRemoteSync + pushToRemote（改）
+src/api/metadata.ts                        — 新增 createWorkspace（改）
+src/components/.../MetadataPage.vue        — onMounted 调 initRemoteSync（改）
+```
+
+### 验证结果
+- `pnpm typecheck` 通过（零错误）
 
 ---
 
